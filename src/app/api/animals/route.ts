@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       where: { farmId: fid },
       select: { code: true },
     })
-    const maxNum = existing.reduce((acc, item) => {
+    const maxNum = existing.reduce((acc: number, item: { code: string }) => {
       const n = Number.parseInt(item.code, 10)
       return Number.isFinite(n) && n > acc ? n : acc
     }, 0)
