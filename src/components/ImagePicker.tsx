@@ -49,14 +49,16 @@ export function ImagePicker({ value, onChange }: Props) {
       const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       setStream(s)
       setShowCamera(true)
-      // Attach stream to video after modal renders
-      setTimeout(() => {
-        if (videoRef.current) videoRef.current.srcObject = s
-      }, 100)
     } catch {
       alert('Não foi possível acessar a câmera.')
     }
   }
+
+  useEffect(() => {
+    if (showCamera && stream && videoRef.current) {
+      videoRef.current.srcObject = stream
+    }
+  }, [showCamera, stream])
 
   function capture() {
     const video = videoRef.current
