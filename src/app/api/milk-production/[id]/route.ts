@@ -3,11 +3,12 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const production = await prisma.milkProduction.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { animal: true },
     })
 
@@ -23,14 +24,15 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const { date, quantity, observations } = body
 
     const production = await prisma.milkProduction.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         date: date ? new Date(date) : undefined,
         quantity: quantity ? parseFloat(quantity) : undefined,
@@ -47,11 +49,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     await prisma.milkProduction.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ message: 'Milk production deleted' })

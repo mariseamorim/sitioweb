@@ -3,11 +3,12 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const treatment = await prisma.veterinaryTreatment.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { animal: true },
     })
 
@@ -23,14 +24,15 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const { startDate, endDate, medicine, batch, manufacturer, description, observations } = body
 
     const treatment = await prisma.veterinaryTreatment.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         startDate: startDate ? new Date(startDate) : undefined,
         endDate: endDate ? new Date(endDate) : null,
@@ -51,11 +53,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     await prisma.veterinaryTreatment.delete({
-      where: { id: params.id },
+      where: { id },
     })
 
     return NextResponse.json({ message: 'Veterinary treatment deleted' })
