@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app:*)",
+      "Bash(npm run build:*)",
+      "Bash(timeout 10 npm run dev:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm install:*)",
+      "Bash(npx prisma init:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx next build:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx prisma:*)",
+      "Bash(taskkill:*)",
+      "Bash(cd /c/dev/amorim && npx ts-node --version 2>&122222)",
+      "Bash(cd /c/dev/amorim && DATABASE_URL=\"file:./dev.db\" npx prisma db seed 2>&12222)",
+      "Bash(cd /c/dev/amorim && DATABASE_URL=\"file:./dev.db\" npx prisma db push 2>&1222222)",
+      "Bash(cd /c/dev/amorim && DATABASE_URL=\"file:./dev.db\" npx prisma db seed 2>&12)",
+      "Bash(cd /c/dev/amorim && DATABASE_URL=\"file:./dev.db\" npx prisma db push 2>&12)",
+      "Bash(cd /c/dev/amorim && DATABASE_URL=\"file:./dev.db\" npx prisma db push --accept-data-loss 2>&12)",
+      "Bash(head:)"
+    ]
+  }
+}

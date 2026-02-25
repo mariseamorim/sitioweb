@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 200" width="900" height="200">
+  <!-- Horizontal logo: emblem (left) + text (right) -->
+  <defs>
+    <linearGradient id="gGreen" x1="0" x2="1">
+      <stop offset="0%" stop-color="#0f5f3a" />
+      <stop offset="100%" stop-color="#32a852" />
+    </linearGradient>
+    <linearGradient id="gLightGreen" x1="0" x2="1">
+      <stop offset="0%" stop-color="#2f7a4f" />
+      <stop offset="100%" stop-color="#65c16a" />
+    </linearGradient>
+  </defs>
+
+  <!-- emblem circle -->
+  <g transform="translate(100,100)">
+    <circle cx="0" cy="0" r="72" fill="#ffffff" stroke="#e9f4ea" stroke-width="6" />
+
+    <!-- fields -->
+    <path d="M-62 40 C-22 8, 22 22, 62 14 L62 62 L-62 62 Z" fill="#2b9a44" />
+    <path d="M-62 52 C-22 28, 22 36, 62 30 L62 62 L-62 62 Z" fill="#ffb25c" />
+
+    <!-- barn (stylized) -->
+    <rect x="-20" y="-18" width="34" height="28" rx="2" fill="#083a25" />
+    <polygon points="-20,-18  -3,-40   14,-18" fill="#0b6a3d" />
+
+    <!-- silo -->
+    <rect x="28" y="-28" width="12" height="34" rx="3" fill="#0b6a3d" />
+    <rect x="30" y="-30" width="8" height="6" rx="2" fill="#ffffff" opacity="0.08" />
+
+    <!-- cow silhouette (small) -->
+    <path d="M-8 6 C0 2, 18 2, 28 8 C24 10, 20 12, 12 12 C-2 12, -6 10, -8 6 Z" fill="#083a25" />
+
+    <!-- sun -->
+    <circle cx="46" cy="-44" r="12" fill="#ffd36a" />
+  </g>
+
+  <!-- text: Fazenda App (matching example style) -->
+  <g transform="translate(220,120)">
+    <text x="0" y="0" font-family="Segoe UI, Roboto, Arial, sans-serif" font-weight="700" font-size="72" fill="url(#gGreen)">Fazenda</text>
+    <text x="340" y="0" font-family="Segoe UI, Roboto, Arial, sans-serif" font-weight="700" font-size="72" fill="url(#gLightGreen)">App</text>
+  </g>
+</svg>

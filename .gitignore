@@ -1,0 +1,25 @@
+node_modules
+
+# Environment variables — NUNCA subir para o git
+.env
+.env.local
+.env*.local
+
+# Next.js
+.next
+out
+
+# Prisma SQLite local
+prisma/dev.db
+prisma/dev.db-journal
+prisma/*.db
+
+# Generated Prisma client
+/src/generated/prisma
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
