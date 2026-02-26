@@ -2,6 +2,19 @@
 
 import { useEffect, useState, useMemo } from 'react'
 
+const PENDING_KEY = 'pending_milk_productions'
+
+interface PendingRecord {
+  animalId: string
+  date: string
+  quantity: string
+  observations: string
+}
+
+function getPending(): PendingRecord[] {
+  try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]') } catch { return [] }
+}
+
 interface Animal {
   id: string
   name: string
@@ -32,6 +45,22 @@ export default function MilkProductionPage() {
   const [formQty, setFormQty] = useState('')
   const [formObs, setFormObs] = useState('')
   const [saving, setSaving] = useState(false)
+  const [isOnline, setIsOnline] = useState(true)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [syncing, setSyncing] = useState(false)
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    setPendingCount(getPending().length)
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -104,8 +133,34 @@ export default function MilkProductionPage() {
     loadData(farmId)
   }
 
+  async function handleSync() {
+    const pending = getPending()
+    if (!pending.length) return
+    setSyncing(true)
+    for (const p of pending) {
+      await fetch('/api/milk-production', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ animalId: p.animalId, date: p.date, quantity: p.quantity, observations: p.observations }),
+      })
+    }
+    localStorage.removeItem(PENDING_KEY)
+    setPendingCount(0)
+    setSyncing(false)
+    loadData(farmId)
+  }
+
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (!isOnline) {
+      const pending = getPending()
+      pending.push({ animalId: formAnimalId, date: formDate, quantity: formQty, observations: formObs })
+      localStorage.setItem(PENDING_KEY, JSON.stringify(pending))
+      setPendingCount(pending.length)
+      setShowRegister(false)
+      setFormAnimalId(''); setFormDate(''); setFormQty(''); setFormObs('')
+      return
+    }
     setSaving(true)
     await fetch('/api/milk-production', {
       method: 'POST',
@@ -136,6 +191,26 @@ export default function MilkProductionPage() {
           + Registrar
         </button>
       </div>
+
+      {/* Offline / sync banner */}
+      {!isOnline && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
+          <span>📴</span>
+          <span>Você está offline. Os registros serão salvos localmente e sincronizados quando reconectar.</span>
+        </div>
+      )}
+      {isOnline && pendingCount > 0 && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
+          <span>📶 {pendingCount} registro{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
+          >
+            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+          </button>
+        </div>
+      )}
 
       {/* Period filter + total */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">

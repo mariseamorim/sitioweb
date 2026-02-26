@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   description: "Sistema de cadastro e controle de animais para sítios e fazendas",
 };
 
+export const viewport = {
+  themeColor: "#15803d",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -20,6 +24,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+      </head>
       <body className={`${geistSans.variable} antialiased bg-gray-50 min-h-screen`}>
         <Navbar />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-7 pb-24 md:pb-7">

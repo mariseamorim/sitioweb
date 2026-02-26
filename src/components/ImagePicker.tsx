@@ -57,6 +57,7 @@ export function ImagePicker({ value, onChange }: Props) {
   useEffect(() => {
     if (showCamera && stream && videoRef.current) {
       videoRef.current.srcObject = stream
+      videoRef.current.play().catch((e) => console.error('Play failed:', e))
     }
   }, [showCamera, stream])
 

@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
-const links = [
+const allLinks = [
   {
     href: '/',
     label: 'Painel',
@@ -65,6 +66,46 @@ const links = [
     ),
   },
   {
+    href: '/vacinacao',
+    label: 'Vacinação',
+    shortLabel: 'Vacinas',
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 3.5l5 5m-2-2l-9.5 9.5-4-4 9.5-9.5zM4.5 17l-1.5 3.5 3.5-1.5M10 8l1.5 1.5M8 10l1.5 1.5" />
+      </svg>
+    ),
+  },
+  {
+    href: '/reproducao',
+    label: 'Reprodução',
+    shortLabel: 'Reprod.',
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/financeiro',
+    label: 'Financeiro',
+    shortLabel: 'Financ.',
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/estoque',
+    label: 'Estoque',
+    shortLabel: 'Estoque',
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      </svg>
+    ),
+  },
+  {
     href: '/usuarios',
     label: 'Usuários',
     shortLabel: 'Usuários',
@@ -78,9 +119,17 @@ const links = [
   },
 ];
 
+const mainTabHrefs = ['/', '/animais', '/milk-production', '/veterinary-treatment'];
+const drawerHrefs = ['/vacinacao', '/reproducao', '/financeiro', '/estoque', '/fazendas', '/usuarios'];
+
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -94,6 +143,13 @@ export function Navbar() {
     return pathname.startsWith(href);
   }
 
+  const mainTabs = allLinks.filter(l => mainTabHrefs.includes(l.href));
+  const drawerItems = allLinks
+    .filter(l => drawerHrefs.includes(l.href))
+    .sort((a, b) => drawerHrefs.indexOf(a.href) - drawerHrefs.indexOf(b.href));
+
+  const isDrawerRouteActive = drawerHrefs.some(h => isActive(h));
+
   return (
     <>
       {/* ── Top bar ── */}
@@ -102,7 +158,7 @@ export function Navbar() {
           <div className="flex items-center justify-between h-16">
 
             {/* Logo */}
-            <Link href="/" className="flex items-center">
+            <Link href="/" className="flex items-center shrink-0">
               <img
                 src="/logo.svg"
                 alt="SítioWeb"
@@ -112,11 +168,11 @@ export function Navbar() {
 
             {/* Desktop links */}
             <div className="hidden md:flex items-stretch h-full gap-0.5">
-              {links.map((link) => (
+              {allLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center px-3 text-sm font-medium transition-colors border-b-2 ${
+                  className={`flex items-center px-2 text-xs font-medium transition-colors border-b-2 whitespace-nowrap ${
                     isActive(link.href)
                       ? 'border-green-600 text-green-700 bg-green-50'
                       : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -127,7 +183,7 @@ export function Navbar() {
               ))}
               <button
                 onClick={handleLogout}
-                className="ml-3 self-center px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+                className="ml-2 self-center px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors shrink-0"
               >
                 Sair
               </button>
@@ -156,7 +212,7 @@ export function Navbar() {
         }}
       >
         <div className="flex">
-          {links.map((link) => {
+          {mainTabs.map((link) => {
             const active = isActive(link.href);
             return (
               <Link
@@ -164,7 +220,6 @@ export function Navbar() {
                 href={link.href}
                 className="flex-1 flex flex-col items-center pt-2 pb-1.5 gap-0.5 transition-colors"
               >
-                {/* Top accent line */}
                 <span
                   className={`block h-0.5 w-8 rounded-full -mt-2 mb-1.5 transition-colors ${
                     active ? 'bg-green-500' : 'bg-transparent'
@@ -183,8 +238,88 @@ export function Navbar() {
               </Link>
             );
           })}
+
+          {/* "Mais" tab */}
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className="flex-1 flex flex-col items-center pt-2 pb-1.5 gap-0.5 transition-colors"
+          >
+            <span
+              className={`block h-0.5 w-8 rounded-full -mt-2 mb-1.5 transition-colors ${
+                isDrawerRouteActive ? 'bg-green-500' : 'bg-transparent'
+              }`}
+            />
+            <span className={isDrawerRouteActive ? 'text-green-600' : 'text-gray-400'}>
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="5" cy="5" r="1.5" />
+                <circle cx="12" cy="5" r="1.5" />
+                <circle cx="19" cy="5" r="1.5" />
+                <circle cx="5" cy="12" r="1.5" />
+                <circle cx="12" cy="12" r="1.5" />
+                <circle cx="19" cy="12" r="1.5" />
+                <circle cx="5" cy="19" r="1.5" />
+                <circle cx="12" cy="19" r="1.5" />
+                <circle cx="19" cy="19" r="1.5" />
+              </svg>
+            </span>
+            <span
+              className={`text-[10px] font-semibold leading-tight tracking-wide ${
+                isDrawerRouteActive ? 'text-green-700' : 'text-gray-400'
+              }`}
+            >
+              Mais
+            </span>
+          </button>
         </div>
       </div>
+
+      {/* ── Drawer — mobile only ── */}
+      {drawerOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-50 bg-black/40"
+          onClick={() => setDrawerOpen(false)}
+        >
+          <div
+            className="fixed bottom-0 inset-x-0 bg-white rounded-t-2xl p-4"
+            onClick={e => e.stopPropagation()}
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-700">Mais opções</h3>
+              <button
+                onClick={() => setDrawerOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {drawerItems.map(item => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-colors ${
+                    isActive(item.href) ? 'bg-green-50' : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <span className={isActive(item.href) ? 'text-green-600' : 'text-gray-500'}>
+                    {item.icon}
+                  </span>
+                  <span
+                    className={`text-xs font-medium text-center ${
+                      isActive(item.href) ? 'text-green-700' : 'text-gray-600'
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

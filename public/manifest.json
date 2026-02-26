@@ -1,0 +1,17 @@
+{
+  "name": "SítioWeb",
+  "short_name": "SítioWeb",
+  "description": "Sistema de controle rural para sítios e fazendas",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#15803d",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
