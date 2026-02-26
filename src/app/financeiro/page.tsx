@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGuard } from '@/components/PermissionGuard'
 
 import { useEffect, useState, useMemo } from 'react'
 
@@ -96,7 +97,8 @@ export default function FinanceiroPage() {
   const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
   return (
-    <div>
+    <PermissionGuard module="financeiro">
+      <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Financeiro</h1>
@@ -124,33 +126,33 @@ export default function FinanceiroPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 sm:p-4">
           <p className="text-xs text-gray-500 mb-1">Receitas</p>
-          <p className="text-xl font-bold text-green-600">{fmtBRL(totalReceita)}</p>
+          <p className="text-lg sm:text-xl font-bold text-green-600 truncate">{fmtBRL(totalReceita)}</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 sm:p-4">
           <p className="text-xs text-gray-500 mb-1">Despesas</p>
-          <p className="text-xl font-bold text-red-500">{fmtBRL(totalDespesa)}</p>
+          <p className="text-lg sm:text-xl font-bold text-red-500 truncate">{fmtBRL(totalDespesa)}</p>
         </div>
-        <div className={`rounded-xl shadow-sm border p-4 ${saldo >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+        <div className={`rounded-xl shadow-sm border p-3 sm:p-4 ${saldo >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
           <p className="text-xs text-gray-500 mb-1">Saldo</p>
-          <p className={`text-xl font-bold ${saldo >= 0 ? 'text-green-700' : 'text-red-600'}`}>{fmtBRL(saldo)}</p>
+          <p className={`text-lg sm:text-xl font-bold truncate ${saldo >= 0 ? 'text-green-700' : 'text-red-600'}`}>{fmtBRL(saldo)}</p>
         </div>
       </div>
 
       {/* Category bars */}
       {byCategory.length > 0 && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 sm:p-4 mb-6">
           <p className="text-xs font-semibold text-gray-600 uppercase mb-3">Por categoria</p>
           <div className="space-y-2">
             {byCategory.map(([cat, val]) => (
-              <div key={cat} className="flex items-center gap-3">
-                <span className="text-xs text-gray-600 w-28 shrink-0 truncate">{cat}</span>
+              <div key={cat} className="flex items-center gap-2 sm:gap-3">
+                <span className="text-xs text-gray-600 w-20 sm:w-28 shrink-0 truncate">{cat}</span>
                 <div className="flex-1 bg-gray-100 rounded-full h-2">
                   <div className="bg-green-500 h-2 rounded-full" style={{ width: `${(val / maxCat) * 100}%` }} />
                 </div>
-                <span className="text-xs font-medium text-gray-700 w-20 text-right shrink-0">{fmtBRL(val)}</span>
+                <span className="text-xs font-medium text-gray-700 w-16 sm:w-20 text-right shrink-0 truncate">{fmtBRL(val)}</span>
               </div>
             ))}
           </div>
@@ -174,28 +176,28 @@ export default function FinanceiroPage() {
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs sm:text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">Data</th>
-                <th className="px-4 py-3 text-left">Categoria</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-left">Descrição</th>
-                <th className="px-4 py-3 text-right">Valor</th>
-                <th className="px-4 py-3"></th>
+                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left">Data</th>
+                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left">Categoria</th>
+                <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left">Descrição</th>
+                <th className="px-2 sm:px-4 py-2 sm:py-3 text-right">Valor</th>
+                <th className="px-2 sm:px-4 py-2 sm:py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map(t => (
                 <tr key={t.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-600">{fmt(t.date)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${t.type === 'Receita' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.category}</span>
+                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-600 whitespace-nowrap">{fmt(t.date)}</td>
+                  <td className="px-2 sm:px-4 py-2 sm:py-3">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium truncate inline-block ${t.type === 'Receita' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.category}</span>
                   </td>
-                  <td className="hidden sm:table-cell px-4 py-3 text-gray-500 text-xs">{t.description || (t.animal ? t.animal.name : '—')}</td>
-                  <td className={`px-4 py-3 text-right font-semibold ${t.type === 'Receita' ? 'text-green-600' : 'text-red-500'}`}>
+                  <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-gray-500 text-xs truncate">{t.description || (t.animal ? t.animal.name : '—')}</td>
+                  <td className={`px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-xs sm:text-sm whitespace-nowrap ${t.type === 'Receita' ? 'text-green-600' : 'text-red-500'}`}>
                     {t.type === 'Receita' ? '+' : '-'}{fmtBRL(t.amount)}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
                     <button onClick={() => handleDelete(t.id)} className="text-red-400 hover:text-red-600 p-1">
                       <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
@@ -271,5 +273,6 @@ export default function FinanceiroPage() {
         </div>
       )}
     </div>
+    </PermissionGuard>
   )
 }

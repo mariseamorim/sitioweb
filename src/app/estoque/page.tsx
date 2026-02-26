@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGuard } from '@/components/PermissionGuard'
 
 import { useEffect, useState } from 'react'
 
@@ -89,7 +90,8 @@ export default function EstoquePage() {
   const isLow = (s: Supply) => s.currentQuantity <= s.minimumQuantity
 
   return (
-    <div>
+    <PermissionGuard module="estoque">
+      <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Estoque</h1>
@@ -309,5 +311,6 @@ export default function EstoquePage() {
         </div>
       )}
     </div>
+    </PermissionGuard>
   )
 }

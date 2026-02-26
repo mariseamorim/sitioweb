@@ -3,12 +3,14 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useUser } from '@/contexts/UserContext';
 
-const allLinks = [
+const allLinks: { href: string; label: string; shortLabel: string; module: string | null; icon: React.ReactNode }[] = [
   {
     href: '/',
     label: 'Painel',
     shortLabel: 'Painel',
+    module: null,
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
         <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -22,6 +24,7 @@ const allLinks = [
     href: '/fazendas',
     label: 'Propriedades',
     shortLabel: 'Props.',
+    module: 'fazendas',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l9-9 9 9" />
@@ -34,11 +37,19 @@ const allLinks = [
     href: '/animais',
     label: 'Animais',
     shortLabel: 'Animais',
+    module: 'animais',
     icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 2C8 2 5 5 5 8c0 2 1 3.5 2.5 4.5L6 21h12l-1.5-8.5C18 11.5 19 10 19 8c0-3-3-6-7-6z" />
-        <circle cx="9" cy="8" r="0.75" fill="currentColor" stroke="none" />
-        <circle cx="15" cy="8" r="0.75" fill="currentColor" stroke="none" />
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <rect x="5" y="14" width="14" height="7" rx="3" />
+        <circle cx="9" cy="17.5" r="0.75" fill="currentColor" stroke="none" />
+        <circle cx="15" cy="17.5" r="0.75" fill="currentColor" stroke="none" />
+        <path d="M7 14V9.5C7 6.5 9 5 12 5c3 0 5 1.5 5 4.5V14" />
+        <path d="M8 6.5C6.5 4 5 3 3.5 3c-1.5 0-1 2 0 3" />
+        <path d="M16 6.5c1.5-2.5 3-3.5 4.5-3.5 1.5 0 1 2 0 3" />
+        <path d="M7 10C4 9 2 10.5 2 11c0 .5 2 1 5-1" />
+        <path d="M17 10c3-1 5 .5 5 1 0 .5-2 1-5-1" />
+        <circle cx="9.5" cy="10" r="0.75" fill="currentColor" stroke="none" />
+        <circle cx="14.5" cy="10" r="0.75" fill="currentColor" stroke="none" />
       </svg>
     ),
   },
@@ -46,6 +57,7 @@ const allLinks = [
     href: '/milk-production',
     label: 'Produção de Leite',
     shortLabel: 'Leite',
+    module: 'leite',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M8 3h8l1 5H7L8 3z" />
@@ -58,6 +70,7 @@ const allLinks = [
     href: '/veterinary-treatment',
     label: 'Tratamentos Vet.',
     shortLabel: 'Vet.',
+    module: 'veterinario',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
         <rect x="3" y="3" width="18" height="18" rx="3" />
@@ -69,6 +82,7 @@ const allLinks = [
     href: '/vacinacao',
     label: 'Vacinação',
     shortLabel: 'Vacinas',
+    module: 'vacinacao',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 3.5l5 5m-2-2l-9.5 9.5-4-4 9.5-9.5zM4.5 17l-1.5 3.5 3.5-1.5M10 8l1.5 1.5M8 10l1.5 1.5" />
@@ -79,6 +93,7 @@ const allLinks = [
     href: '/reproducao',
     label: 'Reprodução',
     shortLabel: 'Reprod.',
+    module: 'reproducao',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -89,6 +104,7 @@ const allLinks = [
     href: '/financeiro',
     label: 'Financeiro',
     shortLabel: 'Financ.',
+    module: 'financeiro',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -99,6 +115,7 @@ const allLinks = [
     href: '/estoque',
     label: 'Estoque',
     shortLabel: 'Estoque',
+    module: 'estoque',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -109,6 +126,7 @@ const allLinks = [
     href: '/usuarios',
     label: 'Usuários',
     shortLabel: 'Usuários',
+    module: 'usuarios',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
         <circle cx="9" cy="7" r="4" />
@@ -125,6 +143,7 @@ const drawerHrefs = ['/vacinacao', '/reproducao', '/financeiro', '/estoque', '/f
 export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { canAccess, user } = useUser();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -132,6 +151,17 @@ export function Navbar() {
   }, [pathname]);
 
   async function handleLogout() {
+    // Limpar cache e localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.clear();
+      sessionStorage.clear();
+      // Limpar cache do Service Worker se existir
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => caches.delete(name));
+        });
+      }
+    }
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
   }
@@ -143,8 +173,10 @@ export function Navbar() {
     return pathname.startsWith(href);
   }
 
-  const mainTabs = allLinks.filter(l => mainTabHrefs.includes(l.href));
-  const drawerItems = allLinks
+  const visibleLinks = allLinks.filter(l => !l.module || canAccess(l.module));
+
+  const mainTabs = visibleLinks.filter(l => mainTabHrefs.includes(l.href));
+  const drawerItems = visibleLinks
     .filter(l => drawerHrefs.includes(l.href))
     .sort((a, b) => drawerHrefs.indexOf(a.href) - drawerHrefs.indexOf(b.href));
 
@@ -168,7 +200,7 @@ export function Navbar() {
 
             {/* Desktop links */}
             <div className="hidden md:flex items-stretch h-full gap-0.5">
-              {allLinks.map((link) => (
+              {visibleLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -181,24 +213,47 @@ export function Navbar() {
                   {link.label}
                 </Link>
               ))}
+              {user && (
+                <div className="ml-2 self-center flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs text-gray-500 max-w-[120px] truncate">{user.name}</span>
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                    user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                    user.role === 'editor' ? 'bg-blue-100 text-blue-700' :
+                    'bg-gray-100 text-gray-600'
+                  }`}>
+                    {user.role === 'admin' ? 'Admin' : user.role === 'editor' ? 'Editor' : 'Viewer'}
+                  </span>
+                </div>
+              )}
               <button
                 onClick={handleLogout}
-                className="ml-2 self-center px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors shrink-0"
+                className="ml-1 self-center px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors shrink-0"
               >
                 Sair
               </button>
             </div>
 
-            {/* Logout icon — mobile only */}
-            <button
-              onClick={handleLogout}
-              className="md:hidden p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-              aria-label="Sair"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
-              </svg>
-            </button>
+            {/* User badge + Logout icon — mobile only */}
+            <div className="md:hidden flex items-center gap-2">
+              {user && (
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                  user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
+                  user.role === 'editor' ? 'bg-blue-100 text-blue-700' :
+                  'bg-gray-100 text-gray-600'
+                }`}>
+                  {user.role === 'admin' ? 'Admin' : user.role === 'editor' ? 'Editor' : 'Viewer'}
+                </span>
+              )}
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                aria-label="Sair"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </nav>

@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGuard } from '@/components/PermissionGuard'
 
 import { useEffect, useState } from 'react'
 
@@ -72,7 +73,8 @@ export default function PropriedadesPage() {
   }
 
   return (
-    <div>
+    <PermissionGuard module="fazendas">
+      <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Propriedades</h1>
         <button
@@ -266,5 +268,6 @@ export default function PropriedadesPage() {
         </div>
       )}
     </div>
+    </PermissionGuard>
   )
 }

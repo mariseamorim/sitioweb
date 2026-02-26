@@ -1,4 +1,6 @@
 'use client'
+import { PermissionGuard } from '@/components/PermissionGuard'
+import { useUser } from '@/contexts/UserContext'
 
 import { useEffect, useState } from 'react'
 import { ESPECIES, STATUS_LIST, type Especie, type StatusAnimal } from '@/lib/types'
@@ -30,6 +32,7 @@ const EMPTY_FORM = {
 }
 
 export default function AnimaisPage() {
+  const { user } = useUser()
   const [animals, setAnimals] = useState<Animal[]>([])
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
@@ -40,6 +43,8 @@ export default function AnimaisPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+
+  const canEdit = user?.role === 'admin' || user?.role === 'editor'
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -67,6 +72,7 @@ export default function AnimaisPage() {
   }
 
   function openEdit(a: Animal) {
+    if (!canEdit) return
     setEditing(a)
     setForm({
       code: a.code,
@@ -119,6 +125,7 @@ export default function AnimaisPage() {
   }
 
   async function handleDelete(id: string) {
+    if (!canEdit) return
     if (!confirm('Deseja excluir este animal?')) return
     await fetch(`/api/animals/${id}`, { method: 'DELETE' })
     fetchAnimals(farmId)
@@ -149,12 +156,18 @@ export default function AnimaisPage() {
   }
 
   return (
-    <div>
+    <PermissionGuard module="animais">
+      <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Animais</h1>
         <button
           onClick={openNew}
-          className="bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg"
+          disabled={!canEdit}
+          className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${
+            canEdit 
+              ? 'bg-green-700 hover:bg-green-600' 
+              : 'bg-gray-400 cursor-not-allowed'
+          }`}
         >
           + Novo Animal
         </button>
@@ -215,7 +228,8 @@ export default function AnimaisPage() {
                   <td className="px-2 sm:px-4 py-3 text-right space-x-1 sm:space-x-2">
                     <button
                       onClick={(e) => { e.stopPropagation(); openEdit(a) }}
-                      className="inline-flex items-center gap-1 text-blue-600 hover:underline text-xs"
+                      disabled={!canEdit}
+                      className={`inline-flex items-center gap-1 text-xs ${canEdit ? 'text-blue-600 hover:underline' : 'text-gray-300 cursor-not-allowed'}`}
                     >
                       <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 20h9" />
@@ -224,7 +238,8 @@ export default function AnimaisPage() {
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(a.id) }}
-                      className="inline-flex items-center gap-1 text-red-500 hover:underline text-xs"
+                      disabled={!canEdit}
+                      className={`inline-flex items-center gap-1 text-xs ${canEdit ? 'text-red-500 hover:underline' : 'text-gray-300 cursor-not-allowed'}`}
                     >
                       <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M3 6h18" />
@@ -304,7 +319,12 @@ export default function AnimaisPage() {
               <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-6">
                 <button
                   onClick={() => { closeDetails(); openEdit(selectedAnimal) }}
-                  className="inline-flex items-center justify-center bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-3 py-2 rounded-lg flex-1 sm:flex-none"
+                  disabled={!canEdit}
+                  className={`inline-flex items-center justify-center text-white text-sm font-medium px-3 py-2 rounded-lg flex-1 sm:flex-none ${
+                    canEdit 
+                      ? 'bg-green-700 hover:bg-green-600' 
+                      : 'bg-gray-400 cursor-not-allowed'
+                  }`}
                 >
                   <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 20h9" />
@@ -313,7 +333,12 @@ export default function AnimaisPage() {
                 </button>
                 <button
                   onClick={() => { closeDetails(); handleDelete(selectedAnimal.id) }}
-                  className="inline-flex items-center justify-center border border-gray-200 text-gray-700 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 flex-1 sm:flex-none"
+                  disabled={!canEdit}
+                  className={`inline-flex items-center justify-center text-sm font-medium px-3 py-2 rounded-lg flex-1 sm:flex-none ${
+                    canEdit 
+                      ? 'border border-gray-200 text-gray-700 hover:bg-gray-50'
+                      : 'border border-gray-200 text-gray-300 cursor-not-allowed'
+                  }`}
                 >
                   <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 6h18" />
@@ -458,5 +483,6 @@ export default function AnimaisPage() {
         </div>
       )}
     </div>
+    </PermissionGuard>
   )
 }

@@ -1,4 +1,5 @@
 'use client'
+import { PermissionGuard } from '@/components/PermissionGuard'
 
 import { useEffect, useState, useMemo } from 'react'
 
@@ -106,7 +107,8 @@ export default function VacinacaoPage() {
   const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR')
 
   return (
-    <div>
+    <PermissionGuard module="vacinacao">
+      <div>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Vacinação</h1>
@@ -268,5 +270,6 @@ export default function VacinacaoPage() {
         </div>
       )}
     </div>
+    </PermissionGuard>
   )
 }

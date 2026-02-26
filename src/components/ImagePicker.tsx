@@ -34,36 +34,95 @@ export function ImagePicker({ value, onChange }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [showCamera, setShowCamera] = useState(false)
   const [stream, setStream] = useState<MediaStream | null>(null)
+  const [cameraError, setCameraError] = useState('')
+  const [cameraReady, setCameraReady] = useState(false)
 
   const stopStream = useCallback(() => {
-    stream?.getTracks().forEach((t) => t.stop())
-    setStream(null)
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+    stream?.getTracks().forEach((t) => {
+      t.stop()
+    })
   }, [stream])
 
   useEffect(() => {
-    return () => { stopStream() }
-  }, [stopStream])
+    return () => { 
+      stream?.getTracks().forEach((t) => t.stop())
+      setStream(null)
+      setCameraReady(false)
+    }
+  }, [])
 
   async function openCamera() {
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      setCameraError('')
+      setCameraReady(false)
+      const constraints = {
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      }
+      const s = await navigator.mediaDevices.getUserMedia(constraints)
       setStream(s)
       setShowCamera(true)
-    } catch {
-      alert('Não foi possível acessar a câmera.')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Não foi possível acessar a câmera. Verifique as permissões do navegador.'
+      setCameraError(message)
+      alert(message)
     }
   }
 
   useEffect(() => {
     if (showCamera && stream && videoRef.current) {
-      videoRef.current.srcObject = stream
-      videoRef.current.play().catch((e) => console.error('Play failed:', e))
+      const video = videoRef.current
+      video.srcObject = stream
+      
+      const handleLoadedMetadata = () => {
+        setCameraReady(true)
+      }
+      
+      const handleCanPlay = () => {
+        setCameraReady(true)
+      }
+
+      const handlePlay = () => {
+        setCameraReady(true)
+      }
+      
+      video.addEventListener('loadedmetadata', handleLoadedMetadata)
+      video.addEventListener('canplay', handleCanPlay)
+      video.addEventListener('play', handlePlay)
+      
+      // Timeout de 2 segundos - se não carregar, marca como pronto mesmo assim
+      const timeout = setTimeout(() => {
+        setCameraReady(true)
+      }, 2000)
+      
+      const playPromise = video.play()
+      if (playPromise !== undefined) {
+        playPromise.catch((e) => {
+          setCameraError('Erro ao iniciar câmera: ' + e.message)
+        })
+      }
+      
+      return () => {
+        clearTimeout(timeout)
+        video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+        video.removeEventListener('canplay', handleCanPlay)
+        video.removeEventListener('play', handlePlay)
+      }
     }
   }, [showCamera, stream])
 
   function capture() {
     const video = videoRef.current
-    if (!video) return
+    if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
+      alert('Câmera não está pronta. Aguarde um momento e tente novamente.')
+      return
+    }
     const canvas = document.createElement('canvas')
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
@@ -82,7 +141,12 @@ export function ImagePicker({ value, onChange }: Props) {
   }
 
   function closeCamera() {
-    stopStream()
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+    stream?.getTracks().forEach((t) => t.stop())
+    setStream(null)
+    setCameraReady(false)
     setShowCamera(false)
   }
 
@@ -148,13 +212,30 @@ export function ImagePicker({ value, onChange }: Props) {
       {showCamera && (
         <div className="fixed inset-0 bg-black/70 flex flex-col items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-2xl overflow-hidden w-full max-w-sm">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full aspect-[4/3] object-cover bg-black"
-            />
+            <div className="relative w-full aspect-[4/3] bg-black flex items-center justify-center">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                onLoadedMetadata={() => setCameraReady(true)}
+                onCanPlay={() => setCameraReady(true)}
+                className="w-full h-full object-cover"
+              />
+              {!cameraReady && !cameraError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                  <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border border-white border-t-transparent mb-2"></div>
+                    <p className="text-white text-sm">Iniciando câmera...</p>
+                  </div>
+                </div>
+              )}
+              {cameraError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-white text-center text-sm p-4">
+                  <p>{cameraError}</p>
+                </div>
+              )}
+            </div>
             <div className="flex gap-3 p-4">
               <button
                 type="button"
@@ -166,7 +247,8 @@ export function ImagePicker({ value, onChange }: Props) {
               <button
                 type="button"
                 onClick={capture}
-                className="flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg"
+                disabled={!cameraReady}
+                className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-400 text-white text-sm font-medium py-2 rounded-lg"
               >
                 Capturar
               </button>

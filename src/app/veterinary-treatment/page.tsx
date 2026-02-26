@@ -1,4 +1,6 @@
 'use client'
+import { PermissionGuard } from '@/components/PermissionGuard'
+import { useUser } from '@/contexts/UserContext'
 
 import { useEffect, useState, useMemo } from 'react'
 
@@ -22,6 +24,8 @@ interface Treatment {
 }
 
 export default function VeterinaryTreatmentPage() {
+  const { user } = useUser()
+  const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const now = new Date()
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [allAnimals, setAllAnimals] = useState<Animal[]>([])
@@ -96,6 +100,7 @@ export default function VeterinaryTreatmentPage() {
   const detailPeriodCount = filtered.filter((t) => t.animalId === detailAnimalId).length
 
   async function handleDelete(id: string) {
+    if (!canEdit) return
     if (!confirm('Excluir este tratamento?')) return
     await fetch(`/api/veterinary-treatment/${id}`, { method: 'DELETE' })
     loadData(farmId)
@@ -127,7 +132,8 @@ export default function VeterinaryTreatmentPage() {
   }
 
   return (
-    <div>
+    <PermissionGuard module="veterinario">
+      <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -136,7 +142,12 @@ export default function VeterinaryTreatmentPage() {
         </div>
         <button
           onClick={() => setShowRegister(true)}
-          className="bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg"
+          disabled={!canEdit}
+          className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${
+            canEdit 
+              ? 'bg-green-700 hover:bg-green-600' 
+              : 'bg-gray-400 cursor-not-allowed'
+          }`}
         >
           + Registrar
         </button>
@@ -238,7 +249,8 @@ export default function VeterinaryTreatmentPage() {
                     <div key={t.id} className="border border-gray-100 rounded-xl p-4 hover:bg-gray-50 relative">
                       <button
                         onClick={() => handleDelete(t.id)}
-                        className="absolute top-3 right-3 text-red-400 hover:text-red-600 p-1"
+                        disabled={!canEdit}
+                        className={`absolute top-3 right-3 p-1 ${canEdit ? 'text-red-400 hover:text-red-600' : 'text-gray-300 cursor-not-allowed'}`}
                         title="Excluir"
                       >
                         <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -380,6 +392,7 @@ export default function VeterinaryTreatmentPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </PermissionGuard>
   )
 }

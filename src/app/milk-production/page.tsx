@@ -1,4 +1,6 @@
 'use client'
+import { PermissionGuard } from '@/components/PermissionGuard'
+import { useUser } from '@/contexts/UserContext'
 
 import { useEffect, useState, useMemo } from 'react'
 
@@ -31,6 +33,8 @@ interface Production {
 }
 
 export default function MilkProductionPage() {
+  const { user } = useUser()
+  const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const now = new Date()
   const [productions, setProductions] = useState<Production[]>([])
   const [allAnimals, setAllAnimals] = useState<Animal[]>([])
@@ -128,6 +132,7 @@ export default function MilkProductionPage() {
     .reduce((s, p) => s + p.quantity, 0)
 
   async function handleDelete(id: string) {
+    if (!canEdit) return
     if (!confirm('Excluir este registro?')) return
     await fetch(`/api/milk-production/${id}`, { method: 'DELETE' })
     loadData(farmId)
@@ -177,7 +182,8 @@ export default function MilkProductionPage() {
   }
 
   return (
-    <div>
+    <PermissionGuard module="leite">
+      <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -186,7 +192,12 @@ export default function MilkProductionPage() {
         </div>
         <button
           onClick={() => setShowRegister(true)}
-          className="bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg"
+          disabled={!canEdit}
+          className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${
+            canEdit 
+              ? 'bg-green-700 hover:bg-green-600' 
+              : 'bg-gray-400 cursor-not-allowed'
+          }`}
         >
           + Registrar
         </button>
@@ -330,7 +341,8 @@ export default function MilkProductionPage() {
                         <td className="px-4 py-2 text-right">
                           <button
                             onClick={() => handleDelete(p.id)}
-                            className="text-red-400 hover:text-red-600 p-1"
+                            disabled={!canEdit}
+                            className={`p-1 ${canEdit ? 'text-red-400 hover:text-red-600' : 'text-gray-300 cursor-not-allowed'}`}
                             title="Excluir"
                           >
                             <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -439,6 +451,7 @@ export default function MilkProductionPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </PermissionGuard>
   )
 }
