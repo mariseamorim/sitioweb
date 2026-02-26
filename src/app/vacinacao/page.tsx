@@ -1,7 +1,9 @@
 'use client'
 import { PermissionGuard } from '@/components/PermissionGuard'
+import { useUser } from '@/contexts/UserContext'
 
 import { useEffect, useState, useMemo } from 'react'
+import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
 
 interface Animal { id: string; name: string; code: string }
 
@@ -32,6 +34,8 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 export default function VacinacaoPage() {
+  const { user } = useUser()
+  const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
   const [animals, setAnimals] = useState<Animal[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,6 +45,22 @@ export default function VacinacaoPage() {
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ animalId: '', vaccineName: '', scheduledDate: '', appliedDate: '', batch: '', manufacturer: '', observations: '' })
+  const [isOnline, setIsOnline] = useState(true)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [syncing, setSyncing] = useState(false)
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    setPendingCount(getPendingRecords('vacinacao').length)
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(data => {
@@ -73,9 +93,28 @@ export default function VacinacaoPage() {
   }, [vaccinations])
 
   async function handleDelete(id: string) {
+    if (!canEdit) return
     if (!confirm('Excluir este registro?')) return
     await fetch(`/api/vacinacao/${id}`, { method: 'DELETE' })
     setDetail(null)
+    loadData(farmId)
+  }
+
+  async function handleSync() {
+    const pending = getPendingRecords('vacinacao')
+    if (!pending.length) return
+    setSyncing(true)
+    for (const record of pending) {
+      const { _pendingId, _type, farmId: _, ...data } = record
+      await fetch('/api/vacinacao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, farmId }),
+      })
+    }
+    clearPendingRecords('vacinacao')
+    setPendingCount(0)
+    setSyncing(false)
     loadData(farmId)
   }
 
@@ -93,6 +132,18 @@ export default function VacinacaoPage() {
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaving(true)
+
+    // Se estiver offline, salva no localStorage
+    if (!isOnline) {
+      addPendingRecord('vacinacao', { ...form, appliedDate: form.appliedDate || null, batch: form.batch || null, manufacturer: form.manufacturer || null, observations: form.observations || null, farmId })
+      setPendingCount(getPendingRecords('vacinacao').length)
+      setSaving(false)
+      setShowRegister(false)
+      setForm({ animalId: '', vaccineName: '', scheduledDate: '', appliedDate: '', batch: '', manufacturer: '', observations: '' })
+      return
+    }
+
+    // Se estiver online, envia para API
     await fetch('/api/vacinacao', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -114,12 +165,30 @@ export default function VacinacaoPage() {
           <h1 className="text-2xl font-bold text-gray-800">Vacinação</h1>
           <p className="text-gray-500 text-sm mt-1">Agenda e controle de vacinas por animal</p>
         </div>
-        <button onClick={() => setShowRegister(true)} className="bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg">
+        <button onClick={() => setShowRegister(true)} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
           + Registrar
         </button>
       </div>
 
-      {alertCount > 0 && (
+      {/* Offline / sync banner */}
+      {!isOnline && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
+          <span>📴</span>
+          <span>Você está offline. Os registros serão salvos localmente e sincronizados quando reconectar.</span>
+        </div>
+      )}
+      {isOnline && pendingCount > 0 && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
+          <span>📶 {pendingCount} vacinação{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
+          >
+            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+          </button>
+        </div>
+      )}      {alertCount > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-6 text-sm flex items-center gap-2">
           <span className="text-base">⚠️</span>
           <span><strong>{alertCount}</strong> vacina{alertCount > 1 ? 's' : ''} vencida{alertCount > 1 ? 's' : ''} ou com vencimento nos próximos 7 dias</span>

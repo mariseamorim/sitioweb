@@ -5,6 +5,7 @@ import { useUser } from '@/contexts/UserContext'
 import { useEffect, useState } from 'react'
 import { ESPECIES, STATUS_LIST, type Especie, type StatusAnimal } from '@/lib/types'
 import { ImagePicker } from '@/components/ImagePicker'
+import { getPendingRecords, addPendingRecord, clearPendingRecords, syncPendingRecords } from '@/lib/offlineStorage'
 
 interface Animal {
   id: string
@@ -43,8 +44,24 @@ export default function AnimaisPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [isOnline, setIsOnline] = useState(true)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [syncing, setSyncing] = useState(false)
 
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    setPendingCount(getPendingRecords('animais').length)
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -102,6 +119,17 @@ export default function AnimaisPage() {
     setSaving(true)
     setError('')
 
+    // Se estiver offline e criando novo (não editando), salva no localStorage
+    if (!isOnline && !editing) {
+      addPendingRecord('animais', { ...form, farmId, _type: 'create' })
+      setPendingCount(getPendingRecords('animais').length)
+      setSaving(false)
+      setShowForm(false)
+      setForm({ ...EMPTY_FORM, code: getNextCode(animals) })
+      return
+    }
+
+    // Se estiver editando ou online, envia para API normalmente
     const url = editing ? `/api/animals/${editing.id}` : '/api/animals'
     const method = editing ? 'PUT' : 'POST'
     const body = editing ? form : { ...form, farmId }
@@ -121,6 +149,24 @@ export default function AnimaisPage() {
 
     setSaving(false)
     setShowForm(false)
+    fetchAnimals(farmId)
+  }
+
+  async function handleSync() {
+    const pending = getPendingRecords('animais')
+    if (!pending.length) return
+    setSyncing(true)
+    for (const record of pending) {
+      const { _pendingId, _type, farmId: _, ...data } = record
+      await fetch('/api/animals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, farmId }),
+      })
+    }
+    clearPendingRecords('animais')
+    setPendingCount(0)
+    setSyncing(false)
     fetchAnimals(farmId)
   }
 
@@ -173,7 +219,25 @@ export default function AnimaisPage() {
         </button>
       </div>
 
-      <input
+      {/* Offline / sync banner */}
+      {!isOnline && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
+          <span>📴</span>
+          <span>Você está offline. Novos animais serão salvos localmente e sincronizados quando reconectar.</span>
+        </div>
+      )}
+      {isOnline && pendingCount > 0 && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
+          <span>📶 {pendingCount} animal{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
+          >
+            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+          </button>
+        </div>
+      )}
         type="text"
         placeholder="Buscar por nome, código ou espécie..."
         value={search}

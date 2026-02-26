@@ -3,6 +3,7 @@ import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
 
 import { useEffect, useState, useMemo } from 'react'
+import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
 
 interface Animal {
   id: string
@@ -40,6 +41,22 @@ export default function VeterinaryTreatmentPage() {
     animalId: '', startDate: '', endDate: '',
     medicine: '', batch: '', manufacturer: '', description: '', observations: '',
   })
+  const [isOnline, setIsOnline] = useState(true)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [syncing, setSyncing] = useState(false)
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    setPendingCount(getPendingRecords('veterinary-treatment').length)
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -106,9 +123,42 @@ export default function VeterinaryTreatmentPage() {
     loadData(farmId)
   }
 
+  async function handleSync() {
+    const pending = getPendingRecords('veterinary-treatment')
+    if (!pending.length) return
+    setSyncing(true)
+    for (const record of pending) {
+      const { _pendingId, _type, farmId: _, ...data } = record
+      await fetch('/api/veterinary-treatment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, farmId }),
+      })
+    }
+    clearPendingRecords('veterinary-treatment')
+    setPendingCount(0)
+    setSyncing(false)
+    loadData(farmId)
+  }
+
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaving(true)
+
+    // Se estiver offline, salva no localStorage
+    if (!isOnline) {
+      addPendingRecord('veterinary-treatment', { ...form, farmId })
+      setPendingCount(getPendingRecords('veterinary-treatment').length)
+      setSaving(false)
+      setShowRegister(false)
+      setForm({
+        animalId: '', startDate: '', endDate: '',
+        medicine: '', batch: '', manufacturer: '', description: '', observations: '',
+      })
+      return
+    }
+
+    // Se estiver online, envia para API
     await fetch('/api/veterinary-treatment', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -152,6 +202,26 @@ export default function VeterinaryTreatmentPage() {
           + Registrar
         </button>
       </div>
+
+      {/* Offline / sync banner */}
+      {!isOnline && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
+          <span>📴</span>
+          <span>Você está offline. Os registros serão salvos localmente e sincronizados quando reconectar.</span>
+        </div>
+      )}
+      {isOnline && pendingCount > 0 && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
+          <span>📶 {pendingCount} tratamento{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
+          >
+            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+          </button>
+        </div>
+      )}
 
       {/* Period filter */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
