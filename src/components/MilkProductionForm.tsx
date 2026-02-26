@@ -16,7 +16,8 @@ export function MilkProductionForm({ animalId, onSuccess }: MilkProductionFormPr
     setLoading(true)
     setError('')
 
-    const formData = new FormData(e.currentTarget)
+    const formEl = e.currentTarget
+    const formData = new FormData(formEl)
     const data = {
       animalId,
       date: formData.get('date'),
@@ -33,7 +34,7 @@ export function MilkProductionForm({ animalId, onSuccess }: MilkProductionFormPr
 
       if (!response.ok) throw new Error('Failed to add milk production')
 
-      e.currentTarget.reset()
+      formEl.reset()
       onSuccess?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao adicionar produção')

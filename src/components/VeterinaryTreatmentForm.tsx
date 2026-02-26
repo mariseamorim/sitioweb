@@ -16,7 +16,8 @@ export function VeterinaryTreatmentForm({ animalId, onSuccess }: VeterinaryTreat
     setLoading(true)
     setError('')
 
-    const formData = new FormData(e.currentTarget)
+    const formEl = e.currentTarget
+    const formData = new FormData(formEl)
     const data = {
       animalId,
       startDate: formData.get('startDate'),
@@ -37,7 +38,7 @@ export function VeterinaryTreatmentForm({ animalId, onSuccess }: VeterinaryTreat
 
       if (!response.ok) throw new Error('Failed to add veterinary treatment')
 
-      e.currentTarget.reset()
+      formEl.reset()
       onSuccess?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao adicionar tratamento')

@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import Link from 'next/link'
 
 export default async function Home() {
   const cookieStore = await cookies()
@@ -34,37 +35,37 @@ export default async function Home() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <Link href="/animais" className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center text-base">🐄</div>
             <p className="text-sm text-gray-500 font-medium leading-tight">Total de Animais</p>
           </div>
           <p className="text-3xl font-bold text-gray-800">{totalAnimals}</p>
-        </div>
+        </Link>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <Link href="/animais" className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center text-green-600 font-bold text-base">✓</div>
             <p className="text-sm text-gray-500 font-medium leading-tight">Animais Vivos</p>
           </div>
           <p className="text-3xl font-bold text-green-600">{aliveAnimals}</p>
-        </div>
+        </Link>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <Link href="/milk-production" className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-base">🥛</div>
             <p className="text-sm text-gray-500 font-medium leading-tight">Registros de Leite</p>
           </div>
           <p className="text-3xl font-bold text-blue-600">{milkCount}</p>
-        </div>
+        </Link>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <Link href="/veterinary-treatment" className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center text-base">💊</div>
             <p className="text-sm text-gray-500 font-medium leading-tight">Tratamentos Vet.</p>
           </div>
           <p className="text-3xl font-bold text-purple-600">{vetCount}</p>
-        </div>
+        </Link>
       </div>
     </div>
   )
