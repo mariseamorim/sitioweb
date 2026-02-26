@@ -238,6 +238,8 @@ export default function AnimaisPage() {
           </button>
         </div>
       )}
+
+      <input
         type="text"
         placeholder="Buscar por nome, código ou espécie..."
         value={search}
