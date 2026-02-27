@@ -96,7 +96,7 @@ export default function UsuariosPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...form,
-        permissions: form.role === 'admin' ? null : form.permissions,
+        permissions: form.permissions,
       }),
     })
     const data = await res.json()
@@ -114,7 +114,7 @@ export default function UsuariosPage() {
       body: JSON.stringify({
         name: editForm.name,
         role: editForm.role,
-        permissions: editForm.role === 'admin' ? null : editForm.permissions,
+        permissions: editForm.permissions,
       }),
     })
     const data = await res.json()
@@ -245,17 +245,14 @@ export default function UsuariosPage() {
                     <label className="text-xs font-medium text-gray-600">Perfil</label>
                     <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value, permissions: [] })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
-                      <option value="admin">Administrador</option>
                       <option value="editor">Editor</option>
                       <option value="viewer">Visualizador</option>
                     </select>
                   </div>
-                  {form.role !== 'admin' && (
-                    <div>
-                      <label className="text-xs font-medium text-gray-600 block mb-1.5">Módulos permitidos</label>
-                      <PermissionsGrid value={form.permissions} onChange={p => setForm({ ...form, permissions: p })} disabled={false} />
-                    </div>
-                  )}
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1.5">Módulos permitidos</label>
+                    <PermissionsGrid value={form.permissions} onChange={p => setForm({ ...form, permissions: p })} disabled={false} />
+                  </div>
                   {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
                   <div className="flex gap-2 pt-1">
                     <button type="button" onClick={() => setShowCreate(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
@@ -290,7 +287,6 @@ export default function UsuariosPage() {
                     <select value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value, permissions: [] })}
                       disabled={editUser.id === me?.id}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 disabled:bg-gray-50 disabled:text-gray-400">
-                      <option value="admin">Administrador</option>
                       <option value="editor">Editor</option>
                       <option value="viewer">Visualizador</option>
                     </select>
@@ -299,14 +295,11 @@ export default function UsuariosPage() {
                     )}
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600 block mb-1.5">
-                      Módulos permitidos
-                      {editForm.role === 'admin' && <span className="ml-1 text-purple-600">(todos — administrador)</span>}
-                    </label>
+                    <label className="text-xs font-medium text-gray-600 block mb-1.5">Módulos permitidos</label>
                     <PermissionsGrid
-                      value={editForm.role === 'admin' ? MODULES.map(m => m.key) : editForm.permissions}
+                      value={editForm.permissions}
                       onChange={p => setEditForm({ ...editForm, permissions: p })}
-                      disabled={editForm.role === 'admin'}
+                      disabled={false}
                     />
                   </div>
                   {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}

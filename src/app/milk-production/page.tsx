@@ -1,21 +1,9 @@
 'use client'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
+import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/offlineStorage'
 
 import { useEffect, useState, useMemo } from 'react'
-
-const PENDING_KEY = 'pending_milk_productions'
-
-interface PendingRecord {
-  animalId: string
-  date: string
-  quantity: string
-  observations: string
-}
-
-function getPending(): PendingRecord[] {
-  try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]') } catch { return [] }
-}
 
 interface Animal {
   id: string
@@ -55,7 +43,7 @@ export default function MilkProductionPage() {
 
   useEffect(() => {
     setIsOnline(navigator.onLine)
-    setPendingCount(getPending().length)
+    setPendingCount(getPendingRecords('milk_productions').length)
     const handleOnline = () => setIsOnline(true)
     const handleOffline = () => setIsOnline(false)
     window.addEventListener('online', handleOnline)
@@ -139,29 +127,32 @@ export default function MilkProductionPage() {
   }
 
   async function handleSync() {
-    const pending = getPending()
+    const pending = getPendingRecords('milk_productions')
     if (!pending.length) return
     setSyncing(true)
-    for (const p of pending) {
-      await fetch('/api/milk-production', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ animalId: p.animalId, date: p.date, quantity: p.quantity, observations: p.observations }),
-      })
+    for (const record of pending) {
+      try {
+        const pendingId = record._pendingId
+        const res = await fetch('/api/milk-production', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ animalId: record.animalId, date: record.date, quantity: record.quantity, observations: record.observations }),
+        })
+        if (res.ok) removePendingRecord('milk_productions', pendingId)
+      } catch {
+        // keep record for next sync attempt
+      }
     }
-    localStorage.removeItem(PENDING_KEY)
-    setPendingCount(0)
+    setPendingCount(getPendingRecords('milk_productions').length)
     setSyncing(false)
-    loadData(farmId)
+    if (farmId) loadData(farmId)
   }
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!isOnline) {
-      const pending = getPending()
-      pending.push({ animalId: formAnimalId, date: formDate, quantity: formQty, observations: formObs })
-      localStorage.setItem(PENDING_KEY, JSON.stringify(pending))
-      setPendingCount(pending.length)
+      const count = addPendingRecord('milk_productions', { animalId: formAnimalId, date: formDate, quantity: formQty, observations: formObs })
+      setPendingCount(count)
       setShowRegister(false)
       setFormAnimalId(''); setFormDate(''); setFormQty(''); setFormObs('')
       return

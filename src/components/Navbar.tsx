@@ -166,7 +166,7 @@ export function Navbar() {
     router.push('/login');
   }
 
-  if (pathname === '/login' || pathname === '/cadastro') return null;
+  if (pathname === '/login' || pathname === '/cadastro' || pathname === '/setup') return null;
 
   function isActive(href: string) {
     if (href === '/') return pathname === '/';
@@ -223,6 +223,11 @@ export function Navbar() {
                   }`}>
                     {user.role === 'admin' ? 'Admin' : user.role === 'editor' ? 'Editor' : 'Viewer'}
                   </span>
+                  {user.role === 'admin' && user.farmName && (
+                    <span className="text-[10px] text-gray-400 border border-gray-200 px-1.5 py-0.5 rounded-full max-w-[100px] truncate">
+                      {user.farmName}
+                    </span>
+                  )}
                 </div>
               )}
               <button

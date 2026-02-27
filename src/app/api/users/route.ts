@@ -6,7 +6,17 @@ async function getMe() {
   const cookieStore = await cookies()
   const userId = cookieStore.get('userId')?.value
   if (!userId) return null
-  return prisma.user.findUnique({ where: { id: userId }, select: { id: true, farmId: true, role: true } })
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, farmId: true, role: true } })
+  if (!user) return null
+
+  // Admin uses the activeFarmId cookie as their effective farm
+  let effectiveFarmId: string | null = user.farmId
+  if (user.role === 'admin') {
+    const activeFarmId = cookieStore.get('activeFarmId')?.value ?? null
+    effectiveFarmId = activeFarmId
+  }
+
+  return { ...user, effectiveFarmId }
 }
 
 export async function GET() {
@@ -14,7 +24,7 @@ export async function GET() {
   if (!me) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   const users = await prisma.user.findMany({
-    where: { farmId: me.farmId },
+    where: me.effectiveFarmId ? { farmId: me.effectiveFarmId } : { farmId: null },
     select: {
       id: true, name: true, email: true, role: true, permissions: true,
       farmId: true, farm: { select: { name: true } }, createdAt: true,
@@ -29,11 +39,17 @@ export async function POST(request: NextRequest) {
   if (!me || me.role !== 'admin') {
     return NextResponse.json({ error: 'Apenas administradores podem criar usuários' }, { status: 403 })
   }
+  if (!me.effectiveFarmId) {
+    return NextResponse.json({ error: 'Selecione uma propriedade antes de criar usuários' }, { status: 400 })
+  }
 
   const { name, email, password, role, permissions } = await request.json()
 
   if (!name || !email || !password) {
     return NextResponse.json({ error: 'Nome, e-mail e senha são obrigatórios' }, { status: 400 })
+  }
+  if (role === 'admin') {
+    return NextResponse.json({ error: 'Não é possível criar usuários administradores por aqui' }, { status: 400 })
   }
 
   try {
@@ -42,7 +58,7 @@ export async function POST(request: NextRequest) {
         name, email, password,
         role: role || 'viewer',
         permissions: permissions ?? null,
-        farmId: me.farmId,
+        farmId: me.effectiveFarmId,
       },
       select: { id: true, name: true, email: true, role: true, permissions: true, farmId: true },
     })

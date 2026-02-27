@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     email: user.email,
     role: user.role,
     farmId: user.farmId,
-    farmName: user.farm.name,
+    farmName: user.farm?.name ?? null,
   });
 
   response.cookies.set('userId', user.id, {

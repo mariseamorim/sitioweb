@@ -2,6 +2,8 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
+import { FarmPicker } from '@/components/FarmPicker'
+import { AdminFarmBanner } from '@/components/AdminFarmBanner'
 
 export default async function Home() {
   const cookieStore = await cookies()
@@ -11,10 +13,31 @@ export default async function Home() {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    include: { farm: true },
+    select: { id: true, name: true, role: true, farmId: true },
   })
 
   if (!user) redirect('/login')
+
+  // Determine effective farmId
+  let effectiveFarmId: string | null = user.farmId
+  if (user.role === 'admin') {
+    effectiveFarmId = cookieStore.get('activeFarmId')?.value ?? null
+  }
+
+  // Admin with no farm selected → show farm picker
+  if (user.role === 'admin' && !effectiveFarmId) {
+    const farms = await prisma.farm.findMany({
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, propertyType: true, owner: true, city: true, state: true },
+    })
+    return <FarmPicker farms={farms} />
+  }
+
+  // Load farm name for display
+  const farm = await prisma.farm.findUnique({
+    where: { id: effectiveFarmId! },
+    select: { name: true },
+  })
 
   const now = new Date()
   const in7 = new Date(now); in7.setDate(in7.getDate() + 7)
@@ -23,33 +46,33 @@ export default async function Home() {
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
   const [totalAnimals, aliveAnimals, milkCount, vetCount, vaccinePending, upcomingBirths, monthTransactions, supplies] = await Promise.all([
-    prisma.animal.count({ where: { farmId: user.farmId } }),
-    prisma.animal.count({ where: { farmId: user.farmId, status: 'Vivo' } }),
-    prisma.milkProduction.count({ where: { animal: { farmId: user.farmId } } }),
-    prisma.veterinaryTreatment.count({ where: { animal: { farmId: user.farmId } } }),
+    prisma.animal.count({ where: { farmId: effectiveFarmId! } }),
+    prisma.animal.count({ where: { farmId: effectiveFarmId!, status: 'Vivo' } }),
+    prisma.milkProduction.count({ where: { animal: { farmId: effectiveFarmId! } } }),
+    prisma.veterinaryTreatment.count({ where: { animal: { farmId: effectiveFarmId! } } }),
     prisma.vaccination.count({
       where: {
-        animal: { farmId: user.farmId },
+        animal: { farmId: effectiveFarmId! },
         appliedDate: null,
         scheduledDate: { lte: in7 },
       },
     }),
     prisma.reproduction.count({
       where: {
-        farmId: user.farmId,
+        farmId: effectiveFarmId!,
         actualBirthDate: null,
         expectedBirthDate: { lte: in30 },
       },
     }),
     prisma.transaction.findMany({
       where: {
-        farmId: user.farmId,
+        farmId: effectiveFarmId!,
         date: { gte: startOfMonth, lte: endOfMonth },
       },
       select: { type: true, amount: true },
     }),
     prisma.supply.findMany({
-      where: { farmId: user.farmId },
+      where: { farmId: effectiveFarmId! },
       select: { currentQuantity: true, minimumQuantity: true },
     }),
   ])
@@ -64,12 +87,19 @@ export default async function Home() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Painel</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          Bem-vindo de volta, <span className="font-medium text-gray-700">{user.name}</span>
-          <span className="mx-1.5 text-gray-300">·</span>
-          {user.farm.name}
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Painel</h1>
+            <p className="text-gray-500 text-sm mt-1">
+              Bem-vindo de volta, <span className="font-medium text-gray-700">{user.name}</span>
+              <span className="mx-1.5 text-gray-300">·</span>
+              {farm?.name}
+            </p>
+          </div>
+          {user.role === 'admin' && (
+            <AdminFarmBanner />
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

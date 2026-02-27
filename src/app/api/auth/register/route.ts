@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
           name: user.name,
           email: user.email,
           password: user.password,
-          role: 'admin',
+          role: 'editor',
+          permissions: ['animais', 'leite', 'veterinario', 'vacinacao', 'reproducao', 'financeiro', 'estoque', 'fazendas', 'usuarios'],
           farmId: newFarm.id,
         },
       });

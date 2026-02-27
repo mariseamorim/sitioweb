@@ -22,6 +22,7 @@ model Farm {
   address        String?
   city           String?
   state          String?
+  isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -41,8 +42,8 @@ model User {
   password    String
   role        String   @default("viewer")
   permissions Json?    // String[] de chaves de módulo; null = admin tem tudo
-  farmId      String
-  farm        Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farmId      String?
+  farm        Farm?    @relation(fields: [farmId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

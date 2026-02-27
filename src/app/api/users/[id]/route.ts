@@ -6,7 +6,16 @@ async function getMe() {
   const cookieStore = await cookies()
   const userId = cookieStore.get('userId')?.value
   if (!userId) return null
-  return prisma.user.findUnique({ where: { id: userId }, select: { id: true, farmId: true, role: true } })
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, farmId: true, role: true } })
+  if (!user) return null
+
+  let effectiveFarmId: string | null = user.farmId
+  if (user.role === 'admin') {
+    const activeFarmId = cookieStore.get('activeFarmId')?.value ?? null
+    effectiveFarmId = activeFarmId
+  }
+
+  return { ...user, effectiveFarmId }
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -21,12 +30,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   // Cannot edit a user from another farm
   const target = await prisma.user.findUnique({ where: { id }, select: { farmId: true } })
-  if (!target || target.farmId !== me.farmId) {
+  if (!target || target.farmId !== me.effectiveFarmId) {
     return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
   }
 
-  // Cannot demote yourself
-  if (id === me.id && role && role !== 'admin') {
+  // Cannot promote to admin
+  if (role === 'admin') {
+    return NextResponse.json({ error: 'Não é possível promover usuários a administrador por aqui' }, { status: 400 })
+  }
+
+  // Cannot change your own role
+  if (id === me.id && role) {
     return NextResponse.json({ error: 'Você não pode alterar seu próprio perfil' }, { status: 400 })
   }
 
@@ -35,7 +49,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     data: {
       ...(name && { name }),
       ...(role && { role }),
-      permissions: role === 'admin' ? null : (permissions ?? null),
+      permissions: permissions ?? null,
     },
     select: { id: true, name: true, email: true, role: true, permissions: true, farmId: true },
   })
@@ -55,7 +69,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   }
 
   const target = await prisma.user.findUnique({ where: { id }, select: { farmId: true } })
-  if (!target || target.farmId !== me.farmId) {
+  if (!target || target.farmId !== me.effectiveFarmId) {
     return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
   }
 

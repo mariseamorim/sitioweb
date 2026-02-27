@@ -335,7 +335,6 @@ export default function ReproducaoPage() {
           </div>
         </div>
       )}
-    </div>
     </PermissionGuard>
   )
 }

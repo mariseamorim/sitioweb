@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 type Step = 1 | 2;
@@ -10,7 +9,6 @@ const FARM_EMPTY = { name: '', propertyType: 'Fazenda', documentType: 'CNPJ', do
 const USER_EMPTY = { name: '', email: '', password: '', confirm: '' };
 
 export default function CadastroPage() {
-  const router = useRouter();
   const [step, setStep] = useState<Step>(1);
 
   const [farm, setFarm] = useState(FARM_EMPTY);
@@ -53,7 +51,7 @@ export default function CadastroPage() {
         return;
       }
 
-      router.push('/');
+      window.location.href = '/';
     } catch {
       setError('Erro de conexão. Tente novamente.');
     } finally {

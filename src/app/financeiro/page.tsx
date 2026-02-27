@@ -1,5 +1,6 @@
 'use client'
 import { PermissionGuard } from '@/components/PermissionGuard'
+import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/offlineStorage'
 
 import { useEffect, useState, useMemo } from 'react'
 
@@ -29,6 +30,22 @@ export default function FinanceiroPage() {
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ type: 'Receita', category: 'Venda de Leite', date: '', amount: '', description: '', animalId: '' })
+  const [isOnline, setIsOnline] = useState(true)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [syncing, setSyncing] = useState(false)
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    setPendingCount(getPendingRecords('financeiro').length)
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(data => {
@@ -48,6 +65,29 @@ export default function FinanceiroPage() {
       setAnimals(Array.isArray(anims) ? anims : [])
       setLoading(false)
     })
+  }
+
+  async function handleSync() {
+    const pending = getPendingRecords('financeiro')
+    if (!pending.length) return
+    setSyncing(true)
+    for (const record of pending) {
+      try {
+        const pendingId = record._pendingId
+        const { _pendingId, ...data } = record
+        const res = await fetch('/api/financeiro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+        if (res.ok) removePendingRecord('financeiro', pendingId)
+      } catch {
+        // keep record for next sync attempt
+      }
+    }
+    setPendingCount(getPendingRecords('financeiro').length)
+    setSyncing(false)
+    if (farmId) loadData(farmId)
   }
 
   const filtered = useMemo(() => {
@@ -80,11 +120,30 @@ export default function FinanceiroPage() {
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+
+    const payload = {
+      type: form.type,
+      category: form.category,
+      date: form.date,
+      amount: parseFloat(form.amount),
+      description: form.description || null,
+      animalId: form.animalId || null,
+      farmId,
+    }
+
+    if (!isOnline) {
+      const count = addPendingRecord('financeiro', payload)
+      setPendingCount(count)
+      setShowRegister(false)
+      setForm({ type: 'Receita', category: 'Venda de Leite', date: '', amount: '', description: '', animalId: '' })
+      return
+    }
+
     setSaving(true)
     await fetch('/api/financeiro', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, farmId, animalId: form.animalId || null, description: form.description || null }),
+      body: JSON.stringify(payload),
     })
     setSaving(false)
     setShowRegister(false)
@@ -108,6 +167,26 @@ export default function FinanceiroPage() {
           + Transação
         </button>
       </div>
+
+      {/* Offline / sync banner */}
+      {!isOnline && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
+          <span>📴</span>
+          <span>Você está offline. As transações serão salvas localmente e sincronizadas quando reconectar.</span>
+        </div>
+      )}
+      {isOnline && pendingCount > 0 && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
+          <span>📶 {pendingCount} transação{pendingCount > 1 ? 'ões' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
+          >
+            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+          </button>
+        </div>
+      )}
 
       {/* Period filter */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
@@ -262,6 +341,9 @@ export default function FinanceiroPage() {
                     <option value="">— Nenhum —</option>
                     {animals.map(a => <option key={a.id} value={a.id}>{a.name} ({a.code})</option>)}
                   </select>
+                  {!isOnline && animals.length === 0 && (
+                    <p className="text-xs text-gray-400 mt-1">Lista de animais indisponível offline</p>
+                  )}
                 </div>
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setShowRegister(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>

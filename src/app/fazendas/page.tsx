@@ -15,6 +15,7 @@ interface Farm {
   address?: string
   city?: string
   state?: string
+  isActive?: boolean
 }
 
 const EMPTY = {
@@ -42,6 +43,7 @@ export default function PropriedadesPage() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [deleting, setDeleting] = useState<string | null>(null)
 
   function fetchFarms() {
     setLoading(true)
@@ -72,6 +74,23 @@ export default function PropriedadesPage() {
     fetchFarms()
   }
 
+  async function handleDelete(farmId: string) {
+    if (!confirm('Tem certeza? Se a propriedade não tiver dados será deletada permanentemente. Se tiver dados, será inativada.')) return
+    setDeleting(farmId)
+    
+    const res = await fetch(`/api/farms/${farmId}/delete`, { method: 'DELETE' })
+    const data = await res.json()
+    
+    setDeleting(null)
+    if (!res.ok) {
+      alert('Erro: ' + (data.error || 'Erro desconhecido'))
+      return
+    }
+    
+    alert(data.message)
+    fetchFarms()
+  }
+
   return (
     <PermissionGuard module="fazendas">
       <div>
@@ -94,15 +113,27 @@ export default function PropriedadesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {farms.map((f) => (
-            <div key={f.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          {farms.filter(f => f.isActive !== false).map((f) => (
+            <div key={f.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative">
               <div className="flex items-start justify-between gap-2 mb-2">
                 <h2 className="font-bold text-gray-800 text-lg leading-tight">{f.name}</h2>
-                {f.propertyType && (
-                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${typeColor[f.propertyType] ?? 'bg-gray-100 text-gray-600'}`}>
-                    {f.propertyType}
-                  </span>
-                )}
+                <div className="flex gap-1 shrink-0">
+                  {f.propertyType && (
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColor[f.propertyType] ?? 'bg-gray-100 text-gray-600'}`}>
+                      {f.propertyType}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => handleDelete(f.id)}
+                    disabled={deleting === f.id}
+                    className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
+                    title="Deletar/Inativar"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
               </div>
               {(f.documentType || f.documentNumber) && (
                 <p className="text-sm text-gray-500">{f.documentType}: {f.documentNumber}</p>
