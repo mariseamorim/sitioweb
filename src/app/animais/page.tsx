@@ -2,7 +2,7 @@
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { ESPECIES, STATUS_LIST, type Especie, type StatusAnimal } from '@/lib/types'
 import { ImagePicker } from '@/components/ImagePicker'
 import { getPendingRecords, addPendingRecord, clearPendingRecords, syncPendingRecords } from '@/lib/offlineStorage'
@@ -50,18 +50,94 @@ export default function AnimaisPage() {
 
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
 
+  const fetchAnimals = useCallback((fid: string) => {
+    setLoading(true)
+    fetch(`/api/animals?farmId=${fid}`)
+      .then((r) => r.json())
+      .then((data) => {
+        // Merges API animals with pending offline records
+        const pending = getPendingRecords('animais')
+          .filter(r => r.farmId === fid && r._type === 'create')
+          .map(r => ({
+            id: `pending_${r._pendingId}`,
+            code: r.code,
+            name: r.name,
+            species: r.species,
+            gender: r.gender,
+            birthDate: r.birthDate,
+            status: r.status,
+            gta: r.gta,
+            observations: r.observations,
+            imageUrl: r.imageUrl,
+          }))
+        setAnimals([...data, ...pending])
+        setLoading(false)
+      })
+      .catch(() => {
+        // If offline/error, still show pending records
+        const pending = getPendingRecords('animais')
+          .filter(r => r.farmId === fid && r._type === 'create')
+          .map(r => ({
+            id: `pending_${r._pendingId}`,
+            code: r.code,
+            name: r.name,
+            species: r.species,
+            gender: r.gender,
+            birthDate: r.birthDate,
+            status: r.status,
+            gta: r.gta,
+            observations: r.observations,
+            imageUrl: r.imageUrl,
+          }))
+        setAnimals(pending)
+        setLoading(false)
+      })
+  }, [])
+
+  const handleSync = useCallback(async () => {
+    const pending = getPendingRecords('animais')
+    if (!pending.length) return
+    setSyncing(true)
+    let successCount = 0
+    
+    for (const record of pending) {
+      const { _pendingId, _type, farmId: _, ...data } = record
+      try {
+        const res = await fetch('/api/animals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...data, farmId }),
+        })
+        if (res.ok) successCount++
+      } catch (err) {
+        console.error('Sync error:', err)
+      }
+    }
+    
+    clearPendingRecords('animais')
+    setPendingCount(0)
+    setSyncing(false)
+    fetchAnimals(farmId)
+  }, [farmId])
+
   useEffect(() => {
     setIsOnline(navigator.onLine)
     setPendingCount(getPendingRecords('animais').length)
-    const handleOnline = () => setIsOnline(true)
+    
+    const handleOnline = () => {
+      setIsOnline(true)
+      // Auto-sync when reconnected
+      if (farmId) handleSync()
+    }
     const handleOffline = () => setIsOnline(false)
+    
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
     }
-  }, [])
+  }, [farmId, handleSync])
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -73,13 +149,6 @@ export default function AnimaisPage() {
         }
       })
   }, [])
-
-  function fetchAnimals(fid: string) {
-    setLoading(true)
-    fetch(`/api/animals?farmId=${fid}`)
-      .then((r) => r.json())
-      .then((data) => { setAnimals(data); setLoading(false) })
-  }
 
   function openNew() {
     setEditing(null)
@@ -149,24 +218,6 @@ export default function AnimaisPage() {
 
     setSaving(false)
     setShowForm(false)
-    fetchAnimals(farmId)
-  }
-
-  async function handleSync() {
-    const pending = getPendingRecords('animais')
-    if (!pending.length) return
-    setSyncing(true)
-    for (const record of pending) {
-      const { _pendingId, _type, farmId: _, ...data } = record
-      await fetch('/api/animals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, farmId }),
-      })
-    }
-    clearPendingRecords('animais')
-    setPendingCount(0)
-    setSyncing(false)
     fetchAnimals(farmId)
   }
 
