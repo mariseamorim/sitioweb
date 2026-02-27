@@ -52,43 +52,44 @@ export default function AnimaisPage() {
 
   const fetchAnimals = useCallback((fid: string) => {
     setLoading(true)
+    
+    // Always load pending records from localStorage
+    const pending = getPendingRecords('animais')
+      .filter(r => r.farmId === fid && r._type === 'create')
+      .map(r => ({
+        id: `pending_${r._pendingId}`,
+        code: r.code,
+        name: r.name,
+        species: r.species,
+        gender: r.gender,
+        birthDate: r.birthDate,
+        status: r.status,
+        gta: r.gta,
+        observations: r.observations,
+        imageUrl: r.imageUrl,
+      }))
+
+    // If offline, show only pending records
+    if (!navigator.onLine) {
+      setAnimals(pending)
+      setLoading(false)
+      return
+    }
+
+    // Try to fetch from API, but don't fail if offline
     fetch(`/api/animals?farmId=${fid}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error('API error')
+        return r.json()
+      })
       .then((data) => {
-        // Merges API animals with pending offline records
-        const pending = getPendingRecords('animais')
-          .filter(r => r.farmId === fid && r._type === 'create')
-          .map(r => ({
-            id: `pending_${r._pendingId}`,
-            code: r.code,
-            name: r.name,
-            species: r.species,
-            gender: r.gender,
-            birthDate: r.birthDate,
-            status: r.status,
-            gta: r.gta,
-            observations: r.observations,
-            imageUrl: r.imageUrl,
-          }))
+        // Merge API data with pending records
         setAnimals([...data, ...pending])
         setLoading(false)
       })
-      .catch(() => {
-        // If offline/error, still show pending records
-        const pending = getPendingRecords('animais')
-          .filter(r => r.farmId === fid && r._type === 'create')
-          .map(r => ({
-            id: `pending_${r._pendingId}`,
-            code: r.code,
-            name: r.name,
-            species: r.species,
-            gender: r.gender,
-            birthDate: r.birthDate,
-            status: r.status,
-            gta: r.gta,
-            observations: r.observations,
-            imageUrl: r.imageUrl,
-          }))
+      .catch((err) => {
+        // On error, show at least the pending records
+        console.log('Fetch error:', err)
         setAnimals(pending)
         setLoading(false)
       })
@@ -118,7 +119,7 @@ export default function AnimaisPage() {
     setPendingCount(0)
     setSyncing(false)
     fetchAnimals(farmId)
-  }, [farmId])
+  }, [farmId, fetchAnimals])
 
   useEffect(() => {
     setIsOnline(navigator.onLine)
@@ -148,7 +149,7 @@ export default function AnimaisPage() {
           fetchAnimals(data.farmId)
         }
       })
-  }, [])
+  }, [fetchAnimals])
 
   function openNew() {
     setEditing(null)
@@ -195,6 +196,8 @@ export default function AnimaisPage() {
       setSaving(false)
       setShowForm(false)
       setForm({ ...EMPTY_FORM, code: getNextCode(animals) })
+      // Atualiza a lista com o novo registro pendente
+      fetchAnimals(farmId)
       return
     }
 
