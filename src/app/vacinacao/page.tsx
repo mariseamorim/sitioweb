@@ -72,12 +72,42 @@ export default function VacinacaoPage() {
 
   function loadData(fid: string) {
     setLoading(true)
+    const mapPending = () =>
+      getPendingRecords('vacinacao')
+        .filter(r => r.farmId === fid && r._type === 'create')
+        .map(r => ({
+          id: `pending_${r._pendingId}`,
+          animalId: r.animalId,
+          animal: r.animal || { id: r.animalId, name: '(Offline)', code: '' },
+          vaccineName: r.vaccineName,
+          scheduledDate: r.scheduledDate,
+          appliedDate: r.appliedDate ?? null,
+          batch: r.batch ?? null,
+          manufacturer: r.manufacturer ?? null,
+          observations: r.observations ?? null,
+        }))
+
+    // If offline, load only pending records
+    if (!navigator.onLine) {
+      const pending = mapPending()
+      setVaccinations(pending)
+      setAnimals(pending.map(p => p.animal))
+      setLoading(false)
+      return
+    }
+    
     Promise.all([
-      fetch(`/api/vacinacao?farmId=${fid}`).then(r => r.json()),
-      fetch(`/api/animals?farmId=${fid}`).then(r => r.json()),
+      fetch(`/api/vacinacao?farmId=${fid}`).then(r => r.json()).catch(() => []),
+      fetch(`/api/animals?farmId=${fid}`).then(r => r.json()).catch(() => []),
     ]).then(([vaccs, anims]) => {
-      setVaccinations(Array.isArray(vaccs) ? vaccs : [])
+      const pending = mapPending()
+      setVaccinations(Array.isArray(vaccs) ? [...vaccs, ...pending] : pending)
       setAnimals(Array.isArray(anims) ? anims : [])
+      setLoading(false)
+    }).catch(() => {
+      const pending = mapPending()
+      setVaccinations(pending)
+      setAnimals(pending.map(p => p.animal))
       setLoading(false)
     })
   }
@@ -135,7 +165,16 @@ export default function VacinacaoPage() {
 
     // Se estiver offline, salva no localStorage
     if (!isOnline) {
-      addPendingRecord('vacinacao', { ...form, appliedDate: form.appliedDate || null, batch: form.batch || null, manufacturer: form.manufacturer || null, observations: form.observations || null, farmId })
+      const animal = animals.find(a => a.id === form.animalId)
+      addPendingRecord('vacinacao', {
+        ...form,
+        appliedDate: form.appliedDate || null,
+        batch: form.batch || null,
+        manufacturer: form.manufacturer || null,
+        observations: form.observations || null,
+        farmId,
+        animal: animal || undefined,
+      })
       setPendingCount(getPendingRecords('vacinacao').length)
       setSaving(false)
       setShowRegister(false)

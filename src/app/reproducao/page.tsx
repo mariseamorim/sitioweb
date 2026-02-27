@@ -70,12 +70,43 @@ export default function ReproducaoPage() {
 
   function loadData(fid: string) {
     setLoading(true)
+    const mapPending = () =>
+      getPendingRecords('reproducao')
+        .filter(r => r.farmId === fid && r._type === 'create')
+        .map(r => ({
+          id: `pending_${r._pendingId}`,
+          femaleId: r.femaleId,
+          female: r.female || { id: r.femaleId, name: '(Offline)', code: '', species: '', gender: 'Fêmea' },
+          maleName: r.maleName ?? null,
+          coverageDate: r.coverageDate,
+          expectedBirthDate: r.expectedBirthDate ?? null,
+          actualBirthDate: r.actualBirthDate ?? null,
+          status: r.status,
+          calfId: r.calfId ?? null,
+          observations: r.observations ?? null,
+        }))
+
+    // If offline, load only pending records
+    if (!navigator.onLine) {
+      const pending = mapPending()
+      setReproductions(pending)
+      setFemales(pending.map(p => p.female))
+      setLoading(false)
+      return
+    }
+    
     Promise.all([
-      fetch(`/api/reproducao?farmId=${fid}`).then(r => r.json()),
-      fetch(`/api/animals?farmId=${fid}`).then(r => r.json()),
+      fetch(`/api/reproducao?farmId=${fid}`).then(r => r.json()).catch(() => []),
+      fetch(`/api/animals?farmId=${fid}`).then(r => r.json()).catch(() => []),
     ]).then(([repros, anims]) => {
-      setReproductions(Array.isArray(repros) ? repros : [])
+      const pending = mapPending()
+      setReproductions(Array.isArray(repros) ? [...repros, ...pending] : pending)
       setFemales(Array.isArray(anims) ? anims.filter((a: Animal) => a.gender === 'Fêmea') : [])
+      setLoading(false)
+    }).catch(() => {
+      const pending = mapPending()
+      setReproductions(pending)
+      setFemales(pending.map(p => p.female))
       setLoading(false)
     })
   }
@@ -135,7 +166,14 @@ export default function ReproducaoPage() {
 
     // Se estiver offline, salva no localStorage
     if (!isOnline) {
-      addPendingRecord('reproducao', { ...form, farmId, maleName: form.maleName || null, observations: form.observations || null })
+      const female = females.find(f => f.id === form.femaleId)
+      addPendingRecord('reproducao', {
+        ...form,
+        farmId,
+        maleName: form.maleName || null,
+        observations: form.observations || null,
+        female: female || undefined,
+      })
       setPendingCount(getPendingRecords('reproducao').length)
       setSaving(false)
       setShowRegister(false)

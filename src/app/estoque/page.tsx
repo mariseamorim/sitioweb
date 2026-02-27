@@ -57,10 +57,39 @@ export default function EstoquePage() {
 
   function loadData(fid: string) {
     setLoading(true)
-    fetch(`/api/estoque?farmId=${fid}`).then(r => r.json()).then(data => {
-      setSupplies(Array.isArray(data) ? data : [])
+    const mapPending = () =>
+      getPendingRecords('estoque')
+        .filter(r => r.farmId === fid && r._type === 'create')
+        .map(r => ({
+          id: `pending_${r._pendingId}`,
+          name: r.name,
+          category: r.category,
+          unit: r.unit,
+          currentQuantity: Number(r.currentQuantity ?? 0),
+          minimumQuantity: Number(r.minimumQuantity ?? 0),
+          movements: [],
+        }))
+
+    // If offline, load only pending records
+    if (!navigator.onLine) {
+      const pending = mapPending()
+      setSupplies(pending)
       setLoading(false)
-    })
+      return
+    }
+    
+    fetch(`/api/estoque?farmId=${fid}`)
+      .then(r => r.json())
+      .then(data => {
+        const pending = mapPending()
+        setSupplies(Array.isArray(data) ? [...data, ...pending] : pending)
+        setLoading(false)
+      })
+      .catch(() => {
+        const pending = mapPending()
+        setSupplies(pending)
+        setLoading(false)
+      })
   }
 
   const alertCount = supplies.filter(s => s.currentQuantity <= s.minimumQuantity).length

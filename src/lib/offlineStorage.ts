@@ -7,7 +7,21 @@ export interface OfflineRecord {
   [key: string]: any;
 }
 
+// Helper para verificar se localStorage está disponível
+function isLocalStorageAvailable(): boolean {
+  try {
+    const test = '__localStorage_test__';
+    if (typeof window === 'undefined') return false;
+    localStorage.setItem(test, test);
+    localStorage.removeItem(test);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getPendingRecords(module: string): OfflineRecord[] {
+  if (!isLocalStorageAvailable()) return [];
   const key = `pending_${module}`;
   try {
     return JSON.parse(localStorage.getItem(key) || '[]');
@@ -17,26 +31,42 @@ export function getPendingRecords(module: string): OfflineRecord[] {
 }
 
 export function addPendingRecord(module: string, record: OfflineRecord): number {
+  if (!isLocalStorageAvailable()) return 0;
   const key = `pending_${module}`;
-  const records = getPendingRecords(module);
-  records.push({ ...record, _pendingId: Date.now() + Math.random() });
-  localStorage.setItem(key, JSON.stringify(records));
-  return records.length;
+  try {
+    const records = getPendingRecords(module);
+    records.push({ ...record, _pendingId: Date.now() + Math.random() });
+    localStorage.setItem(key, JSON.stringify(records));
+    return records.length;
+  } catch (err) {
+    console.error('Failed to add pending record:', err);
+    return 0;
+  }
 }
 
 export function clearPendingRecords(module: string): void {
+  if (!isLocalStorageAvailable()) return;
   const key = `pending_${module}`;
-  localStorage.removeItem(key);
+  try {
+    localStorage.removeItem(key);
+  } catch (err) {
+    console.error('Failed to clear pending records:', err);
+  }
 }
 
 export function removePendingRecord(module: string, pendingId: string | number): void {
+  if (!isLocalStorageAvailable()) return;
   const key = `pending_${module}`;
-  const records = getPendingRecords(module);
-  const filtered = records.filter(r => r._pendingId !== pendingId);
-  if (filtered.length > 0) {
-    localStorage.setItem(key, JSON.stringify(filtered));
-  } else {
-    localStorage.removeItem(key);
+  try {
+    const records = getPendingRecords(module);
+    const filtered = records.filter(r => r._pendingId !== pendingId);
+    if (filtered.length > 0) {
+      localStorage.setItem(key, JSON.stringify(filtered));
+    } else {
+      localStorage.removeItem(key);
+    }
+  } catch (err) {
+    console.error('Failed to remove pending record:', err);
   }
 }
 

@@ -70,12 +70,43 @@ export default function VeterinaryTreatmentPage() {
 
   function loadData(fid: string) {
     setLoading(true)
+    const mapPending = () =>
+      getPendingRecords('veterinary-treatment')
+        .filter(r => r.farmId === fid && r._type === 'create')
+        .map(r => ({
+          id: `pending_${r._pendingId}`,
+          animalId: r.animalId,
+          startDate: r.startDate,
+          endDate: r.endDate ?? null,
+          medicine: r.medicine,
+          batch: r.batch ?? null,
+          manufacturer: r.manufacturer ?? null,
+          description: r.description ?? null,
+          observations: r.observations ?? null,
+          animal: r.animal || { id: r.animalId, name: '(Offline)', code: '' },
+        }))
+
+    // If offline, load only pending records
+    if (!navigator.onLine) {
+      const pending = mapPending()
+      setTreatments(pending)
+      setAllAnimals(pending.map(p => p.animal))
+      setLoading(false)
+      return
+    }
+    
     Promise.all([
-      fetch(`/api/veterinary-treatment?farmId=${fid}`).then((r) => r.json()),
-      fetch(`/api/animals?farmId=${fid}`).then((r) => r.json()),
+      fetch(`/api/veterinary-treatment?farmId=${fid}`).then((r) => r.json()).catch(() => []),
+      fetch(`/api/animals?farmId=${fid}`).then((r) => r.json()).catch(() => []),
     ]).then(([trts, animals]) => {
-      setTreatments(Array.isArray(trts) ? trts : [])
+      const pending = mapPending()
+      setTreatments(Array.isArray(trts) ? [...trts, ...pending] : pending)
       setAllAnimals(Array.isArray(animals) ? animals : [])
+      setLoading(false)
+    }).catch(() => {
+      const pending = mapPending()
+      setTreatments(pending)
+      setAllAnimals(pending.map(p => p.animal))
       setLoading(false)
     })
   }
@@ -147,7 +178,8 @@ export default function VeterinaryTreatmentPage() {
 
     // Se estiver offline, salva no localStorage
     if (!isOnline) {
-      addPendingRecord('veterinary-treatment', { ...form, farmId })
+      const animal = allAnimals.find(a => a.id === form.animalId)
+      addPendingRecord('veterinary-treatment', { ...form, farmId, animal: animal || undefined })
       setPendingCount(getPendingRecords('veterinary-treatment').length)
       setSaving(false)
       setShowRegister(false)
