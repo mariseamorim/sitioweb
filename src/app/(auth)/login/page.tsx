@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image'
 import Link from 'next/link';
 
 export default function LoginPage() {
@@ -42,10 +43,10 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8">
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-4 mb-4">
-              <img
-                src="/logo.svg"
-                alt="SítioWeb"
-                className="h-12 sm:h-14 w-auto object-contain"
+              <Image
+                src="/anota-ai-agro-logo.png" width={1632} height={473}
+                alt="Anota Aí Agro"
+                className="h-auto w-56 max-w-full object-contain"
               />
             </div>
             <p className="text-gray-500 text-sm mt-1">Faça login para continuar</p>
