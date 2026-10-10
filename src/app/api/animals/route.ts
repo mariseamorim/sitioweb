@@ -1,22 +1,27 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireFarmAccess } from '@/lib/auth'
 
-export async function GET(request: NextRequest) {
-  const farmId = request.nextUrl.searchParams.get('farmId')
-  if (!farmId) return NextResponse.json({ error: 'farmId required' }, { status: 400 })
+export async function GET() {
+  const auth = await requireFarmAccess('animais', 'view')
+  if (auth.error) return auth.error
 
   const animals = await prisma.animal.findMany({
-    where: { farmId },
+    where: { farmId: auth.farmId },
     orderBy: { name: 'asc' },
   })
   return NextResponse.json(animals)
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json()
-  const { farmId, code, name, species, gender, birthDate, status, gta, observations, imageUrl } = body
+  const auth = await requireFarmAccess('animais', 'edit')
+  if (auth.error) return auth.error
+  const farmId = auth.farmId
 
-  if (!farmId || !name || !species || !gender || !birthDate || !status) {
+  const body = await request.json()
+  const { code, name, species, gender, birthDate, status, gta, observations, imageUrl } = body
+
+  if (!name || !species || !gender || !birthDate || !status) {
     return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
   }
 

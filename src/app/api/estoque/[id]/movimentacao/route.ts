@@ -1,9 +1,15 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { notFound, requireFarmAccess } from '@/lib/auth'
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireFarmAccess('estoque', 'edit')
+  if (auth.error) return auth.error
+
   try {
     const { id: supplyId } = await params
+    const owned = await prisma.supply.findFirst({ where: { id: supplyId, farmId: auth.farmId }, select: { id: true } })
+    if (!owned) return notFound('Insumo não encontrado')
     const body = await request.json()
     const { type, quantity, date, description } = body
 
@@ -35,7 +41,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     ])
 
     return NextResponse.json({ movement, supply }, { status: 201 })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Erro ao registrar movimentação' }, { status: 500 })
   }
 }

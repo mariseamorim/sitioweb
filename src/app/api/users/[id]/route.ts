@@ -1,25 +1,9 @@
 import { prisma } from '@/lib/prisma'
-import { cookies } from 'next/headers'
+import { getSessionUser } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 
-async function getMe() {
-  const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value
-  if (!userId) return null
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, farmId: true, role: true } })
-  if (!user) return null
-
-  let effectiveFarmId: string | null = user.farmId
-  if (user.role === 'admin') {
-    const activeFarmId = cookieStore.get('activeFarmId')?.value ?? null
-    effectiveFarmId = activeFarmId
-  }
-
-  return { ...user, effectiveFarmId }
-}
-
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const me = await getMe()
+  const me = await getSessionUser()
   if (!me || me.role !== 'admin') {
     return NextResponse.json({ error: 'Apenas administradores podem editar usuários' }, { status: 403 })
   }
@@ -57,7 +41,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const me = await getMe()
+  const me = await getSessionUser()
   if (!me || me.role !== 'admin') {
     return NextResponse.json({ error: 'Apenas administradores podem excluir usuários' }, { status: 403 })
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { hashPassword, setSessionCookie } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   const { farm, user } = await request.json();
@@ -11,13 +12,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Nome, e-mail e senha são obrigatórios' }, { status: 400 });
   }
 
+  if (user.password.length < 6) {
+    return NextResponse.json({ error: 'A senha deve ter pelo menos 6 caracteres' }, { status: 400 });
+  }
+
   const existingUser = await prisma.user.findUnique({ where: { email: user.email } });
   if (existingUser) {
     return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 });
   }
 
+  const passwordHash = await hashPassword(user.password);
+
   try {
-    const result = await prisma.$transaction(async (tx:any) => {
+    const result = await prisma.$transaction(async (tx) => {
       const newFarm = await tx.farm.create({
         data: {
           name: farm.name,
@@ -36,7 +43,7 @@ export async function POST(request: NextRequest) {
         data: {
           name: user.name,
           email: user.email,
-          password: user.password,
+          password: passwordHash,
           role: 'editor',
           permissions: ['animais', 'leite', 'veterinario', 'vacinacao', 'reproducao', 'financeiro', 'estoque', 'fazendas', 'usuarios'],
           farmId: newFarm.id,
@@ -48,17 +55,12 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({ id: result.user.id, name: result.user.name }, { status: 201 });
 
-    response.cookies.set('userId', result.user.id, {
-      httpOnly: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
+    setSessionCookie(response, result.user.id);
 
     return response;
   } catch (err) {
     // Log full error server-side for debugging
     console.error('Register error:', err);
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: 'Erro ao criar conta', detail: message }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao criar conta' }, { status: 500 });
   }
 }

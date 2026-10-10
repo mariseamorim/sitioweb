@@ -4,6 +4,9 @@ import { useUser } from '@/contexts/UserContext'
 
 import { useEffect, useState } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
+import { useDialog } from '@/components/DialogProvider'
+import { todayISO } from '@/lib/utils'
+import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon } from '@/components/ModuleIcons'
 
 interface SupplyMovement { id: string; type: string; quantity: number; date: string; description?: string | null }
 interface Supply {
@@ -19,6 +22,7 @@ interface Supply {
 const CATEGORIES = ['Ração', 'Medicamento', 'Vacina', 'Outro']
 
 export default function EstoquePage() {
+  const { confirm } = useDialog()
   const { user } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const [supplies, setSupplies] = useState<Supply[]>([])
@@ -29,7 +33,7 @@ export default function EstoquePage() {
   const [showMov, setShowMov] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '' })
-  const [mov, setMov] = useState({ type: 'Entrada', quantity: '', date: new Date().toISOString().slice(0, 10), description: '' })
+  const [mov, setMov] = useState({ type: 'Entrada', quantity: '', date: todayISO(), description: '' })
   const [isOnline, setIsOnline] = useState(true)
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
@@ -96,7 +100,7 @@ export default function EstoquePage() {
 
   async function handleDelete(id: string) {
     if (!canEdit) return
-    if (!confirm('Excluir este insumo e todo seu histórico?')) return
+    if (!(await confirm({ title: 'Excluir este insumo?', message: 'As entradas e saídas registradas também serão apagadas.', confirmLabel: 'Excluir', danger: true }))) return
     await fetch(`/api/estoque/${id}`, { method: 'DELETE' })
     setDetail(null)
     loadData(farmId)
@@ -158,7 +162,7 @@ export default function EstoquePage() {
     const data = await res.json()
     setSaving(false)
     setShowMov(false)
-    setMov({ type: 'Entrada', quantity: '', date: new Date().toISOString().slice(0, 10), description: '' })
+    setMov({ type: 'Entrada', quantity: '', date: todayISO(), description: '' })
     if (data.supply) {
       setDetail(data.supply)
       setSupplies(prev => prev.map(s => s.id === data.supply.id ? data.supply : s))
@@ -185,13 +189,13 @@ export default function EstoquePage() {
       {/* Offline / sync banner */}
       {!isOnline && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
-          <span>📴</span>
+          <SemSinalIcon className="w-5 h-5 shrink-0" />
           <span>Você está offline. Os registros serão salvos localmente e sincronizados quando reconectar.</span>
         </div>
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span>📶 {pendingCount} insumo{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} insumo{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
           <button
             onClick={handleSync}
             disabled={syncing}
@@ -204,7 +208,7 @@ export default function EstoquePage() {
 
       {alertCount > 0 && (
         <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 mb-6 text-sm flex items-center gap-2">
-          <span className="text-base">⚠️</span>
+          <AlertaIcon className="w-5 h-5 shrink-0" />
           <span><strong>{alertCount}</strong> insumo{alertCount > 1 ? 's' : ''} abaixo do estoque mínimo</span>
         </div>
       )}
@@ -257,7 +261,7 @@ export default function EstoquePage() {
                   <h2 className="text-lg font-bold text-gray-800">{detail.name}</h2>
                   <p className="text-xs text-gray-500">{detail.category} · {detail.unit}</p>
                 </div>
-                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-4">
@@ -320,7 +324,7 @@ export default function EstoquePage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-800">Movimentação</h2>
-                <button onClick={() => setShowMov(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                <button onClick={() => setShowMov(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
               <form onSubmit={handleMovimentacao} className="flex flex-col gap-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -365,7 +369,7 @@ export default function EstoquePage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-800">Novo Insumo</h2>
-                <button onClick={() => setShowNew(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                <button onClick={() => setShowNew(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
               <form onSubmit={handleSaveNew} className="flex flex-col gap-3">
                 <div>

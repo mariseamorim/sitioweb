@@ -11,26 +11,27 @@ datasource db {
 }
 
 model Farm {
-  id             String    @id @default(cuid())
+  id             String   @id @default(cuid())
   name           String
-  propertyType   String?   @default("Fazenda")
+  propertyType   String?  @default("Fazenda")
   documentType   String?
-  documentNumber String?   @unique
+  documentNumber String?  @unique
   owner          String?
   email          String?
   phone          String?
   address        String?
   city           String?
   state          String?
-  isActive       Boolean   @default(true)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  animals       Animal[]
-  users         User[]
-  reproductions Reproduction[]
-  transactions  Transaction[]
-  supplies      Supply[]
+  animals         Animal[]
+  users           User[]
+  reproductions   Reproduction[]
+  transactions    Transaction[]
+  supplies        Supply[]
+  milkProductions MilkProduction[]
 
   @@map("farms")
 }
@@ -41,7 +42,7 @@ model User {
   name        String
   password    String
   role        String   @default("viewer")
-  permissions Json?    // String[] de chaves de módulo; null = admin tem tudo
+  permissions Json? // String[] de chaves de módulo; null = admin tem tudo
   farmId      String?
   farm        Farm?    @relation(fields: [farmId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
@@ -92,14 +93,18 @@ model AnimalHistory {
 
 model MilkProduction {
   id           String   @id @default(cuid())
-  animalId     String
-  animal       Animal   @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  farmId       String
+  farm         Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  animalId     String? // vazio = total do dia, sem separar por vaca
+  animal       Animal?  @relation(fields: [animalId], references: [id], onDelete: Cascade)
   date         DateTime
   quantity     Float
+  cowsMilked   Int? // no total do dia: quantas vacas foram ordenhadas
   observations String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  @@index([farmId, date])
   @@map("milk_productions")
 }
 
@@ -156,18 +161,18 @@ model Reproduction {
 }
 
 model Transaction {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   type        String
   category    String
   date        DateTime
   amount      Float
   description String?
   animalId    String?
-  animal      Animal?   @relation(fields: [animalId], references: [id])
+  animal      Animal?  @relation(fields: [animalId], references: [id])
   farmId      String
-  farm        Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  farm        Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("transactions")
 }

@@ -3,6 +3,9 @@ import { PermissionGuard } from '@/components/PermissionGuard'
 import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/offlineStorage'
 
 import { useEffect, useState, useMemo } from 'react'
+import { useDialog } from '@/components/DialogProvider'
+import { todayISO } from '@/lib/utils'
+import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
 
 interface Animal { id: string; name: string; code: string }
 interface Transaction {
@@ -19,6 +22,7 @@ const CATEGORIES_RECEITA = ['Venda de Leite', 'Venda de Animal', 'Outros']
 const CATEGORIES_DESPESA = ['Medicamentos', 'Ração', 'Vacinas', 'Mão de Obra', 'Outros']
 
 export default function FinanceiroPage() {
+  const { confirm } = useDialog()
   const now = new Date()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [animals, setAnimals] = useState<Animal[]>([])
@@ -29,7 +33,7 @@ export default function FinanceiroPage() {
   const [filterType, setFilterType] = useState('Todas')
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ type: 'Receita', category: 'Venda de Leite', date: '', amount: '', description: '', animalId: '' })
+  const [form, setForm] = useState({ type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '' })
   const [isOnline, setIsOnline] = useState(true)
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
@@ -113,7 +117,7 @@ export default function FinanceiroPage() {
   const maxCat = byCategory[0]?.[1] || 1
 
   async function handleDelete(id: string) {
-    if (!confirm('Excluir esta transação?')) return
+    if (!(await confirm({ title: 'Excluir este lançamento?', confirmLabel: 'Excluir', danger: true }))) return
     await fetch(`/api/financeiro/${id}`, { method: 'DELETE' })
     loadData(farmId)
   }
@@ -135,7 +139,7 @@ export default function FinanceiroPage() {
       const count = addPendingRecord('financeiro', payload)
       setPendingCount(count)
       setShowRegister(false)
-      setForm({ type: 'Receita', category: 'Venda de Leite', date: '', amount: '', description: '', animalId: '' })
+      setForm({ type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '' })
       return
     }
 
@@ -147,7 +151,7 @@ export default function FinanceiroPage() {
     })
     setSaving(false)
     setShowRegister(false)
-    setForm({ type: 'Receita', category: 'Venda de Leite', date: '', amount: '', description: '', animalId: '' })
+    setForm({ type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '' })
     loadData(farmId)
   }
 
@@ -171,13 +175,13 @@ export default function FinanceiroPage() {
       {/* Offline / sync banner */}
       {!isOnline && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
-          <span>📴</span>
+          <SemSinalIcon className="w-5 h-5 shrink-0" />
           <span>Você está offline. As transações serão salvas localmente e sincronizadas quando reconectar.</span>
         </div>
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span>📶 {pendingCount} transação{pendingCount > 1 ? 'ões' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} transação{pendingCount > 1 ? 'ões' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
           <button
             onClick={handleSync}
             disabled={syncing}
@@ -297,7 +301,7 @@ export default function FinanceiroPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-800">Nova Transação</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
               <form onSubmit={handleSave} className="flex flex-col gap-3">
                 <div className="grid grid-cols-2 gap-3">

@@ -28,3 +28,9 @@ export function formatarIdade(dataNascimento: string): string {
 export function gerarId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 }
+
+/** Data de hoje no fuso local, no formato yyyy-mm-dd (para inputs type="date"). */
+export function todayISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}

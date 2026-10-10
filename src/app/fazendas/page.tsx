@@ -2,6 +2,7 @@
 import { PermissionGuard } from '@/components/PermissionGuard'
 
 import { useEffect, useState } from 'react'
+import { useDialog } from '@/components/DialogProvider'
 
 interface Farm {
   id: string
@@ -37,6 +38,7 @@ const typeColor: Record<string, string> = {
 }
 
 export default function PropriedadesPage() {
+  const { confirm, notify } = useDialog()
   const [farms, setFarms] = useState<Farm[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -75,7 +77,7 @@ export default function PropriedadesPage() {
   }
 
   async function handleDelete(farmId: string) {
-    if (!confirm('Tem certeza? Se a propriedade não tiver dados será deletada permanentemente. Se tiver dados, será inativada.')) return
+    if (!(await confirm({ title: 'Excluir esta propriedade?', message: 'Se ela já tiver registros, será apenas desativada e nada se perde.', confirmLabel: 'Excluir', danger: true }))) return
     setDeleting(farmId)
     
     const res = await fetch(`/api/farms/${farmId}/delete`, { method: 'DELETE' })
@@ -83,11 +85,11 @@ export default function PropriedadesPage() {
     
     setDeleting(null)
     if (!res.ok) {
-      alert('Erro: ' + (data.error || 'Erro desconhecido'))
+      await notify('Não foi possível excluir', data.error)
       return
     }
     
-    alert(data.message)
+    await notify(data.action === 'inactivated' ? 'Propriedade desativada' : 'Propriedade excluída')
     fetchFarms()
   }
 

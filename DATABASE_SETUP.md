@@ -19,14 +19,14 @@ Exemplo:
 DATABASE_URL="postgres://default:abc123...@ep-xxx-xxx.us-east-1.postgres.vercel-storage.com/verceldb?sslmode=require"
 ```
 
-## 🔐 Passo 3: Gerar NextAuth Secret
+## 🔐 Passo 3: Gerar o segredo da sessão
 
 Execute no terminal:
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-Cole o resultado em `NEXTAUTH_SECRET` no `.env.local`
+Cole o resultado em `SESSION_SECRET` no `.env.local` e nas variáveis de ambiente da Vercel. Sem ele o login não funciona em produção.
 
 ## 📊 Passo 4: Executar Migrations
 

@@ -1,26 +1,9 @@
 import { prisma } from '@/lib/prisma'
-import { cookies } from 'next/headers'
+import { getSessionUser, hashPassword } from '@/lib/auth'
 import { NextRequest, NextResponse } from 'next/server'
 
-async function getMe() {
-  const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value
-  if (!userId) return null
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, farmId: true, role: true } })
-  if (!user) return null
-
-  // Admin uses the activeFarmId cookie as their effective farm
-  let effectiveFarmId: string | null = user.farmId
-  if (user.role === 'admin') {
-    const activeFarmId = cookieStore.get('activeFarmId')?.value ?? null
-    effectiveFarmId = activeFarmId
-  }
-
-  return { ...user, effectiveFarmId }
-}
-
 export async function GET() {
-  const me = await getMe()
+  const me = await getSessionUser()
   if (!me) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   const users = await prisma.user.findMany({
@@ -35,7 +18,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const me = await getMe()
+  const me = await getSessionUser()
   if (!me || me.role !== 'admin') {
     return NextResponse.json({ error: 'Apenas administradores podem criar usuários' }, { status: 403 })
   }
@@ -55,7 +38,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await prisma.user.create({
       data: {
-        name, email, password,
+        name, email, password: await hashPassword(password),
         role: role || 'viewer',
         permissions: permissions ?? null,
         farmId: me.effectiveFarmId,

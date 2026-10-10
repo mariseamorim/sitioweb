@@ -1,11 +1,13 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { notFound, requireFarmAccess } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
-  try {
-    const farmId = request.nextUrl.searchParams.get('farmId')
-    if (!farmId) return NextResponse.json({ error: 'farmId obrigatório' }, { status: 400 })
+  const auth = await requireFarmAccess('financeiro', 'view')
+  if (auth.error) return auth.error
+  const farmId = auth.farmId
 
+  try {
     const from = request.nextUrl.searchParams.get('from')
     const to = request.nextUrl.searchParams.get('to')
 
@@ -24,18 +26,27 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json(transactions)
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Erro ao buscar transações' }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireFarmAccess('financeiro', 'edit')
+  if (auth.error) return auth.error
+  const farmId = auth.farmId
+
   try {
     const body = await request.json()
-    const { farmId, type, category, date, amount, description, animalId } = body
+    const { type, category, date, amount, description, animalId } = body
 
-    if (!farmId || !type || !category || !date || !amount) {
+    if (!type || !category || !date || !amount) {
       return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
+    }
+
+    if (animalId) {
+      const animal = await prisma.animal.findFirst({ where: { id: animalId, farmId }, select: { id: true } })
+      if (!animal) return notFound('Animal não encontrado')
     }
 
     const transaction = await prisma.transaction.create({
@@ -52,7 +63,7 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(transaction, { status: 201 })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Erro ao criar transação' }, { status: 500 })
   }
 }

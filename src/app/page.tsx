@@ -1,28 +1,19 @@
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { getSessionUser } from '@/lib/auth'
 import Link from 'next/link'
 import { FarmPicker } from '@/components/FarmPicker'
 import { AdminFarmBanner } from '@/components/AdminFarmBanner'
+import {
+  AnimalIcon, CheckIcon, LeiteIcon, TratamentoIcon, VacinaIcon,
+  ReproducaoIcon, FinanceiroIcon, EstoqueIcon,
+} from '@/components/ModuleIcons'
 
 export default async function Home() {
-  const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value
+  const user = await getSessionUser()
+  if (!user) redirect('/inicio')
 
-  if (!userId) redirect('/login')
-
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, name: true, role: true, farmId: true },
-  })
-
-  if (!user) redirect('/login')
-
-  // Determine effective farmId
-  let effectiveFarmId: string | null = user.farmId
-  if (user.role === 'admin') {
-    effectiveFarmId = cookieStore.get('activeFarmId')?.value ?? null
-  }
+  const effectiveFarmId = user.effectiveFarmId
 
   // Admin with no farm selected → show farm picker
   if (user.role === 'admin' && !effectiveFarmId) {
@@ -48,7 +39,7 @@ export default async function Home() {
   const [totalAnimals, aliveAnimals, milkCount, vetCount, vaccinePending, upcomingBirths, monthTransactions, supplies] = await Promise.all([
     prisma.animal.count({ where: { farmId: effectiveFarmId! } }),
     prisma.animal.count({ where: { farmId: effectiveFarmId!, status: 'Vivo' } }),
-    prisma.milkProduction.count({ where: { animal: { farmId: effectiveFarmId! } } }),
+    prisma.milkProduction.count({ where: { farmId: effectiveFarmId! } }),
     prisma.veterinaryTreatment.count({ where: { animal: { farmId: effectiveFarmId! } } }),
     prisma.vaccination.count({
       where: {
@@ -84,6 +75,17 @@ export default async function Home() {
   const lowStockCount = supplies.filter(s => s.currentQuantity <= s.minimumQuantity).length
   const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
+  const stats: { href: string; label: string; value: number | string; Icon: (p: { className?: string }) => React.ReactNode; tone: StatTone }[] = [
+    { href: '/animais', label: 'Total de animais', value: totalAnimals, Icon: AnimalIcon, tone: 'neutral' },
+    { href: '/animais', label: 'Animais vivos', value: aliveAnimals, Icon: CheckIcon, tone: 'neutral' },
+    { href: '/milk-production', label: 'Registros de leite', value: milkCount, Icon: LeiteIcon, tone: 'neutral' },
+    { href: '/veterinary-treatment', label: 'Tratamentos', value: vetCount, Icon: TratamentoIcon, tone: 'neutral' },
+    { href: '/vacinacao', label: 'Vacinas pendentes', value: vaccinePending, Icon: VacinaIcon, tone: vaccinePending > 0 ? 'warn' : 'muted' },
+    { href: '/reproducao', label: 'Partos esperados', value: upcomingBirths, Icon: ReproducaoIcon, tone: upcomingBirths > 0 ? 'warn' : 'muted' },
+    { href: '/financeiro', label: 'Saldo do mês', value: fmtBRL(monthBalance), Icon: FinanceiroIcon, tone: monthBalance >= 0 ? 'good' : 'bad' },
+    { href: '/estoque', label: 'Itens em alerta', value: lowStockCount, Icon: EstoqueIcon, tone: lowStockCount > 0 ? 'warn' : 'muted' },
+  ]
+
   return (
     <div>
       <div className="mb-8">
@@ -102,79 +104,30 @@ export default async function Home() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Link href="/animais" className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center text-base">🐄</div>
-            <p className="text-sm text-gray-500 font-medium leading-tight">Total de Animais</p>
-          </div>
-          <p className="text-3xl font-bold text-gray-800">{totalAnimals}</p>
-        </Link>
-
-        <Link href="/animais" className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center text-green-600 font-bold text-base">✓</div>
-            <p className="text-sm text-gray-500 font-medium leading-tight">Animais Vivos</p>
-          </div>
-          <p className="text-3xl font-bold text-green-600">{aliveAnimals}</p>
-        </Link>
-
-        <Link href="/milk-production" className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center text-base">🥛</div>
-            <p className="text-sm text-gray-500 font-medium leading-tight">Registros de Leite</p>
-          </div>
-          <p className="text-3xl font-bold text-blue-600">{milkCount}</p>
-        </Link>
-
-        <Link href="/veterinary-treatment" className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center text-base">💊</div>
-            <p className="text-sm text-gray-500 font-medium leading-tight">Tratamentos Vet.</p>
-          </div>
-          <p className="text-3xl font-bold text-purple-600">{vetCount}</p>
-        </Link>
-
-        <Link href="/vacinacao" className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-lg bg-yellow-50 flex items-center justify-center text-base">💉</div>
-            <p className="text-sm text-gray-500 font-medium leading-tight">Vacinas Pendentes</p>
-          </div>
-          <p className={`text-3xl font-bold ${vaccinePending > 0 ? 'text-yellow-600' : 'text-gray-400'}`}>
-            {vaccinePending}
-          </p>
-        </Link>
-
-        <Link href="/reproducao" className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-lg bg-pink-50 flex items-center justify-center text-base">🐄</div>
-            <p className="text-sm text-gray-500 font-medium leading-tight">Partos Esperados</p>
-          </div>
-          <p className={`text-3xl font-bold ${upcomingBirths > 0 ? 'text-pink-600' : 'text-gray-400'}`}>
-            {upcomingBirths}
-          </p>
-        </Link>
-
-        <Link href="/financeiro" className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center text-base">💰</div>
-            <p className="text-sm text-gray-500 font-medium leading-tight">Saldo do Mês</p>
-          </div>
-          <p className={`text-xl font-bold ${monthBalance >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-            {fmtBRL(monthBalance)}
-          </p>
-        </Link>
-
-        <Link href="/estoque" className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-lg bg-orange-50 flex items-center justify-center text-base">📦</div>
-            <p className="text-sm text-gray-500 font-medium leading-tight">Itens em Alerta</p>
-          </div>
-          <p className={`text-3xl font-bold ${lowStockCount > 0 ? 'text-orange-500' : 'text-gray-400'}`}>
-            {lowStockCount}
-          </p>
-        </Link>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {stats.map(({ href, label, value, Icon, tone }) => (
+          <Link
+            key={label}
+            href={href}
+            className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 hover:border-gray-300 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-gray-500">
+              <Icon className="w-5 h-5 shrink-0 text-gray-400" />
+              <p className="text-sm font-medium leading-tight">{label}</p>
+            </div>
+            <p className={`mt-3 font-bold ${typeof value === 'number' ? 'text-3xl' : 'text-xl'} ${STAT_TONE[tone]}`}>{value}</p>
+          </Link>
+        ))}
       </div>
     </div>
   )
+}
+
+type StatTone = 'neutral' | 'muted' | 'warn' | 'good' | 'bad'
+const STAT_TONE: Record<StatTone, string> = {
+  neutral: 'text-gray-900',
+  muted: 'text-gray-400',
+  warn: 'text-amber-700',
+  good: 'text-green-700',
+  bad: 'text-red-600',
 }

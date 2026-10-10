@@ -4,6 +4,9 @@ import { useUser } from '@/contexts/UserContext'
 
 import { useEffect, useState, useMemo } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
+import { useDialog } from '@/components/DialogProvider'
+import { todayISO } from '@/lib/utils'
+import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon } from '@/components/ModuleIcons'
 
 interface Animal { id: string; name: string; code: string }
 
@@ -34,6 +37,7 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 export default function VacinacaoPage() {
+  const { confirm } = useDialog()
   const { user } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
@@ -44,7 +48,7 @@ export default function VacinacaoPage() {
   const [detail, setDetail] = useState<Vaccination | null>(null)
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ animalId: '', vaccineName: '', scheduledDate: '', appliedDate: '', batch: '', manufacturer: '', observations: '' })
+  const [form, setForm] = useState({ animalId: '', vaccineName: '', scheduledDate: todayISO(), appliedDate: '', batch: '', manufacturer: '', observations: '' })
   const [isOnline, setIsOnline] = useState(true)
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
@@ -124,7 +128,7 @@ export default function VacinacaoPage() {
 
   async function handleDelete(id: string) {
     if (!canEdit) return
-    if (!confirm('Excluir este registro?')) return
+    if (!(await confirm({ title: 'Excluir esta vacinação?', confirmLabel: 'Excluir', danger: true }))) return
     await fetch(`/api/vacinacao/${id}`, { method: 'DELETE' })
     setDetail(null)
     loadData(farmId)
@@ -178,7 +182,7 @@ export default function VacinacaoPage() {
       setPendingCount(getPendingRecords('vacinacao').length)
       setSaving(false)
       setShowRegister(false)
-      setForm({ animalId: '', vaccineName: '', scheduledDate: '', appliedDate: '', batch: '', manufacturer: '', observations: '' })
+      setForm({ animalId: '', vaccineName: '', scheduledDate: todayISO(), appliedDate: '', batch: '', manufacturer: '', observations: '' })
       return
     }
 
@@ -190,7 +194,7 @@ export default function VacinacaoPage() {
     })
     setSaving(false)
     setShowRegister(false)
-    setForm({ animalId: '', vaccineName: '', scheduledDate: '', appliedDate: '', batch: '', manufacturer: '', observations: '' })
+    setForm({ animalId: '', vaccineName: '', scheduledDate: todayISO(), appliedDate: '', batch: '', manufacturer: '', observations: '' })
     loadData(farmId)
   }
 
@@ -212,13 +216,13 @@ export default function VacinacaoPage() {
       {/* Offline / sync banner */}
       {!isOnline && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
-          <span>📴</span>
+          <SemSinalIcon className="w-5 h-5 shrink-0" />
           <span>Você está offline. Os registros serão salvos localmente e sincronizados quando reconectar.</span>
         </div>
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span>📶 {pendingCount} vacinação{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} vacinação{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
           <button
             onClick={handleSync}
             disabled={syncing}
@@ -229,7 +233,7 @@ export default function VacinacaoPage() {
         </div>
       )}      {alertCount > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-6 text-sm flex items-center gap-2">
-          <span className="text-base">⚠️</span>
+          <AlertaIcon className="w-5 h-5 shrink-0" />
           <span><strong>{alertCount}</strong> vacina{alertCount > 1 ? 's' : ''} vencida{alertCount > 1 ? 's' : ''} ou com vencimento nos próximos 7 dias</span>
         </div>
       )}
@@ -290,7 +294,7 @@ export default function VacinacaoPage() {
                   <h2 className="text-lg font-bold text-gray-800">{detail.vaccineName}</h2>
                   <p className="text-xs text-gray-500">{detail.animal.name} · Cód. {detail.animal.code}</p>
                 </div>
-                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-sm mb-4">
@@ -323,7 +327,7 @@ export default function VacinacaoPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-800">Registrar Vacinação</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
               <form onSubmit={handleSave} className="flex flex-col gap-3">
                 <div>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/contexts/UserContext'
+import { PropriedadeIcon } from '@/components/ModuleIcons'
 
 interface Farm {
   id: string
@@ -41,7 +42,7 @@ export function FarmPicker({ farms }: { farms: Farm[] }) {
 
       {farms.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center">
-          <div className="text-4xl mb-3">🏡</div>
+          <PropriedadeIcon className="w-10 h-10 mx-auto mb-3 text-gray-300" />
           <p className="text-gray-500 text-sm">Nenhuma propriedade cadastrada ainda.</p>
         </div>
       ) : (
@@ -54,8 +55,8 @@ export function FarmPicker({ farms }: { farms: Farm[] }) {
               className="text-left bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md hover:border-green-200 transition-all disabled:opacity-60 group"
             >
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center text-xl shrink-0 group-hover:bg-green-100 transition-colors">
-                  🏡
+                <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center text-green-700 shrink-0 group-hover:bg-green-100 transition-colors">
+                  <PropriedadeIcon className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
                   <p className="font-semibold text-gray-900 truncate">{farm.name}</p>

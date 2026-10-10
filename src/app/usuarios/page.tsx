@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { MODULES } from '@/lib/modules'
 import { useUser } from '@/contexts/UserContext'
+import { useDialog } from '@/components/DialogProvider'
+import { FecharIcon } from '@/components/ModuleIcons'
 
 interface User {
   id: string
@@ -58,6 +60,7 @@ function PermissionsGrid({ value, onChange, disabled }: {
 }
 
 export default function UsuariosPage() {
+  const { confirm, notify } = useDialog()
   const { user: me } = useUser()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -123,9 +126,9 @@ export default function UsuariosPage() {
   }
 
   async function handleDelete(id: string, name: string) {
-    if (!confirm(`Excluir o usuário "${name}"? Esta ação não pode ser desfeita.`)) return
+    if (!(await confirm({ title: `Excluir o usuário ${name}?`, message: 'Ele não vai mais conseguir entrar no sistema.', confirmLabel: 'Excluir', danger: true }))) return
     const res = await fetch(`/api/users/${id}`, { method: 'DELETE' })
-    if (!res.ok) { const d = await res.json(); alert(d.error || 'Erro ao excluir'); return }
+    if (!res.ok) { const d = await res.json(); await notify('Não foi possível excluir', d.error); return }
     fetchUsers()
   }
 
@@ -223,7 +226,7 @@ export default function UsuariosPage() {
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-bold text-gray-800">Novo Usuário</h2>
-                  <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                  <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
                 </div>
                 <form onSubmit={handleCreate} className="flex flex-col gap-3">
                   <div>
@@ -274,7 +277,7 @@ export default function UsuariosPage() {
                     <h2 className="text-lg font-bold text-gray-800">Editar Usuário</h2>
                     <p className="text-xs text-gray-500">{editUser.email}</p>
                   </div>
-                  <button onClick={() => setEditUser(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                  <button onClick={() => setEditUser(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
                 </div>
                 <form onSubmit={handleUpdate} className="flex flex-col gap-3">
                   <div>

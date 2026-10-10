@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
-import { Navbar } from "@/components/Navbar";
+import { AppShell } from "@/components/AppShell";
 import { UserProvider } from "@/contexts/UserContext";
+import { DialogProvider } from "@/components/DialogProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -10,12 +11,15 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "SítioWeb - Controle de Animais",
-  description: "Sistema de cadastro e controle de animais para sítios e fazendas",
+  applicationName: "Anota Aí Agro",
+  icons: { icon: "/anota-ai-agro-icon-192.png", apple: "/anota-ai-agro-icon-180.png" },
+  appleWebApp: { capable: true, title: "Anota Aí Agro" },
+  title: "Anota Aí Agro — Gestão Rural",
+  description: "Gestão de rebanho, produção de leite, finanças e estoque para sítios e fazendas",
 };
 
 export const viewport = {
-  themeColor: "#15803d",
+  themeColor: "#18543d",
 };
 
 export default function RootLayout({
@@ -30,10 +34,9 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} antialiased bg-gray-50 min-h-screen`}>
         <UserProvider>
-          <Navbar />
-          <main className="max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-7 pb-24 md:pb-7">
-            {children}
-          </main>
+          <DialogProvider>
+            <AppShell>{children}</AppShell>
+          </DialogProvider>
         </UserProvider>
       </body>
     </html>
