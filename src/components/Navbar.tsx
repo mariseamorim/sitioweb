@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
-import { PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon } from '@/components/ModuleIcons';
+import { PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon, SetaDireitaIcon } from '@/components/ModuleIcons';
 import { SyncStatus } from '@/components/SyncStatus';
 import { TaskBell } from '@/components/TaskBell';
 import { useDialog } from '@/components/DialogProvider';
@@ -53,6 +53,7 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   const drawer = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const isVendor = user?.role === 'fornecedor';
+  const homeHref = isVendor ? '/fornecedor' : '/';
   const visibleGroups = (isVendor ? vendorGroups : groups).map(group => ({ ...group, links: group.links.filter(link => (!link.module || canAccess(link.module)) && (!link.adminOnly || user?.role === 'admin')) })).filter(group => group.links.length);
   const activeLink = visibleGroups.flatMap(group => group.links).find(link => link.href === '/' ? pathname === '/' : pathname === link.href || pathname.startsWith(link.href + '/'));
   const role = user?.role === 'admin' ? 'Administrador' : user?.role === 'editor' ? 'Editor' : isVendor ? 'Fornecedor' : 'Leitor';
@@ -136,6 +137,12 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
         <div className="flex min-w-0 items-center gap-3">
           <button type="button" onClick={onToggleDesktop} aria-label={desktopOpen ? 'Recolher menu' : 'Abrir menu lateral'} aria-expanded={desktopOpen} aria-controls="menu-computador" className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 lg:flex"><MenuIcon className="h-5 w-5" /></button>
           <button ref={trigger} type="button" onClick={() => setOpenPath(pathname)} aria-label="Abrir menu" aria-expanded={drawerOpen} aria-controls={drawerOpen ? 'menu-lateral' : undefined} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 lg:hidden"><MenuIcon className="h-5 w-5" /></button>
+          {/* Fora do painel, um "voltar" visível: o menu ☰ não é óbvio para quem não é de tecnologia */}
+          {pathname !== homeHref && (
+            <Link href={homeHref} aria-label="Voltar ao painel" className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+              <SetaDireitaIcon className="h-4 w-4 rotate-180" /><span className="hidden sm:inline">Painel</span>
+            </Link>
+          )}
           <div className="min-w-0"><p className="truncate text-sm font-semibold text-gray-800">{activeLink?.label || 'Anota Aí Agro'}</p><p className="truncate text-xs text-gray-500">{isVendor ? 'Painel do fornecedor' : user?.farmName || 'Gestão da propriedade'}</p></div>
         </div>
         <div className="flex shrink-0 items-center gap-2"><div className="hidden sm:block"><SyncStatus /></div>{user?.farmId && <TaskBell />}</div>

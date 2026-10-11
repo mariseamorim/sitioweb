@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { KIND_LABEL, PointKind } from '@/lib/lite'
+import { BackLink } from '@/components/BackLink'
 
 type Profile = 'produtor' | 'motorista'
 
@@ -52,7 +53,9 @@ export default function LiteCadastroPage() {
 
   return (
     <div className="min-h-dvh bg-gray-50 flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-6">
+      <div className="w-full max-w-md">
+        <BackLink href="/criar-conta" className="mb-2 -ml-2" />
+        <div className="bg-white rounded-2xl shadow-md p-6">
         <Image src="/anota-ai-agro-logo.png" width={1632} height={473} alt="Anota Aí Agro" className="mx-auto h-auto w-40" />
         <h1 className="mt-5 text-2xl font-bold text-gray-900 text-center">Anota Aí Leite</h1>
         <p className="mt-1 text-center text-gray-600">Anote o leite no celular, mesmo sem internet.</p>
@@ -111,6 +114,7 @@ export default function LiteCadastroPage() {
             Já tem conta? <Link href="/login?next=/lite" className="font-semibold text-green-700">Entrar</Link>
           </p>
         </form>
+      </div>
       </div>
     </div>
   )

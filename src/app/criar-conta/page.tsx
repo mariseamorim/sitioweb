@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { LeiteIcon, LojaIcon, PropriedadeIcon, SetaDireitaIcon, SincronizarIcon } from '@/components/ModuleIcons'
+import { BackLink } from '@/components/BackLink'
 
 export const metadata: Metadata = {
   title: 'Criar conta - Anota Aí Agro',
@@ -40,6 +41,7 @@ export default function CriarContaPage() {
   return (
     <div className="flex min-h-[85vh] items-center justify-center px-4 py-8">
       <div className="w-full max-w-lg">
+        <BackLink href="/inicio" label="Voltar ao início" className="mb-2 -ml-2" />
         <Image src="/anota-ai-agro-logo.png" width={1632} height={473} alt="Anota Aí Agro" priority className="mx-auto h-auto w-44" />
         <h1 className="mt-6 text-center text-2xl font-bold text-gray-900">Como você vai usar o Anota Aí?</h1>
         <p className="mt-1 text-center text-gray-600">Escolha uma opção para criar sua conta.</p>
