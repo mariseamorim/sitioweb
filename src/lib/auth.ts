@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, scrypt, timingSafeEqual } from 'crypto'
+import { createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from 'crypto'
 import { promisify } from 'util'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
@@ -42,6 +42,10 @@ export function isLegacyPassword(stored: string): boolean {
 function getSecret(): string {
   const secret = process.env.SESSION_SECRET
   if (secret) return secret
+  // Sem SESSION_SECRET (recomendado configurar), a chave é derivada do DATABASE_URL, que também é secreto
+  if (process.env.DATABASE_URL) {
+    return createHash('sha256').update(`sitioweb-session:${process.env.DATABASE_URL}`).digest('hex')
+  }
   if (process.env.NODE_ENV === 'production') {
     throw new Error('SESSION_SECRET não configurado')
   }
