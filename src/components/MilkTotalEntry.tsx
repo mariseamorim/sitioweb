@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { addPendingRecord } from '@/lib/offlineStorage'
 import { todayISO } from '@/lib/utils'
 import { fmtNumber } from '@/lib/reports'
@@ -14,6 +14,10 @@ interface Props {
   onCancel: () => void
 }
 
+// Cada lançamento soma ao dia, então o salvar sozinho espera a pessoa parar e salva uma vez só
+const AUTO_SAVE_SECONDS = 5
+const toQuantity = (text: string) => parseFloat(text.replace(',', '.'))
+
 // Lançamento do leite do dia todo, sem separar por vaca (comum em sítio pequeno)
 export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onCancel }: Props) {
   const [date, setDate] = useState(todayISO())
@@ -22,13 +26,29 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onCancel }: Prop
   const [observations, setObservations] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [countdown, setCountdown] = useState<number | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
 
-  const quantity = parseFloat(liters.replace(',', '.'))
+  const quantity = toQuantity(liters)
   const already = totalsByDay.get(date)
+
+  // Recomeça a contagem a cada mudança (só com litros válidos)
+  const restartAutoSave = (litersText = liters) => setCountdown(toQuantity(litersText) > 0 ? AUTO_SAVE_SECONDS : null)
+
+  useEffect(() => {
+    if (countdown === null || saving) return
+    const timer = setTimeout(() => {
+      if (countdown > 1) return setCountdown(countdown - 1)
+      setCountdown(null)
+      formRef.current?.requestSubmit()
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [countdown, saving])
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
-    if (!(quantity > 0)) return
+    setCountdown(null)
+    if (!(quantity > 0) || saving) return
     setError('')
     const record = { date, quantity, cowsMilked: cows ? parseInt(cows, 10) : undefined, observations }
 
@@ -58,14 +78,14 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onCancel }: Prop
   }
 
   return (
-    <form onSubmit={handleSave} className="flex flex-col gap-4">
+    <form ref={formRef} onSubmit={handleSave} className="flex flex-col gap-4">
       <div>
         <label className="text-sm font-medium text-gray-700 block mb-1">Data</label>
         <input
           type="date"
           value={date}
           max={todayISO()}
-          onChange={(e) => setDate(e.target.value)}
+          onChange={(e) => { setDate(e.target.value); restartAutoSave() }}
           required
           className="w-full border border-gray-200 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-green-600"
         />
@@ -85,13 +105,19 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onCancel }: Prop
             placeholder="0"
             autoFocus
             value={liters}
-            onChange={(e) => setLiters(e.target.value.replace(/[^\d.,]/g, ''))}
+            onChange={(e) => { const v = e.target.value.replace(/[^\d.,]/g, ''); setLiters(v); restartAutoSave(v) }}
             required
             className="w-full border border-gray-200 rounded-lg px-3 py-3 text-2xl font-semibold text-right focus:outline-none focus:ring-2 focus:ring-green-600"
           />
           <span className="text-lg text-gray-500">L</span>
         </div>
-        <VoiceButton label="os litros do dia" onNumber={(v) => setLiters(String(v).replace('.', ','))} />
+        {countdown !== null && !saving && (
+          <div role="status" className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-green-50 px-3 py-2.5 text-sm text-green-900">
+            <span>Salvando sozinho em {countdown} s...</span>
+            <button type="button" onClick={() => setCountdown(null)} className="shrink-0 font-semibold underline">Não salvar ainda</button>
+          </div>
+        )}
+        <VoiceButton label="os litros do dia" onNumber={(v) => { const t = String(v).replace('.', ','); setLiters(t); restartAutoSave(t) }} />
         <OfflineVoiceSetup online={isOnline} />
       </div>
 
@@ -105,6 +131,8 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onCancel }: Prop
           placeholder="Ex.: 6"
           value={cows}
           onChange={(e) => setCows(e.target.value.replace(/\D/g, ''))}
+          onFocus={() => setCountdown(null)}
+          onBlur={() => restartAutoSave()}
           className="w-full border border-gray-200 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-green-600"
         />
       </div>
@@ -118,6 +146,8 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onCancel }: Prop
           placeholder="Ex.: ordenha da manhã"
           value={observations}
           onChange={(e) => setObservations(e.target.value)}
+          onFocus={() => setCountdown(null)}
+          onBlur={() => restartAutoSave()}
           className="w-full border border-gray-200 rounded-lg px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-green-600"
         />
       </div>
