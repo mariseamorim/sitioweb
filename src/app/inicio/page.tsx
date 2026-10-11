@@ -22,7 +22,7 @@ export default function LandingPage() {
     <section className="landing-hero"><div className="landing-container hero-content">
       <p className="landing-eyebrow">Gestão rural que acompanha o seu ritmo</p>
       <h1>Mais tempo no campo.<br /><em>Mais clareza</em><br />para decidir.</h1>
-      <p className="hero-description">O sistema para cuidar do seu rebanho, produção e negócio — mesmo quando a internet não chega.</p>
+      <p className="hero-description">O sistema para cuidar do seu rebanho, produção e negócio, mesmo quando a internet não chega.</p>
       <div className="landing-actions"><Link className="landing-button button-sage" href="/criar-conta">Criar minha conta <SetaDireitaIcon /></Link><a className="landing-button button-outline" href="#recursos">Ver recursos <SetaBaixoIcon /></a></div>
     </div><div className="hero-caption landing-container">Da rotina no campo às decisões da sua propriedade.</div></section>
     <section id="recursos" className="landing-section landing-container">
@@ -44,6 +44,6 @@ export default function LandingPage() {
       <ContactForm />
     </section>
     <section id="comecar" className="landing-cta"><div className="landing-container"><div><p className="landing-eyebrow">Pronto para simplificar?</p><h2>Sua propriedade merece uma gestão à altura.</h2></div><Link href="/criar-conta" className="landing-button button-dark">Criar minha conta <SetaDireitaIcon /></Link></div></section>
-    <footer className="landing-footer landing-container"><a href="#inicio" className="landing-brand"><Image src="/anota-ai-agro-logo.png" width={1632} height={473} alt="Anota Aí Agro" className="landing-brand-logo" /></a><p>Gestão rural simples, de verdade.</p><div><Link href="/login">Entrar no sistema</Link><a href="#contato">Fale conosco</a><span>© {new Date().getFullYear()} Anota Aí Agro</span></div></footer>
+    <footer className="landing-footer landing-container"><a href="#inicio" className="landing-brand"><Image src="/anota-ai-agro-logo.png" width={1632} height={473} alt="Anota Aí Agro" className="landing-brand-logo" /></a><p>Gestão rural simples, de verdade.</p><div><Link href="/login">Entrar no sistema</Link><a href="#contato">Fale conosco</a><a href="mailto:anotaaiagro@gmail.com">anotaaiagro@gmail.com</a><span>© {new Date().getFullYear()} Anota Aí Agro</span></div></footer>
   </main>
 }
