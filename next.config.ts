@@ -8,7 +8,10 @@ const withPWA = (require("next-pwa") as any)({
   disable: false,
   register: false,
   skipWaiting: true,
-  runtimeCaching,
+  runtimeCaching: [
+    { urlPattern: /\/api\/(?:auth(?:\/|$)|perfil(?:\/|$))/, handler: 'NetworkOnly', method: 'GET' },
+    ...runtimeCaching,
+  ],
   // A voz sem internet (~38 MB) é baixada só por quem pedir, no Anota Aí Leite
   publicExcludes: ["!noprecache/**/*", "!voz/**/*"],
   fallbacks: {

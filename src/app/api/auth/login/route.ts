@@ -5,12 +5,12 @@ import { hashPassword, isLegacyPassword, setSessionCookie, verifyPassword } from
 export async function POST(request: NextRequest) {
   const { email, password } = await request.json();
 
-  if (!email || !password) {
+  if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
     return NextResponse.json({ error: 'E-mail e senha são obrigatórios' }, { status: 400 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email },
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: email.trim(), mode: 'insensitive' } },
     include: { farm: true },
   });
 

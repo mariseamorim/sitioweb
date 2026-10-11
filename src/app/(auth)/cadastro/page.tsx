@@ -1,294 +1,79 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { BackLink } from '@/components/BackLink'
+import { GoogleLoginButton } from '@/components/GoogleLoginButton'
 
-type Step = 1 | 2;
-
-const FARM_EMPTY = { name: '', propertyType: 'Fazenda', documentType: 'CNPJ', documentNumber: '', owner: '', phone: '', email: '', city: '', state: '' };
-const USER_EMPTY = { name: '', email: '', password: '', confirm: '' };
+const EMPTY_FARM = { name: '', propertyType: 'Fazenda', documentType: 'CNPJ', documentNumber: '', owner: '', phone: '', address: '', city: '', state: '' }
 
 export default function CadastroPage() {
-  const [step, setStep] = useState<Step>(1);
+  const [step, setStep] = useState(1)
+  const [ready, setReady] = useState(false)
+  const [farm, setFarm] = useState(EMPTY_FARM)
+  const [user, setUser] = useState({ name: '', email: '', password: '', confirm: '' })
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [googleNext, setGoogleNext] = useState('/cadastro')
+  useEffect(() => {
+    setGoogleNext(`/cadastro${window.location.search}`)
+    fetch('/api/auth/me').then(async r => {
+      if (r.status === 401) return
+      if (!r.ok) throw new Error('Não foi possível verificar a conta')
+      const account = await r.json()
+      if (account.role !== 'onboarding') { window.location.href = '/'; return }
+      setUser(u => ({ ...u, name: account.name, email: account.email }))
+      setFarm(f => ({ ...f, owner: account.name }))
+      setStep(2)
+    }).catch(() => setError('Verifique sua conexão para continuar o cadastro.')).finally(() => setReady(true))
+  }, [])
 
-  const [farm, setFarm] = useState(FARM_EMPTY);
-  const [user, setUser] = useState(USER_EMPTY);
-
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  function handleNextStep(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setStep(2);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-
-    if (user.password !== user.confirm) {
-      setError('As senhas não coincidem');
-      return;
-    }
-    if (user.password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres');
-      return;
-    }
-
-    setLoading(true);
-    // Cadastro feito a partir do link de convite de um fornecedor
-    const inviteCode = new URLSearchParams(window.location.search).get('convite');
+  async function submit(e: React.FormEvent) {
+    e.preventDefault(); setError('')
+    if (step === 1 && user.password !== user.confirm) { setError('As senhas não coincidem'); return }
+    setLoading(true)
     try {
+      const inviteCode = new URLSearchParams(window.location.search).get('convite')
       const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ farm, user: { name: user.name, email: user.email, password: user.password }, inviteCode }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || 'Erro ao criar conta');
-        return;
-      }
-
-      window.location.href = inviteCode ? '/ofertas' : '/';
-    } catch {
-      setError('Erro de conexão. Tente novamente.');
-    } finally {
-      setLoading(false);
-    }
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(step === 1 ? { user: { name: user.name, email: user.email, password: user.password } } : { farm, inviteCode }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Não foi possível salvar')
+      if (step === 1) { setStep(2); setFarm(f => ({ ...f, owner: user.name })); setUser(u => ({ ...u, password: '', confirm: '' })) }
+      else window.location.href = inviteCode ? '/ofertas' : '/'
+    } catch (e) { setError(e instanceof Error ? e.message : 'Verifique sua conexão e tente novamente') }
+    finally { setLoading(false) }
   }
-
-  return (
-    <div className="flex items-center justify-center min-h-[85vh] px-4">
-      <div className="w-full max-w-md mx-auto">
-        <BackLink href="/criar-conta" className="mb-2 -ml-2" />
-        <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8">
-          {/* Header */}
-          <div className="text-center mb-6">
-            <Link href="/inicio" className="inline-block" aria-label="Anota Aí Agro, página inicial"><Image src="/anota-ai-agro-logo.png" width={1632} height={473} sizes="180px" alt="Anota Aí Agro" priority className="h-auto w-44 mx-auto" /></Link>
-            <h1 className="text-xl font-bold text-gray-800 mt-4">Criar minha conta</h1>
-          </div>
-
-          {/* Steps indicator */}
-          <div className="flex items-center mb-8">
-            <div className="flex items-center gap-2 flex-1">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${step >= 1 ? 'bg-green-700 text-white' : 'bg-gray-200 text-gray-500'}`}>1</div>
-              <span className={`text-sm font-medium ${step === 1 ? 'text-green-700' : 'text-gray-400'}`}>Fazenda</span>
-            </div>
-            <div className="flex-1 h-px bg-gray-200 mx-2" />
-            <div className="flex items-center gap-2 flex-1 justify-end">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${step === 2 ? 'bg-green-700 text-white' : 'bg-gray-200 text-gray-500'}`}>2</div>
-              <span className={`text-sm font-medium ${step === 2 ? 'text-green-700' : 'text-gray-400'}`}>Usuário</span>
-            </div>
-          </div>
-
-          {/* Step 1: Farm */}
-          {step === 1 && (
-            <form onSubmit={handleNextStep} className="flex flex-col gap-3">
-
-              {/* Tipo de propriedade */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Propriedade *</label>
-                <div className="flex gap-2">
-                  {['Fazenda', 'Sítio'].map((tipo) => (
-                    <button
-                      key={tipo}
-                      type="button"
-                      onClick={() => setFarm({ ...farm, propertyType: tipo })}
-                      className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                        farm.propertyType === tipo
-                          ? 'bg-green-700 border-green-700 text-white'
-                          : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      {tipo}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome da propriedade *</label>
-                <input
-                  value={farm.name}
-                  onChange={(e) => setFarm({ ...farm, name: e.target.value })}
-                  required
-                  autoFocus
-                  placeholder={farm.propertyType === 'Sítio' ? 'Ex: Sítio Primavera' : 'Ex: Fazenda São João'}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Proprietário</label>
-                <input
-                  value={farm.owner}
-                  onChange={(e) => setFarm({ ...farm, owner: e.target.value })}
-                  placeholder="Nome do proprietário"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
-                  <select
-                    value={farm.documentType}
-                    onChange={(e) => setFarm({ ...farm, documentType: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                  >
-                    <option value="CNPJ">CNPJ</option>
-                    <option value="CPF">CPF</option>
-                  </select>
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Documento (CPF/CNPJ)</label>
-                  <input
-                    value={farm.documentNumber}
-                    onChange={(e) => setFarm({ ...farm, documentNumber: e.target.value })}
-                    placeholder="000.000.000-00 ou 00.000.000/0001-00"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
-                  <input
-                    value={farm.city}
-                    onChange={(e) => setFarm({ ...farm, city: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                  <input
-                    value={farm.state}
-                    onChange={(e) => setFarm({ ...farm, state: e.target.value })}
-                    placeholder="SP"
-                    maxLength={2}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-                  <input
-                    value={farm.phone}
-                    onChange={(e) => setFarm({ ...farm, phone: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
-                  <input
-                    type="email"
-                    value={farm.email}
-                    onChange={(e) => setFarm({ ...farm, email: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-green-700 hover:bg-green-600 text-white font-medium py-2 rounded-lg text-sm transition-colors mt-2"
-              >
-                Próximo
-              </button>
-            </form>
-          )}
-
-          {/* Step 2: User */}
-          {step === 2 && (
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Seu nome *</label>
-                <input
-                  value={user.name}
-                  onChange={(e) => setUser({ ...user, name: e.target.value })}
-                  required
-                  autoFocus
-                  placeholder="Nome completo"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">E-mail *</label>
-                <input
-                  type="email"
-                  value={user.email}
-                  onChange={(e) => setUser({ ...user, email: e.target.value })}
-                  required
-                  placeholder="seu@email.com"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Senha *</label>
-                <input
-                  type="password"
-                  value={user.password}
-                  onChange={(e) => setUser({ ...user, password: e.target.value })}
-                  required
-                  placeholder="Mínimo 6 caracteres"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar senha *</label>
-                <input
-                  type="password"
-                  value={user.confirm}
-                  onChange={(e) => setUser({ ...user, confirm: e.target.value })}
-                  required
-                  placeholder="Repita a senha"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                />
-              </div>
-
-              {error && (
-                <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
-              )}
-
-              <div className="flex gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={() => { setStep(1); setError(''); }}
-                  className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50"
-                >
-                  Voltar
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white font-medium py-2 rounded-lg text-sm transition-colors"
-                >
-                  {loading ? 'Criando...' : 'Criar conta'}
-                </button>
-              </div>
-            </form>
-          )}
-
-          <p className="text-center text-sm text-gray-500 mt-6">
-            Já tem uma conta?{' '}
-            <Link href="/login" className="text-green-700 font-medium hover:underline">
-              Entrar
-            </Link>
-          </p>
-        </div>
-      </div>
+  const input = 'mt-1 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
+  return <div className="mx-auto max-w-md py-6">
+    <BackLink href="/criar-conta" />
+    <div className="mt-3 rounded-2xl bg-white p-6 shadow-md">
+      <h1 className="text-2xl font-bold text-gray-900">{step === 1 ? 'Crie sua conta' : 'Cadastre sua propriedade'}</h1>
+      <ol className="my-5 flex gap-4 text-sm font-semibold"><li className={step === 1 ? 'text-green-700' : 'text-gray-500'}>1. Usuário</li><li className={step === 2 ? 'text-green-700' : 'text-gray-500'}>2. Propriedade</li></ol>
+      {!ready ? <p>Carregando...</p> : <>
+        {step === 1 && <GoogleLoginButton next={googleNext} />}
+        {step === 2 && <p className="mb-4 text-sm text-gray-600">Conta criada para {user.email}. Agora informe os dados da fazenda ou sítio.</p>}
+        <form onSubmit={submit} className="mt-4">
+          <fieldset disabled={loading} className="flex flex-col gap-4">
+            {step === 1 ? <>
+              <label>Seu nome<input required autoComplete="name" className={input} value={user.name} onChange={e => setUser({ ...user, name: e.target.value })} /></label>
+              <label>E-mail<input required type="email" autoComplete="email" className={input} value={user.email} onChange={e => setUser({ ...user, email: e.target.value })} /></label>
+              <label>Senha<input required type="password" minLength={6} autoComplete="new-password" className={input} value={user.password} onChange={e => setUser({ ...user, password: e.target.value })} /></label>
+              <label>Confirmar senha<input required type="password" minLength={6} autoComplete="new-password" className={input} value={user.confirm} onChange={e => setUser({ ...user, confirm: e.target.value })} /></label>
+            </> : <>
+              <label>Tipo de propriedade<select className={input} value={farm.propertyType} onChange={e => setFarm({ ...farm, propertyType: e.target.value })}><option>Fazenda</option><option>Sítio</option></select></label>
+              {Object.entries({ name: 'Nome da propriedade', owner: 'Proprietário', documentNumber: 'CPF/CNPJ', phone: 'Telefone', address: 'Endereço', city: 'Cidade', state: 'Estado' }).map(([key, label]) => <label key={key}>{label}
+                <input required={key === 'name'} className={input} maxLength={key === 'state' ? 2 : undefined} value={farm[key as keyof typeof farm]} onChange={e => setFarm({ ...farm, [key]: e.target.value })} />
+              </label>)}
+              <label>Tipo de documento<select className={input} value={farm.documentType} onChange={e => setFarm({ ...farm, documentType: e.target.value })}><option>CNPJ</option><option>CPF</option></select></label>
+            </>}
+            {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+            <button type="submit" className="rounded-lg bg-green-700 py-3 font-semibold text-white hover:bg-green-600">{loading ? 'Salvando...' : step === 1 ? 'Criar conta e continuar' : 'Salvar propriedade e começar'}</button>
+          </fieldset>
+        </form>
+      </>}
+      <p className="mt-5 text-sm text-gray-600">Já tem conta? <Link href="/login?next=/cadastro" className="font-semibold text-green-700">Entrar</Link></p>
     </div>
-  );
+  </div>
 }

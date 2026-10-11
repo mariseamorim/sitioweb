@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { GoogleLoginButton, GOOGLE_ERRORS } from '@/components/GoogleLoginButton'
+import { safeNext } from '@/lib/google-navigation'
 import Image from 'next/image'
 import Link from 'next/link';
 import { BackLink } from '@/components/BackLink'
@@ -10,6 +12,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('googleError')
+    if (code) setError(GOOGLE_ERRORS[code] || GOOGLE_ERRORS.failed)
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,7 +38,7 @@ export default function LoginPage() {
 
       // Volta para onde a pessoa estava (ex.: link de convite de fornecedor)
       const next = new URLSearchParams(window.location.search).get('next');
-      window.location.href = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
+      window.location.href = safeNext(next);
     } catch {
       setError('Erro de conexão. Tente novamente.');
     } finally {
@@ -56,6 +62,7 @@ export default function LoginPage() {
             <p className="text-gray-500 text-sm mt-1">Faça login para continuar</p>
           </div>
 
+          <div className="mb-4"><GoogleLoginButton /></div>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>

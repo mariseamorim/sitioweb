@@ -3,6 +3,7 @@ import { PermissionGuard } from '@/components/PermissionGuard'
 
 import { useEffect, useState } from 'react'
 import { useDialog } from '@/components/DialogProvider'
+import { useUser } from '@/contexts/UserContext'
 
 interface Farm {
   id: string
@@ -11,7 +12,6 @@ interface Farm {
   documentType?: string
   documentNumber?: string
   owner?: string
-  email?: string
   phone?: string
   address?: string
   city?: string
@@ -25,7 +25,6 @@ const EMPTY = {
   documentType: 'CNPJ',
   documentNumber: '',
   owner: '',
-  email: '',
   phone: '',
   address: '',
   city: '',
@@ -39,6 +38,9 @@ const typeColor: Record<string, string> = {
 
 export default function PropriedadesPage() {
   const { confirm, notify } = useDialog()
+  const { user, refresh } = useUser()
+  const canManage = user?.role === 'admin' || user?.role === 'editor'
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [farms, setFarms] = useState<Farm[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -61,8 +63,9 @@ export default function PropriedadesPage() {
     setSaving(true)
     setError('')
 
-    const res = await fetch('/api/farms', {
-      method: 'POST',
+    try {
+    const res = await fetch(editingId ? `/api/farms/${editingId}` : '/api/farms', {
+      method: editingId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
     })
@@ -73,7 +76,21 @@ export default function PropriedadesPage() {
     setSaving(false)
     setShowForm(false)
     setForm(EMPTY)
+    setEditingId(null)
+    refresh()
     fetchFarms()
+    } catch {
+      setError('Não foi possível salvar. Verifique sua conexão e tente novamente.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleEdit(farm: Farm) {
+    setEditingId(farm.id)
+    setForm(Object.fromEntries(Object.entries(EMPTY).map(([key, fallback]) => [key, farm[key as keyof Farm] ?? fallback])) as typeof EMPTY)
+    setError('')
+    setShowForm(true)
   }
 
   async function handleDelete(farmId: string) {
@@ -99,7 +116,8 @@ export default function PropriedadesPage() {
       <div className="page-toolbar flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Propriedades</h1>
         <button
-          onClick={() => { setShowForm(true); setError('') }}
+          onClick={() => { setEditingId(null); setForm(EMPTY); setShowForm(true); setError('') }}
+          disabled={!canManage}
           className="bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg"
         >
           Cadastrar propriedade
@@ -127,7 +145,7 @@ export default function PropriedadesPage() {
                   )}
                   <button
                     onClick={() => handleDelete(f.id)}
-                    disabled={deleting === f.id}
+                    disabled={!canManage || deleting === f.id}
                     className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
                     title="Excluir propriedade"
                     aria-label={`Excluir propriedade ${f.name}`}
@@ -147,7 +165,7 @@ export default function PropriedadesPage() {
                 <p className="text-sm text-gray-500">{[f.city, f.state].filter(Boolean).join(' — ')}</p>
               )}
               {f.phone && <p className="text-sm text-gray-500 mt-1">{f.phone}</p>}
-              {f.email && <p className="text-sm text-gray-500">{f.email}</p>}
+              {canManage && <button type="button" onClick={() => handleEdit(f)} className="mt-4 text-sm font-medium text-green-700 hover:underline" aria-label={`Editar propriedade ${f.name}`}>Editar cadastro</button>}
             </div>
           ))}
         </div>
@@ -155,9 +173,9 @@ export default function PropriedadesPage() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div role="dialog" aria-modal="true" aria-labelledby="farm-form-title" className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-4">Cadastrar propriedade</h2>
+              <h2 id="farm-form-title" className="text-lg font-bold text-gray-800 mb-4">{editingId ? 'Editar propriedade' : 'Cadastrar propriedade'}</h2>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-3">
 
@@ -235,15 +253,6 @@ export default function PropriedadesPage() {
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">E-mail</label>
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                    />
-                  </div>
                 </div>
 
                 <div>
@@ -283,6 +292,7 @@ export default function PropriedadesPage() {
                 <div className="flex gap-2 pt-2">
                   <button
                     type="button"
+                    disabled={saving}
                     onClick={() => setShowForm(false)}
                     className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50"
                   >

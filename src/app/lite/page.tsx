@@ -174,6 +174,7 @@ export default function LitePage() {
       <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="mx-auto max-w-xl px-4 h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
+            <Link href="/lite/perfil" className="text-xs font-semibold text-green-700 hover:underline">Meu cadastro</Link>
             {/* Quem tem o app completo volta para o painel; produtor lite e motorista usam só o lite */}
             {data && !isLiteOnlyRole(data.role) && (
               <Link href="/" aria-label="Voltar ao painel"

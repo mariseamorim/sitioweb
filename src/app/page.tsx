@@ -12,6 +12,7 @@ import {
 export default async function Home() {
   const user = await getSessionUser()
   if (!user) redirect('/inicio')
+  if (user.role === 'onboarding') redirect('/criar-conta')
   if (user.role === 'fornecedor') redirect('/fornecedor')
   if (user.role === 'lite' || user.role === 'motorista') redirect('/lite')
 

@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { BackLink } from '@/components/BackLink'
+import { GoogleLoginButton } from '@/components/GoogleLoginButton'
+import { useRegistrationAccount } from '@/lib/useRegistrationAccount'
 
 const EMPTY = {
   companyName: '', document: '', contactName: '', phone: '', whatsapp: '',
@@ -12,6 +14,7 @@ const EMPTY = {
 const input = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 
 export default function CadastroFornecedorPage() {
+  const { account, ready, error: accountError } = useRegistrationAccount()
   const [form, setForm] = useState(EMPTY)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -21,8 +24,8 @@ export default function CadastroFornecedorPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (form.password !== form.confirm) return setError('As senhas não coincidem')
-    if (form.password.length < 6) return setError('A senha deve ter pelo menos 6 caracteres')
+    if (!account && form.password !== form.confirm) return setError('As senhas não coincidem')
+    if (!account && form.password.length < 6) return setError('A senha deve ter pelo menos 6 caracteres')
 
     setLoading(true)
     try {
@@ -31,7 +34,7 @@ export default function CadastroFornecedorPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          vendor: { companyName, document, contactName, phone, whatsapp, city, state, description },
+          vendor: { companyName, document, contactName: contactName || account?.name, phone, whatsapp, city, state, description },
           user: { email, password },
         }),
       })
@@ -56,6 +59,8 @@ export default function CadastroFornecedorPage() {
           Seu cadastro passa por aprovação antes de publicar.
         </p>
 
+        {account ? <p className="mt-4 text-sm text-green-700">Conta criada para {account.email}. Complete os dados da empresa.</p> : <div className="mt-4"><GoogleLoginButton next="/fornecedor/cadastro" /></div>}
+        {accountError && <p role="alert" className="mt-3 text-red-700">{accountError}</p>}
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
           <fieldset className="flex flex-col gap-3">
             <legend className="text-sm font-semibold text-gray-900 mb-2">Empresa</legend>
@@ -81,7 +86,7 @@ export default function CadastroFornecedorPage() {
           <fieldset className="flex flex-col gap-3">
             <legend className="text-sm font-semibold text-gray-900 mb-2">Contato</legend>
             <label className="text-sm font-medium text-gray-700">Seu nome *
-              <input value={form.contactName} onChange={set('contactName')} required className={`mt-1 ${input}`} />
+              <input value={form.contactName || account?.name || ''} onChange={set('contactName')} required className={`mt-1 ${input}`} />
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="text-sm font-medium text-gray-700">Telefone *
@@ -93,7 +98,7 @@ export default function CadastroFornecedorPage() {
             </div>
           </fieldset>
 
-          <fieldset className="flex flex-col gap-3">
+          {!account && <fieldset className="flex flex-col gap-3">
             <legend className="text-sm font-semibold text-gray-900 mb-2">Acesso</legend>
             <label className="text-sm font-medium text-gray-700">E-mail *
               <input type="email" value={form.email} onChange={set('email')} required className={`mt-1 ${input}`} />
@@ -106,11 +111,11 @@ export default function CadastroFornecedorPage() {
                 <input type="password" value={form.confirm} onChange={set('confirm')} required className={`mt-1 ${input}`} />
               </label>
             </div>
-          </fieldset>
+          </fieldset>}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <button type="submit" disabled={loading} className="w-full bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-base font-semibold py-3 rounded-lg">
+          <button type="submit" disabled={loading || !ready || !!accountError} className="w-full bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-base font-semibold py-3 rounded-lg">
             {loading ? 'Enviando...' : 'Criar cadastro'}
           </button>
           <p className="text-center text-sm text-gray-500">
