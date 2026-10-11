@@ -67,6 +67,15 @@ export default function AnimaisPage() {
 
   const fetchAnimals = useCallback((fid: string) => {
     setLoading(true)
+    // Link de outra tela (ex.: painel da Reprodução): /animais?animal=<id> abre a ficha
+    const show = (list: Animal[]) => {
+      setAnimals(list)
+      const wanted = new URLSearchParams(window.location.search).get('animal')
+      if (!wanted) return
+      const found = list.find((a) => a.id === wanted)
+      if (found) setSelectedAnimal(found)
+      window.history.replaceState(null, '', window.location.pathname)
+    }
     
     // Always load pending records from localStorage
     const pending = getPendingRecords('animais')
@@ -87,7 +96,7 @@ export default function AnimaisPage() {
 
     // Sem internet: o rebanho guardado no aparelho mais o que ainda não foi enviado
     if (!navigator.onLine) {
-      setAnimals([...readHerdCache(fid), ...pending])
+      show([...readHerdCache(fid), ...pending])
       setLoading(false)
       return
     }
@@ -101,13 +110,13 @@ export default function AnimaisPage() {
       .then((data) => {
         // Merge API data with pending records
         writeHerdCache(fid, data)
-        setAnimals([...data, ...pending])
+        show([...data, ...pending])
         setLoading(false)
       })
       .catch((err) => {
         // Sinal fraco: mostra o rebanho guardado no aparelho
         console.log('Fetch error:', err)
-        setAnimals([...readHerdCache(fid), ...pending])
+        show([...readHerdCache(fid), ...pending])
         setLoading(false)
       })
   }, [])

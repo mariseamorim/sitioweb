@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { addPendingRecord } from '@/lib/offlineStorage'
 import { todayISO } from '@/lib/utils'
+import { calvingStarts, cowCalving, monthsLabel, plural } from '@/lib/calving'
 
 export interface HerdAnimal {
   id: string
@@ -15,11 +16,7 @@ export interface HerdAnimal {
   motherId?: string | null
 }
 
-const DAY = 24 * 60 * 60 * 1000
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
-/** Meses entre duas datas, arredondado (intervalo entre crias) */
-export const monthsBetween = (a: string, b: string) => Math.round((new Date(b).getTime() - new Date(a).getTime()) / DAY / 30.44)
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 const calfLabel = (a: HerdAnimal) => (a.gender === 'Fêmea' ? 'Bezerra' : 'Bezerro')
 const OUTCOMES = [['Vivo', 'Viva'], ['Morto', 'Morreu'], ['Vendido', 'Vendida']] as const
 
@@ -38,24 +35,18 @@ export function CalfSection({ mother, animals, farmId, canEdit, isOnline, onOpen
   const calves = animals.filter((a) => a.motherId === mother.id).sort((a, b) => a.birthDate.localeCompare(b.birthDate))
   const [adding, setAdding] = useState(false)
 
-  // Crias nascidas com até 30 dias de diferença são do mesmo parto (gêmeos): o intervalo conta entre partos
-  const calvingStart: string[] = []
-  const sameCalving = calves.map((c) => {
-    const start = calvingStart.at(-1)
-    if (start && (new Date(c.birthDate).getTime() - new Date(start).getTime()) / DAY <= 30) return true
-    calvingStart.push(c.birthDate)
-    return false
-  })
-  const intervals = calvingStart.slice(1).map((d, i) => monthsBetween(calvingStart[i], d))
-  const average = intervals.length ? Math.round(intervals.reduce((s, n) => s + n, 0) / intervals.length) : null
-  const last = calvingStart.at(-1)
-  const sinceLast = last ? monthsBetween(last, new Date().toISOString()) : null
-  // Intervalo mostrado em cada cria que abre um parto novo (a partir do segundo)
-  let calvingIndex = -1
-  const note = calves.map((_, i) => {
-    if (sameCalving[i]) return 'mesmo parto (gêmeos)'
-    calvingIndex++
-    return calvingIndex > 0 ? `${plural(intervals[calvingIndex - 1], 'mês', 'meses')} depois do parto anterior` : ''
+  // Intervalo conta entre partos (gêmeos são o mesmo parto)
+  const stats = cowCalving(mother, animals)
+  const calvingStart = calvingStarts(calves.map((c) => c.birthDate))
+  const { averageInterval: average, monthsSinceLast: sinceLast } = stats
+  // Nota em cada cria: intervalo desde o parto anterior, ou "mesmo parto" para gêmeos
+  const opened = new Set<string>()
+  const note = calves.map((c) => {
+    const iso = new Date(c.birthDate).toISOString()
+    const index = calvingStart.indexOf(iso)
+    if (index < 0 || opened.has(iso)) return 'mesmo parto (gêmeos)'
+    opened.add(iso)
+    return index > 0 ? `${monthsLabel(stats.intervals[index - 1])} depois do parto anterior` : ''
   })
 
   return (
@@ -73,8 +64,8 @@ export function CalfSection({ mother, animals, farmId, canEdit, isOnline, onOpen
         <p className="mt-1 text-sm text-gray-600">
           {plural(calves.length, 'cria', 'crias')}
           {calvingStart.length < calves.length && ` em ${plural(calvingStart.length, 'parto', 'partos')}`}
-          {average !== null && ` · um parto a cada ${plural(average, 'mês', 'meses')} em média`}
-          {sinceLast !== null && ` · última há ${sinceLast < 1 ? 'menos de 1 mês' : plural(sinceLast, 'mês', 'meses')}`}
+          {average !== null && ` · um parto a cada ${monthsLabel(average)} em média`}
+          {sinceLast !== null && ` · última há ${monthsLabel(sinceLast)}`}
         </p>
       )}
 
@@ -107,7 +98,8 @@ export function CalfSection({ mother, animals, farmId, canEdit, isOnline, onOpen
   )
 }
 
-function AddCalfForm({ mother, animals, farmId, isOnline, onCancel, onSaved }: {
+/** Formulário de cria (usado na ficha da vaca e no "Registrar parto" da Reprodução) */
+export function AddCalfForm({ mother, animals, farmId, isOnline, onCancel, onSaved }: {
   mother: HerdAnimal
   animals: HerdAnimal[]
   farmId: string
