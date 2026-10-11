@@ -8,6 +8,7 @@ import { ImagePicker } from '@/components/ImagePicker'
 import { getPendingRecords, addPendingRecord, clearPendingRecords, syncPendingRecords } from '@/lib/offlineStorage'
 import { useDialog } from '@/components/DialogProvider'
 import { SemSinalIcon, SincronizarIcon, AnimalIcon, FecharIcon } from '@/components/ModuleIcons'
+import { CalfSection } from '@/components/CalfSection'
 
 interface Animal {
   id: string
@@ -20,6 +21,16 @@ interface Animal {
   gta?: string
   observations?: string
   imageUrl?: string
+  motherId?: string | null
+}
+
+// Rebanho guardado no aparelho, para abrir a ficha (e anotar cria) sem internet
+const cacheKey = (fid: string) => `animais_cache_${fid}`
+function readHerdCache(fid: string): Animal[] {
+  try { return JSON.parse(localStorage.getItem(cacheKey(fid)) || '[]') } catch { return [] }
+}
+function writeHerdCache(fid: string, list: Animal[]) {
+  try { localStorage.setItem(cacheKey(fid), JSON.stringify(list.map(({ imageUrl: _image, ...a }) => a))) } catch {}
 }
 
 const EMPTY_FORM = {
@@ -32,6 +43,7 @@ const EMPTY_FORM = {
   gta: '',
   observations: '',
   imageUrl: '',
+  motherId: '',
 }
 
 export default function AnimaisPage() {
@@ -70,11 +82,12 @@ export default function AnimaisPage() {
         gta: r.gta,
         observations: r.observations,
         imageUrl: r.imageUrl,
+        motherId: r.motherId ?? null,
       }))
 
-    // If offline, show only pending records
+    // Sem internet: o rebanho guardado no aparelho mais o que ainda não foi enviado
     if (!navigator.onLine) {
-      setAnimals(pending)
+      setAnimals([...readHerdCache(fid), ...pending])
       setLoading(false)
       return
     }
@@ -87,13 +100,14 @@ export default function AnimaisPage() {
       })
       .then((data) => {
         // Merge API data with pending records
+        writeHerdCache(fid, data)
         setAnimals([...data, ...pending])
         setLoading(false)
       })
       .catch((err) => {
-        // On error, show at least the pending records
+        // Sinal fraco: mostra o rebanho guardado no aparelho
         console.log('Fetch error:', err)
-        setAnimals(pending)
+        setAnimals([...readHerdCache(fid), ...pending])
         setLoading(false)
       })
   }, [])
@@ -174,6 +188,7 @@ export default function AnimaisPage() {
       gta: a.gta || '',
       observations: a.observations || '',
       imageUrl: a.imageUrl || '',
+      motherId: a.motherId || '',
     })
     setError('')
     setShowForm(true)
@@ -233,6 +248,10 @@ export default function AnimaisPage() {
     await fetch(`/api/animals/${id}`, { method: 'DELETE' })
     fetchAnimals(farmId)
   }
+
+  const mother = selectedAnimal?.motherId ? animals.find((a) => a.id === selectedAnimal.motherId) : undefined
+  // Mães possíveis no formulário: fêmeas, menos o próprio animal
+  const motherOptions = animals.filter((a) => a.gender === 'Fêmea' && a.id !== editing?.id && !a.id.startsWith('pending_'))
 
   const filtered = animals.filter(
     (a) =>
@@ -442,7 +461,21 @@ export default function AnimaisPage() {
                   <p className="text-xs text-gray-500">Observações</p>
                   <p className="font-medium text-gray-800 text-xs sm:text-sm line-clamp-2">{selectedAnimal.observations || '-'}</p>
                 </div>
+                {mother && (
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500">Mãe</p>
+                    <button type="button" onClick={() => setSelectedAnimal(mother)} className="font-semibold text-green-700 underline">
+                      {mother.name}{mother.code ? ` (${mother.code})` : ''}
+                    </button>
+                  </div>
+                )}
               </div>
+
+              {selectedAnimal.gender === 'Fêmea' && (
+                <CalfSection key={selectedAnimal.id} mother={selectedAnimal} animals={animals} farmId={farmId} canEdit={canEdit} isOnline={isOnline}
+                  onOpen={(calf) => setSelectedAnimal(animals.find((a) => a.id === calf.id) ?? null)}
+                  onChanged={() => { setPendingCount(getPendingRecords('animais').length); fetchAnimals(farmId) }} />
+              )}
 
               <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-6">
                 <button
@@ -564,6 +597,19 @@ export default function AnimaisPage() {
                       {STATUS_LIST.map((s) => <option key={s}>{s}</option>)}
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Mãe <span className="font-normal text-gray-400">(se for cria de uma vaca do rebanho)</span>
+                    <select
+                      value={form.motherId}
+                      onChange={(e) => setForm({ ...form, motherId: e.target.value })}
+                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                    >
+                      <option value="">Sem mãe no rebanho</option>
+                      {motherOptions.map((m) => <option key={m.id} value={m.id}>{m.name}{m.code ? ` (${m.code})` : ''}</option>)}
+                    </select>
+                  </label>
                 </div>
 
                 <div>

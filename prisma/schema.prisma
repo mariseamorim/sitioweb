@@ -76,6 +76,10 @@ model Animal {
   lowReason    String?
   farmId       String
   farm         Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  // Mãe (para crias): cada vaca guarda a lista das suas crias
+  motherId     String?
+  mother       Animal?   @relation("Crias", fields: [motherId], references: [id], onDelete: SetNull)
+  calves       Animal[]  @relation("Crias")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -86,6 +90,7 @@ model Animal {
   transactions         Transaction[]
 
   @@unique([farmId, code])
+  @@index([motherId])
   @@map("animals")
 }
 
