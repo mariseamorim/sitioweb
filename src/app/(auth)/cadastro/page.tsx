@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { BackLink } from '@/components/BackLink'
 
 type Step = 1 | 2;
 
@@ -65,6 +66,7 @@ export default function CadastroPage() {
   return (
     <div className="flex items-center justify-center min-h-[85vh] px-4">
       <div className="w-full max-w-md mx-auto">
+        <BackLink href="/criar-conta" className="mb-2 -ml-2" />
         <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8">
           {/* Header */}
           <div className="text-center mb-6">

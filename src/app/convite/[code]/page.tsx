@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { BackLink } from '@/components/BackLink'
 
 interface Invite {
   companyName: string
@@ -53,7 +54,9 @@ export default function ConvitePage({ params }: { params: Promise<{ code: string
 
   return (
     <div className="flex items-center justify-center min-h-[85vh] px-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-md p-6 sm:p-8 text-center">
+      <div className="w-full max-w-md">
+        <BackLink href="/inicio" label="Voltar ao início" className="mb-2 -ml-2" />
+        <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 text-center">
         <Image src="/anota-ai-agro-logo.png" width={1632} height={473} alt="Anota Aí Agro" className="mx-auto h-auto w-44" />
 
         {invalid ? (
@@ -105,6 +108,7 @@ export default function ConvitePage({ params }: { params: Promise<{ code: string
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   )

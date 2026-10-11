@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { BackLink } from '@/components/BackLink'
 
 const EMPTY = {
   companyName: '', document: '', contactName: '', phone: '', whatsapp: '',
@@ -46,7 +47,9 @@ export default function CadastroFornecedorPage() {
 
   return (
     <div className="flex items-center justify-center min-h-[85vh] px-4 py-6">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-md p-6 sm:p-8">
+      <div className="w-full max-w-lg">
+        <BackLink href="/criar-conta" className="mb-2 -ml-2" />
+        <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8">
         <h1 className="text-2xl font-bold text-gray-900">Cadastro de fornecedor</h1>
         <p className="mt-1 text-gray-500">
           Divulgue ofertas de ração, sal mineral e outros insumos para os produtores da sua região.
@@ -114,6 +117,7 @@ export default function CadastroFornecedorPage() {
             Já tem cadastro? <Link href="/login" className="font-medium text-green-700 hover:underline">Entrar</Link>
           </p>
         </form>
+      </div>
       </div>
     </div>
   )

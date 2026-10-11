@@ -143,6 +143,14 @@ export default function LitePage() {
       <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="mx-auto max-w-xl px-4 h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
+            {/* Quem tem o app completo volta para o painel; produtor lite e motorista usam só o lite */}
+            {data && !isLiteOnlyRole(data.role) && (
+              <Link href="/" aria-label="Voltar ao painel"
+                className="inline-flex h-10 shrink-0 items-center gap-1 rounded-xl border border-gray-300 px-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                <SetaDireitaIcon className="h-4 w-4 rotate-180" />
+                Painel
+              </Link>
+            )}
             <Image src="/anota-ai-agro-logo.png" width={132} height={38} alt="Anota Aí Leite" className="h-auto w-24 shrink-0" />
           </div>
           <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${status.style}`} role="status">

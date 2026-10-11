@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image'
 import Link from 'next/link';
+import { BackLink } from '@/components/BackLink'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -42,6 +43,7 @@ export default function LoginPage() {
   return (
     <div className="flex items-center justify-center min-h-[80vh] px-4">
       <div className="w-full max-w-sm mx-auto">
+        <BackLink href="/inicio" label="Voltar ao início" className="mb-2 -ml-2" />
         <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8">
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-4 mb-4">
