@@ -18,7 +18,7 @@ export interface LiteEntry {
 
 export interface LiteData {
   userName: string
-  /** 'lite' = usa só o Anota Aí Leite; outros perfis também têm o app completo */
+  /** 'lite' (produtor) e 'motorista' usam só o Anota Aí Leite; outros perfis também têm o app completo */
   role: string
   points: LitePoint[]
   entries: LiteEntry[]
@@ -40,4 +40,14 @@ export function parseLiters(value: string | number | null | undefined): number |
   if (value === null || value === undefined || value === '') return null
   const n = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'))
   return Number.isFinite(n) && n >= 0 ? Math.round(n * 10) / 10 : null
+}
+
+/** Motorista anota a rota (vários locais); os demais anotam a própria produção. */
+export function isDriverRole(role: string | undefined) {
+  return role === 'motorista'
+}
+
+/** Perfis que usam só o Anota Aí Leite, sem o app completo */
+export function isLiteOnlyRole(role: string | undefined) {
+  return role === 'lite' || role === 'motorista'
 }

@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useDialog } from '@/components/DialogProvider'
 import { SetaDireitaIcon, SemSinalIcon, SincronizarIcon, CheckIcon } from '@/components/ModuleIcons'
-import { KIND_LABEL, LiteChange, LiteData, LitePoint, PointKind, parseLiters } from '@/lib/lite'
+import { KIND_LABEL, LiteChange, LiteData, LitePoint, PointKind, isDriverRole, isLiteOnlyRole, parseLiters } from '@/lib/lite'
 import { applyChanges, enqueue, pendingChanges, readCache, syncLite, writeCache } from '@/lib/liteStore'
 import { exportCSV } from '@/lib/reportExport'
 import { fmtNumber } from '@/lib/reports'
@@ -71,6 +71,12 @@ export default function LitePage() {
   }, [sync])
 
   const activePoints = useMemo(() => (data?.points ?? []).filter((p) => p.active), [data])
+  // Motorista anota a rota (vários locais); produtor anota só a própria produção
+  const driver = isDriverRole(data?.role)
+  const single = !driver && activePoints.length === 1 ? activePoints[0] : null
+  const tabs = driver
+    ? ([['anotar', 'Anotar'], ['historico', 'Histórico'], ['locais', 'Rota']] as const)
+    : ([['anotar', 'Anotar'], ['historico', 'Histórico']] as const)
   const saved = useMemo(() => {
     const map = new Map<string, number>()
     for (const e of data?.entries ?? []) if (e.date === date) map.set(e.pointId, e.liters)
@@ -126,15 +132,14 @@ export default function LitePage() {
       <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="mx-auto max-w-xl px-4 h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <Image src="/anota-ai-agro-logo.png" width={132} height={38} alt="Anota Aí" className="h-auto w-24 shrink-0" />
-            <span className="text-sm font-semibold text-green-800">Leite</span>
+            <Image src="/anota-ai-agro-logo.png" width={132} height={38} alt="Anota Aí Leite" className="h-auto w-24 shrink-0" />
           </div>
           <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${status.style}`} role="status">
             {status.icon}{status.text}
           </span>
         </div>
-        <nav className="mx-auto max-w-xl px-4 pb-2 grid grid-cols-3 gap-1" aria-label="Seções">
-          {([['anotar', 'Anotar'], ['historico', 'Histórico'], ['locais', 'Locais']] as const).map(([t, label]) => (
+        <nav className={`mx-auto max-w-xl px-4 pb-2 grid gap-1 ${tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`} aria-label="Seções">
+          {tabs.map(([t, label]) => (
             <button key={t} type="button" onClick={() => setTab(t)} aria-current={tab === t ? 'page' : undefined}
               className={`py-2.5 rounded-lg text-sm font-semibold ${tab === t ? 'bg-green-700 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
               {label}
@@ -155,7 +160,7 @@ export default function LitePage() {
           <p className="py-16 text-center text-gray-500">{online ? 'Carregando...' : 'Sem internet. Abra o app uma vez com internet para começar.'}</p>
         ) : tab === 'anotar' ? (
           activePoints.length === 0 ? (
-            <FirstPoint online={online} onCreated={() => void sync()} />
+            <FirstPoint driver={driver} online={online} onCreated={() => void sync()} />
           ) : (
             <>
               <div className="flex items-center gap-2">
@@ -178,6 +183,19 @@ export default function LitePage() {
                 {date !== today && <button type="button" onClick={() => setDate(today)} className="ml-2 font-semibold text-green-700 underline">Voltar para hoje</button>}
               </p>
 
+              {single ? (
+                <label className="mt-5 block bg-white rounded-2xl border border-gray-200 p-5 text-center">
+                  <span className="block text-sm font-medium text-gray-500">{single.name}</span>
+                  <span className="mt-1 block text-lg font-semibold text-gray-900">Leite do dia</span>
+                  <span className="mt-4 flex items-center justify-center gap-2">
+                    <input type="text" inputMode="decimal" placeholder="0" value={valueOf(single.id)} autoFocus
+                      onChange={(e) => setDrafts({ ...drafts, [`${date}|${single.id}`]: e.target.value.replace(/[^\d.,]/g, '') })}
+                      aria-label={`Litros de ${single.name}`}
+                      className="w-44 border border-gray-300 rounded-2xl px-4 py-4 !text-5xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-green-600" />
+                    <span className="text-2xl text-gray-500">L</span>
+                  </span>
+                </label>
+              ) : (
               <ul className="mt-5 space-y-3">
                 {activePoints.map((p) => (
                   <li key={p.id} className="bg-white rounded-2xl border border-gray-200 p-4">
@@ -190,26 +208,27 @@ export default function LitePage() {
                         <input type="text" inputMode="decimal" placeholder="0" value={valueOf(p.id)}
                           onChange={(e) => setDrafts({ ...drafts, [`${date}|${p.id}`]: e.target.value.replace(/[^\d.,]/g, '') })}
                           aria-label={`Litros de ${p.name}`}
-                          className="w-28 border border-gray-300 rounded-xl px-3 py-3 text-2xl font-semibold text-right focus:outline-none focus:ring-2 focus:ring-green-600" />
+                          className="w-28 border border-gray-300 rounded-xl px-3 py-3 !text-2xl font-semibold text-right focus:outline-none focus:ring-2 focus:ring-green-600" />
                         <span className="text-lg text-gray-500">L</span>
                       </span>
                     </label>
                   </li>
                 ))}
               </ul>
+              )}
             </>
           )
         ) : tab === 'historico' ? (
           <History data={data} />
-        ) : (
+        ) : driver ? (
           <Points data={data} online={online} onChanged={(d) => { setData(d); writeCache(d) }} onSync={() => void sync()} />
-        )}
+        ) : null}
 
         {data && (
           <footer className="mt-10 flex flex-col items-center gap-3 text-sm text-gray-500">
             <p>{data.userName}</p>
             <div className="flex gap-4">
-              {data.role !== 'lite' && <Link href="/" className="font-medium text-green-700 underline">Abrir app completo</Link>}
+              {!isLiteOnlyRole(data.role) && <Link href="/" className="font-medium text-green-700 underline">Abrir app completo</Link>}
               <button type="button" onClick={logout} className="font-medium text-gray-600 underline">Sair</button>
             </div>
           </footer>
@@ -219,10 +238,12 @@ export default function LitePage() {
       {tab === 'anotar' && activePoints.length > 0 && (
         <div className="fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <div className="mx-auto max-w-xl px-4 py-3 flex items-center gap-4">
-            <div className="shrink-0">
-              <p className="text-xs text-gray-500">Total do dia</p>
-              <p className="text-2xl font-bold text-green-800">{fmtNumber(dayTotal)} L</p>
-            </div>
+            {!single && (
+              <div className="shrink-0">
+                <p className="text-xs text-gray-500">Total do dia</p>
+                <p className="text-2xl font-bold text-green-800">{fmtNumber(dayTotal)} L</p>
+              </div>
+            )}
             <button type="button" onClick={save} disabled={changes.length === 0}
               className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white text-lg font-bold py-4 rounded-xl">
               {changes.length === 0 ? 'Salvo' : online ? 'Salvar' : 'Salvar no celular'}
@@ -237,19 +258,25 @@ export default function LitePage() {
 
 // ── Primeiro local ──────────────────────────────────────────────────────
 
-function FirstPoint({ online, onCreated }: { online: boolean; onCreated: () => void }) {
+function FirstPoint({ driver, online, onCreated }: { driver: boolean; online: boolean; onCreated: () => void }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-5">
-      <h1 className="text-xl font-bold text-gray-900">Onde você anota o leite?</h1>
-      <p className="mt-1 text-gray-600">Cadastre o sítio ou o tanque comunitário. Se você recolhe em vários lugares, cadastre todos.</p>
-      <div className="mt-4"><PointForm online={online} onSaved={onCreated} /></div>
+      <h1 className="text-xl font-bold text-gray-900">{driver ? 'Monte sua rota' : 'Qual o nome do seu sítio?'}</h1>
+      <p className="mt-1 text-gray-600">
+        {driver
+          ? 'Cadastre os sítios e tanques comunitários onde você recolhe o leite. Comece pelo primeiro.'
+          : 'É só para aparecer nas suas anotações e na planilha.'}
+      </p>
+      <div className="mt-4"><PointForm online={online} chooseKind={driver} onSaved={onCreated} /></div>
     </div>
   )
 }
 
-function PointForm({ online, point, onSaved, onCancel }: {
+function PointForm({ online, point, chooseKind = true, onSaved, onCancel }: {
   online: boolean
   point?: LitePoint
+  /** Motorista escolhe entre sítio e tanque comunitário; produtor anota sempre o próprio sítio */
+  chooseKind?: boolean
   onSaved: (p: LitePoint) => void
   onCancel?: () => void
 }) {
@@ -282,22 +309,25 @@ function PointForm({ online, point, onSaved, onCancel }: {
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
       <label className="text-sm font-medium text-gray-700">Nome
-        <input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Ex.: Sítio do João ou Tanque da Ponte" className={`mt-1 ${input}`} />
+        <input value={name} onChange={(e) => setName(e.target.value)} required
+          placeholder={chooseKind ? 'Ex.: Sítio do João ou Tanque da Ponte' : 'Ex.: Sítio Boa Vista'} className={`mt-1 ${input}`} />
       </label>
-      <div className="grid grid-cols-2 gap-2">
-        {(['sitio', 'tanque'] as const).map((k) => (
-          <button key={k} type="button" onClick={() => setKind(k)} aria-pressed={kind === k}
-            className={`py-3 rounded-xl border-2 text-sm font-semibold ${kind === k ? 'border-green-700 bg-green-50 text-green-800' : 'border-gray-200 text-gray-600'}`}>
-            {KIND_LABEL[k]}
-          </button>
-        ))}
-      </div>
+      {chooseKind && (
+        <div className="grid grid-cols-2 gap-2">
+          {(['sitio', 'tanque'] as const).map((k) => (
+            <button key={k} type="button" onClick={() => setKind(k)} aria-pressed={kind === k}
+              className={`py-3 rounded-xl border-2 text-sm font-semibold ${kind === k ? 'border-green-700 bg-green-50 text-green-800' : 'border-gray-200 text-gray-600'}`}>
+              {KIND_LABEL[k]}
+            </button>
+          ))}
+        </div>
+      )}
       {!online && <p className="text-sm text-amber-700">Para cadastrar locais é preciso estar com internet.</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">
         {onCancel && <button type="button" onClick={onCancel} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl">Cancelar</button>}
         <button type="submit" disabled={saving || !online} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl">
-          {saving ? 'Salvando...' : point ? 'Salvar' : 'Adicionar local'}
+          {saving ? 'Salvando...' : point ? 'Salvar' : chooseKind ? 'Adicionar local' : 'Começar a anotar'}
         </button>
       </div>
     </form>
@@ -388,43 +418,67 @@ function Points({ data, online, onChanged, onSync }: {
 
 function History({ data }: { data: LiteData }) {
   const [days, setDays] = useState(7)
+  const [pointId, setPointId] = useState('') // '' = todos os locais
   const today = todayISO()
   const from = shiftDay(today, -(days - 1))
   const names = new Map(data.points.map((p) => [p.id, p.name]))
+  const selected = data.points.find((p) => p.id === pointId)
 
-  const entries = data.entries.filter((e) => e.date >= from && e.date <= today)
-  const byDay = new Map<string, number>()
-  const byPoint = new Map<string, number>()
+  const inPeriod = data.entries.filter((e) => e.date >= from && e.date <= today)
+  const entries = pointId ? inPeriod.filter((e) => e.pointId === pointId) : inPeriod
+
+  const byDay = new Map<string, { total: number; parts: { pointId: string; liters: number }[] }>()
   for (const e of entries) {
-    byDay.set(e.date, (byDay.get(e.date) ?? 0) + e.liters)
-    byPoint.set(e.pointId, (byPoint.get(e.pointId) ?? 0) + e.liters)
+    const d = byDay.get(e.date) ?? { total: 0, parts: [] }
+    d.total += e.liters
+    d.parts.push({ pointId: e.pointId, liters: e.liters })
+    byDay.set(e.date, d)
   }
+  const byPoint = new Map<string, number>()
+  for (const e of inPeriod) byPoint.set(e.pointId, (byPoint.get(e.pointId) ?? 0) + e.liters)
+
   const dayList = [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]))
   const total = entries.reduce((s, e) => s + e.liters, 0)
+  const showBreakdown = !pointId && data.points.length > 1
 
   function download() {
+    const place = selected ? selected.name : 'Todos os locais'
     exportCSV({
-      title: 'Anotações de leite',
-      subtitle: `${fmtDay(from)} a ${fmtDay(today)} · ${data.userName}`,
+      title: selected ? `Anotações de leite - ${selected.name}` : 'Anotações de leite',
+      subtitle: `${fmtDay(from)} a ${fmtDay(today)} · ${place} · ${data.userName}`,
       sections: [
         {
           title: 'Anotações',
           columns: ['Data', 'Local', 'Litros'],
-          rows: [...entries].sort((a, b) => a.date.localeCompare(b.date))
+          rows: [...entries].sort((a, b) => a.date.localeCompare(b.date) || (names.get(a.pointId) ?? '').localeCompare(names.get(b.pointId) ?? ''))
             .map((e) => [fmtDay(e.date), names.get(e.pointId) ?? '—', fmtNumber(e.liters)]),
           footer: ['', 'Total', fmtNumber(total)],
         },
-        {
+        ...(!pointId ? [{
           title: 'Total por local',
           columns: ['Local', 'Litros'],
           rows: [...byPoint.entries()].map(([id, l]) => [names.get(id) ?? '—', fmtNumber(l)]),
-        },
+        }] : []),
       ],
     })
   }
 
   return (
     <div>
+      {data.points.length > 1 && (
+        <label className="block mb-3">
+          <span className="text-sm font-medium text-gray-700">Local</span>
+          <select value={pointId} onChange={(e) => setPointId(e.target.value)} className={`mt-1 ${input} bg-white font-semibold`}>
+            <option value="">Todos os locais</option>
+            {data.points.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}{p.kind === 'tanque' ? ' (tanque)' : ''}{p.active ? '' : ' (arquivado)'}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       <div className="grid grid-cols-3 gap-2">
         {[7, 30, 90].map((d) => (
           <button key={d} type="button" onClick={() => setDays(d)}
@@ -434,44 +488,66 @@ function History({ data }: { data: LiteData }) {
         ))}
       </div>
 
-      <div className="mt-4 bg-white rounded-2xl border border-gray-200 p-4 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-500">Total no período</p>
-          <p className="text-2xl font-bold text-green-800">{fmtNumber(total)} L</p>
+      <div className="mt-4 bg-white rounded-2xl border border-gray-200 p-4">
+        {selected && <p className="mb-2 text-base font-semibold text-gray-900">{selected.name}</p>}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Total no período</p>
+            <p className="text-2xl font-bold text-green-800">{fmtNumber(total)} L</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-gray-500">Média por dia anotado</p>
+            <p className="text-2xl font-bold text-gray-900">{fmtNumber(dayList.length ? total / dayList.length : 0)} L</p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-sm text-gray-500">Média por dia anotado</p>
-          <p className="text-2xl font-bold text-gray-900">{fmtNumber(dayList.length ? total / dayList.length : 0)} L</p>
-        </div>
+        <p className="mt-2 text-sm text-gray-500">{dayList.length} dia{dayList.length === 1 ? '' : 's'} com anotação</p>
       </div>
 
-      {data.points.length > 1 && byPoint.size > 0 && (
-        <ul className="mt-4 bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
-          {[...byPoint.entries()].sort((a, b) => b[1] - a[1]).map(([id, l]) => (
-            <li key={id} className="flex justify-between px-4 py-3">
-              <span className="text-gray-700">{names.get(id) ?? '—'}</span>
-              <span className="font-semibold text-gray-900">{fmtNumber(l)} L</span>
-            </li>
-          ))}
-        </ul>
+      {showBreakdown && byPoint.size > 0 && (
+        <section className="mt-4">
+          <h2 className="text-sm font-semibold text-gray-500 mb-2">Por local (toque para ver só ele)</h2>
+          <ul className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
+            {[...byPoint.entries()].sort((a, b) => b[1] - a[1]).map(([id, l]) => (
+              <li key={id}>
+                <button type="button" onClick={() => setPointId(id)} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50">
+                  <span className="text-gray-800">{names.get(id) ?? '—'}</span>
+                  <span className="flex items-center gap-2 font-semibold text-gray-900">
+                    {fmtNumber(l)} L
+                    <SetaDireitaIcon className="w-4 h-4 text-gray-400" />
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {dayList.length === 0 ? (
         <p className="mt-8 text-center text-gray-500">Nenhuma anotação nesse período.</p>
       ) : (
-        <ul className="mt-4 bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
-          {dayList.map(([day, liters]) => (
-            <li key={day} className="flex justify-between px-4 py-3">
-              <span className="text-gray-700">{fmtDay(day)} <span className="text-xs text-gray-400">{fmtDay(day, { weekday: 'short' })}</span></span>
-              <span className="font-semibold text-gray-900">{fmtNumber(liters)} L</span>
-            </li>
-          ))}
-        </ul>
+        <section className="mt-4">
+          <h2 className="text-sm font-semibold text-gray-500 mb-2">Por dia</h2>
+          <ul className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
+            {dayList.map(([day, d]) => (
+              <li key={day} className="px-4 py-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-700">{fmtDay(day)} <span className="text-xs text-gray-400">{fmtDay(day, { weekday: 'short' })}</span></span>
+                  <span className="font-semibold text-gray-900">{fmtNumber(d.total)} L</span>
+                </div>
+                {showBreakdown && d.parts.length > 0 && (
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    {d.parts.map((part) => `${names.get(part.pointId) ?? '—'}: ${fmtNumber(part.liters)} L`).join(' · ')}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <button type="button" onClick={download} disabled={entries.length === 0}
         className="mt-5 w-full border-2 border-green-700 text-green-800 font-semibold py-3 rounded-xl disabled:border-gray-300 disabled:text-gray-400">
-        Baixar planilha
+        Baixar planilha{selected ? ` de ${selected.name}` : ''}
       </button>
     </div>
   )

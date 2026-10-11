@@ -13,7 +13,7 @@ export default async function Home() {
   const user = await getSessionUser()
   if (!user) redirect('/inicio')
   if (user.role === 'fornecedor') redirect('/fornecedor')
-  if (user.role === 'lite') redirect('/lite')
+  if (user.role === 'lite' || user.role === 'motorista') redirect('/lite')
 
   const effectiveFarmId = user.effectiveFarmId
 
