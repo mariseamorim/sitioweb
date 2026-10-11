@@ -4,6 +4,9 @@ import { useUser } from '@/contexts/UserContext'
 
 import { useEffect, useState, useMemo } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
+import { useDialog } from '@/components/DialogProvider'
+import { todayISO } from '@/lib/utils'
+import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
 
 interface Animal {
   id: string
@@ -25,6 +28,7 @@ interface Treatment {
 }
 
 export default function VeterinaryTreatmentPage() {
+  const { confirm } = useDialog()
   const { user } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const now = new Date()
@@ -38,7 +42,7 @@ export default function VeterinaryTreatmentPage() {
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
-    animalId: '', startDate: '', endDate: '',
+    animalId: '', startDate: todayISO(), endDate: '',
     medicine: '', batch: '', manufacturer: '', description: '', observations: '',
   })
   const [isOnline, setIsOnline] = useState(true)
@@ -149,7 +153,7 @@ export default function VeterinaryTreatmentPage() {
 
   async function handleDelete(id: string) {
     if (!canEdit) return
-    if (!confirm('Excluir este tratamento?')) return
+    if (!(await confirm({ title: 'Excluir este tratamento?', confirmLabel: 'Excluir', danger: true }))) return
     await fetch(`/api/veterinary-treatment/${id}`, { method: 'DELETE' })
     loadData(farmId)
   }
@@ -184,7 +188,7 @@ export default function VeterinaryTreatmentPage() {
       setSaving(false)
       setShowRegister(false)
       setForm({
-        animalId: '', startDate: '', endDate: '',
+        animalId: '', startDate: todayISO(), endDate: '',
         medicine: '', batch: '', manufacturer: '', description: '', observations: '',
       })
       return
@@ -205,7 +209,7 @@ export default function VeterinaryTreatmentPage() {
     })
     setSaving(false)
     setShowRegister(false)
-    setForm({ animalId: '', startDate: '', endDate: '', medicine: '', batch: '', manufacturer: '', description: '', observations: '' })
+    setForm({ animalId: '', startDate: todayISO(), endDate: '', medicine: '', batch: '', manufacturer: '', description: '', observations: '' })
     loadData(farmId)
   }
 
@@ -238,13 +242,13 @@ export default function VeterinaryTreatmentPage() {
       {/* Offline / sync banner */}
       {!isOnline && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
-          <span>📴</span>
+          <SemSinalIcon className="w-5 h-5 shrink-0" />
           <span>Você está offline. Os registros serão salvos localmente e sincronizados quando reconectar.</span>
         </div>
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span>📶 {pendingCount} tratamento{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} tratamento{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
           <button
             onClick={handleSync}
             disabled={syncing}
@@ -333,7 +337,7 @@ export default function VeterinaryTreatmentPage() {
                   <h2 className="text-lg font-bold text-gray-800">{detailAnimal.name}</h2>
                   <p className="text-xs text-gray-500">Código: {detailAnimal.code}</p>
                 </div>
-                <button onClick={() => setDetailAnimalId(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                <button onClick={() => setDetailAnimalId(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
 
               <div className="bg-green-50 border border-green-100 rounded-lg px-4 py-3 mb-4 text-sm flex justify-between">
@@ -384,13 +388,13 @@ export default function VeterinaryTreatmentPage() {
                           </div>
                         )}
                         {t.description && (
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <p className="text-xs text-gray-500">Descrição</p>
                             <p className="text-gray-700">{t.description}</p>
                           </div>
                         )}
                         {t.observations && (
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <p className="text-xs text-gray-500">Observações</p>
                             <p className="text-gray-700">{t.observations}</p>
                           </div>
@@ -412,7 +416,7 @@ export default function VeterinaryTreatmentPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-800">Registrar Tratamento</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
 
               <form onSubmit={handleSave} className="flex flex-col gap-3">
@@ -431,7 +435,7 @@ export default function VeterinaryTreatmentPage() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Data Início *</label>
                     <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} required
@@ -451,7 +455,7 @@ export default function VeterinaryTreatmentPage() {
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Fabricante</label>
                     <input type="text" value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}

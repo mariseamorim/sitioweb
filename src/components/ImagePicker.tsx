@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { AnimalIcon } from '@/components/ModuleIcons'
 
 interface Props {
   value: string        // base64 atual
@@ -167,7 +168,7 @@ export function ImagePicker({ value, onChange }: Props) {
           {value ? (
             <img src={value} alt="preview" className="w-full h-full object-cover rounded-lg" />
           ) : (
-            <span className="text-gray-300 text-3xl">🐄</span>
+            <AnimalIcon className="w-10 h-10 text-gray-300" />
           )}
         </div>
 

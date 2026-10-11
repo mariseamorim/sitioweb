@@ -1,29 +1,26 @@
 {
-  "name": "SítioWeb",
-  "short_name": "SítioWeb",
-  "description": "Sistema de controle rural para sítios e fazendas",
+  "name": "Anota Aí Agro",
+  "short_name": "Anota Aí Agro",
+  "description": "Gestão de rebanho, produção de leite, finanças e estoque para sítios e fazendas",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f9fafb",
-  "theme_color": "#15803d",
+  "background_color": "#f7f2e7",
+  "theme_color": "#18543d",
   "icons": [
     {
-      "src": "/logo.png",
+      "src": "/anota-ai-agro-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "/logo.png",
+      "src": "/anota-ai-agro-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/logo.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "id": "/",
+  "scope": "/",
+  "lang": "pt-BR"
 }

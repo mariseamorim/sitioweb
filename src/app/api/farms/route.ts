@@ -1,16 +1,9 @@
-import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
-
-async function getMe() {
-  const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value
-  if (!userId) return null
-  return prisma.user.findUnique({ where: { id: userId }, select: { id: true, farmId: true, role: true } })
-}
+import { canEdit, getSessionUser } from '@/lib/auth'
 
 export async function GET() {
-  const me = await getMe()
+  const me = await getSessionUser()
   if (!me) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   if (me.role === 'admin') {
@@ -26,8 +19,11 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const me = await getMe()
+  const me = await getSessionUser()
   if (!me) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  if (me.role !== 'admin' && !(me.permissions?.includes('fazendas') && canEdit(me))) {
+    return NextResponse.json({ error: 'Você não tem permissão para esta ação' }, { status: 403 })
+  }
 
   const { name, propertyType, documentType, documentNumber, owner, email, phone, address, city, state } = await request.json()
 

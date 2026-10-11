@@ -1,0 +1,202 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Farm {
+  id             String    @id @default(cuid())
+  name           String
+  propertyType   String?   @default("Fazenda")
+  documentType   String?
+  documentNumber String?   @unique
+  owner          String?
+  email          String?
+  phone          String?
+  address        String?
+  city           String?
+  state          String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  animals       Animal[]
+  users         User[]
+  reproductions Reproduction[]
+  transactions  Transaction[]
+  supplies      Supply[]
+
+  @@map("farms")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  password    String
+  role        String   @default("viewer")
+  permissions Json?    // String[] de chaves de módulo; null = admin tem tudo
+  farmId      String?
+  farm        Farm?    @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Animal {
+  id           String    @id @default(cuid())
+  code         String
+  name         String
+  species      String
+  gender       String
+  birthDate    DateTime
+  status       String
+  gta          String?
+  observations String?
+  imageUrl     String?
+  lowDate      DateTime?
+  lowReason    String?
+  farmId       String
+  farm         Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  milkProductions      MilkProduction[]
+  veterinaryTreatments VeterinaryTreatment[]
+  vaccinations         Vaccination[]
+  reproductions        Reproduction[]        @relation("ReproductionFemale")
+  transactions         Transaction[]
+
+  @@unique([farmId, code])
+  @@map("animals")
+}
+
+model AnimalHistory {
+  id         String   @id @default(cuid())
+  animalCode String
+  animalName String
+  action     String
+  changes    String?
+  userId     String?
+  createdAt  DateTime @default(now())
+
+  @@map("animal_histories")
+}
+
+model MilkProduction {
+  id           String   @id @default(cuid())
+  animalId     String
+  animal       Animal   @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  date         DateTime
+  quantity     Float
+  observations String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("milk_productions")
+}
+
+model VeterinaryTreatment {
+  id           String    @id @default(cuid())
+  animalId     String
+  animal       Animal    @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  startDate    DateTime
+  endDate      DateTime?
+  medicine     String
+  batch        String?
+  manufacturer String?
+  description  String?
+  observations String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("veterinary_treatments")
+}
+
+model Vaccination {
+  id            String    @id @default(cuid())
+  animalId      String
+  animal        Animal    @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  vaccineName   String
+  scheduledDate DateTime
+  appliedDate   DateTime?
+  batch         String?
+  manufacturer  String?
+  observations  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("vaccinations")
+}
+
+model Reproduction {
+  id                String    @id @default(cuid())
+  femaleId          String
+  female            Animal    @relation("ReproductionFemale", fields: [femaleId], references: [id], onDelete: Cascade)
+  maleName          String?
+  coverageDate      DateTime
+  expectedBirthDate DateTime?
+  actualBirthDate   DateTime?
+  status            String    @default("Coberta")
+  calfId            String?
+  observations      String?
+  farmId            String
+  farm              Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("reproductions")
+}
+
+model Transaction {
+  id          String    @id @default(cuid())
+  type        String
+  category    String
+  date        DateTime
+  amount      Float
+  description String?
+  animalId    String?
+  animal      Animal?   @relation(fields: [animalId], references: [id])
+  farmId      String
+  farm        Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("transactions")
+}
+
+model Supply {
+  id              String           @id @default(cuid())
+  name            String
+  category        String
+  unit            String
+  currentQuantity Float            @default(0)
+  minimumQuantity Float            @default(0)
+  farmId          String
+  farm            Farm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  movements       SupplyMovement[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@map("supplies")
+}
+
+model SupplyMovement {
+  id          String   @id @default(cuid())
+  supplyId    String
+  supply      Supply   @relation(fields: [supplyId], references: [id], onDelete: Cascade)
+  type        String
+  quantity    Float
+  date        DateTime
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@map("supply_movements")
+}

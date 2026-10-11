@@ -1,385 +1,153 @@
-'use client';
+﻿'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
+import { PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon } from '@/components/ModuleIcons';
+import { SyncStatus } from '@/components/SyncStatus';
+import { TaskBell } from '@/components/TaskBell';
+import { useDialog } from '@/components/DialogProvider';
+import { countAllPendingOnDevice } from '@/lib/offlineStorage';
 
-const allLinks: { href: string; label: string; shortLabel: string; module: string | null; icon: React.ReactNode }[] = [
-  {
-    href: '/',
-    label: 'Painel',
-    shortLabel: 'Painel',
-    module: null,
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-        <rect x="3" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="3" width="7" height="7" rx="1" />
-        <rect x="3" y="14" width="7" height="7" rx="1" />
-        <rect x="14" y="14" width="7" height="7" rx="1" />
-      </svg>
-    ),
-  },
-  {
-    href: '/fazendas',
-    label: 'Propriedades',
-    shortLabel: 'Props.',
-    module: 'fazendas',
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l9-9 9 9" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 21V12h6v9" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 21h14" />
-      </svg>
-    ),
-  },
-  {
-    href: '/animais',
-    label: 'Animais',
-    shortLabel: 'Animais',
-    module: 'animais',
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-        <rect x="5" y="14" width="14" height="7" rx="3" />
-        <circle cx="9" cy="17.5" r="0.75" fill="currentColor" stroke="none" />
-        <circle cx="15" cy="17.5" r="0.75" fill="currentColor" stroke="none" />
-        <path d="M7 14V9.5C7 6.5 9 5 12 5c3 0 5 1.5 5 4.5V14" />
-        <path d="M8 6.5C6.5 4 5 3 3.5 3c-1.5 0-1 2 0 3" />
-        <path d="M16 6.5c1.5-2.5 3-3.5 4.5-3.5 1.5 0 1 2 0 3" />
-        <path d="M7 10C4 9 2 10.5 2 11c0 .5 2 1 5-1" />
-        <path d="M17 10c3-1 5 .5 5 1 0 .5-2 1-5-1" />
-        <circle cx="9.5" cy="10" r="0.75" fill="currentColor" stroke="none" />
-        <circle cx="14.5" cy="10" r="0.75" fill="currentColor" stroke="none" />
-      </svg>
-    ),
-  },
-  {
-    href: '/milk-production',
-    label: 'Produção de Leite',
-    shortLabel: 'Leite',
-    module: 'leite',
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8 3h8l1 5H7L8 3z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7 8l-2 12h14L17 8" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M10 13c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2z" />
-      </svg>
-    ),
-  },
-  {
-    href: '/veterinary-treatment',
-    label: 'Tratamentos Vet.',
-    shortLabel: 'Vet.',
-    module: 'veterinario',
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-        <rect x="3" y="3" width="18" height="18" rx="3" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v8M8 12h8" />
-      </svg>
-    ),
-  },
-  {
-    href: '/vacinacao',
-    label: 'Vacinação',
-    shortLabel: 'Vacinas',
-    module: 'vacinacao',
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 3.5l5 5m-2-2l-9.5 9.5-4-4 9.5-9.5zM4.5 17l-1.5 3.5 3.5-1.5M10 8l1.5 1.5M8 10l1.5 1.5" />
-      </svg>
-    ),
-  },
-  {
-    href: '/reproducao',
-    label: 'Reprodução',
-    shortLabel: 'Reprod.',
-    module: 'reproducao',
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-      </svg>
-    ),
-  },
-  {
-    href: '/financeiro',
-    label: 'Financeiro',
-    shortLabel: 'Financ.',
-    module: 'financeiro',
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-  },
-  {
-    href: '/estoque',
-    label: 'Estoque',
-    shortLabel: 'Estoque',
-    module: 'estoque',
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-      </svg>
-    ),
-  },
-  {
-    href: '/usuarios',
-    label: 'Usuários',
-    shortLabel: 'Usuários',
-    module: 'usuarios',
-    icon: (
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-        <circle cx="9" cy="7" r="4" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19 8v6M16 11h6" />
-      </svg>
-    ),
-  },
+type NavLink = { href: string; label: string; module: string | null; adminOnly?: boolean; Icon: (p: { className?: string }) => React.ReactNode };
+
+const groups: { label: string; links: NavLink[] }[] = [
+  { label: 'Visão geral', links: [
+    { href: '/', label: 'Painel', module: null, Icon: PainelIcon },
+    { href: '/fazendas', label: 'Propriedades', module: 'fazendas', Icon: PropriedadeIcon },
+  ] },
+  { label: 'Rebanho e produção', links: [
+    { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },
+    { href: '/milk-production', label: 'Produção de leite', module: 'leite', Icon: LeiteIcon },
+    { href: '/lite', label: 'Anota Aí Leite', module: null, Icon: LeiteIcon },
+    { href: '/veterinary-treatment', label: 'Tratamentos', module: 'veterinario', Icon: TratamentoIcon },
+    { href: '/vacinacao', label: 'Vacinação', module: 'vacinacao', Icon: VacinaIcon },
+    { href: '/reproducao', label: 'Reprodução', module: 'reproducao', Icon: ReproducaoIcon },
+  ] },
+  { label: 'Gestão', links: [
+    { href: '/financeiro', label: 'Financeiro', module: 'financeiro', Icon: FinanceiroIcon },
+    { href: '/estoque', label: 'Estoque', module: 'estoque', Icon: EstoqueIcon },
+    { href: '/relatorios', label: 'Relatórios', module: null, Icon: RelatorioIcon },
+    { href: '/usuarios', label: 'Usuários', module: 'usuarios', Icon: UsuariosIcon },
+  ] },
+  { label: 'Fornecedores', links: [
+    { href: '/ofertas', label: 'Ofertas', module: null, Icon: EtiquetaIcon },
+    { href: '/admin/fornecedores', label: 'Aprovar fornecedores', module: null, adminOnly: true, Icon: LojaIcon },
+  ] },
 ];
 
-const mainTabHrefs = ['/', '/animais', '/milk-production', '/veterinary-treatment'];
-const drawerHrefs = ['/vacinacao', '/reproducao', '/financeiro', '/estoque', '/fazendas', '/usuarios'];
+// O fornecedor tem uma interface própria, sem os módulos da propriedade
+const vendorGroups: { label: string; links: NavLink[] }[] = [
+  { label: 'Fornecedor', links: [{ href: '/fornecedor', label: 'Meu painel', module: null, Icon: LojaIcon }] },
+];
 
-export function Navbar() {
+export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean; onToggleDesktop: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { canAccess, user } = useUser();
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { notify } = useDialog();
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  const drawerOpen = openPath === pathname;
+  const drawer = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const isVendor = user?.role === 'fornecedor';
+  const visibleGroups = (isVendor ? vendorGroups : groups).map(group => ({ ...group, links: group.links.filter(link => (!link.module || canAccess(link.module)) && (!link.adminOnly || user?.role === 'admin')) })).filter(group => group.links.length);
+  const activeLink = visibleGroups.flatMap(group => group.links).find(link => link.href === '/' ? pathname === '/' : pathname === link.href || pathname.startsWith(link.href + '/'));
+  const role = user?.role === 'admin' ? 'Administrador' : user?.role === 'editor' ? 'Editor' : isVendor ? 'Fornecedor' : 'Leitor';
 
   useEffect(() => {
-    setDrawerOpen(false);
-  }, [pathname]);
+    if (!drawerOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    drawer.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenPath(null);
+      if (event.key !== 'Tab') return;
+      const items = drawer.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled])');
+      if (!items?.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    const media = window.matchMedia('(min-width: 1024px)');
+    const onResize = () => { if (media.matches) setOpenPath(null); };
+    document.addEventListener('keydown', onKey);
+    media.addEventListener('change', onResize);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKey);
+      media.removeEventListener('change', onResize);
+      previousFocus?.focus();
+    };
+  }, [drawerOpen]);
 
   async function handleLogout() {
-    // Limpar cache e localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.clear();
-      sessionStorage.clear();
-      // Limpar cache do Service Worker se existir
-      if ('caches' in window) {
-        caches.keys().then(names => {
-          names.forEach(name => caches.delete(name));
-        });
-      }
+    // Sair apaga os dados do aparelho: com anotações ainda não enviadas, elas se perderiam
+    const pending = countAllPendingOnDevice();
+    if (pending > 0) {
+      await notify(
+        `Há ${pending} registro${pending > 1 ? 's' : ''} ainda não enviado${pending > 1 ? 's' : ''}`,
+        'Conecte-se à internet e espere o envio terminar antes de sair, senão esses registros se perdem.',
+      );
+      return;
     }
+    localStorage.clear();
+    sessionStorage.clear();
+    if ('caches' in window) void caches.keys().then(names => Promise.all(names.map(name => caches.delete(name))));
     await fetch('/api/auth/logout', { method: 'POST' });
+    setOpenPath(null);
     router.push('/login');
   }
 
-  if (pathname === '/login' || pathname === '/cadastro' || pathname === '/setup') return null;
+  const logo = <Image src="/anota-ai-agro-logo.png" width={132} height={38} sizes="132px" alt="Anota Aí Agro" priority className="h-auto w-32" style={{ width: 128, height: 'auto' }} />;
+  const navigation = <nav aria-label="Menu principal" className="flex-1 overflow-y-auto px-3 py-3">
+    {visibleGroups.map(group => <div key={group.label} className="mb-4 last:mb-0">
+      <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{group.label}</p>
+      <ul className="space-y-1">{group.links.map(({ href, label, Icon }) => {
+        const active = activeLink?.href === href;
+        return <li key={href}><Link href={href} onClick={() => setOpenPath(null)} aria-current={active ? 'page' : undefined} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 ${active ? 'bg-green-100 text-green-900' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
+          <span aria-hidden="true" className={active ? 'text-green-700' : 'text-gray-400'}><Icon className="h-5 w-5" /></span><span>{label}</span>{active && <span aria-hidden="true" className="ml-auto h-1.5 w-1.5 rounded-full bg-green-700" />}
+        </Link></li>;
+      })}</ul>
+    </div>)}
+  </nav>;
+  const account = <div className="shrink-0 border-t border-gray-100 p-4">
+    {user && <div className="mb-3 flex min-w-0 items-center gap-3">
+      <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-sm font-bold text-green-800">{user.name.slice(0, 1).toUpperCase()}</span>
+      <div className="min-w-0"><p className="truncate text-sm font-semibold text-gray-800">{user.name}</p><p className="text-xs text-gray-500">{role}</p></div>
+    </div>}
+    <button type="button" onClick={handleLogout} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-green-700">
+      <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" /></svg>Sair da conta
+    </button>
+  </div>;
 
-  function isActive(href: string) {
-    if (href === '/') return pathname === '/';
-    return pathname.startsWith(href);
-  }
-
-  const visibleLinks = allLinks.filter(l => !l.module || canAccess(l.module));
-
-  const mainTabs = visibleLinks.filter(l => mainTabHrefs.includes(l.href));
-  const drawerItems = visibleLinks
-    .filter(l => drawerHrefs.includes(l.href))
-    .sort((a, b) => drawerHrefs.indexOf(a.href) - drawerHrefs.indexOf(b.href));
-
-  const isDrawerRouteActive = drawerHrefs.some(h => isActive(h));
-
-  return (
-    <>
-      {/* ── Top bar ── */}
-      <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-
-            {/* Logo */}
-            <Link href="/" className="flex items-center shrink-0">
-              <img
-                src="/logo.svg"
-                alt="SítioWeb"
-                className="h-10 sm:h-12 md:h-10 lg:h-12 w-auto object-contain"
-              />
-            </Link>
-
-            {/* Desktop links */}
-            <div className="hidden md:flex items-stretch h-full gap-0.5">
-              {visibleLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`flex items-center px-2 text-xs font-medium transition-colors border-b-2 whitespace-nowrap ${
-                    isActive(link.href)
-                      ? 'border-green-600 text-green-700 bg-green-50'
-                      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
-              {user && (
-                <div className="ml-2 self-center flex items-center gap-1.5 shrink-0">
-                  <span className="text-xs text-gray-500 max-w-[120px] truncate">{user.name}</span>
-                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                    user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                    user.role === 'editor' ? 'bg-blue-100 text-blue-700' :
-                    'bg-gray-100 text-gray-600'
-                  }`}>
-                    {user.role === 'admin' ? 'Admin' : user.role === 'editor' ? 'Editor' : 'Viewer'}
-                  </span>
-                  {user.role === 'admin' && user.farmName && (
-                    <span className="text-[10px] text-gray-400 border border-gray-200 px-1.5 py-0.5 rounded-full max-w-[100px] truncate">
-                      {user.farmName}
-                    </span>
-                  )}
-                </div>
-              )}
-              <button
-                onClick={handleLogout}
-                className="ml-1 self-center px-3 py-1.5 rounded-lg text-xs font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors shrink-0"
-              >
-                Sair
-              </button>
-            </div>
-
-            {/* User badge + Logout icon — mobile only */}
-            <div className="md:hidden flex items-center gap-2">
-              {user && (
-                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                  user.role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                  user.role === 'editor' ? 'bg-blue-100 text-blue-700' :
-                  'bg-gray-100 text-gray-600'
-                }`}>
-                  {user.role === 'admin' ? 'Admin' : user.role === 'editor' ? 'Editor' : 'Viewer'}
-                </span>
-              )}
-              <button
-                onClick={handleLogout}
-                className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                aria-label="Sair"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
-                </svg>
-              </button>
-            </div>
-          </div>
+  return <>
+    <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-lg focus:bg-white focus:p-3 focus:text-green-900">Ir para o conteúdo</a>
+    <aside id="menu-computador" className={`fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-gray-200 bg-white ${desktopOpen ? 'lg:flex' : ''}`}>
+      <Link href="/" aria-label="Anota Aí Agro, painel" className="flex h-16 shrink-0 items-center justify-center border-b border-gray-100">{logo}</Link>
+      {navigation}{account}
+    </aside>
+    <header className={`sticky top-0 z-30 border-b border-gray-200 bg-white ${desktopOpen ? 'lg:ml-64' : ''}`}>
+      <div className="flex min-h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3">
+          <button type="button" onClick={onToggleDesktop} aria-label={desktopOpen ? 'Recolher menu' : 'Abrir menu lateral'} aria-expanded={desktopOpen} aria-controls="menu-computador" className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 lg:flex"><MenuIcon className="h-5 w-5" /></button>
+          <button ref={trigger} type="button" onClick={() => setOpenPath(pathname)} aria-label="Abrir menu" aria-expanded={drawerOpen} aria-controls={drawerOpen ? 'menu-lateral' : undefined} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 lg:hidden"><MenuIcon className="h-5 w-5" /></button>
+          <div className="min-w-0"><p className="truncate text-sm font-semibold text-gray-800">{activeLink?.label || 'Anota Aí Agro'}</p><p className="truncate text-xs text-gray-500">{isVendor ? 'Painel do fornecedor' : user?.farmName || 'Gestão da propriedade'}</p></div>
         </div>
-      </nav>
-
-      {/* ── Bottom tab bar — mobile only ── */}
-      <div
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200"
-        style={{
-          boxShadow: '0 -2px 16px rgba(0,0,0,0.07)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-        }}
-      >
-        <div className="flex">
-          {mainTabs.map((link) => {
-            const active = isActive(link.href);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="flex-1 flex flex-col items-center pt-2 pb-1.5 gap-0.5 transition-colors"
-              >
-                <span
-                  className={`block h-0.5 w-8 rounded-full -mt-2 mb-1.5 transition-colors ${
-                    active ? 'bg-green-500' : 'bg-transparent'
-                  }`}
-                />
-                <span className={active ? 'text-green-600' : 'text-gray-400'}>
-                  {link.icon}
-                </span>
-                <span
-                  className={`text-[10px] font-semibold leading-tight tracking-wide ${
-                    active ? 'text-green-700' : 'text-gray-400'
-                  }`}
-                >
-                  {link.shortLabel}
-                </span>
-              </Link>
-            );
-          })}
-
-          {/* "Mais" tab */}
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className="flex-1 flex flex-col items-center pt-2 pb-1.5 gap-0.5 transition-colors"
-          >
-            <span
-              className={`block h-0.5 w-8 rounded-full -mt-2 mb-1.5 transition-colors ${
-                isDrawerRouteActive ? 'bg-green-500' : 'bg-transparent'
-              }`}
-            />
-            <span className={isDrawerRouteActive ? 'text-green-600' : 'text-gray-400'}>
-              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="5" cy="5" r="1.5" />
-                <circle cx="12" cy="5" r="1.5" />
-                <circle cx="19" cy="5" r="1.5" />
-                <circle cx="5" cy="12" r="1.5" />
-                <circle cx="12" cy="12" r="1.5" />
-                <circle cx="19" cy="12" r="1.5" />
-                <circle cx="5" cy="19" r="1.5" />
-                <circle cx="12" cy="19" r="1.5" />
-                <circle cx="19" cy="19" r="1.5" />
-              </svg>
-            </span>
-            <span
-              className={`text-[10px] font-semibold leading-tight tracking-wide ${
-                isDrawerRouteActive ? 'text-green-700' : 'text-gray-400'
-              }`}
-            >
-              Mais
-            </span>
-          </button>
-        </div>
+        <div className="flex shrink-0 items-center gap-2"><div className="hidden sm:block"><SyncStatus /></div>{user?.farmId && <TaskBell />}</div>
       </div>
-
-      {/* ── Drawer — mobile only ── */}
-      {drawerOpen && (
-        <div
-          className="md:hidden fixed inset-0 z-50 bg-black/40"
-          onClick={() => setDrawerOpen(false)}
-        >
-          <div
-            className="fixed bottom-0 inset-x-0 bg-white rounded-t-2xl p-4"
-            onClick={e => e.stopPropagation()}
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-gray-700">Mais opções</h3>
-              <button
-                onClick={() => setDrawerOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-1"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {drawerItems.map(item => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl transition-colors ${
-                    isActive(item.href) ? 'bg-green-50' : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <span className={isActive(item.href) ? 'text-green-600' : 'text-gray-500'}>
-                    {item.icon}
-                  </span>
-                  <span
-                    className={`text-xs font-medium text-center ${
-                      isActive(item.href) ? 'text-green-700' : 'text-gray-600'
-                    }`}
-                  >
-                    {item.label}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
+      <div className="px-4 pb-2 empty:hidden sm:hidden"><SyncStatus /></div>
+    </header>
+    {drawerOpen && <div className="fixed inset-0 z-[60] lg:hidden">
+      <div className="absolute inset-0 bg-gray-950/45" aria-hidden="true" onClick={() => setOpenPath(null)} />
+      <div ref={drawer} id="menu-lateral" role="dialog" aria-modal="true" aria-label="Menu de navegação" className="relative flex h-full h-dvh w-[min(288px,calc(100vw-32px))] flex-col bg-white shadow-2xl" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-gray-100 px-4"><Link href="/" onClick={() => setOpenPath(null)} aria-label="Anota Aí Agro, painel">{logo}</Link><button type="button" onClick={() => setOpenPath(null)} aria-label="Fechar menu" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100"><FecharIcon className="h-5 w-5" /></button></div>
+        {navigation}{account}
+      </div>
+    </div>}
+  </>;
 }

@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "prisma generate && next build",
+    "dev": "next dev --webpack",
+    "build": "prisma generate && node scripts/vercel-migrate.mjs && next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "prisma migrate dev",
@@ -13,19 +13,24 @@
     "db:seed": "prisma db seed"
   },
   "prisma": {
-    "seed": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "seed": "node prisma/seed.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "jspdf": "^3.0.3",
+    "jspdf-autotable": "^5.0.2",
     "next": "16.1.6",
     "next-pwa": "^5.6.0",
+    "nodemailer": "^10.1.0",
     "prisma": "^5.22.0",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

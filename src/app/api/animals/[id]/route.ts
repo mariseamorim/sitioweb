@@ -1,8 +1,18 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { notFound, requireFarmAccess } from '@/lib/auth'
+
+async function findOwned(id: string, farmId: string) {
+  return prisma.animal.findFirst({ where: { id, farmId }, select: { id: true } })
+}
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireFarmAccess('animais', 'edit')
+  if (auth.error) return auth.error
+
   const { id } = await params
+  if (!(await findOwned(id, auth.farmId))) return notFound('Animal não encontrado')
+
   const body = await request.json()
   const { code, name, species, gender, birthDate, status, gta, observations, lowDate, lowReason, imageUrl } = body
 
@@ -26,7 +36,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireFarmAccess('animais', 'edit')
+  if (auth.error) return auth.error
+
   const { id } = await params
+  if (!(await findOwned(id, auth.farmId))) return notFound('Animal não encontrado')
+
   await prisma.animal.delete({ where: { id } })
   return NextResponse.json({ ok: true })
 }

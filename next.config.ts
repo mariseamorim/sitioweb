@@ -6,7 +6,7 @@ const runtimeCaching = require("next-pwa/cache");
 const withPWA = (require("next-pwa") as any)({
   dest: "public",
   disable: false,
-  register: true,
+  register: false,
   skipWaiting: true,
   runtimeCaching,
   fallbacks: {
@@ -15,7 +15,12 @@ const withPWA = (require("next-pwa") as any)({
 });
 
 const nextConfig: NextConfig = {
+  // O next-pwa só funciona com webpack (usado no build). No `next dev` com Turbopack, esta linha evita o erro de configuração.
   turbopack: {},
+  distDir: process.env.NEXT_DIST_DIR || ".next",
+  async headers() {
+    return [{ source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }, { key: "Service-Worker-Allowed", value: "/" }] }];
+  },
 };
 
 export default withPWA(nextConfig);

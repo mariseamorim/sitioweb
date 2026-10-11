@@ -1,36 +1,29 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { notFound, requireFarmAccess } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
+  const auth = await requireFarmAccess('vacinacao', 'view')
+  if (auth.error) return auth.error
+
   try {
-    const farmId = request.nextUrl.searchParams.get('farmId')
     const animalId = request.nextUrl.searchParams.get('animalId')
 
-    if (animalId) {
-      const vaccinations = await prisma.vaccination.findMany({
-        where: { animalId },
-        include: { animal: true },
-        orderBy: { scheduledDate: 'desc' },
-      })
-      return NextResponse.json(vaccinations)
-    }
-
-    if (farmId) {
-      const vaccinations = await prisma.vaccination.findMany({
-        where: { animal: { farmId } },
-        include: { animal: true },
-        orderBy: { scheduledDate: 'desc' },
-      })
-      return NextResponse.json(vaccinations)
-    }
-
-    return NextResponse.json({ error: 'farmId ou animalId obrigatório' }, { status: 400 })
-  } catch (error) {
+    const vaccinations = await prisma.vaccination.findMany({
+      where: { animal: { farmId: auth.farmId }, ...(animalId ? { animalId } : {}) },
+      include: { animal: true },
+      orderBy: { scheduledDate: 'desc' },
+    })
+    return NextResponse.json(vaccinations)
+  } catch {
     return NextResponse.json({ error: 'Erro ao buscar vacinações' }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireFarmAccess('vacinacao', 'edit')
+  if (auth.error) return auth.error
+
   try {
     const body = await request.json()
     const { animalId, vaccineName, scheduledDate, appliedDate, batch, manufacturer, observations } = body
@@ -38,6 +31,8 @@ export async function POST(request: NextRequest) {
     if (!animalId || !vaccineName || !scheduledDate) {
       return NextResponse.json({ error: 'Animal, vacina e data agendada são obrigatórios' }, { status: 400 })
     }
+    const animal = await prisma.animal.findFirst({ where: { id: animalId, farmId: auth.farmId }, select: { id: true } })
+    if (!animal) return notFound('Animal não encontrado')
 
     const vaccination = await prisma.vaccination.create({
       data: {
@@ -53,7 +48,7 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(vaccination, { status: 201 })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Erro ao criar vacinação' }, { status: 500 })
   }
 }

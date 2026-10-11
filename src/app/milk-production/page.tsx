@@ -1,9 +1,15 @@
 'use client'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
-import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/offlineStorage'
+import { getPendingRecords, removePendingRecord } from '@/lib/offlineStorage'
+import { MilkDailyEntry } from '@/components/MilkDailyEntry'
+import { MilkTotalEntry } from '@/components/MilkTotalEntry'
+import { MilkCollections } from '@/components/MilkCollections'
 
 import { useEffect, useState, useMemo } from 'react'
+import { useDialog } from '@/components/DialogProvider'
+import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
+import { fmtNumber } from '@/lib/reports'
 
 interface Animal {
   id: string
@@ -13,14 +19,27 @@ interface Animal {
 
 interface Production {
   id: string
-  animalId: string
+  animalId: string | null
   date: string
   quantity: number
+  cowsMilked?: number | null
   observations?: string | null
-  animal: Animal
+  animal: Animal | null
+}
+
+type RegisterMode = 'total' | 'vaca'
+const MODE_KEY = 'milk_register_mode'
+
+/** Datas são gravadas como meia-noite UTC do dia: exibir em UTC evita mostrar o dia anterior */
+const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+const fmtWeekday = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC', weekday: 'short' }).replace('.', '')
+
+function readMode(): RegisterMode {
+  try { return localStorage.getItem(MODE_KEY) === 'vaca' ? 'vaca' : 'total' } catch { return 'total' }
 }
 
 export default function MilkProductionPage() {
+  const { confirm } = useDialog()
   const { user } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const now = new Date()
@@ -30,13 +49,11 @@ export default function MilkProductionPage() {
   const [farmId, setFarmId] = useState('')
   const [from, setFrom] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10))
   const [to, setTo] = useState(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10))
+  const [view, setView] = useState<'dia' | 'vaca'>('dia')
+  const [detailDay, setDetailDay] = useState<string | null>(null)
   const [detailAnimalId, setDetailAnimalId] = useState<string | null>(null)
   const [showRegister, setShowRegister] = useState(false)
-  const [formAnimalId, setFormAnimalId] = useState('')
-  const [formDate, setFormDate] = useState('')
-  const [formQty, setFormQty] = useState('')
-  const [formObs, setFormObs] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [registerMode, setRegisterMode] = useState<RegisterMode>('total')
   const [isOnline, setIsOnline] = useState(true)
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
@@ -74,13 +91,25 @@ export default function MilkProductionPage() {
       setAllAnimals(
         Array.isArray(animals)
           ? animals.filter(
-              (a: Animal & { species: string; gender: string }) =>
-                a.species.toLowerCase() === 'vaca' && a.gender.toLowerCase() === 'fêmea'
+              (a: Animal & { species: string; gender: string; status: string }) =>
+                a.species.toLowerCase() === 'vaca' &&
+                a.gender.toLowerCase() === 'fêmea' &&
+                !['morto', 'vendido'].includes(a.status.toLowerCase())
             )
           : []
       )
       setLoading(false)
     })
+  }
+
+  function openRegister() {
+    setRegisterMode(readMode())
+    setShowRegister(true)
+  }
+
+  function chooseMode(mode: RegisterMode) {
+    setRegisterMode(mode)
+    try { localStorage.setItem(MODE_KEY, mode) } catch {}
   }
 
   const filtered = useMemo(() => {
@@ -92,36 +121,62 @@ export default function MilkProductionPage() {
     })
   }, [productions, from, to])
 
-  const summary = useMemo(() => {
+  const grandTotal = filtered.reduce((s, p) => s + p.quantity, 0)
+
+  // Por dia: soma os totais do dia e os lançamentos por vaca
+  const byDay = useMemo(() => {
+    const map = new Map<string, { day: string; total: number; cows: Set<string>; cowsInTotal: number; count: number }>()
+    for (const p of filtered) {
+      const day = p.date.slice(0, 10)
+      const d = map.get(day) ?? { day, total: 0, cows: new Set<string>(), cowsInTotal: 0, count: 0 }
+      d.total += p.quantity
+      d.count++
+      if (p.animalId) d.cows.add(p.animalId)
+      else if (p.cowsMilked) d.cowsInTotal = Math.max(d.cowsInTotal, p.cowsMilked)
+      map.set(day, d)
+    }
+    return [...map.values()].sort((a, b) => b.day.localeCompare(a.day))
+  }, [filtered])
+
+  const byCow = useMemo(() => {
     const map = new Map<string, { animal: Animal; total: number; count: number }>()
     for (const p of filtered) {
-      const s = map.get(p.animalId)
+      if (!p.animal) continue
+      const s = map.get(p.animal.id)
       if (s) { s.total += p.quantity; s.count++ }
-      else map.set(p.animalId, { animal: p.animal, total: p.quantity, count: 1 })
+      else map.set(p.animal.id, { animal: p.animal, total: p.quantity, count: 1 })
     }
     return Array.from(map.values()).sort((a, b) => b.total - a.total)
   }, [filtered])
 
-  const grandTotal = summary.reduce((s, a) => s + a.total, 0)
+  const totalsByDay = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const p of productions) {
+      const day = p.date.slice(0, 10)
+      map.set(day, (map.get(day) ?? 0) + p.quantity)
+    }
+    return map
+  }, [productions])
 
-  const detailAnimal = detailAnimalId
-    ? productions.find((p) => p.animalId === detailAnimalId)?.animal ?? null
-    : null
+  const hasCowRecords = byCow.length > 0
+  const activeView = hasCowRecords ? view : 'dia'
+  const average = byDay.length ? grandTotal / byDay.length : 0
 
-  const detailProductions = useMemo(() => {
+  const detailDayItems = detailDay ? productions.filter((p) => p.date.slice(0, 10) === detailDay) : []
+  const detailAnimal = detailAnimalId ? productions.find((p) => p.animalId === detailAnimalId)?.animal ?? null : null
+  const detailAnimalItems = useMemo(() => {
     if (!detailAnimalId) return []
-    return [...productions.filter((p) => p.animalId === detailAnimalId)].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    )
+    return productions
+      .filter((p) => p.animalId === detailAnimalId)
+      .sort((a, b) => b.date.localeCompare(a.date))
   }, [productions, detailAnimalId])
-
-  const detailPeriodTotal = filtered
+  const detailAnimalPeriodTotal = filtered
     .filter((p) => p.animalId === detailAnimalId)
     .reduce((s, p) => s + p.quantity, 0)
 
   async function handleDelete(id: string) {
     if (!canEdit) return
-    if (!confirm('Excluir este registro?')) return
+    if (!(await confirm({ title: 'Excluir este registro de leite?', confirmLabel: 'Excluir', danger: true }))) return
     await fetch(`/api/milk-production/${id}`, { method: 'DELETE' })
     loadData(farmId)
   }
@@ -136,7 +191,10 @@ export default function MilkProductionPage() {
         const res = await fetch('/api/milk-production', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ animalId: record.animalId, date: record.date, quantity: record.quantity, observations: record.observations }),
+          body: JSON.stringify({
+            animalId: record.animalId, date: record.date, quantity: record.quantity,
+            cowsMilked: record.cowsMilked, observations: record.observations,
+          }),
         })
         if (res.ok) removePendingRecord('milk_productions', pendingId)
       } catch {
@@ -148,74 +206,70 @@ export default function MilkProductionPage() {
     if (farmId) loadData(farmId)
   }
 
-  async function handleSave(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!isOnline) {
-      const count = addPendingRecord('milk_productions', { animalId: formAnimalId, date: formDate, quantity: formQty, observations: formObs })
-      setPendingCount(count)
-      setShowRegister(false)
-      setFormAnimalId(''); setFormDate(''); setFormQty(''); setFormObs('')
-      return
-    }
-    setSaving(true)
-    await fetch('/api/milk-production', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ animalId: formAnimalId, date: formDate, quantity: formQty, observations: formObs }),
-    })
-    setSaving(false)
+  function onRegistered({ pending }: { pending: number }) {
+    if (pending) setPendingCount(pending)
     setShowRegister(false)
-    setFormAnimalId('')
-    setFormDate('')
-    setFormQty('')
-    setFormObs('')
-    loadData(farmId)
+    if (isOnline) loadData(farmId)
   }
+
+  const deleteButton = (id: string) => (
+    <button
+      onClick={() => handleDelete(id)}
+      disabled={!canEdit}
+      className={`p-1 ${canEdit ? 'text-red-400 hover:text-red-600' : 'text-gray-300 cursor-not-allowed'}`}
+      title="Excluir"
+      aria-label="Excluir"
+    >
+      <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+      </svg>
+    </button>
+  )
 
   return (
     <PermissionGuard module="leite">
       <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="page-toolbar flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Produção de Leite</h1>
-          <p className="text-gray-500 text-sm mt-1">Resumo por animal no período selecionado</p>
+          <p className="text-gray-500 text-sm mt-1">Leite produzido no período selecionado</p>
         </div>
         <button
-          onClick={() => setShowRegister(true)}
+          onClick={openRegister}
           disabled={!canEdit}
           className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${
-            canEdit 
-              ? 'bg-green-700 hover:bg-green-600' 
+            canEdit
+              ? 'bg-green-700 hover:bg-green-600'
               : 'bg-gray-400 cursor-not-allowed'
           }`}
         >
-          + Registrar
+          Anotar leite
         </button>
       </div>
 
       {/* Offline / sync banner */}
       {!isOnline && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
-          <span>📴</span>
-          <span>Você está offline. Os registros serão salvos localmente e sincronizados quando reconectar.</span>
+          <SemSinalIcon className="w-5 h-5 shrink-0" />
+          <span>Sem internet. Ao salvar, os registros ficam neste aparelho. Quando a internet voltar, use “Enviar registros”.</span>
         </div>
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span>📶 {pendingCount} registro{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} registro{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para enviar</span>
           <button
             onClick={handleSync}
             disabled={syncing}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+            {syncing ? 'Enviando...' : 'Enviar registros'}
           </button>
         </div>
       )}
 
       {/* Period filter + total */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-end">
           <div>
             <label className="text-xs font-medium text-gray-600 block mb-1">De</label>
@@ -235,23 +289,77 @@ export default function MilkProductionPage() {
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
             />
           </div>
-          <div className="ml-auto text-right">
-            <p className="text-xs text-gray-500">Total no período</p>
-            <p className="text-2xl font-bold text-green-700">{grandTotal.toFixed(1)} L</p>
+          <div className="ml-auto flex gap-6 text-right">
+            <div>
+              <p className="text-xs text-gray-500">Média por dia</p>
+              <p className="text-2xl font-bold text-gray-800">{fmtNumber(average)} L</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Total no período</p>
+              <p className="text-2xl font-bold text-green-700">{fmtNumber(grandTotal)} L</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Animals table */}
+      {/* Por dia / por vaca */}
+      {hasCowRecords && (
+        <div className="inline-grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl mb-4">
+          {([['dia', 'Por dia'], ['vaca', 'Por vaca']] as const).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={`px-5 py-2 rounded-lg text-sm font-semibold ${activeView === v ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <p className="text-gray-400 text-sm">Carregando...</p>
-      ) : summary.length === 0 ? (
+      ) : byDay.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg">Nenhuma produção registrada no período</p>
-          <p className="text-sm mt-1">Ajuste o período ou clique em &quot;+ Registrar&quot;</p>
+          <p className="text-sm mt-1">Ajuste o período ou clique em &quot;Anotar leite&quot;</p>
+        </div>
+      ) : activeView === 'dia' ? (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+              <tr>
+                <th className="px-4 py-3 text-left">Dia</th>
+                <th className="px-4 py-3 text-right">Vacas</th>
+                <th className="px-4 py-3 text-right">Total (L)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {byDay.map((d) => {
+                const cows = d.cows.size + d.cowsInTotal
+                return (
+                  <tr key={d.day} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetailDay(d.day)}>
+                    <td className="px-4 py-3 text-gray-800">
+                      <span className="font-medium">{fmtDay(d.day)}</span>
+                      <span className="ml-2 text-xs text-gray-400">{fmtWeekday(d.day)}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-500">{cows || '—'}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-green-700">{fmtNumber(d.total)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot className="border-t-2 border-gray-200 bg-gray-50">
+              <tr>
+                <td colSpan={2} className="px-4 py-3 text-xs font-bold text-gray-600 uppercase">Total ({byDay.length} dias)</td>
+                <td className="px-4 py-3 text-right font-bold text-green-700">{fmtNumber(grandTotal)}</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
@@ -262,56 +370,79 @@ export default function MilkProductionPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {summary.map(({ animal, total, count }) => (
-                <tr
-                  key={animal.id}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => setDetailAnimalId(animal.id)}
-                >
+              {byCow.map(({ animal, total, count }) => (
+                <tr key={animal.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetailAnimalId(animal.id)}>
                   <td className="px-4 py-3 font-medium text-gray-800">{animal.name}</td>
                   <td className="hidden sm:table-cell px-4 py-3 font-mono text-gray-500 text-xs">{animal.code}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-green-700">{total.toFixed(1)}</td>
+                  <td className="px-4 py-3 text-right font-semibold text-green-700">{fmtNumber(total)}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-right text-gray-500">{count}</td>
                 </tr>
               ))}
             </tbody>
-            <tfoot className="border-t-2 border-gray-200 bg-gray-50">
-              <tr>
-                <td colSpan={2} className="px-4 py-3 text-xs font-bold text-gray-600 uppercase">Total Geral</td>
-                <td className="px-4 py-3 text-right font-bold text-green-700">{grandTotal.toFixed(1)}</td>
-                <td className="hidden sm:table-cell px-4 py-3 text-right font-bold text-gray-600">{filtered.length}</td>
-              </tr>
-            </tfoot>
           </table>
+          {byCow.length < byDay.length && (
+            <p className="px-4 py-3 text-xs text-gray-500 border-t border-gray-100">
+              Lançamentos de total do dia (sem vaca) aparecem só na visão por dia.
+            </p>
+          )}
         </div>
       )}
 
-      {/* Detail modal */}
+      <MilkCollections from={from} to={to} canEdit={canEdit} />
+
+      {/* Detalhe do dia */}
+      {detailDay && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setDetailDay(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-gray-800">Leite de {fmtDay(detailDay)}</h2>
+                <button onClick={() => setDetailDay(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
+              </div>
+              <ul className="divide-y divide-gray-100 border border-gray-100 rounded-xl">
+                {detailDayItems.map((p) => (
+                  <li key={p.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-800">
+                        {p.animal ? `${p.animal.name} (${p.animal.code})` : 'Total do dia'}
+                      </p>
+                      {(p.cowsMilked || p.observations) && (
+                        <p className="text-xs text-gray-500">
+                          {[p.cowsMilked ? `${p.cowsMilked} vacas` : '', p.observations].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                    <span className="font-semibold text-gray-800">{fmtNumber(p.quantity)} L</span>
+                    {deleteButton(p.id)}
+                  </li>
+                ))}
+              </ul>
+              {detailDayItems.length === 0 && <p className="text-center py-6 text-gray-400 text-sm">Nenhum registro</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detalhe da vaca */}
       {detailAnimalId && detailAnimal && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-          onClick={() => setDetailAnimalId(null)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setDetailAnimalId(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-lg font-bold text-gray-800">{detailAnimal.name}</h2>
                   <p className="text-xs text-gray-500">Código: {detailAnimal.code}</p>
                 </div>
-                <button onClick={() => setDetailAnimalId(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                <button onClick={() => setDetailAnimalId(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
 
               <div className="bg-green-50 border border-green-100 rounded-lg px-4 py-3 mb-4 text-sm flex justify-between">
                 <span className="text-gray-600">Total no período selecionado</span>
-                <span className="font-bold text-green-700">{detailPeriodTotal.toFixed(1)} L</span>
+                <span className="font-bold text-green-700">{fmtNumber(detailAnimalPeriodTotal)} L</span>
               </div>
 
               <h3 className="text-sm font-semibold text-gray-700 mb-2">Histórico completo</h3>
-              <div className="rounded-xl border border-gray-100 overflow-hidden">
+              <div className="rounded-xl border border-gray-100 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                     <tr>
@@ -322,122 +453,63 @@ export default function MilkProductionPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {detailProductions.map((p) => (
+                    {detailAnimalItems.map((p) => (
                       <tr key={p.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 text-gray-700">
-                          {new Date(p.date).toLocaleDateString('pt-BR')}
-                        </td>
-                        <td className="px-4 py-2 text-right font-medium text-gray-800">{p.quantity.toFixed(1)}</td>
+                        <td className="px-4 py-2 text-gray-700">{fmtDay(p.date)}</td>
+                        <td className="px-4 py-2 text-right font-medium text-gray-800">{fmtNumber(p.quantity)}</td>
                         <td className="hidden sm:table-cell px-4 py-2 text-gray-500 text-xs">{p.observations || '—'}</td>
-                        <td className="px-4 py-2 text-right">
-                          <button
-                            onClick={() => handleDelete(p.id)}
-                            disabled={!canEdit}
-                            className={`p-1 ${canEdit ? 'text-red-400 hover:text-red-600' : 'text-gray-300 cursor-not-allowed'}`}
-                            title="Excluir"
-                          >
-                            <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
-                            </svg>
-                          </button>
-                        </td>
+                        <td className="px-4 py-2 text-right">{deleteButton(p.id)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                {detailProductions.length === 0 && (
-                  <p className="text-center py-6 text-gray-400 text-sm">Nenhum registro</p>
-                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Register modal */}
+      {/* Lançar leite */}
       {showRegister && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowRegister(false)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-md"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-6">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowRegister(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 sm:p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">Registrar Produção</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                <h2 className="text-lg font-bold text-gray-800">Anotar leite</h2>
+                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
 
-              <form onSubmit={handleSave} className="flex flex-col gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-600">Vaca *</label>
-                  <select
-                    value={formAnimalId}
-                    onChange={(e) => setFormAnimalId(e.target.value)}
-                    required
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                  >
-                    <option value="">— Selecione —</option>
-                    {allAnimals.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name} ({a.code})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">Data *</label>
-                    <input
-                      type="date"
-                      value={formDate}
-                      onChange={(e) => setFormDate(e.target.value)}
-                      required
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">Quantidade (L) *</label>
-                    <input
-                      type="number"
-                      value={formQty}
-                      onChange={(e) => setFormQty(e.target.value)}
-                      step="0.1"
-                      min="0"
-                      required
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-gray-600">Observações</label>
-                  <textarea
-                    value={formObs}
-                    onChange={(e) => setFormObs(e.target.value)}
-                    rows={2}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none"
-                  />
-                </div>
-
-                <div className="flex gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl mb-5">
+                {([['total', 'Total do dia'], ['vaca', 'Por vaca']] as const).map(([mode, label]) => (
                   <button
+                    key={mode}
                     type="button"
-                    onClick={() => setShowRegister(false)}
-                    className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50"
+                    onClick={() => chooseMode(mode)}
+                    className={`py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                      registerMode === mode ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500'
+                    }`}
                   >
-                    Cancelar
+                    {label}
                   </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg"
-                  >
-                    {saving ? 'Salvando...' : 'Salvar'}
-                  </button>
-                </div>
-              </form>
+                ))}
+              </div>
+
+              {registerMode === 'total' ? (
+                <MilkTotalEntry
+                  totalsByDay={totalsByDay}
+                  isOnline={isOnline}
+                  onCancel={() => setShowRegister(false)}
+                  onDone={onRegistered}
+                />
+              ) : (
+                <MilkDailyEntry
+                  cows={allAnimals}
+                  productions={productions}
+                  isOnline={isOnline}
+                  onCancel={() => setShowRegister(false)}
+                  onDone={onRegistered}
+                />
+              )}
             </div>
           </div>
         </div>

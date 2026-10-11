@@ -1,11 +1,13 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireFarmAccess } from '@/lib/auth'
 
-export async function GET(request: NextRequest) {
+export async function GET() {
+  const auth = await requireFarmAccess('estoque', 'view')
+  if (auth.error) return auth.error
+  const farmId = auth.farmId
+
   try {
-    const farmId = request.nextUrl.searchParams.get('farmId')
-    if (!farmId) return NextResponse.json({ error: 'farmId obrigatório' }, { status: 400 })
-
     const supplies = await prisma.supply.findMany({
       where: { farmId },
       include: { movements: { orderBy: { date: 'desc' }, take: 10 } },
@@ -13,17 +15,21 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json(supplies)
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Erro ao buscar estoque' }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireFarmAccess('estoque', 'edit')
+  if (auth.error) return auth.error
+  const farmId = auth.farmId
+
   try {
     const body = await request.json()
-    const { farmId, name, category, unit, currentQuantity, minimumQuantity } = body
+    const { name, category, unit, currentQuantity, minimumQuantity } = body
 
-    if (!farmId || !name || !category || !unit) {
+    if (!name || !category || !unit) {
       return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
     }
 
@@ -40,7 +46,7 @@ export async function POST(request: NextRequest) {
     })
 
     return NextResponse.json(supply, { status: 201 })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: 'Erro ao criar insumo' }, { status: 500 })
   }
 }

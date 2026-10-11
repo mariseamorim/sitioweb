@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
+import { canEdit, getSessionUser } from '@/lib/auth';
 
 export async function DELETE(
   req: NextRequest,
@@ -9,6 +8,13 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+
+    const me = await getSessionUser();
+    if (!me) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+    const ownsFarm = me.farmId === id && !!me.permissions?.includes('fazendas') && canEdit(me);
+    if (me.role !== 'admin' && !ownsFarm) {
+      return NextResponse.json({ error: 'Você não tem permissão para esta ação' }, { status: 403 });
+    }
 
     // Verificar se farm existe
     const farm = await prisma.farm.findUnique({

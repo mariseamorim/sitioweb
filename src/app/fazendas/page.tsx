@@ -2,6 +2,7 @@
 import { PermissionGuard } from '@/components/PermissionGuard'
 
 import { useEffect, useState } from 'react'
+import { useDialog } from '@/components/DialogProvider'
 
 interface Farm {
   id: string
@@ -37,6 +38,7 @@ const typeColor: Record<string, string> = {
 }
 
 export default function PropriedadesPage() {
+  const { confirm, notify } = useDialog()
   const [farms, setFarms] = useState<Farm[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -75,7 +77,7 @@ export default function PropriedadesPage() {
   }
 
   async function handleDelete(farmId: string) {
-    if (!confirm('Tem certeza? Se a propriedade não tiver dados será deletada permanentemente. Se tiver dados, será inativada.')) return
+    if (!(await confirm({ title: 'Excluir esta propriedade?', message: 'Se ela já tiver registros, será apenas desativada e nada se perde.', confirmLabel: 'Excluir', danger: true }))) return
     setDeleting(farmId)
     
     const res = await fetch(`/api/farms/${farmId}/delete`, { method: 'DELETE' })
@@ -83,24 +85,24 @@ export default function PropriedadesPage() {
     
     setDeleting(null)
     if (!res.ok) {
-      alert('Erro: ' + (data.error || 'Erro desconhecido'))
+      await notify('Não foi possível excluir', data.error)
       return
     }
     
-    alert(data.message)
+    await notify(data.action === 'inactivated' ? 'Propriedade desativada' : 'Propriedade excluída')
     fetchFarms()
   }
 
   return (
     <PermissionGuard module="fazendas">
       <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="page-toolbar flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Propriedades</h1>
         <button
           onClick={() => { setShowForm(true); setError('') }}
           className="bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg"
         >
-          + Nova Propriedade
+          Cadastrar propriedade
         </button>
       </div>
 
@@ -109,7 +111,7 @@ export default function PropriedadesPage() {
       ) : farms.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg">Nenhuma propriedade cadastrada</p>
-          <p className="text-sm mt-1">Clique em &quot;+ Nova Propriedade&quot; para começar</p>
+          <p className="text-sm mt-1">Clique em &quot;Cadastrar propriedade&quot; para começar</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -117,9 +119,9 @@ export default function PropriedadesPage() {
             <div key={f.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative">
               <div className="flex items-start justify-between gap-2 mb-2">
                 <h2 className="font-bold text-gray-800 text-lg leading-tight">{f.name}</h2>
-                <div className="flex gap-1 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   {f.propertyType && (
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColor[f.propertyType] ?? 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold leading-none ${typeColor[f.propertyType] ?? 'bg-gray-100 text-gray-600'}`}>
                       {f.propertyType}
                     </span>
                   )}
@@ -127,7 +129,8 @@ export default function PropriedadesPage() {
                     onClick={() => handleDelete(f.id)}
                     disabled={deleting === f.id}
                     className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
-                    title="Deletar/Inativar"
+                    title="Excluir propriedade"
+                    aria-label={`Excluir propriedade ${f.name}`}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -154,7 +157,7 @@ export default function PropriedadesPage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-4">Nova Propriedade</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-4">Cadastrar propriedade</h2>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-3">
 
@@ -200,7 +203,7 @@ export default function PropriedadesPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Doc. Tipo</label>
                     <select
@@ -212,7 +215,7 @@ export default function PropriedadesPage() {
                       <option value="CPF">CPF</option>
                     </select>
                   </div>
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <label className="text-xs font-medium text-gray-600">Documento (CPF/CNPJ)</label>
                     <input
                       value={form.documentNumber}
@@ -223,7 +226,7 @@ export default function PropriedadesPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Telefone</label>
                     <input
@@ -252,7 +255,7 @@ export default function PropriedadesPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Cidade</label>
                     <input

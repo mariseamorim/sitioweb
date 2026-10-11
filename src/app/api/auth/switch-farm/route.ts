@@ -1,14 +1,10 @@
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { ACTIVE_FARM_COOKIE, getSessionUser } from '@/lib/auth'
 
 async function getAdmin() {
-  const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value
-  if (!userId) return null
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } })
-  if (!user || user.role !== 'admin') return null
-  return user
+  const user = await getSessionUser()
+  return user?.role === 'admin' ? user : null
 }
 
 // POST: select active farm
@@ -23,8 +19,9 @@ export async function POST(request: NextRequest) {
   if (!farm) return NextResponse.json({ error: 'Propriedade não encontrada' }, { status: 404 })
 
   const response = NextResponse.json({ ok: true, farmName: farm.name })
-  response.cookies.set('activeFarmId', farm.id, {
+  response.cookies.set(ACTIVE_FARM_COOKIE, farm.id, {
     httpOnly: true,
+    sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 7,
   })
@@ -37,6 +34,6 @@ export async function DELETE() {
   if (!admin) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
 
   const response = NextResponse.json({ ok: true })
-  response.cookies.delete('activeFarmId')
+  response.cookies.delete(ACTIVE_FARM_COOKIE)
   return response
 }

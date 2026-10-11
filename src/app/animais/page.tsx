@@ -6,6 +6,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { ESPECIES, STATUS_LIST, type Especie, type StatusAnimal } from '@/lib/types'
 import { ImagePicker } from '@/components/ImagePicker'
 import { getPendingRecords, addPendingRecord, clearPendingRecords, syncPendingRecords } from '@/lib/offlineStorage'
+import { useDialog } from '@/components/DialogProvider'
+import { SemSinalIcon, SincronizarIcon, AnimalIcon, FecharIcon } from '@/components/ModuleIcons'
 
 interface Animal {
   id: string
@@ -33,6 +35,7 @@ const EMPTY_FORM = {
 }
 
 export default function AnimaisPage() {
+  const { confirm } = useDialog()
   const { user } = useUser()
   const [animals, setAnimals] = useState<Animal[]>([])
   const [loading, setLoading] = useState(true)
@@ -226,7 +229,7 @@ export default function AnimaisPage() {
 
   async function handleDelete(id: string) {
     if (!canEdit) return
-    if (!confirm('Deseja excluir este animal?')) return
+    if (!(await confirm({ title: 'Excluir este animal?', message: 'Todo o histórico dele (leite, vacinas, tratamentos) também será apagado.', confirmLabel: 'Excluir', danger: true }))) return
     await fetch(`/api/animals/${id}`, { method: 'DELETE' })
     fetchAnimals(farmId)
   }
@@ -258,7 +261,7 @@ export default function AnimaisPage() {
   return (
     <PermissionGuard module="animais">
       <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="page-toolbar flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Animais</h1>
         <button
           onClick={openNew}
@@ -269,33 +272,34 @@ export default function AnimaisPage() {
               : 'bg-gray-400 cursor-not-allowed'
           }`}
         >
-          + Novo Animal
+          Cadastrar animal
         </button>
       </div>
 
       {/* Offline / sync banner */}
       {!isOnline && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
-          <span>📴</span>
-          <span>Você está offline. Novos animais serão salvos localmente e sincronizados quando reconectar.</span>
+          <SemSinalIcon className="w-5 h-5 shrink-0" />
+          <span>Sem internet. Ao salvar, os novos animais ficam neste aparelho. Quando a internet voltar, use “Enviar registros”.</span>
         </div>
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span>📶 {pendingCount} animal{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} animal{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para enviar</span>
           <button
             onClick={handleSync}
             disabled={syncing}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+            {syncing ? 'Enviando...' : 'Enviar registros'}
           </button>
         </div>
       )}
 
       <input
         type="text"
-        placeholder="Buscar por nome, código ou espécie..."
+        aria-label="Buscar animal por nome, número ou espécie"
+        placeholder="Digite o nome ou número do animal"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-green-600"
@@ -305,8 +309,9 @@ export default function AnimaisPage() {
         <p className="text-gray-400 text-sm">Carregando...</p>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          <p className="text-lg">Nenhum animal cadastrado</p>
-          <p className="text-sm mt-1">Clique em &quot;+ Novo Animal&quot; para começar</p>
+          <p className="text-lg">{search.trim() ? 'Nenhum animal encontrado nesta busca' : 'Nenhum animal cadastrado'}</p>
+          <p className="text-sm mt-1">{search.trim() ? 'Confira o nome ou número. Você pode limpar a busca para ver todos os animais.' : 'Use “Cadastrar animal” para começar.'}</p>
+          {search.trim() && <button type="button" onClick={() => setSearch('')} className="mt-4 rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700">Limpar busca</button>}
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
@@ -333,7 +338,7 @@ export default function AnimaisPage() {
                     {a.imageUrl ? (
                       <img src={a.imageUrl} alt={a.name} className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg object-cover" />
                     ) : (
-                      <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg bg-gray-100 flex items-center justify-center text-sm sm:text-lg">🐄</div>
+                      <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400"><AnimalIcon className="w-5 h-5 sm:w-6 sm:h-6" /></div>
                     )}
                   </td>
                   <td className="hidden sm:table-cell px-4 py-3 font-mono text-gray-600 text-xs sm:text-sm">{a.code}</td>
@@ -347,6 +352,7 @@ export default function AnimaisPage() {
                   </td>
                   <td className="px-2 sm:px-4 py-3 text-right space-x-1 sm:space-x-2">
                     <button
+                      aria-label={`Editar animal ${a.name}`}
                       onClick={(e) => { e.stopPropagation(); openEdit(a) }}
                       disabled={!canEdit}
                       className={`inline-flex items-center gap-1 text-xs ${canEdit ? 'text-blue-600 hover:underline' : 'text-gray-300 cursor-not-allowed'}`}
@@ -354,9 +360,10 @@ export default function AnimaisPage() {
                       <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 20h9" />
                         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                      </svg>
+                      </svg><span>Editar</span>
                     </button>
                     <button
+                      aria-label={`Excluir animal ${a.name}`}
                       onClick={(e) => { e.stopPropagation(); handleDelete(a.id) }}
                       disabled={!canEdit}
                       className={`inline-flex items-center gap-1 text-xs ${canEdit ? 'text-red-500 hover:underline' : 'text-gray-300 cursor-not-allowed'}`}
@@ -367,7 +374,7 @@ export default function AnimaisPage() {
                         <path d="M19 6l-1 14H6L5 6" />
                         <path d="M10 11v6" />
                         <path d="M14 11v6" />
-                      </svg>
+                      </svg><span>Excluir</span>
                     </button>
                   </td>
                 </tr>
@@ -389,7 +396,7 @@ export default function AnimaisPage() {
                   {selectedAnimal.imageUrl ? (
                     <img src={selectedAnimal.imageUrl} alt={selectedAnimal.name} className="w-12 sm:w-16 h-12 sm:h-16 rounded-xl object-cover flex-shrink-0" />
                   ) : (
-                    <div className="w-12 sm:w-16 h-12 sm:h-16 rounded-xl bg-gray-100 flex items-center justify-center text-lg sm:text-2xl flex-shrink-0">🐄</div>
+                    <div className="w-12 sm:w-16 h-12 sm:h-16 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 flex-shrink-0"><AnimalIcon className="w-7 h-7 sm:w-8 sm:h-8" /></div>
                   )}
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500">Código</p>
@@ -399,9 +406,10 @@ export default function AnimaisPage() {
                 </div>
                 <button
                   onClick={closeDetails}
-                  className="text-gray-500 hover:text-gray-700 text-sm flex-shrink-0"
+                  className="text-gray-500 hover:text-gray-700 p-1 flex-shrink-0"
+                  aria-label="Fechar"
                 >
-                  ✕
+                  <FecharIcon />
                 </button>
               </div>
 

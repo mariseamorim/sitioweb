@@ -1,33 +1,32 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
+import { notFound, requireFarmAccess } from '@/lib/auth'
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params
-    const production = await prisma.milkProduction.findUnique({
-      where: { id },
-      include: { animal: true },
-    })
-
-    if (!production) {
-      return NextResponse.json({ error: 'Milk production not found' }, { status: 404 })
-    }
-
-    return NextResponse.json(production)
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch milk production' }, { status: 500 })
-  }
+async function findOwned(id: string, farmId: string) {
+  return prisma.milkProduction.findFirst({
+    where: { id, farmId },
+    include: { animal: true },
+  })
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireFarmAccess('leite', 'view')
+  if (auth.error) return auth.error
+
+  const { id } = await params
+  const production = await findOwned(id, auth.farmId)
+  if (!production) return notFound()
+  return NextResponse.json(production)
+}
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireFarmAccess('leite', 'edit')
+  if (auth.error) return auth.error
+
   try {
     const { id } = await params
+    if (!(await findOwned(id, auth.farmId))) return notFound()
+
     const body = await request.json()
     const { date, quantity, observations } = body
 
@@ -42,23 +41,22 @@ export async function PUT(
     })
 
     return NextResponse.json(production)
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to update milk production' }, { status: 500 })
+  } catch {
+    return NextResponse.json({ error: 'Erro ao atualizar produção' }, { status: 500 })
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireFarmAccess('leite', 'edit')
+  if (auth.error) return auth.error
+
   try {
     const { id } = await params
-    await prisma.milkProduction.delete({
-      where: { id },
-    })
+    if (!(await findOwned(id, auth.farmId))) return notFound()
 
-    return NextResponse.json({ message: 'Milk production deleted' })
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to delete milk production' }, { status: 500 })
+    await prisma.milkProduction.delete({ where: { id } })
+    return NextResponse.json({ ok: true })
+  } catch {
+    return NextResponse.json({ error: 'Erro ao excluir produção' }, { status: 500 })
   }
 }

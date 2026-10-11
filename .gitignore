@@ -24,3 +24,10 @@ prisma/*.db
 .DS_Store
 Thumbs.db
 .claude
+# Artefatos de validação do PWA
+.next-pwa-check/
+public/sw.js
+public/workbox-*.js
+public/workbox-*.js.map
+public/fallback-*.js
+public/fallback-*.js.map

@@ -4,6 +4,9 @@ import { useUser } from '@/contexts/UserContext'
 
 import { useEffect, useState, useMemo } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
+import { useDialog } from '@/components/DialogProvider'
+import { todayISO } from '@/lib/utils'
+import { SemSinalIcon, SincronizarIcon, FecharIcon, ReproducaoIcon } from '@/components/ModuleIcons'
 
 interface Animal { id: string; name: string; code: string; species: string; gender: string }
 
@@ -30,6 +33,7 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 export default function ReproducaoPage() {
+  const { confirm } = useDialog()
   const { user } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const [reproductions, setReproductions] = useState<Reproduction[]>([])
@@ -40,7 +44,7 @@ export default function ReproducaoPage() {
   const [detail, setDetail] = useState<Reproduction | null>(null)
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ femaleId: '', maleName: '', coverageDate: '', status: 'Coberta', observations: '' })
+  const [form, setForm] = useState({ femaleId: '', maleName: '', coverageDate: todayISO(), status: 'Coberta', observations: '' })
   const [editStatus, setEditStatus] = useState('')
   const [editBirthDate, setEditBirthDate] = useState('')
   const [isOnline, setIsOnline] = useState(true)
@@ -123,7 +127,7 @@ export default function ReproducaoPage() {
 
   async function handleDelete(id: string) {
     if (!canEdit) return
-    if (!confirm('Excluir este registro?')) return
+    if (!(await confirm({ title: 'Excluir este registro de reprodução?', confirmLabel: 'Excluir', danger: true }))) return
     await fetch(`/api/reproducao/${id}`, { method: 'DELETE' })
     setDetail(null)
     loadData(farmId)
@@ -177,7 +181,7 @@ export default function ReproducaoPage() {
       setPendingCount(getPendingRecords('reproducao').length)
       setSaving(false)
       setShowRegister(false)
-      setForm({ femaleId: '', maleName: '', coverageDate: '', status: 'Coberta', observations: '' })
+      setForm({ femaleId: '', maleName: '', coverageDate: todayISO(), status: 'Coberta', observations: '' })
       return
     }
 
@@ -189,7 +193,7 @@ export default function ReproducaoPage() {
     })
     setSaving(false)
     setShowRegister(false)
-    setForm({ femaleId: '', maleName: '', coverageDate: '', status: 'Coberta', observations: '' })
+    setForm({ femaleId: '', maleName: '', coverageDate: todayISO(), status: 'Coberta', observations: '' })
     loadData(farmId)
   }
 
@@ -211,13 +215,13 @@ export default function ReproducaoPage() {
       {/* Offline / sync banner */}
       {!isOnline && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
-          <span>📴</span>
+          <SemSinalIcon className="w-5 h-5 shrink-0" />
           <span>Você está offline. Os registros serão salvos localmente e sincronizados quando reconectar.</span>
         </div>
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span>📶 {pendingCount} reprodução{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} reprodução{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
           <button
             onClick={handleSync}
             disabled={syncing}
@@ -230,7 +234,7 @@ export default function ReproducaoPage() {
 
       {upcomingBirths > 0 && (
         <div className="bg-purple-50 border border-purple-200 text-purple-800 rounded-xl px-4 py-3 mb-6 text-sm flex items-center gap-2">
-          <span className="text-base">🐄</span>
+          <ReproducaoIcon className="w-5 h-5 shrink-0" />
           <span><strong>{upcomingBirths}</strong> parto{upcomingBirths > 1 ? 's' : ''} esperado{upcomingBirths > 1 ? 's' : ''} nos próximos 30 dias</span>
         </div>
       )}
@@ -288,14 +292,14 @@ export default function ReproducaoPage() {
                   <h2 className="text-lg font-bold text-gray-800">{detail.female.name}</h2>
                   <p className="text-xs text-gray-500">Cobertura: {fmt(detail.coverageDate)}</p>
                 </div>
-                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
                 <div><p className="text-xs text-gray-500">Reprodutor</p><p className="font-medium text-gray-800">{detail.maleName || '—'}</p></div>
                 <div><p className="text-xs text-gray-500">Parto Esperado</p><p className="font-medium text-gray-800">{detail.expectedBirthDate ? fmt(detail.expectedBirthDate) : '—'}</p></div>
                 {detail.actualBirthDate && <div><p className="text-xs text-gray-500">Parto Real</p><p className="font-medium text-green-700">{fmt(detail.actualBirthDate)}</p></div>}
-                {detail.observations && <div className="col-span-2"><p className="text-xs text-gray-500">Observações</p><p className="text-gray-700">{detail.observations}</p></div>}
+                {detail.observations && <div className="sm:col-span-2"><p className="text-xs text-gray-500">Observações</p><p className="text-gray-700">{detail.observations}</p></div>}
               </div>
 
               <div className="border-t border-gray-100 pt-4 mb-4">
@@ -329,7 +333,7 @@ export default function ReproducaoPage() {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-800">Registrar Cobertura</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
               <form onSubmit={handleSave} className="flex flex-col gap-3">
                 <div>
@@ -345,7 +349,7 @@ export default function ReproducaoPage() {
                   <input type="text" value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} placeholder="Nome ou código do touro"
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Data Cobertura *</label>
                     <input type="date" value={form.coverageDate} onChange={e => setForm({ ...form, coverageDate: e.target.value })} required

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { hashPassword, isLegacyPassword, setSessionCookie, verifyPassword } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   const { email, password } = await request.json();
@@ -13,8 +14,13 @@ export async function POST(request: NextRequest) {
     include: { farm: true },
   });
 
-  if (!user || user.password !== password) {
+  if (!user || !(await verifyPassword(password, user.password))) {
     return NextResponse.json({ error: 'E-mail ou senha incorretos' }, { status: 401 });
+  }
+
+  // Senhas antigas em texto puro são convertidas para hash no primeiro login
+  if (isLegacyPassword(user.password)) {
+    await prisma.user.update({ where: { id: user.id }, data: { password: await hashPassword(password) } });
   }
 
   const response = NextResponse.json({
@@ -26,11 +32,6 @@ export async function POST(request: NextRequest) {
     farmName: user.farm?.name ?? null,
   });
 
-  response.cookies.set('userId', user.id, {
-    httpOnly: true,
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7, // 7 dias
-  });
-
+  setSessionCookie(response, user.id);
   return response;
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { hashPassword, setSessionCookie } from '@/lib/auth'
 
 // GET: check if admin already exists (for the setup page to know whether to show the form)
 export async function GET() {
@@ -29,15 +30,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const admin = await prisma.user.create({
-      data: { name, email, password, role: 'admin', farmId: null },
+      data: { name, email, password: await hashPassword(password), role: 'admin', farmId: null },
     })
 
     const response = NextResponse.json({ id: admin.id, name: admin.name }, { status: 201 })
-    response.cookies.set('userId', admin.id, {
-      httpOnly: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    })
+    setSessionCookie(response, admin.id)
     return response
   } catch (err) {
     console.error('Setup error:', err)

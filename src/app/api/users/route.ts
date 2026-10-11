@@ -1,27 +1,17 @@
 import { prisma } from '@/lib/prisma'
-import { cookies } from 'next/headers'
+import { canAccessModule, getSessionUser, grantablePermissions, hashPassword, requireUserManager } from '@/lib/auth'
+import { MODULES } from '@/lib/modules'
 import { NextRequest, NextResponse } from 'next/server'
 
-async function getMe() {
-  const cookieStore = await cookies()
-  const userId = cookieStore.get('userId')?.value
-  if (!userId) return null
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true, farmId: true, role: true } })
-  if (!user) return null
-
-  // Admin uses the activeFarmId cookie as their effective farm
-  let effectiveFarmId: string | null = user.farmId
-  if (user.role === 'admin') {
-    const activeFarmId = cookieStore.get('activeFarmId')?.value ?? null
-    effectiveFarmId = activeFarmId
-  }
-
-  return { ...user, effectiveFarmId }
-}
+const MODULE_KEYS = MODULES.map((m) => m.key)
+const TEAM_ROLES = ['editor', 'viewer']
 
 export async function GET() {
-  const me = await getMe()
+  const me = await getSessionUser()
   if (!me) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  if (!canAccessModule(me, 'usuarios')) {
+    return NextResponse.json({ error: 'Você não tem permissão para ver a equipe' }, { status: 403 })
+  }
 
   const users = await prisma.user.findMany({
     where: me.effectiveFarmId ? { farmId: me.effectiveFarmId } : { farmId: null },
@@ -34,36 +24,38 @@ export async function GET() {
   return NextResponse.json(users)
 }
 
+// POST: o admin ou o dono da propriedade cadastra alguém da equipe
 export async function POST(request: NextRequest) {
-  const me = await getMe()
-  if (!me || me.role !== 'admin') {
-    return NextResponse.json({ error: 'Apenas administradores podem criar usuários' }, { status: 403 })
-  }
-  if (!me.effectiveFarmId) {
-    return NextResponse.json({ error: 'Selecione uma propriedade antes de criar usuários' }, { status: 400 })
-  }
+  const auth = await requireUserManager()
+  if ('error' in auth) return auth.error
+  const { me, farmId } = auth
 
   const { name, email, password, role, permissions } = await request.json()
 
   if (!name || !email || !password) {
     return NextResponse.json({ error: 'Nome, e-mail e senha são obrigatórios' }, { status: 400 })
   }
-  if (role === 'admin') {
-    return NextResponse.json({ error: 'Não é possível criar usuários administradores por aqui' }, { status: 400 })
+  if (String(password).length < 6) {
+    return NextResponse.json({ error: 'A senha deve ter pelo menos 6 caracteres' }, { status: 400 })
   }
+  if (role && !TEAM_ROLES.includes(role)) {
+    return NextResponse.json({ error: 'Perfil inválido. Use Editor ou Leitor.' }, { status: 400 })
+  }
+  const granted = grantablePermissions(me, permissions, MODULE_KEYS)
+  if ('error' in granted) return NextResponse.json({ error: granted.error }, { status: 403 })
 
-  try {
-    const user = await prisma.user.create({
-      data: {
-        name, email, password,
-        role: role || 'viewer',
-        permissions: permissions ?? null,
-        farmId: me.effectiveFarmId,
-      },
-      select: { id: true, name: true, email: true, role: true, permissions: true, farmId: true },
-    })
-    return NextResponse.json(user, { status: 201 })
-  } catch {
+  if (await prisma.user.findUnique({ where: { email } })) {
     return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 })
   }
+
+  const user = await prisma.user.create({
+    data: {
+      name, email, password: await hashPassword(password),
+      role: role || 'viewer',
+      permissions: granted,
+      farmId,
+    },
+    select: { id: true, name: true, email: true, role: true, permissions: true, farmId: true },
+  })
+  return NextResponse.json(user, { status: 201 })
 }
