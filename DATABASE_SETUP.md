@@ -73,11 +73,12 @@ Use sempre um **banco separado** do de produção (ex.: um Preview da Vercel com
 3. Depois do primeiro deploy, crie os dados de demonstração uma vez:
 
 ```bash
-SEED_DEMO=1 DATABASE_URL="<url do banco de staging>" node prisma/seed.mjs
+SEED_DEMO=1 SEED_PASSWORD="<senha forte>" DATABASE_URL="<url do banco>" node prisma/seed.mjs
 ```
 
 O seed só roda com `SEED_DEMO=1` e pode ser repetido sem duplicar dados.
-Senha de todas as contas: `demo1234` (admin: `admin1234`).
+Em banco remoto, `SEED_PASSWORD` é obrigatória (mínimo 8 caracteres) e vale para todas as contas.
+No banco local (localhost) a senha padrão é `demo1234`. A conta `admin@demo.com` só é criada com `SEED_ADMIN=1`.
 
 | Conta | Perfil |
 |---|---|

@@ -1,6 +1,10 @@
-// Dados de demonstração para um ambiente de TESTE (nunca produção).
+// Dados de demonstração.
 // Uso: SEED_DEMO=1 DATABASE_URL="postgres://..." node prisma/seed.mjs
 // Pode rodar mais de uma vez: contas que já existem são mantidas como estão.
+//
+// Opções:
+//   SEED_PASSWORD=...  senha de todas as contas (obrigatória fora de um banco local de teste)
+//   SEED_ADMIN=1       cria também admin@demo.com (por padrão não cria)
 import { PrismaClient } from '@prisma/client'
 import { randomBytes, scrypt } from 'node:crypto'
 import { promisify } from 'node:util'
@@ -13,7 +17,16 @@ if (process.env.SEED_DEMO !== '1') {
 const prisma = new PrismaClient()
 const scryptAsync = promisify(scrypt)
 const ALL_MODULES = ['animais', 'leite', 'veterinario', 'vacinacao', 'reproducao', 'financeiro', 'estoque', 'fazendas', 'usuarios']
-const PASSWORD = 'demo1234'
+const PASSWORD = process.env.SEED_PASSWORD || 'demo1234'
+const isLocal = /@(localhost|127\.0\.0\.1)[:/]/.test(process.env.DATABASE_URL ?? '')
+if (!process.env.SEED_PASSWORD && !isLocal) {
+  console.error('Banco remoto: defina SEED_PASSWORD com uma senha forte (as contas de demonstração não podem usar senha conhecida).')
+  process.exit(1)
+}
+if (PASSWORD.length < 8) {
+  console.error('SEED_PASSWORD precisa ter pelo menos 8 caracteres.')
+  process.exit(1)
+}
 
 /** Mesmo formato de src/lib/auth.ts (scrypt$salt$hash) */
 async function hashPassword(password) {
@@ -39,8 +52,8 @@ async function createUser(data) {
 // ── Admin ───────────────────────────────────────────────────────────────
 
 async function seedAdmin() {
-  if (await exists('admin@demo.com')) return
-  await createUser({ name: 'Administrador', email: 'admin@demo.com', role: 'admin', password: 'admin1234' })
+  if (process.env.SEED_ADMIN !== '1' || (await exists('admin@demo.com'))) return
+  await createUser({ name: 'Administrador', email: 'admin@demo.com', role: 'admin', password: process.env.SEED_PASSWORD ? PASSWORD : 'admin1234' })
 }
 
 // ── Produtor da versão completa (Sítio Boa Vista) ───────────────────────
@@ -173,8 +186,8 @@ async function main() {
   await seedFornecedor()
 
   console.log(`
-Dados de demonstração prontos. Senha de todos: ${PASSWORD} (admin: admin1234)
-  admin@demo.com       Administrador
+Dados de demonstração prontos. Senha de todos: ${process.env.SEED_PASSWORD ? '(a que você definiu em SEED_PASSWORD)' : 'demo1234 (admin: admin1234)'}
+  admin@demo.com       Administrador (só com SEED_ADMIN=1)
   produtor@demo.com    Versão completa (Sítio Boa Vista), cliente do fornecedor
   gerente@demo.com     Equipe do Sítio Boa Vista (Usuários, Leite, Animais)
   leitor@demo.com      Só leitura no Sítio Boa Vista
