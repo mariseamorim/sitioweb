@@ -37,6 +37,7 @@ interface SupplyRequest {
   reply: string | null
   replyPrice: number | null
   createdBy: string | null
+  supplyId: string | null
   createdAt: string
   farm: FarmContact
 }
@@ -82,7 +83,6 @@ interface Panel {
 
 type Tab = 'pedidos' | 'precisando' | 'ofertas' | 'clientes' | 'convidar'
 
-const TABS: [Tab, string][] = [['pedidos', 'Pedidos'], ['precisando', 'Precisando repor'], ['ofertas', 'Ofertas'], ['clientes', 'Clientes'], ['convidar', 'Convidar']]
 const fmtQty = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
 const place = (f: FarmContact) => [f.owner, [f.city, f.state].filter(Boolean).join('/')].filter(Boolean).join(' · ')
 
@@ -205,32 +205,28 @@ export default function PainelFornecedorPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      {/* Os cartões são o menu: cada um mostra o número e abre a sua seção (sem abas que arrastam para o lado) */}
+      {/* div com role (não <nav>): o globals.css diminui o texto de "nav p", pensado para o menu lateral */}
+      <div role="navigation" aria-label="Seções do painel" className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
         {([
-          ['Pedidos novos', newRequests, 'pedidos', newRequests > 0],
-          ['Clientes precisando repor', needs.length, 'precisando', needs.length > 0],
-          ['Clientes', clients.length, 'clientes', false],
-          ['Ofertas ativas', activeOffers.length, 'ofertas', false],
-        ] as const).map(([label, value, target, highlight]) => (
-          <button key={label} type="button" onClick={() => setTab(target)}
-            className={`text-left rounded-xl border p-4 hover:bg-gray-50 ${highlight ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white'}`}>
-            <p className="text-sm text-gray-500">{label}</p>
-            <p className={`mt-2 text-2xl font-bold ${highlight ? 'text-amber-800' : 'text-gray-900'}`}>{value}</p>
-          </button>
-        ))}
-      </div>
-
-      {/* Abas roláveis: no celular não cabem lado a lado */}
-      <div className="-mx-4 mb-5 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-        <div className="inline-flex gap-1 rounded-xl bg-gray-100 p-1">
-          {TABS.map(([t, label]) => (
-            <button key={t} type="button" onClick={() => setTab(t)} aria-current={tab === t ? 'page' : undefined}
-              className={`whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-semibold ${tab === t ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500'}`}>
-              {label}
-              {t === 'pedidos' && newRequests > 0 && <span className="ml-1.5 rounded-full bg-red-600 px-1.5 py-0.5 text-xs text-white">{newRequests}</span>}
+          ['pedidos', 'Pedidos novos', newRequests, newRequests > 0],
+          ['precisando', 'Precisando repor', needs.length, needs.length > 0],
+          ['ofertas', 'Ofertas ativas', activeOffers.length, false],
+          ['clientes', 'Clientes', clients.length, false],
+        ] as const).map(([target, label, value, highlight]) => {
+          const active = tab === target
+          return (
+            <button key={target} type="button" onClick={() => setTab(target)} aria-current={active ? 'page' : undefined}
+              className={`text-left rounded-xl border-2 p-3 sm:p-4 ${active ? 'border-green-700 bg-green-50' : highlight ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+              <p className={`text-sm ${active ? 'font-semibold text-green-800' : 'text-gray-600'}`}>{label}</p>
+              <p className={`mt-1 text-2xl font-bold ${highlight ? 'text-amber-800' : 'text-gray-900'}`}>{value}</p>
             </button>
-          ))}
-        </div>
+          )
+        })}
+        <button type="button" onClick={() => setTab('convidar')} aria-current={tab === 'convidar' ? 'page' : undefined}
+          className={`col-span-2 lg:col-span-1 flex items-center justify-center rounded-xl border-2 p-3 text-sm font-semibold ${tab === 'convidar' ? 'border-green-700 bg-green-50 text-green-800' : 'border-dashed border-green-700 text-green-700 hover:bg-green-50'}`}>
+          + Convidar clientes
+        </button>
       </div>
 
       {tab === 'pedidos' && (
@@ -444,6 +440,9 @@ function RequestCard({ request: r, vendorName, onChanged }: { request: SupplyReq
   // Resposta acabou de ser enviada: oferece avisar o cliente pelo WhatsApp com o mesmo texto
   const [sent, setSent] = useState<{ reply: string; price: number | null } | null>(null)
   const qty = r.quantity ? `${fmtQty(r.quantity)}${r.unit ? ` ${r.unit}` : ''}` : null
+  // Mensagem solta do produtor (sem item do estoque): o "item" é o assunto
+  const isMessage = !r.supplyId && !r.quantity
+  const subjectText = isMessage ? `sua mensagem sobre ${r.itemName}` : `seu pedido de ${r.itemName}${qty ? ` (${qty})` : ''}`
   const status = REQUEST_STATUS[r.status]
 
   async function send(body: { reply?: string; replyPrice?: string; status?: string }) {
@@ -473,7 +472,7 @@ function RequestCard({ request: r, vendorName, onChanged }: { request: SupplyReq
         <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${status.style}`}>{status.label}</span>
       </div>
       {r.note && <p className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">{r.note}</p>}
-      <p className="mt-1 text-xs text-gray-500">{r.category} · pedido em {fmtDate(r.createdAt)}{r.createdBy ? ` por ${r.createdBy}` : ''}</p>
+      <p className="mt-1 text-xs text-gray-500">{isMessage ? 'Mensagem' : `${r.category} · pedido`} em {fmtDate(r.createdAt)}{r.createdBy ? ` por ${r.createdBy}` : ''}</p>
 
       {r.reply && !replying && (
         <p className="mt-2 text-sm text-blue-900">
@@ -485,7 +484,7 @@ function RequestCard({ request: r, vendorName, onChanged }: { request: SupplyReq
         <div role="status" className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3">
           <p className="text-sm font-semibold text-green-900">Resposta enviada. O cliente vê no app, no sino e em Ofertas.</p>
           {r.farm.phone ? (
-            <a href={whatsappLink(r.farm.phone, `Olá! Aqui é da ${vendorName}. Respondi seu pedido de ${r.itemName}${qty ? ` (${qty})` : ''} no Anota Aí Agro: ${sent.reply}${sent.price !== null ? ` Valor: ${fmtMoney(sent.price)}.` : ''}`)}
+            <a href={whatsappLink(r.farm.phone, `Olá! Aqui é da ${vendorName}. Respondi ${subjectText} no Anota Aí Agro: ${sent.reply}${sent.price !== null ? ` Valor: ${fmtMoney(sent.price)}.` : ''}`)}
               target="_blank" rel="noopener noreferrer" onClick={() => setSent(null)}
               className="mt-2 flex w-full items-center justify-center bg-green-700 hover:bg-green-600 text-white text-sm font-semibold py-2.5 rounded-lg">
               Avisar o cliente pelo WhatsApp
@@ -524,7 +523,7 @@ function RequestCard({ request: r, vendorName, onChanged }: { request: SupplyReq
             </button>
           )}
           {r.farm.phone && (
-            <a href={whatsappLink(r.farm.phone, `Olá! Aqui é da ${vendorName}. Recebi seu pedido de ${r.itemName}${qty ? ` (${qty})` : ''} pelo Anota Aí Agro.`)}
+            <a href={whatsappLink(r.farm.phone, `Olá! Aqui é da ${vendorName}. Recebi ${subjectText} pelo Anota Aí Agro.`)}
               target="_blank" rel="noopener noreferrer" className="border border-green-700 text-green-700 font-semibold px-3 py-2 rounded-lg hover:bg-green-50">
               WhatsApp
             </a>

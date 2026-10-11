@@ -30,7 +30,9 @@ export async function POST(request: NextRequest) {
   const itemName = String(body.itemName ?? '').trim().slice(0, 120)
   const category = SUPPLY_CATEGORIES.includes(body.category) ? body.category : 'Outro'
   const quantity = body.quantity === undefined || body.quantity === null || body.quantity === '' ? null : Number(String(body.quantity).replace(',', '.'))
-  if (!itemName) return NextResponse.json({ error: 'Informe o produto' }, { status: 400 })
+  if (!itemName) return NextResponse.json({ error: 'Informe o produto ou o assunto' }, { status: 400 })
+  // Mensagem solta (sem item do estoque) precisa do texto
+  if (!body.supplyId && !String(body.note ?? '').trim()) return NextResponse.json({ error: 'Escreva a mensagem' }, { status: 400 })
   if (quantity !== null && (!Number.isFinite(quantity) || quantity <= 0)) {
     return NextResponse.json({ error: 'Quantidade inválida' }, { status: 400 })
   }
