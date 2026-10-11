@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { addPendingRecord } from '@/lib/offlineStorage'
 import { todayISO } from '@/lib/utils'
 import { fmtNumber } from '@/lib/reports'
+import { OfflineVoiceSetup, VoiceButton } from '@/components/VoiceButton'
 
 interface Props {
   /** Total já lançado por data (yyyy-mm-dd), para avisar lançamento em dobro */
@@ -90,6 +91,8 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onCancel }: Prop
           />
           <span className="text-lg text-gray-500">L</span>
         </div>
+        <VoiceButton label="os litros do dia" onNumber={(v) => setLiters(String(v).replace('.', ','))} />
+        <OfflineVoiceSetup online={isOnline} />
       </div>
 
       <div>

@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { addPendingRecord } from '@/lib/offlineStorage'
 import { todayISO } from '@/lib/utils'
 import { fmtNumber } from '@/lib/reports'
+import { OfflineVoiceSetup, VoiceButton } from '@/components/VoiceButton'
 
 interface Cow {
   id: string
@@ -116,11 +117,14 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel }
                   />
                   <span className="text-sm text-gray-500">L</span>
                 </div>
+                <VoiceButton size="sm" label={`os litros de ${c.name}`}
+                  onNumber={(v) => setLiters((l) => ({ ...l, [c.id]: String(v).replace('.', ',') }))} />
               </li>
             )
           })}
         </ul>
       )}
+      {cows.length > 0 && <OfflineVoiceSetup online={isOnline} />}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
