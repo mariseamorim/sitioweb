@@ -10,8 +10,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --color-green-700: #15803d;
-  --color-green-600: #16a34a;
+  --color-green-700: #18543d;
+  --color-green-600: #216b4b;
   --color-green-100: #dcfce7;
   --color-green-50: #f0fdf4;
   --color-amber-700: #b45309;
@@ -54,3 +54,31 @@ body {
     min-height: 44px;
   }
 }
+
+/* Controles legíveis e fáceis de tocar nas telas de gestão. */
+.app-workspace :where(button, input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="file"]), select, textarea) { min-height: 44px; font-size: 1rem; }
+.app-workspace :where(button) { min-width: 44px; }
+.app-workspace :where(label) { font-size: .875rem; color: #475569; }
+.app-workspace :where(button, a, input, select, textarea, summary):focus-visible { outline: 3px solid #15803d; outline-offset: 3px; }
+.app-workspace :where(button:not(:disabled), summary) { cursor: pointer; }
+.app-workspace :where(button:disabled) { cursor: not-allowed; }
+.app-workspace #conteudo .text-gray-400 { color: #64748b; }
+.app-workspace .page-toolbar { flex-wrap: wrap; gap: 12px; }
+@media(max-width: 640px) { .app-workspace .page-toolbar > button { width: 100%; } }
+
+/* Texto de conteúdo em tamanho confortável e estados com contraste. */
+.app-workspace #conteudo .text-sm { font-size: 1rem; line-height: 1.5; }
+.app-workspace #conteudo .text-xs { font-size: .875rem; line-height: 1.45; }
+.app-workspace nav a { font-size: 1rem; }
+.app-workspace nav p { font-size: .75rem; }
+.app-workspace input::placeholder, .app-workspace textarea::placeholder { color: #64748b; opacity: 1; }
+.app-workspace button:disabled { color: #475569; background-color: #e2e8f0; }
+.app-workspace #conteudo .text-gray-300 { color: #64748b; }
+.app-workspace summary { min-height: 44px; }
+
+/* Layout fluido, inclusive com texto maior e no aplicativo instalado. */
+.app-workspace #conteudo{min-width:0;overflow-wrap:anywhere;padding-bottom:calc(1.5rem + env(safe-area-inset-bottom))}
+.app-workspace #conteudo .grid>*,.app-workspace form .grid>*{min-width:0}
+.app-workspace header>div:first-child>div:first-child{flex:1}
+.app-workspace input,.app-workspace select,.app-workspace textarea{max-width:100%;min-width:0}
+@media(display-mode:standalone){body{padding-top:env(safe-area-inset-top)}.app-workspace header{top:env(safe-area-inset-top)}}

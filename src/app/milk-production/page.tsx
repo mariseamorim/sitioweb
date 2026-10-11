@@ -229,7 +229,7 @@ export default function MilkProductionPage() {
     <PermissionGuard module="leite">
       <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="page-toolbar flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Produção de Leite</h1>
           <p className="text-gray-500 text-sm mt-1">Leite produzido no período selecionado</p>
@@ -243,7 +243,7 @@ export default function MilkProductionPage() {
               : 'bg-gray-400 cursor-not-allowed'
           }`}
         >
-          + Lançar leite
+          Anotar leite
         </button>
       </div>
 
@@ -251,18 +251,18 @@ export default function MilkProductionPage() {
       {!isOnline && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />
-          <span>Você está offline. Os registros serão salvos localmente e sincronizados quando reconectar.</span>
+          <span>Sem internet. Ao salvar, os registros ficam neste aparelho. Quando a internet voltar, use “Enviar registros”.</span>
         </div>
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} registro{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} registro{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para enviar</span>
           <button
             onClick={handleSync}
             disabled={syncing}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+            {syncing ? 'Enviando...' : 'Enviar registros'}
           </button>
         </div>
       )}
@@ -322,7 +322,7 @@ export default function MilkProductionPage() {
       ) : byDay.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg">Nenhuma produção registrada no período</p>
-          <p className="text-sm mt-1">Ajuste o período ou clique em &quot;+ Lançar leite&quot;</p>
+          <p className="text-sm mt-1">Ajuste o período ou clique em &quot;Anotar leite&quot;</p>
         </div>
       ) : activeView === 'dia' ? (
         <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
@@ -439,7 +439,7 @@ export default function MilkProductionPage() {
               </div>
 
               <h3 className="text-sm font-semibold text-gray-700 mb-2">Histórico completo</h3>
-              <div className="rounded-xl border border-gray-100 overflow-hidden">
+              <div className="rounded-xl border border-gray-100 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                     <tr>
@@ -472,7 +472,7 @@ export default function MilkProductionPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 sm:p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">Lançar leite</h2>
+                <h2 className="text-lg font-bold text-gray-800">Anotar leite</h2>
                 <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
 

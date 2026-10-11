@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 type Step = 1 | 2;
 
@@ -67,10 +68,8 @@ export default function CadastroPage() {
         <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8">
           {/* Header */}
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-green-700">SitíoWeb
-              
-            </h1>
-            <p className="text-gray-500 text-sm mt-1">Criar nova conta</p>
+            <Link href="/inicio" className="inline-block" aria-label="Anota Aí Agro, página inicial"><Image src="/anota-ai-agro-logo.png" width={1632} height={473} sizes="180px" alt="Anota Aí Agro" priority className="h-auto w-44 mx-auto" /></Link>
+            <h1 className="text-xl font-bold text-gray-800 mt-4">Criar minha conta</h1>
           </div>
 
           {/* Steps indicator */}
@@ -133,7 +132,7 @@ export default function CadastroPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
                   <select
@@ -145,7 +144,7 @@ export default function CadastroPage() {
                     <option value="CPF">CPF</option>
                   </select>
                 </div>
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Documento (CPF/CNPJ)</label>
                   <input
                     value={farm.documentNumber}
@@ -156,7 +155,7 @@ export default function CadastroPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
                   <input
@@ -177,7 +176,7 @@ export default function CadastroPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
                   <input

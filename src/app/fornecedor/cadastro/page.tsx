@@ -62,7 +62,7 @@ export default function CadastroFornecedorPage() {
             <label className="text-sm font-medium text-gray-700">CNPJ ou CPF
               <input value={form.document} onChange={set('document')} className={`mt-1 ${input}`} />
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <label className="col-span-2 text-sm font-medium text-gray-700">Cidade
                 <input value={form.city} onChange={set('city')} className={`mt-1 ${input}`} />
               </label>
@@ -80,7 +80,7 @@ export default function CadastroFornecedorPage() {
             <label className="text-sm font-medium text-gray-700">Seu nome *
               <input value={form.contactName} onChange={set('contactName')} required className={`mt-1 ${input}`} />
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="text-sm font-medium text-gray-700">Telefone *
                 <input value={form.phone} onChange={set('phone')} required inputMode="tel" placeholder="(35) 99999-0000" className={`mt-1 ${input}`} />
               </label>
@@ -95,7 +95,7 @@ export default function CadastroFornecedorPage() {
             <label className="text-sm font-medium text-gray-700">E-mail *
               <input type="email" value={form.email} onChange={set('email')} required className={`mt-1 ${input}`} />
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="text-sm font-medium text-gray-700">Senha *
                 <input type="password" value={form.password} onChange={set('password')} required className={`mt-1 ${input}`} />
               </label>

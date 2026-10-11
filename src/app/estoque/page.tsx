@@ -177,13 +177,13 @@ export default function EstoquePage() {
   return (
     <PermissionGuard module="estoque">
       <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="page-toolbar flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Estoque</h1>
           <p className="text-gray-500 text-sm mt-1">Insumos, medicamentos e vacinas</p>
         </div>
         <button onClick={() => setShowNew(true)} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
-          + Novo Insumo
+          Cadastrar produto
         </button>
       </div>
 
@@ -191,18 +191,18 @@ export default function EstoquePage() {
       {!isOnline && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />
-          <span>Você está offline. Os registros serão salvos localmente e sincronizados quando reconectar.</span>
+          <span>Sem internet. Ao salvar, os registros ficam neste aparelho. Quando a internet voltar, use “Enviar registros”.</span>
         </div>
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} insumo{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} insumo{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para enviar</span>
           <button
             onClick={handleSync}
             disabled={syncing}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+            {syncing ? 'Enviando...' : 'Enviar registros'}
           </button>
         </div>
       )}
@@ -216,8 +216,8 @@ export default function EstoquePage() {
 
       {loading ? <p className="text-gray-400 text-sm">Carregando...</p> : supplies.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          <p className="text-lg">Nenhum insumo cadastrado</p>
-          <p className="text-sm mt-1">Clique em &quot;+ Novo Insumo&quot; para começar</p>
+          <p className="text-lg">Nenhum produto cadastrado</p>
+          <p className="text-sm mt-1">Clique em &quot;Cadastrar produto&quot; para começar</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
@@ -265,7 +265,7 @@ export default function EstoquePage() {
                 <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div className={`rounded-lg p-3 ${isLow(detail) ? 'bg-red-50 border border-red-100' : 'bg-green-50 border border-green-100'}`}>
                   <p className="text-xs text-gray-500">Quantidade Atual</p>
                   <p className={`text-xl font-bold ${isLow(detail) ? 'text-red-600' : 'text-green-700'}`}>{detail.currentQuantity} {detail.unit}</p>
@@ -283,7 +283,7 @@ export default function EstoquePage() {
               {detail.movements.length > 0 && (
                 <>
                   <h3 className="text-xs font-semibold text-gray-600 uppercase mb-2">Últimas movimentações</h3>
-                  <div className="rounded-xl border border-gray-100 overflow-hidden">
+                  <div className="rounded-xl border border-gray-100 overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                         <tr>
@@ -328,7 +328,7 @@ export default function EstoquePage() {
                 <button onClick={() => setShowMov(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
               <form onSubmit={handleMovimentacao} className="flex flex-col gap-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Tipo *</label>
                     <select value={mov.type} onChange={e => setMov({ ...mov, type: e.target.value })}
@@ -369,7 +369,7 @@ export default function EstoquePage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">Novo Insumo</h2>
+                <h2 className="text-lg font-bold text-gray-800">Cadastrar produto</h2>
                 <button onClick={() => setShowNew(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
               <form onSubmit={handleSaveNew} className="flex flex-col gap-3">
@@ -378,7 +378,7 @@ export default function EstoquePage() {
                   <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required placeholder="Ex: Ração Bovinos"
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Categoria *</label>
                     <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
@@ -394,7 +394,7 @@ export default function EstoquePage() {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Qtd Inicial</label>
                     <input type="number" value={form.currentQuantity} onChange={e => setForm({ ...form, currentQuantity: e.target.value })} step="0.01" min="0"

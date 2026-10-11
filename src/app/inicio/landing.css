@@ -11,4 +11,39 @@
 @media(max-width:420px){.landing-container{width:calc(100% - 32px)}.landing-brand{font-size:18px}.brand-leaf{height:30px;width:30px}.landing-actions{flex-direction:column}.landing-actions .landing-button{width:100%}.feature-grid{grid-template-columns:minmax(0,1fr)}.feature-card{padding:26px}.feature-icon{margin-bottom:18px}.offer-preview{padding:18px}.offer-heading{flex-wrap:wrap}.offline-card{padding:30px 24px}.landing-cta .landing-button{width:100%}}
 @media(prefers-reduced-motion:reduce){.landing-button{transition:none}.landing-button:hover{transform:none}}
 
-.landing-brand-logo{display:block;width:180px;height:auto}.landing-header .landing-brand{background:#f7f2e7;border-radius:12px;padding:9px 12px}.landing-header .landing-brand-logo{width:160px}@media(max-width:420px){.landing-header{gap:10px}.landing-header .landing-brand-logo{width:124px}.landing-header .landing-brand{padding:8px}.landing-header .header-login{padding:10px 14px}}
+
+/* Faixa de navegação separada da imagem de apresentação. */
+.landing-brand-logo{display:block;width:144px;height:auto}
+.landing-header-band{position:relative;z-index:5;background:#123c2c;color:#f7f2e7;border-bottom:1px solid #ffffff1f}
+.landing-header{margin-top:0;padding:16px 0;gap:24px;min-height:80px;background:transparent;border:0;border-radius:0;box-shadow:none}
+.landing-header .landing-brand{flex-shrink:0;background:transparent;padding:0;min-height:44px}
+.landing-header .landing-brand-logo{width:136px;height:auto}
+.landing-header .desktop-navigation{margin-left:auto;gap:6px;color:#f7f2e7;font-size:16px;font-weight:500}
+.desktop-navigation a{display:flex;align-items:center;min-height:44px;padding:10px 14px;border-radius:10px;white-space:nowrap}
+.desktop-navigation a:hover{background:#ffffff12;color:#fff}
+.landing-header .header-login{flex-shrink:0;margin:0;gap:6px;padding:12px 18px;border:1px solid #d5b463;background:#d5b463;color:#123c2c;border-radius:12px;font-size:16px;font-weight:600;min-height:46px;white-space:nowrap}
+.landing-header .header-login:hover{background:#e3c77e}
+.landing-header a:focus-visible,.landing-header button:focus-visible{outline:3px solid #e3c77e;outline-offset:3px}
+.landing-header .mobile-menu-button{color:#f7f2e7;border-color:#ffffff50;background:transparent;border-radius:10px}
+.landing-header .mobile-navigation{top:calc(100% - 2px);padding:10px;background:#123c2c;color:#f7f2e7;border:1px solid #ffffff30;border-radius:0 0 14px 14px;font-size:16px;font-weight:500;box-shadow:0 12px 28px #10291b30}
+.mobile-navigation a:hover{background:#ffffff12}
+.mobile-navigation a:last-child{margin-top:6px;border-top:1px solid #ffffff30;border-radius:0;font-weight:700}
+.landing-hero{display:flow-root;min-height:640px}
+@media(min-width:768px){.mobile-navigation{display:none}}
+@media(min-width:768px) and (max-width:1000px){.landing-header{gap:12px;padding:14px 0}.desktop-navigation a{padding:10px 8px}.landing-header .header-login{padding:12px}.login-desktop-label{display:none}}
+@media(max-width:767px){.landing-header{min-height:72px;padding:12px 0;gap:10px}.landing-header .landing-brand-logo{width:116px}.landing-header .header-login{margin-left:auto;padding:10px 12px;min-height:44px}.login-desktop-label{display:none}.landing-header .mobile-menu-button{display:grid;width:44px;height:44px}.landing-header .desktop-navigation{display:none}.landing-hero{min-height:0}}
+@media(max-width:359px){.landing-header{gap:6px}.landing-header .header-login svg{display:none}.landing-header .landing-brand-logo{width:104px}}
+
+/* Contato direto e pedido de demonstração. */
+.contact-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;border-top:1px solid #d5ddcf}
+.contact-description{font-size:18px;line-height:1.8;color:#465b4c;margin-top:24px;max-width:560px}
+.contact-card{background:#fffdf8;border:1px solid #cbd6c2;border-radius:20px;padding:32px;min-width:0}
+.contact-card h3{font-size:24px}.contact-card>p{font-size:16px;line-height:1.7;color:#465b4c;margin-top:14px}
+.contact-card .landing-button{margin-top:24px;width:100%;font-size:16px}
+.contact-card .contact-hint{font-size:14px;line-height:1.7}
+.contact-email{display:flex;align-items:center;min-height:48px;margin-top:16px;font-size:18px;font-weight:600;text-decoration:underline;text-underline-offset:4px;overflow-wrap:anywhere}
+.landing-footer a[href^="mailto:"]{font-size:14px;min-height:44px;display:flex;align-items:center;overflow-wrap:anywhere}
+@media(min-width:768px) and (max-width:1023px){.landing-header .desktop-navigation{display:none}.landing-header .header-login{margin-left:auto}.landing-header .mobile-menu-button{display:grid;place-items:center;width:44px;height:44px;border:1px solid #ffffff50;cursor:pointer;flex-shrink:0}.landing-header .mobile-navigation{display:block}.login-desktop-label{display:none}}
+@media(max-width:767px){.contact-grid{grid-template-columns:minmax(0,1fr);gap:28px}.contact-card{padding:24px}.contact-description{font-size:16px}.contact-email{font-size:16px}}
+
+.contact-form{margin-top:24px}.contact-form fieldset{border:0;padding:0;min-width:0}.contact-form label{display:block;font-size:16px;font-weight:600;margin:18px 0 8px}.contact-form input,.contact-form select,.contact-form textarea{display:block;width:100%;min-height:48px;padding:12px;border:1px solid #8d9f91;border-radius:8px;background:#fff;color:#1c3327;font:inherit;font-size:16px}.contact-form textarea{resize:vertical}.contact-form input:focus-visible,.contact-form select:focus-visible,.contact-form textarea:focus-visible{outline:3px solid #627548;outline-offset:2px}.contact-form input::placeholder,.contact-form textarea::placeholder{color:#59695e}.contact-form fieldset:disabled{opacity:.7}.contact-form button:disabled{cursor:wait;transform:none}.contact-trap{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.contact-error{padding:14px;border:1px solid #b33838;background:#fff0ee;color:#8c2020;border-radius:8px;font-size:16px;line-height:1.6;margin-top:16px}.contact-success{margin-top:24px;padding:20px;border-radius:12px;background:#e8eddf;line-height:1.7}.contact-success h4{font-size:20px;font-weight:600}.contact-secondary{min-height:48px;text-decoration:underline;font-size:16px;font-weight:600;margin-top:12px;cursor:pointer}

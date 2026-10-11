@@ -43,8 +43,8 @@ export function SyncStatus() {
   if (online && pending === 0) return null
 
   const label = !online
-    ? pending > 0 ? `Sem sinal · ${pending} aguardando` : 'Sem sinal'
-    : `${pending} aguardando envio`
+    ? pending > 0 ? `Sem internet · ${pending} aguardando` : 'Sem internet'
+    : `${pending} para enviar`
 
   return (
     <span
@@ -52,7 +52,7 @@ export function SyncStatus() {
       className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${
         online ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
       }`}
-      title={pending > 0 ? 'Os registros salvos no aparelho serão enviados quando houver conexão' : undefined}
+      title={pending > 0 ? 'Os registros estão salvos neste aparelho. Abra a tela correspondente e use Enviar registros quando a internet voltar.' : undefined}
     >
       <span className={`w-2 h-2 rounded-full ${online ? 'bg-blue-600' : 'bg-amber-600'}`} />
       {label}

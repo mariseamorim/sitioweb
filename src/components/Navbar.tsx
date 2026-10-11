@@ -19,7 +19,6 @@ const groups: { label: string; links: NavLink[] }[] = [
   { label: 'Rebanho e produção', links: [
     { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },
     { href: '/milk-production', label: 'Produção de leite', module: 'leite', Icon: LeiteIcon },
-    { href: '/lite', label: 'Anota Aí Leite', module: null, Icon: LeiteIcon },
     { href: '/veterinary-treatment', label: 'Tratamentos', module: 'veterinario', Icon: TratamentoIcon },
     { href: '/vacinacao', label: 'Vacinação', module: 'vacinacao', Icon: VacinaIcon },
     { href: '/reproducao', label: 'Reprodução', module: 'reproducao', Icon: ReproducaoIcon },
@@ -41,7 +40,7 @@ const vendorGroups: { label: string; links: NavLink[] }[] = [
   { label: 'Fornecedor', links: [{ href: '/fornecedor', label: 'Meu painel', module: null, Icon: LojaIcon }] },
 ];
 
-export function Navbar() {
+export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean; onToggleDesktop: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { canAccess, user } = useUser();
@@ -91,7 +90,7 @@ export function Navbar() {
     router.push('/login');
   }
 
-  const logo = <Image src="/anota-ai-agro-logo.png" width={1632} height={473} sizes="190px" alt="Anota Aí Agro" priority className="h-auto w-[184px]" />;
+  const logo = <Image src="/anota-ai-agro-logo.png" width={132} height={38} sizes="132px" alt="Anota Aí Agro" priority className="h-auto w-32" style={{ width: 128, height: 'auto' }} />;
   const navigation = <nav aria-label="Menu principal" className="flex-1 overflow-y-auto px-3 py-3">
     {visibleGroups.map(group => <div key={group.label} className="mb-4 last:mb-0">
       <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{group.label}</p>
@@ -115,13 +114,14 @@ export function Navbar() {
 
   return <>
     <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-lg focus:bg-white focus:p-3 focus:text-green-900">Ir para o conteúdo</a>
-    <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-gray-200 bg-white lg:flex">
-      <Link href="/" aria-label="Anota Aí Agro, painel" className="flex h-24 shrink-0 items-center justify-center border-b border-gray-100">{logo}</Link>
+    <aside id="menu-computador" className={`fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-gray-200 bg-white ${desktopOpen ? 'lg:flex' : ''}`}>
+      <Link href="/" aria-label="Anota Aí Agro, painel" className="flex h-16 shrink-0 items-center justify-center border-b border-gray-100">{logo}</Link>
       {navigation}{account}
     </aside>
-    <header className="sticky top-0 z-30 border-b border-gray-200 bg-white lg:ml-64">
+    <header className={`sticky top-0 z-30 border-b border-gray-200 bg-white ${desktopOpen ? 'lg:ml-64' : ''}`}>
       <div className="flex min-h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
+          <button type="button" onClick={onToggleDesktop} aria-label={desktopOpen ? 'Recolher menu' : 'Abrir menu lateral'} aria-expanded={desktopOpen} aria-controls="menu-computador" className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 lg:flex"><MenuIcon className="h-5 w-5" /></button>
           <button ref={trigger} type="button" onClick={() => setOpenPath(pathname)} aria-label="Abrir menu" aria-expanded={drawerOpen} aria-controls={drawerOpen ? 'menu-lateral' : undefined} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 lg:hidden"><MenuIcon className="h-5 w-5" /></button>
           <div className="min-w-0"><p className="truncate text-sm font-semibold text-gray-800">{activeLink?.label || 'Anota Aí Agro'}</p><p className="truncate text-xs text-gray-500">{isVendor ? 'Painel do fornecedor' : user?.farmName || 'Gestão da propriedade'}</p></div>
         </div>
@@ -132,7 +132,7 @@ export function Navbar() {
     {drawerOpen && <div className="fixed inset-0 z-[60] lg:hidden">
       <div className="absolute inset-0 bg-gray-950/45" aria-hidden="true" onClick={() => setOpenPath(null)} />
       <div ref={drawer} id="menu-lateral" role="dialog" aria-modal="true" aria-label="Menu de navegação" className="relative flex h-full h-dvh w-[min(288px,calc(100vw-32px))] flex-col bg-white shadow-2xl" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex h-24 shrink-0 items-center justify-between gap-2 border-b border-gray-100 px-4"><Link href="/" onClick={() => setOpenPath(null)} aria-label="Anota Aí Agro, painel">{logo}</Link><button type="button" onClick={() => setOpenPath(null)} aria-label="Fechar menu" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100"><FecharIcon className="h-5 w-5" /></button></div>
+        <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-gray-100 px-4"><Link href="/" onClick={() => setOpenPath(null)} aria-label="Anota Aí Agro, painel">{logo}</Link><button type="button" onClick={() => setOpenPath(null)} aria-label="Fechar menu" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100"><FecharIcon className="h-5 w-5" /></button></div>
         {navigation}{account}
       </div>
     </div>}

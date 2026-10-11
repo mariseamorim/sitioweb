@@ -162,13 +162,13 @@ export default function FinanceiroPage() {
   return (
     <PermissionGuard module="financeiro">
       <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="page-toolbar flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Financeiro</h1>
           <p className="text-gray-500 text-sm mt-1">Receitas e despesas da propriedade</p>
         </div>
         <button onClick={() => setShowRegister(true)} className="bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg">
-          + Transação
+          Anotar entrada ou saída
         </button>
       </div>
 
@@ -176,18 +176,18 @@ export default function FinanceiroPage() {
       {!isOnline && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />
-          <span>Você está offline. As transações serão salvas localmente e sincronizadas quando reconectar.</span>
+          <span>Sem internet. Ao salvar, as movimentações ficam neste aparelho. Quando a internet voltar, use “Enviar registros”.</span>
         </div>
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} transação{pendingCount > 1 ? 'ões' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} {pendingCount > 1 ? 'movimentações' : 'movimentação'} pendente{pendingCount > 1 ? 's' : ''} para enviar</span>
           <button
             onClick={handleSync}
             disabled={syncing}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+            {syncing ? 'Enviando...' : 'Enviar registros'}
           </button>
         </div>
       )}
@@ -300,11 +300,11 @@ export default function FinanceiroPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">Nova Transação</h2>
+                <h2 className="text-lg font-bold text-gray-800">Anotar entrada ou saída</h2>
                 <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
               <form onSubmit={handleSave} className="flex flex-col gap-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Tipo *</label>
                     <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value, category: e.target.value === 'Receita' ? 'Venda de Leite' : 'Medicamentos' })}
@@ -321,7 +321,7 @@ export default function FinanceiroPage() {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Data *</label>
                     <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required

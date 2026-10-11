@@ -316,7 +316,7 @@ export default function PainelFornecedorPage() {
                   {SUPPLY_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
                 </select>
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="text-sm font-medium text-gray-700">Preço (R$)
                   <input inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value.replace(/[^\d.,]/g, '') })} placeholder="Opcional" className={`mt-1 ${input}`} />
                 </label>

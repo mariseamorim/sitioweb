@@ -13,7 +13,6 @@ export default async function Home() {
   const user = await getSessionUser()
   if (!user) redirect('/inicio')
   if (user.role === 'fornecedor') redirect('/fornecedor')
-  if (user.role === 'lite') redirect('/lite')
 
   const effectiveFarmId = user.effectiveFarmId
 
@@ -88,6 +87,14 @@ export default async function Home() {
     { href: '/estoque', label: 'Itens em alerta', value: lowStockCount, Icon: EstoqueIcon, tone: lowStockCount > 0 ? 'warn' : 'muted' },
   ]
 
+
+  const quickActions = [
+    { href: '/milk-production', module: 'leite', title: 'Anotar leite', detail: 'Total do dia ou quantidade por vaca', Icon: LeiteIcon },
+    { href: '/animais', module: 'animais', title: 'Cuidar do rebanho', detail: 'Consultar e cadastrar animais', Icon: AnimalIcon },
+    { href: '/financeiro', module: 'financeiro', title: 'Anotar dinheiro', detail: 'Entradas e saídas da propriedade', Icon: FinanceiroIcon },
+    { href: '/estoque', module: 'estoque', title: 'Conferir estoque', detail: 'Ração, sal e outros produtos', Icon: EstoqueIcon },
+  ].filter(action => user.role === 'admin' || user.permissions?.includes(action.module))
+
   return (
     <div>
       <div className="mb-8">
@@ -106,6 +113,15 @@ export default async function Home() {
         </div>
       </div>
 
+      {quickActions.length > 0 && <section aria-labelledby="daily-actions" className="mb-8">
+        <h2 id="daily-actions" className="text-lg font-bold text-gray-900">O que você quer fazer?</h2>
+        <p className="mt-1 mb-4 text-sm text-gray-600">Escolha uma tarefa para abrir a tela correspondente.</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{quickActions.map(({ href, title, detail, Icon }) => <Link key={href} href={href} className="flex items-start gap-3 rounded-xl border border-green-200 bg-white p-4 hover:bg-green-50">
+          <span aria-hidden="true" className="rounded-lg bg-green-50 p-2 text-green-700"><Icon className="h-6 w-6" /></span>
+          <span><span className="block text-base font-semibold text-green-900">{title}</span><span className="mt-1 block text-sm text-gray-600">{detail}</span></span>
+        </Link>)}</div>
+      </section>}
+      <h2 className="mb-4 text-lg font-bold text-gray-900">Resumo da propriedade</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map(({ href, label, value, Icon, tone }) => (
           <Link

@@ -388,13 +388,13 @@ export default function VeterinaryTreatmentPage() {
                           </div>
                         )}
                         {t.description && (
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <p className="text-xs text-gray-500">Descrição</p>
                             <p className="text-gray-700">{t.description}</p>
                           </div>
                         )}
                         {t.observations && (
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <p className="text-xs text-gray-500">Observações</p>
                             <p className="text-gray-700">{t.observations}</p>
                           </div>
@@ -435,7 +435,7 @@ export default function VeterinaryTreatmentPage() {
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Data Início *</label>
                     <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} required
@@ -455,7 +455,7 @@ export default function VeterinaryTreatmentPage() {
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Fabricante</label>
                     <input type="text" value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}

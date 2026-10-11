@@ -297,12 +297,12 @@ export default function VacinacaoPage() {
                 <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
                 <div><p className="text-xs text-gray-500">Agendado</p><p className="font-medium text-gray-800">{fmt(detail.scheduledDate)}</p></div>
                 <div><p className="text-xs text-gray-500">Aplicado</p><p className="font-medium text-gray-800">{detail.appliedDate ? fmt(detail.appliedDate) : '—'}</p></div>
                 {detail.manufacturer && <div><p className="text-xs text-gray-500">Fabricante</p><p className="text-gray-700">{detail.manufacturer}</p></div>}
                 {detail.batch && <div><p className="text-xs text-gray-500">Lote</p><p className="text-gray-700">{detail.batch}</p></div>}
-                {detail.observations && <div className="col-span-2"><p className="text-xs text-gray-500">Observações</p><p className="text-gray-700">{detail.observations}</p></div>}
+                {detail.observations && <div className="sm:col-span-2"><p className="text-xs text-gray-500">Observações</p><p className="text-gray-700">{detail.observations}</p></div>}
               </div>
 
               <div className="flex gap-2">
@@ -343,7 +343,7 @@ export default function VacinacaoPage() {
                   <input type="text" value={form.vaccineName} onChange={e => setForm({ ...form, vaccineName: e.target.value })} required placeholder="Ex: Febre Aftosa"
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Data Agendada *</label>
                     <input type="date" value={form.scheduledDate} onChange={e => setForm({ ...form, scheduledDate: e.target.value })} required
@@ -355,7 +355,7 @@ export default function VacinacaoPage() {
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Fabricante</label>
                     <input type="text" value={form.manufacturer} onChange={e => setForm({ ...form, manufacturer: e.target.value })}

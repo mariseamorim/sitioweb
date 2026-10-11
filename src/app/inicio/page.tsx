@@ -3,6 +3,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { AnimalIcon, LeiteIcon, TratamentoIcon, FinanceiroIcon, EstoqueIcon, PainelIcon, GraoIcon, SincronizarIcon, CheckIcon, SetaDireitaIcon, SetaBaixoIcon } from '@/components/ModuleIcons'
 import { LandingHeader } from '@/components/LandingHeader'
+import { ContactForm } from '@/components/ContactForm'
 import './landing.css'
 
 export const metadata: Metadata = { title: 'Anota Aí Agro — Gestão rural que acompanha o seu ritmo', description: 'Cuide do rebanho, da produção, das finanças e do estoque da sua propriedade pelo computador ou celular.' }
@@ -17,7 +18,8 @@ const features = [
 export default function LandingPage() {
   return <main className="rural-landing" id="inicio">
     <a className="landing-skip" href="#recursos">Pular para o conteúdo</a>
-    <section className="landing-hero"><LandingHeader /><div className="landing-container hero-content">
+    <LandingHeader />
+    <section className="landing-hero"><div className="landing-container hero-content">
       <p className="landing-eyebrow">Gestão rural que acompanha o seu ritmo</p>
       <h1>Mais tempo no campo.<br /><em>Mais clareza</em><br />para decidir.</h1>
       <p className="hero-description">O sistema para cuidar do seu rebanho, produção e negócio — mesmo quando a internet não chega.</p>
@@ -37,7 +39,11 @@ export default function LandingPage() {
       <div className="offline-card"><span className="offline-mark" aria-hidden="true"><SincronizarIcon className="w-12 h-12" /></span><h2>A rotina não para quando a internet cai. Seu sistema também não.</h2><p>Nos módulos com suporte offline, novos registros ficam salvos no aparelho e são enviados quando a conexão volta.</p><span className="offline-label">Salve offline e sincronize depois</span></div>
       <div className="routine-copy"><p className="landing-eyebrow">Feito para a vida real</p><h2>Menos papelada.<br /><em>Mais tempo para o que importa.</em></h2><p className="section-description">Uma ferramenta simples para toda a equipe usar, no computador ou no celular. Tenha os dados da propriedade à mão e acompanhe o que está acontecendo de verdade.</p><ul>{[['Reprodução', 'Coberturas, previsões e partos acompanhados de perto.'], ['Vacinação', 'Agende aplicações e registre os cuidados com cada animal.'], ['Fazendas e usuários', 'Acesso por perfil e módulo para cada pessoa da equipe.']].map(([title, text]) => <li key={title}><span aria-hidden="true"><CheckIcon className="w-4 h-4" /></span><div><h3>{title}</h3><p>{text}</p></div></li>)}</ul></div>
     </section>
-    <section id="contato" className="landing-cta"><div className="landing-container"><div><p className="landing-eyebrow">Pronto para simplificar?</p><h2>Sua propriedade merece uma gestão à altura.</h2></div><Link href="/cadastro" className="landing-button button-dark">Criar minha conta <SetaDireitaIcon /></Link></div></section>
-    <footer className="landing-footer landing-container"><a href="#inicio" className="landing-brand"><Image src="/anota-ai-agro-logo.png" width={1632} height={473} alt="Anota Aí Agro" className="landing-brand-logo" /></a><p>Gestão rural simples, de verdade.</p><div><Link href="/login">Entrar no sistema</Link><span>© {new Date().getFullYear()} Anota Aí Agro</span></div></footer>
+    <section id="contato" className="landing-section landing-container contact-grid" aria-labelledby="contact-title">
+      <div><p className="landing-eyebrow">Fale conosco</p><h2 id="contact-title">Conheça o Anota Aí Agro na prática.</h2><p className="contact-description">Quer tirar uma dúvida ou entender como o sistema pode ajudar na sua propriedade? Fale com a gente ou solicite uma demonstração. Combinamos por e-mail o melhor dia e horário para você.</p></div>
+      <ContactForm />
+    </section>
+    <section id="comecar" className="landing-cta"><div className="landing-container"><div><p className="landing-eyebrow">Pronto para simplificar?</p><h2>Sua propriedade merece uma gestão à altura.</h2></div><Link href="/cadastro" className="landing-button button-dark">Criar minha conta <SetaDireitaIcon /></Link></div></section>
+    <footer className="landing-footer landing-container"><a href="#inicio" className="landing-brand"><Image src="/anota-ai-agro-logo.png" width={1632} height={473} alt="Anota Aí Agro" className="landing-brand-logo" /></a><p>Gestão rural simples, de verdade.</p><div><Link href="/login">Entrar no sistema</Link><a href="#contato">Fale conosco</a><span>© {new Date().getFullYear()} Anota Aí Agro</span></div></footer>
   </main>
 }
