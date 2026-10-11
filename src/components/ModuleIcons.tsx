@@ -222,3 +222,22 @@ export function SinoIcon({ className = 'w-6 h-6' }: IconProps) {
     </svg>
   )
 }
+
+export function EtiquetaIcon({ className = 'w-6 h-6' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12V4a1 1 0 011-1h8l9 9-9 9-9-9z" />
+      <circle cx="7.5" cy="7.5" r="1.25" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
+export function LojaIcon({ className = 'w-6 h-6' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 10v10h16V10" />
+      <path d="M3 4h18l-1.5 6H4.5L3 4z" />
+      <path d="M10 20v-5h4v5" />
+    </svg>
+  )
+}

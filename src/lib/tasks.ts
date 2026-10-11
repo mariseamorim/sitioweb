@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { visibleOffersWhere } from '@/lib/vendors'
 
 // Tarefas do dia mostradas no sino de notificações da barra do topo
 
@@ -13,7 +14,11 @@ export interface Task {
 
 const fmtDay = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })
 
-export async function getTodayTasks(farmId: string, can: (module: string) => boolean): Promise<Task[]> {
+export async function getTodayTasks(
+  farmId: string,
+  can: (module: string) => boolean,
+  offersSeenAt: Date | null = null,
+): Promise<Task[]> {
   // As datas são gravadas como meia-noite UTC do dia escolhido; "hoje" é o dia no horário de Brasília
   const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
   const today = new Date(todayStr)
@@ -40,7 +45,7 @@ export async function getTodayTasks(farmId: string, can: (module: string) => boo
           take: 5,
         })
       : [],
-    can('estoque') ? prisma.supply.findMany({ where: { farmId }, select: { name: true, currentQuantity: true, minimumQuantity: true, unit: true } }) : [],
+    can('estoque') ? prisma.supply.findMany({ where: { farmId }, select: { name: true, category: true, currentQuantity: true, minimumQuantity: true, unit: true } }) : [],
     can('veterinario')
       ? prisma.veterinaryTreatment.findMany({
           where: { animal: { farmId }, startDate: { lte: today }, endDate: { gte: today } },
@@ -76,13 +81,31 @@ export async function getTodayTasks(farmId: string, can: (module: string) => boo
   for (const t of treatments) {
     tasks.push({ title: `Tratamento de ${t.animal.name}: ${t.medicine}`, detail: `Até ${fmtDay(t.endDate!)}`, href: '/veterinary-treatment', tone: 'blue' })
   }
+  // Ofertas de fornecedores: as novas dos meus fornecedores e as que combinam com o estoque baixo
   const low = supplies.filter((s) => s.currentQuantity <= s.minimumQuantity)
+  const offersWhere = await visibleOffersWhere(farmId)
+  const lowCategories = [...new Set(low.map((s) => s.category))]
+  const [newOffers, matchingOffers] = await Promise.all([
+    prisma.promotion.count({
+      where: { ...offersWhere, vendor: { status: 'aprovado', clients: { some: { farmId, muted: false } } }, ...(offersSeenAt ? { createdAt: { gt: offersSeenAt } } : {}) },
+    }),
+    lowCategories.length ? prisma.promotion.count({ where: { ...offersWhere, category: { in: lowCategories } } }) : 0,
+  ])
+
   if (low.length > 0) {
+    const items = low.slice(0, 3).map((s) => `${s.name} (${s.currentQuantity} ${s.unit})`).join(', ')
     tasks.push({
       title: low.length === 1 ? `Repor estoque: ${low[0].name}` : `Repor ${low.length} itens do estoque`,
-      detail: low.slice(0, 3).map((s) => `${s.name} (${s.currentQuantity} ${s.unit})`).join(', '),
-      href: '/estoque',
+      detail: matchingOffers ? `${items} · ${matchingOffers} oferta${matchingOffers > 1 ? 's' : ''} disponíve${matchingOffers > 1 ? 'is' : 'l'}` : items,
+      href: matchingOffers ? '/ofertas' : '/estoque',
       tone: 'amber',
+    })
+  }
+  if (newOffers > 0) {
+    tasks.push({
+      title: `${newOffers} oferta${newOffers > 1 ? 's' : ''} nova${newOffers > 1 ? 's' : ''} dos seus fornecedores`,
+      href: '/ofertas',
+      tone: 'blue',
     })
   }
 

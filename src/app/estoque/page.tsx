@@ -7,6 +7,7 @@ import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon } from '@/components/ModuleIcons'
+import { SUPPLY_CATEGORIES } from '@/lib/supplies'
 
 interface SupplyMovement { id: string; type: string; quantity: number; date: string; description?: string | null }
 interface Supply {
@@ -19,7 +20,7 @@ interface Supply {
   movements: SupplyMovement[]
 }
 
-const CATEGORIES = ['Ração', 'Medicamento', 'Vacina', 'Outro']
+const CATEGORIES = SUPPLY_CATEGORIES
 
 export default function EstoquePage() {
   const { confirm } = useDialog()

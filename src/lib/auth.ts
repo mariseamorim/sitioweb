@@ -92,6 +92,8 @@ export interface SessionUser {
   role: string
   permissions: string[] | null
   farmId: string | null
+  /** Empresa do usuário quando role = "fornecedor" */
+  vendorId: string | null
   /** Fazenda em uso: a do usuário ou, para admin, a escolhida no seletor. */
   effectiveFarmId: string | null
 }
@@ -103,7 +105,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, role: true, permissions: true, farmId: true },
+    select: { id: true, name: true, email: true, role: true, permissions: true, farmId: true, vendorId: true },
   })
   if (!user) return null
 
@@ -147,6 +149,41 @@ export async function requireFarmAccess(module: string, mode: 'view' | 'edit'): 
     return { error: NextResponse.json({ error: 'Selecione uma propriedade' }, { status: 400 }) }
   }
   return { user, farmId: user.effectiveFarmId }
+}
+
+/** Garante que é um fornecedor com empresa não bloqueada. */
+export async function requireVendor() {
+  const user = await getSessionUser()
+  if (!user) {
+    return { error: NextResponse.json({ error: 'Faça login para continuar' }, { status: 401 }) } as const
+  }
+  const vendor = user.role === 'fornecedor' && user.vendorId
+    ? await prisma.vendor.findUnique({ where: { id: user.vendorId } })
+    : null
+  if (!vendor || vendor.status === 'bloqueado') {
+    return { error: NextResponse.json({ error: 'Acesso restrito a fornecedores' }, { status: 403 }) } as const
+  }
+  return { user, vendor } as const
+}
+
+/** Produtor (qualquer perfil com propriedade ativa, exceto fornecedor). */
+export async function requireProducer(edit: boolean) {
+  const user = await getSessionUser()
+  if (!user?.effectiveFarmId || user.role === 'fornecedor') {
+    return { error: NextResponse.json({ error: 'Faça login com uma propriedade' }, { status: 401 }) } as const
+  }
+  if (edit && !canEdit(user)) {
+    return { error: NextResponse.json({ error: 'Você não tem permissão para esta ação' }, { status: 403 }) } as const
+  }
+  return { user, farmId: user.effectiveFarmId } as const
+}
+
+export async function requireAdmin() {
+  const user = await getSessionUser()
+  if (!user || user.role !== 'admin') {
+    return { error: NextResponse.json({ error: 'Acesso restrito ao administrador' }, { status: 403 }) } as const
+  }
+  return { user } as const
 }
 
 export function notFound(message = 'Registro não encontrado') {

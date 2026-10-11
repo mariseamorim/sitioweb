@@ -29,7 +29,9 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href = '/';
+      // Volta para onde a pessoa estava (ex.: link de convite de fornecedor)
+      const next = new URLSearchParams(window.location.search).get('next');
+      window.location.href = next && next.startsWith('/') && !next.startsWith('//') ? next : '/';
     } catch {
       setError('Erro de conexão. Tente novamente.');
     } finally {

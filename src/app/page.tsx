@@ -12,6 +12,7 @@ import {
 export default async function Home() {
   const user = await getSessionUser()
   if (!user) redirect('/inicio')
+  if (user.role === 'fornecedor') redirect('/fornecedor')
 
   const effectiveFarmId = user.effectiveFarmId
 

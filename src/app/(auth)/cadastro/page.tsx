@@ -37,11 +37,13 @@ export default function CadastroPage() {
     }
 
     setLoading(true);
+    // Cadastro feito a partir do link de convite de um fornecedor
+    const inviteCode = new URLSearchParams(window.location.search).get('convite');
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ farm, user: { name: user.name, email: user.email, password: user.password } }),
+        body: JSON.stringify({ farm, user: { name: user.name, email: user.email, password: user.password }, inviteCode }),
       });
 
       const data = await res.json();
@@ -51,7 +53,7 @@ export default function CadastroPage() {
         return;
       }
 
-      window.location.href = '/';
+      window.location.href = inviteCode ? '/ofertas' : '/';
     } catch {
       setError('Erro de conexão. Tente novamente.');
     } finally {

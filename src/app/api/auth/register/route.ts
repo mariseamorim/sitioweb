@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { hashPassword, setSessionCookie } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
-  const { farm, user } = await request.json();
+  const { farm, user, inviteCode } = await request.json();
 
   if (!farm?.name) {
     return NextResponse.json({ error: 'Nome da propriedade é obrigatório' }, { status: 400 });
@@ -49,6 +49,14 @@ export async function POST(request: NextRequest) {
           farmId: newFarm.id,
         },
       });
+
+      // Veio pelo link de convite: já vincula o fornecedor à nova propriedade
+      if (inviteCode) {
+        const vendor = await tx.vendor.findUnique({ where: { inviteCode: String(inviteCode).toUpperCase() } });
+        if (vendor && vendor.status !== 'bloqueado') {
+          await tx.vendorClient.create({ data: { vendorId: vendor.id, farmId: newFarm.id } });
+        }
+      }
 
       return { farm: newFarm, user: newUser };
     });

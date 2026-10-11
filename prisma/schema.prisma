@@ -32,21 +32,25 @@ model Farm {
   transactions    Transaction[]
   supplies        Supply[]
   milkProductions MilkProduction[]
+  vendorClients   VendorClient[]
 
   @@map("farms")
 }
 
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  name        String
-  password    String
-  role        String   @default("viewer")
-  permissions Json? // String[] de chaves de módulo; null = admin tem tudo
-  farmId      String?
-  farm        Farm?    @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  password     String
+  role         String    @default("viewer")
+  permissions  Json? // String[] de chaves de módulo; null = admin tem tudo
+  farmId       String?
+  farm         Farm?     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  vendorId     String? // preenchido quando role = "fornecedor"
+  vendor       Vendor?   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  offersSeenAt DateTime? // última vez que o produtor abriu a tela de ofertas
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@map("users")
 }
@@ -204,4 +208,64 @@ model SupplyMovement {
   createdAt   DateTime @default(now())
 
   @@map("supply_movements")
+}
+
+// ── Fornecedores ───────────────────────────────────────────────────────
+
+model Vendor {
+  id          String   @id @default(cuid())
+  companyName String
+  document    String?
+  contactName String
+  phone       String
+  whatsapp    String?
+  email       String
+  city        String?
+  state       String?
+  description String?
+  status      String   @default("pendente") // pendente | aprovado | bloqueado
+  inviteCode  String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users      User[]
+  clients    VendorClient[]
+  promotions Promotion[]
+
+  @@map("vendors")
+}
+
+/// Vínculo produtor ↔ fornecedor, sempre criado pelo produtor (convite ou busca)
+model VendorClient {
+  id        String   @id @default(cuid())
+  vendorId  String
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  farmId    String
+  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  muted     Boolean  @default(false) // produtor silenciou as ofertas deste fornecedor
+  createdAt DateTime @default(now())
+
+  @@unique([vendorId, farmId])
+  @@map("vendor_clients")
+}
+
+model Promotion {
+  id             String   @id @default(cuid())
+  vendorId       String
+  vendor         Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?
+  category       String
+  price          Float?
+  unit           String?
+  imageUrl       String?
+  reach          String   @default("clientes") // clientes | regiao (clientes + produtores do mesmo estado)
+  validUntil     DateTime
+  isActive       Boolean  @default(true)
+  whatsappClicks Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([vendorId])
+  @@map("promotions")
 }
