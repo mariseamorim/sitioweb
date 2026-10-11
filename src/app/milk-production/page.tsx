@@ -207,8 +207,13 @@ export default function MilkProductionPage() {
   }
 
   function onRegistered({ pending }: { pending: number }) {
-    if (pending) setPendingCount(pending)
     setShowRegister(false)
+    onSavedKeepOpen({ pending })
+  }
+
+  // Salvo sozinho: atualiza a lista e o total do dia com o formulário ainda aberto
+  function onSavedKeepOpen({ pending }: { pending: number }) {
+    if (pending) setPendingCount(pending)
     if (isOnline) loadData(farmId)
   }
 
@@ -500,6 +505,7 @@ export default function MilkProductionPage() {
                   isOnline={isOnline}
                   onCancel={() => setShowRegister(false)}
                   onDone={onRegistered}
+                  onSaved={onSavedKeepOpen}
                 />
               ) : (
                 <MilkDailyEntry

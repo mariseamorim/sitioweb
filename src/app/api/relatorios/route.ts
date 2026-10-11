@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireFarmAccess } from '@/lib/auth'
 import { formatarIdade } from '@/lib/utils'
 import { REPORT_TYPES, Report, fmtDate, fmtMoney, fmtNumber } from '@/lib/reports'
+import { cowCalving, herdCalving, LATE_MONTHS } from '@/lib/calving'
 
 interface Period {
   gte: Date
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest) {
       case 'vacinacao': report = await vaccinationReport(farmId, period!); break
       case 'financeiro': report = await financeReport(farmId, period!); break
       case 'rebanho': report = await herdReport(farmId); break
+      case 'partos': report = await calvingReport(farmId); break
       case 'estoque': report = await stockReport(farmId, period!); break
       default: report = null
     }
@@ -127,9 +129,12 @@ async function animalReport(farmId: string, animalId: string | null): Promise<Re
       veterinaryTreatments: { orderBy: { startDate: 'desc' } },
       reproductions: { orderBy: { coverageDate: 'desc' } },
       milkProductions: { orderBy: { date: 'desc' }, select: { date: true, quantity: true } },
+      calves: { orderBy: { birthDate: 'asc' } },
+      mother: { select: { name: true, code: true } },
     },
   })
   if (!a) return null
+  const calving = cowCalving(a, a.calves.map((c) => ({ ...c, motherId: a.id })))
 
   const byMonth = new Map<string, number>()
   for (const p of a.milkProductions) {
@@ -147,6 +152,11 @@ async function animalReport(farmId: string, animalId: string | null): Promise<Re
     ['Situação', a.status],
     ['GTA', a.gta || '—'],
   ]
+  if (a.mother) data.push(['Mãe', `${a.mother.name} (${a.mother.code})`])
+  if (a.calves.length) {
+    data.push(['Crias', `${a.calves.length} em ${calving.calvings} parto${calving.calvings === 1 ? '' : 's'}`])
+    if (calving.averageInterval !== null) data.push(['Intervalo médio entre partos', `${calving.averageInterval} meses`])
+  }
   if (a.lowDate) data.push(['Data da baixa', fmtDate(a.lowDate)], ['Motivo da baixa', a.lowReason || '—'])
   if (a.observations) data.push(['Observações', a.observations])
 
@@ -170,6 +180,11 @@ async function animalReport(farmId: string, animalId: string | null): Promise<Re
         columns: ['Cobertura', 'Reprodutor', 'Parto previsto', 'Parto', 'Situação'],
         rows: a.reproductions.map((r) => [fmtDate(r.coverageDate), r.maleName || '—', fmtDate(r.expectedBirthDate), fmtDate(r.actualBirthDate), r.status]),
       },
+      ...(a.calves.length ? [{
+        title: 'Crias',
+        columns: ['Nascimento', 'Código', 'Cria', 'Sexo', 'Situação'],
+        rows: a.calves.map((c) => [fmtDate(c.birthDate), c.code, c.name, c.gender === 'Fêmea' ? 'Bezerra' : 'Bezerro', c.status]),
+      }] : []),
       {
         title: 'Leite por mês',
         columns: ['Mês', 'Total (L)'],
@@ -295,6 +310,55 @@ async function herdReport(farmId: string): Promise<Report> {
         rows: animals.map((a) => [
           a.code, a.name, a.species, a.gender, fmtDate(a.birthDate), formatarIdade(a.birthDate.toISOString()), a.status, a.gta || '—',
         ]),
+      },
+    ],
+  }
+}
+
+// ── Crias e partos ─────────────────────────────────────────────────────
+
+async function calvingReport(farmId: string): Promise<Report> {
+  const [animals, open] = await Promise.all([
+    prisma.animal.findMany({ where: { farmId }, orderBy: { name: 'asc' } }),
+    prisma.reproduction.findMany({ where: { farmId, actualBirthDate: null, status: { in: ['Coberta', 'Prenha'] } }, select: { femaleId: true } }),
+  ])
+  const stats = herdCalving(animals, new Set(open.map((r) => r.femaleId)))
+  const byId = new Map(animals.map((a) => [a.id, a]))
+  const calves = animals.filter((a) => a.motherId).sort((a, b) => a.birthDate.getTime() - b.birthDate.getTime())
+  const months = (n: number | null) => (n === null ? '—' : String(n))
+
+  return {
+    title: 'Crias e partos',
+    subtitle: `Posição em ${new Date().toLocaleDateString('pt-BR')}`,
+    sections: [
+      {
+        title: 'Resumo',
+        columns: ['Vacas', 'Crias anotadas', 'Intervalo médio entre partos (meses)', 'Idade média na 1ª cria (meses)', 'Demorando para criar'],
+        numeric: [0, 1, 2, 3, 4],
+        rows: [[
+          stats.cows.length, calves.length, months(stats.averageInterval), months(stats.averageAgeAtFirst),
+          stats.late.filter((l) => l.reason === 'sem-parir').length,
+        ]],
+      },
+      {
+        title: 'Por vaca',
+        columns: ['Código', 'Vaca', 'Crias', 'Partos', 'Último parto', 'Meses desde o último', 'Intervalo médio (meses)', 'Idade na 1ª cria (meses)'],
+        numeric: [2, 3, 5, 6, 7],
+        rows: stats.cows.map((c) => [
+          c.cow.code, c.cow.name, c.calves, c.calvings, c.lastCalving ? fmtDate(c.lastCalving) : '—',
+          months(c.monthsSinceLast), months(c.averageInterval), months(c.ageAtFirstCalving),
+        ]),
+      },
+      {
+        title: `Demorando para criar (mais de ${LATE_MONTHS} meses sem parir, sem prenhez anotada)`,
+        columns: ['Código', 'Vaca', 'Último parto', 'Meses sem parir'],
+        numeric: [3],
+        rows: stats.late.filter((l) => l.reason === 'sem-parir').map(({ stats: s }) => [s.cow.code, s.cow.name, fmtDate(s.lastCalving), months(s.monthsSinceLast)]),
+      },
+      {
+        title: 'Crias',
+        columns: ['Nascimento', 'Mãe', 'Código', 'Cria', 'Sexo', 'Situação'],
+        rows: calves.map((c) => [fmtDate(c.birthDate), byId.get(c.motherId!)?.name ?? '—', c.code, c.name, c.gender === 'Fêmea' ? 'Bezerra' : 'Bezerro', c.status]),
       },
     ],
   }

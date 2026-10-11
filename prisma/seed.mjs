@@ -163,7 +163,7 @@ async function seedFornecedor() {
     data: {
       companyName: 'Casa da Ração Boa Safra', contactName: 'Zé da Ração', phone: '(35) 99999-0000', whatsapp: '(35) 99999-0000',
       email: 'fornecedor@demo.com', city: 'Lavras', state: 'MG', description: 'Ração, sal mineral e entrega na zona rural',
-      status: 'aprovado', inviteCode: 'DEMO2026',
+      status: 'aprovado', inviteCode: 'DEMO2026', categories: ['Ração', 'Sal mineral'],
     },
   })
   await createUser({ name: 'Zé da Ração', email: 'fornecedor@demo.com', role: 'fornecedor', vendorId: vendor.id })
@@ -174,7 +174,16 @@ async function seedFornecedor() {
     ],
   })
   const produtorFarm = await prisma.farm.findFirst({ where: { users: { some: { email: 'produtor@demo.com' } } } })
-  if (produtorFarm) await prisma.vendorClient.create({ data: { vendorId: vendor.id, farmId: produtorFarm.id } })
+  if (!produtorFarm) return
+  await prisma.vendorClient.create({ data: { vendorId: vendor.id, farmId: produtorFarm.id } })
+  // Pedido de orçamento aberto: aparece em "Pedidos" no painel do fornecedor
+  const salt = await prisma.supply.findFirst({ where: { farmId: produtorFarm.id, category: 'Sal mineral' } })
+  await prisma.supplyRequest.create({
+    data: {
+      farmId: produtorFarm.id, vendorId: vendor.id, supplyId: salt?.id ?? null, itemName: 'Sal mineral', category: 'Sal mineral',
+      quantity: 60, unit: 'kg', note: 'Preciso até sexta. Entrega no sítio?', createdBy: 'João Produtor',
+    },
+  })
 }
 
 async function main() {

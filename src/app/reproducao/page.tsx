@@ -7,8 +7,10 @@ import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, FecharIcon, ReproducaoIcon } from '@/components/ModuleIcons'
+import { HerdCalvingPanel } from '@/components/HerdCalvingPanel'
+import { AddCalfForm } from '@/components/CalfSection'
 
-interface Animal { id: string; name: string; code: string; species: string; gender: string }
+interface Animal { id: string; name: string; code: string; species: string; gender: string; status: string; birthDate: string; motherId?: string | null }
 
 interface Reproduction {
   id: string
@@ -38,6 +40,8 @@ export default function ReproducaoPage() {
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const [reproductions, setReproductions] = useState<Reproduction[]>([])
   const [females, setFemales] = useState<Animal[]>([])
+  const [herd, setHerd] = useState<Animal[]>([])
+  const [registeringBirth, setRegisteringBirth] = useState(false)
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
   const [filterStatus, setFilterStatus] = useState('Todas')
@@ -106,6 +110,7 @@ export default function ReproducaoPage() {
       const pending = mapPending()
       setReproductions(Array.isArray(repros) ? [...repros, ...pending] : pending)
       setFemales(Array.isArray(anims) ? anims.filter((a: Animal) => a.gender === 'Fêmea') : [])
+      setHerd(Array.isArray(anims) ? anims : [])
       setLoading(false)
     }).catch(() => {
       const pending = mapPending()
@@ -198,6 +203,10 @@ export default function ReproducaoPage() {
   }
 
   const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR')
+  // Cobertura em aberto: dá para registrar o parto anotando a cria
+  const birthMother = detail && canEdit && !detail.actualBirthDate && !detail.id.startsWith('pending_') && (detail.status === 'Coberta' || detail.status === 'Prenha')
+    ? herd.find((a) => a.id === detail.femaleId)
+    : undefined
 
   return (
     <PermissionGuard module="reproducao">
@@ -231,6 +240,8 @@ export default function ReproducaoPage() {
           </button>
         </div>
       )}      </div>
+
+      {!loading && <HerdCalvingPanel herd={herd} reproductions={reproductions} />}
 
       {upcomingBirths > 0 && (
         <div className="bg-purple-50 border border-purple-200 text-purple-800 rounded-xl px-4 py-3 mb-6 text-sm flex items-center gap-2">
@@ -267,7 +278,7 @@ export default function ReproducaoPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.map(r => (
-                <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetail(r); setEditStatus(r.status); setEditBirthDate(r.actualBirthDate?.slice(0, 10) || '') }}>
+                <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetail(r); setRegisteringBirth(false); setEditStatus(r.status); setEditBirthDate(r.actualBirthDate?.slice(0, 10) || '') }}>
                   <td className="px-4 py-3 font-medium text-gray-800">{r.female.name}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{r.maleName || '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{fmt(r.coverageDate)}</td>
@@ -301,6 +312,22 @@ export default function ReproducaoPage() {
                 {detail.actualBirthDate && <div><p className="text-xs text-gray-500">Parto Real</p><p className="font-medium text-green-700">{fmt(detail.actualBirthDate)}</p></div>}
                 {detail.observations && <div className="sm:col-span-2"><p className="text-xs text-gray-500">Observações</p><p className="text-gray-700">{detail.observations}</p></div>}
               </div>
+
+              {/* Parto: anota a cria (ela entra no rebanho, ligada à mãe) e a cobertura fecha sozinha */}
+              {birthMother && (
+                registeringBirth ? (
+                  <div className="mb-4">
+                    <AddCalfForm mother={birthMother} animals={herd} farmId={farmId} isOnline={isOnline}
+                      onCancel={() => setRegisteringBirth(false)}
+                      onSaved={() => { setRegisteringBirth(false); setDetail(null); loadData(farmId) }} />
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setRegisteringBirth(true)}
+                    className="mb-4 w-full bg-green-700 hover:bg-green-600 text-white font-semibold py-3 rounded-lg">
+                    Registrar parto e anotar a cria
+                  </button>
+                )
+              )}
 
               <div className="border-t border-gray-100 pt-4 mb-4">
                 <p className="text-xs font-semibold text-gray-600 mb-2">Atualizar status</p>

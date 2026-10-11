@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Você não tem permissão para esta ação' }, { status: 403 })
   }
 
-  const { name, propertyType, documentType, documentNumber, owner, email, phone, address, city, state } = await request.json()
+  const { name, propertyType, documentType, documentNumber, owner, phone, address, city, state } = await request.json()
 
   if (!name) return NextResponse.json({ error: 'Nome é obrigatório' }, { status: 400 })
 
@@ -37,7 +37,6 @@ export async function POST(request: NextRequest) {
         documentType: documentType || null,
         documentNumber: documentNumber || null,
         owner: owner || null,
-        email: email || null,
         phone: phone || null,
         address: address || null,
         city: city || null,

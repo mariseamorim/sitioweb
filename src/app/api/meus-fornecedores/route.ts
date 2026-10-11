@@ -11,7 +11,7 @@ export async function GET() {
     include: { vendor: { select: { id: true, companyName: true, contactName: true, city: true, state: true, whatsapp: true, phone: true, status: true } } },
     orderBy: { createdAt: 'desc' },
   })
-  return NextResponse.json(links.map((l) => ({ ...l.vendor, muted: l.muted, since: l.createdAt })))
+  return NextResponse.json(links.map((l) => ({ ...l.vendor, muted: l.muted, shareStock: l.shareStock, since: l.createdAt })))
 }
 
 // POST: { code } (link de convite) ou { vendorId } (busca). O vínculo é sempre criado pelo produtor.

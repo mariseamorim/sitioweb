@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useUser } from '@/contexts/UserContext'
 import { useDialog } from '@/components/DialogProvider'
 import { AlertaIcon } from '@/components/ModuleIcons'
@@ -31,6 +31,28 @@ interface MyVendor {
   phone: string
   status: string
   muted: boolean
+  shareStock: boolean
+}
+
+interface MyRequest {
+  id: string
+  itemName: string
+  quantity: number | null
+  unit: string | null
+  note: string | null
+  status: 'novo' | 'respondido' | 'fechado' | 'cancelado'
+  reply: string | null
+  replyPrice: number | null
+  repliedAt: string | null
+  createdAt: string
+  vendor: { id: string; companyName: string; whatsapp: string | null; phone: string }
+}
+
+const REQUEST_STATUS: Record<MyRequest['status'], { label: string; style: string }> = {
+  novo: { label: 'Aguardando resposta', style: 'bg-amber-100 text-amber-800' },
+  respondido: { label: 'Respondido', style: 'bg-blue-100 text-blue-800' },
+  fechado: { label: 'Resolvido', style: 'bg-green-100 text-green-800' },
+  cancelado: { label: 'Cancelado', style: 'bg-gray-100 text-gray-600' },
 }
 
 interface Found {
@@ -48,6 +70,7 @@ export default function OfertasPage() {
   const [offers, setOffers] = useState<Offer[] | null>(null)
   const [lowCategories, setLowCategories] = useState<string[]>([])
   const [vendors, setVendors] = useState<MyVendor[]>([])
+  const [requests, setRequests] = useState<MyRequest[]>([])
   const [category, setCategory] = useState('')
   const [query, setQuery] = useState('')
   const [found, setFound] = useState<Found[]>([])
@@ -66,6 +89,33 @@ export default function OfertasPage() {
       .then((r) => (r.ok ? r.json() : []))
       .then(setVendors)
       .catch(() => {})
+    fetch('/api/pedidos')
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setRequests)
+      .catch(() => {})
+  }
+
+  // Vindo do sino (#pedidos): as listas chegam depois da página, então rola quando as duas estiverem na tela
+  const scrolledToRequests = useRef(false)
+  useEffect(() => {
+    if (scrolledToRequests.current || offers === null || requests.length === 0 || window.location.hash !== '#pedidos') return
+    scrolledToRequests.current = true
+    document.getElementById('pedidos')?.scrollIntoView({ behavior: 'smooth' })
+  }, [offers, requests])
+
+  async function setRequestStatus(r: MyRequest, status: 'fechado' | 'cancelado') {
+    if (status === 'cancelado' && !(await confirm({ title: 'Cancelar este pedido?', message: `${r.itemName} · ${r.vendor.companyName}`, confirmLabel: 'Cancelar pedido', danger: true }))) return
+    await fetch(`/api/pedidos/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
+    load()
+  }
+
+  async function toggleShareStock(v: MyVendor) {
+    await fetch(`/api/meus-fornecedores/${v.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shareStock: !v.shareStock }),
+    })
+    load()
   }
 
   useEffect(load, [])
@@ -192,8 +242,52 @@ export default function OfertasPage() {
         </ul>
       )}
 
+      {requests.length > 0 && (
+        <section id="pedidos" className="mt-10 scroll-mt-24">
+          <h2 className="text-lg font-bold text-gray-900">Meus pedidos de orçamento</h2>
+          <ul className="mt-3 grid gap-3 md:grid-cols-2">
+            {requests.map((r) => {
+              const status = REQUEST_STATUS[r.status]
+              const open = r.status === 'novo' || r.status === 'respondido'
+              return (
+                <li key={r.id} className={`bg-white rounded-xl border p-4 ${r.status === 'respondido' ? 'border-blue-300' : 'border-gray-200'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900">
+                        {r.itemName}
+                        {r.quantity && <span className="font-normal text-gray-600"> · {r.quantity.toLocaleString('pt-BR')}{r.unit ? ` ${r.unit}` : ''}</span>}
+                      </p>
+                      <p className="text-sm text-gray-500">{r.vendor.companyName} · pedido em {fmtDate(r.createdAt)}</p>
+                    </div>
+                    <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${status.style}`}>{status.label}</span>
+                  </div>
+                  {r.reply && (
+                    <div className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                      <p>{r.reply}</p>
+                      {r.replyPrice !== null && <p className="mt-1 text-base font-bold">{fmtMoney(r.replyPrice)}</p>}
+                    </div>
+                  )}
+                  {open && (
+                    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                      <a href={whatsappLink(r.vendor.whatsapp || r.vendor.phone, `Olá! Sobre o meu pedido de ${r.itemName} pelo Anota Aí Agro.`)}
+                        target="_blank" rel="noopener noreferrer"
+                        className="bg-green-700 hover:bg-green-600 text-white font-semibold px-3 py-2 rounded-lg">WhatsApp</a>
+                      {canEdit && <button onClick={() => setRequestStatus(r, 'fechado')} className="font-medium text-green-700 hover:underline">Resolvido</button>}
+                      {canEdit && r.status === 'novo' && <button onClick={() => setRequestStatus(r, 'cancelado')} className="font-medium text-red-600 hover:underline">Cancelar</button>}
+                    </div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
+
       <section className="mt-10">
         <h2 className="text-lg font-bold text-gray-900">Meus fornecedores</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Seus fornecedores veem os itens do seu estoque que estão abaixo do mínimo, para oferecer a reposição. Você pode desligar para cada um.
+        </p>
         {vendors.length === 0 ? (
           <p className="mt-2 text-gray-500">Nenhum fornecedor ainda.</p>
         ) : (
@@ -207,6 +301,7 @@ export default function OfertasPage() {
                     {v.muted && ' · ofertas silenciadas'}
                     {v.status === 'pendente' && ' · cadastro em análise'}
                   </p>
+                  <p className="text-xs text-gray-500">{v.shareStock ? 'Vê seu estoque baixo' : 'Não vê seu estoque'}</p>
                 </div>
                 <a href={whatsappLink(v.whatsapp || v.phone, 'Olá! Te encontrei pelo Anota Aí Agro.')} target="_blank" rel="noopener noreferrer"
                   className="text-sm font-semibold text-green-700 hover:underline">WhatsApp</a>
@@ -214,6 +309,9 @@ export default function OfertasPage() {
                   <>
                     <button onClick={() => toggleMute(v)} className="text-sm font-medium text-gray-600 hover:underline">
                       {v.muted ? 'Voltar a receber' : 'Silenciar'}
+                    </button>
+                    <button onClick={() => toggleShareStock(v)} className="text-sm font-medium text-gray-600 hover:underline">
+                      {v.shareStock ? 'Esconder estoque' : 'Mostrar estoque'}
                     </button>
                     <button onClick={() => removeVendor(v)} className="text-sm font-medium text-red-600 hover:underline">Remover</button>
                   </>

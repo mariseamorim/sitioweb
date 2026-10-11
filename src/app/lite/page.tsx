@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { OfflineVoiceSetup, VoiceButton } from '@/components/VoiceButton'
 import { useDialog } from '@/components/DialogProvider'
 import { SetaDireitaIcon, SemSinalIcon, SincronizarIcon, CheckIcon } from '@/components/ModuleIcons'
 import { KIND_LABEL, LiteChange, LiteData, LitePoint, PointKind, isDriverRole, isLiteOnlyRole, parseLiters } from '@/lib/lite'
@@ -102,16 +103,46 @@ export default function LitePage() {
   })
   const dayTotal = activePoints.reduce((s, p) => s + (parseLiters(valueOf(p.id)) ?? 0), 0)
 
-  async function save() {
-    if (!data || changes.length === 0) return
-    enqueue(changes)
-    setData(applyChanges(data, changes))
-    setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => !k.startsWith(`${date}|`))))
+  // auto: salvamento sozinho. Não apaga anotação (campo vazio) e mantém o que está digitado
+  // no campo, para não atrapalhar quem ainda está escrevendo
+  async function save({ auto = false } = {}) {
+    const toSave = auto ? changes.filter((c) => c.liters !== null) : changes
+    if (!data || !canWrite || toSave.length === 0) return
+    enqueue(toSave)
+    setData(applyChanges(data, toSave))
+    if (!auto) setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => !k.startsWith(`${date}|`))))
     setPending(pendingCount())
     // O aparelho pode dizer que está online sem o sinal chegar: a mensagem segue o resultado do envio
     if (navigator.onLine) await sync()
     setMessage(pendingCount() ? 'Salvo no celular. Será enviado quando houver internet.' : 'Salvo e enviado.')
     setTimeout(() => setMessage(''), 4000)
+  }
+
+  // Salva sozinho pouco depois de parar de digitar (sem internet fica guardado no celular)
+  const autoKey = changes.filter((c) => c.liters !== null).map((c) => `${c.date}|${c.pointId}=${c.liters}`).join(' ')
+  const saveRef = useRef(save)
+  useEffect(() => { saveRef.current = save })
+  useEffect(() => {
+    if (!autoKey) return
+    const timer = setTimeout(() => void saveRef.current({ auto: true }), 1500)
+    return () => clearTimeout(timer)
+  }, [autoKey])
+  // Ao sair do app ou bloquear o celular no meio da digitação, salva na hora
+  useEffect(() => {
+    const flush = () => { if (document.visibilityState === 'hidden') void saveRef.current({ auto: true }) }
+    document.addEventListener('visibilitychange', flush)
+    return () => document.removeEventListener('visibilitychange', flush)
+  }, [])
+
+  // Número falado vai para o campo como se tivesse sido digitado (o salvar sozinho grava)
+  function setSpoken(pointId: string, liters: number) {
+    setDrafts((d) => ({ ...d, [`${date}|${pointId}`]: String(liters).replace('.', ',') }))
+  }
+
+  // Trocar de dia não perde o que acabou de ser digitado
+  function goToDay(day: string) {
+    void saveRef.current({ auto: true })
+    setDate(day)
   }
 
   function pointOp(op: PointOp) {
@@ -143,6 +174,7 @@ export default function LitePage() {
       <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="mx-auto max-w-xl px-4 h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
+            <Link href="/lite/perfil" className="text-xs font-semibold text-green-700 hover:underline">Meu cadastro</Link>
             {/* Quem tem o app completo volta para o painel; produtor lite e motorista usam só o lite */}
             {data && !isLiteOnlyRole(data.role) && (
               <Link href="/" aria-label="Voltar ao painel"
@@ -183,23 +215,23 @@ export default function LitePage() {
           ) : (
             <>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setDate(shiftDay(date, -1))} aria-label="Dia anterior"
+                <button type="button" onClick={() => goToDay(shiftDay(date, -1))} aria-label="Dia anterior"
                   className="h-12 w-12 shrink-0 rounded-xl border border-gray-300 bg-white flex items-center justify-center text-gray-700">
                   <SetaDireitaIcon className="w-5 h-5 rotate-180" />
                 </button>
                 <label className="flex-1">
                   <span className="sr-only">Data</span>
-                  <input type="date" value={date} max={today} onChange={(e) => e.target.value && setDate(e.target.value)}
+                  <input type="date" value={date} max={today} onChange={(e) => e.target.value && goToDay(e.target.value)}
                     className={`${input} text-center font-semibold`} />
                 </label>
-                <button type="button" onClick={() => setDate(shiftDay(date, 1))} disabled={date >= today} aria-label="Próximo dia"
+                <button type="button" onClick={() => goToDay(shiftDay(date, 1))} disabled={date >= today} aria-label="Próximo dia"
                   className="h-12 w-12 shrink-0 rounded-xl border border-gray-300 bg-white flex items-center justify-center text-gray-700 disabled:opacity-30">
                   <SetaDireitaIcon className="w-5 h-5" />
                 </button>
               </div>
               <p className="mt-2 text-center text-sm text-gray-500">
                 {date === today ? 'Hoje' : fmtDay(date, { weekday: 'long' })}
-                {date !== today && <button type="button" onClick={() => setDate(today)} className="ml-2 font-semibold text-green-700 underline">Voltar para hoje</button>}
+                {date !== today && <button type="button" onClick={() => goToDay(today)} className="ml-2 font-semibold text-green-700 underline">Voltar para hoje</button>}
               </p>
 
               {single ? (
@@ -213,14 +245,15 @@ export default function LitePage() {
                       className="w-44 border border-gray-300 rounded-2xl px-4 py-4 !text-5xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-green-600" />
                     <span className="text-2xl text-gray-500">L</span>
                   </span>
+                  {canWrite && <VoiceButton label="os litros do dia" onNumber={(v) => setSpoken(single.id, v)} />}
                   <PriceLine data={data} liters={parseLiters(valueOf(single.id)) ?? 0} online={online} canWrite={canWrite}
                     onSaved={(milkPrice) => { const d = { ...data, milkPrice }; setData(d); writeCache(d) }} />
                 </div>
               ) : (
               <ul className="mt-5 space-y-3">
                 {activePoints.map((p) => (
-                  <li key={p.id} className="bg-white rounded-2xl border border-gray-200 p-4">
-                    <label className="flex items-center gap-3">
+                  <li key={p.id} className="bg-white rounded-2xl border border-gray-200 p-4 flex items-start gap-2">
+                    <label className="flex flex-1 min-w-0 items-center gap-3">
                       <span className="flex-1 min-w-0">
                         <span className="block text-lg font-semibold text-gray-900 truncate">{p.name}</span>
                         {p.kind === 'tanque' && <span className="text-xs font-medium text-gray-500">{KIND_LABEL.tanque}</span>}
@@ -233,10 +266,12 @@ export default function LitePage() {
                         <span className="text-lg text-gray-500">L</span>
                       </span>
                     </label>
+                    {canWrite && <VoiceButton size="sm" label={`os litros de ${p.name}`} onNumber={(v) => setSpoken(p.id, v)} />}
                   </li>
                 ))}
               </ul>
               )}
+              {canWrite && <OfflineVoiceSetup online={online} />}
 
               {dayCollections.length > 0 && (
                 <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
@@ -255,7 +290,8 @@ export default function LitePage() {
             </>
           )
         ) : tab === 'historico' ? (
-          <History data={data} />
+          <History data={data} online={online} canWrite={canWrite}
+            onPriceSaved={(milkPrice) => { const d = { ...data, milkPrice }; setData(d); writeCache(d) }} />
         ) : driver ? (
           <Points data={data} online={online} onPointOp={pointOp} onChanged={(d) => { setData(d); writeCache(d) }} />
         ) : null}
@@ -287,12 +323,14 @@ export default function LitePage() {
                 <p className="text-2xl font-bold text-green-800">{fmtNumber(dayTotal)} L</p>
               </div>
             )}
-            <button type="button" onClick={save} disabled={changes.length === 0}
+            <button type="button" onClick={() => void save()} disabled={changes.length === 0}
               className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white text-lg font-bold py-4 rounded-xl">
               {changes.length === 0 ? 'Salvo' : online ? 'Salvar' : 'Salvar no celular'}
             </button>
           </div>
-          {message && <p role="status" className="pb-3 text-center text-sm font-medium text-green-800">{message}</p>}
+          {message
+            ? <p role="status" className="pb-3 text-center text-sm font-medium text-green-800">{message}</p>
+            : <p className="pb-3 text-center text-xs text-gray-500">Salva sozinho quando você para de digitar, mesmo sem internet.</p>}
         </div>
       )}
     </div>
@@ -436,7 +474,12 @@ function Points({ data, online, onPointOp, onChanged }: {
 
 // ── Histórico ───────────────────────────────────────────────────────────
 
-function History({ data }: { data: LiteData }) {
+function History({ data, online, canWrite, onPriceSaved }: {
+  data: LiteData
+  online: boolean
+  canWrite: boolean
+  onPriceSaved: (price: number | null) => void
+}) {
   const [days, setDays] = useState(7)
   const [pointId, setPointId] = useState('') // '' = todos os locais
   const today = todayISO()
@@ -464,6 +507,22 @@ function History({ data }: { data: LiteData }) {
   const price = isDriverRole(data.role) ? null : data.milkPrice
   const periodCollections = (data.collections ?? []).filter((c) => c.date >= from && c.date <= today)
   const collected = periodCollections.reduce((s, c) => s + c.liters, 0)
+  const best = dayList.reduce<[string, number] | null>((b, [day, d]) => (!b || d.total > b[1] ? [day, d.total] : b), null)
+  // Gráfico: um traço por dia em 7 e 30 dias; em 90 dias, um por semana para caber na tela
+  const step = days > 30 ? 7 : 1
+  const bars: { label: string; title: string; liters: number }[] = []
+  for (let start = from; start <= today; start = shiftDay(start, step)) {
+    const end = step === 1 ? start : (shiftDay(start, step - 1) < today ? shiftDay(start, step - 1) : today)
+    let liters = 0
+    for (let d = start; d <= end; d = shiftDay(d, 1)) liters += byDay.get(d)?.total ?? 0
+    bars.push({
+      label: step === 1 ? fmtDay(start, days === 7 ? { weekday: 'short' } : { day: 'numeric' }) : fmtDay(start, { day: 'numeric', month: 'numeric' }),
+      title: `${step === 1 ? fmtDay(start) : `${fmtDay(start)} a ${fmtDay(end)}`}: ${fmtNumber(liters)} L`,
+      liters,
+    })
+  }
+  const maxBar = Math.max(...bars.map((b) => b.liters), 1)
+  const labelEvery = bars.length > 14 ? Math.ceil(bars.length / 7) : 1
 
   function download() {
     const place = selected ? selected.name : 'Todos os locais'
@@ -523,25 +582,50 @@ function History({ data }: { data: LiteData }) {
         ))}
       </div>
 
-      <div className="mt-4 bg-white rounded-2xl border border-gray-200 p-4">
-        {selected && <p className="mb-2 text-base font-semibold text-gray-900">{selected.name}</p>}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-500">Total no período</p>
-            <p className="text-2xl font-bold text-green-800">{fmtNumber(total)} L</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm text-gray-500">Média por dia anotado</p>
-            <p className="text-2xl font-bold text-gray-900">{fmtNumber(dayList.length ? total / dayList.length : 0)} L</p>
-          </div>
+      {selected && <p className="mt-4 text-base font-semibold text-gray-900">{selected.name}</p>}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="rounded-2xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">Total no período</p>
+          <p className="text-2xl font-bold text-green-800">{fmtNumber(total)} L</p>
         </div>
-        <p className="mt-2 text-sm text-gray-500">{dayList.length} dia{dayList.length === 1 ? '' : 's'} com anotação</p>
-        {price ? (
-          <p className="mt-1 text-sm text-gray-600">
-            <strong className="text-gray-900">≈ {fmtMoney(total * price)}</strong> a {fmtMoney(price)} o litro
-          </p>
-        ) : null}
+        <div className="rounded-2xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">Média por dia anotado</p>
+          <p className="text-2xl font-bold text-gray-900">{fmtNumber(dayList.length ? total / dayList.length : 0)} L</p>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">Melhor dia</p>
+          <p className="text-lg font-bold text-gray-900">{best ? `${fmtNumber(best[1])} L` : '—'}</p>
+          {best && <p className="text-xs text-gray-500">{fmtDay(best[0])}</p>}
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">Dias anotados</p>
+          <p className="text-lg font-bold text-gray-900">{dayList.length} de {days}</p>
+        </div>
       </div>
+
+      {total > 0 && (
+        <section className="mt-3 rounded-2xl border border-gray-200 bg-white p-4" aria-label="Litros por dia">
+          <h2 className="text-sm font-semibold text-gray-700">{step === 1 ? 'Litros por dia' : 'Litros por semana'}</h2>
+          <div className="mt-3 flex h-36 items-end gap-1">
+            {bars.map((b, i) => (
+              <div key={i} title={b.title} className="flex h-full min-w-0 flex-1 flex-col justify-end">
+                <div className={`w-full rounded-t ${b.liters ? 'bg-green-600' : 'bg-gray-100'}`} style={{ height: `${b.liters ? Math.max((b.liters / maxBar) * 100, 4) : 2}%` }} />
+              </div>
+            ))}
+          </div>
+          <div className="mt-1 flex gap-1" aria-hidden="true">
+            {bars.map((b, i) => (
+              <span key={i} className="min-w-0 flex-1 overflow-visible whitespace-nowrap text-center text-[10px] text-gray-500">{i % labelEvery === 0 ? b.label : ''}</span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!isDriverRole(data.role) && (
+        <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 pb-4">
+          <PriceLine data={data} liters={total} period="no período" online={online} canWrite={canWrite} onSaved={onPriceSaved} />
+        </div>
+      )}
 
       {periodCollections.length > 0 && (
         <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
@@ -612,9 +696,10 @@ function History({ data }: { data: LiteData }) {
 
 // ── Valor do litro ──────────────────────────────────────────────────────
 
-function PriceLine({ data, liters, online, canWrite, onSaved }: {
+function PriceLine({ data, liters, period = 'no dia', online, canWrite, onSaved }: {
   data: LiteData
   liters: number
+  period?: string
   online: boolean
   canWrite: boolean
   onSaved: (price: number | null) => void
@@ -669,7 +754,7 @@ function PriceLine({ data, liters, online, canWrite, onSaved }: {
   return (
     <p className="mt-4 text-sm text-gray-600">
       {price
-        ? <>Litro a {fmtMoney(price)} · <strong className="text-gray-900">≈ {fmtMoney(liters * price)}</strong> no dia</>
+        ? <>Litro a {fmtMoney(price)} · aproximadamente <strong className="text-gray-900">{fmtMoney(liters * price)}</strong> {period}</>
         : 'Quer saber quanto vai receber?'}
       {canWrite && (
         <button type="button" onClick={() => { setValue(price ? String(price).replace('.', ',') : ''); setEditing(true) }}

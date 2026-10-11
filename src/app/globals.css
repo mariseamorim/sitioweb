@@ -77,7 +77,9 @@ body {
 .app-workspace summary { min-height: 44px; }
 
 /* Layout fluido, inclusive com texto maior e no aplicativo instalado. */
-.app-workspace #conteudo{min-width:0;overflow-wrap:anywhere;padding-bottom:calc(1.5rem + env(safe-area-inset-bottom))}
+/* No celular, sobra espaço para a barra de atalhos fixa no rodapé não cobrir o fim da página */
+.app-workspace #conteudo{min-width:0;overflow-wrap:anywhere;padding-bottom:calc(6rem + env(safe-area-inset-bottom))}
+@media(min-width:64rem){.app-workspace #conteudo{padding-bottom:calc(1.5rem + env(safe-area-inset-bottom))}}
 .app-workspace #conteudo .grid>*,.app-workspace form .grid>*{min-width:0}
 .app-workspace header>div:first-child>div:first-child{flex:1}
 .app-workspace input,.app-workspace select,.app-workspace textarea{max-width:100%;min-width:0}

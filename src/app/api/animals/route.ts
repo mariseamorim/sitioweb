@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireFarmAccess } from '@/lib/auth'
+import { closeOpenPregnancy, findValidMother } from '@/lib/calves'
 
 export async function GET() {
   const auth = await requireFarmAccess('animais', 'view')
@@ -19,10 +20,14 @@ export async function POST(request: NextRequest) {
   const farmId = auth.farmId
 
   const body = await request.json()
-  const { code, name, species, gender, birthDate, status, gta, observations, imageUrl } = body
+  const { code, name, species, gender, birthDate, status, gta, observations, imageUrl, motherId } = body
 
   if (!name || !species || !gender || !birthDate || !status) {
     return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
+  }
+  // Cria registrada a partir da vaca
+  if (motherId && !(await findValidMother(String(motherId), farmId))) {
+    return NextResponse.json({ error: 'Mãe não encontrada nesta propriedade' }, { status: 400 })
   }
 
   async function getNextCode(fid: string) {
@@ -51,8 +56,10 @@ export async function POST(request: NextRequest) {
         gta: gta || null,
         observations: observations || null,
         imageUrl: imageUrl || null,
+        motherId: motherId || null,
       },
     })
+    if (animal.motherId) await closeOpenPregnancy(animal.motherId, animal.id, animal.birthDate)
     return NextResponse.json(animal, { status: 201 })
   } catch (error: unknown) {
     if ((error as { code?: string }).code === 'P2002') {

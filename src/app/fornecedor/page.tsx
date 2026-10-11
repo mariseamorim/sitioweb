@@ -15,6 +15,35 @@ interface Vendor {
   inviteCode: string
   state: string | null
   city: string | null
+  categories: string[]
+}
+
+interface FarmContact {
+  name: string
+  owner: string | null
+  city: string | null
+  state: string | null
+  phone: string | null
+}
+
+interface SupplyRequest {
+  id: string
+  itemName: string
+  category: string
+  quantity: number | null
+  unit: string | null
+  note: string | null
+  status: 'novo' | 'respondido' | 'fechado' | 'cancelado'
+  reply: string | null
+  replyPrice: number | null
+  createdBy: string | null
+  createdAt: string
+  farm: FarmContact
+}
+
+interface ClientNeed extends FarmContact {
+  farmId: string
+  items: { name: string; category: string; unit: string; current: number; minimum: number }[]
 }
 
 interface Offer {
@@ -47,9 +76,15 @@ interface Panel {
   clients: Client[]
   offersThisWeek: number
   weeklyLimit: number
+  requests: SupplyRequest[]
+  needs: ClientNeed[]
 }
 
-type Tab = 'ofertas' | 'clientes' | 'convidar'
+type Tab = 'pedidos' | 'precisando' | 'ofertas' | 'clientes' | 'convidar'
+
+const TABS: [Tab, string][] = [['pedidos', 'Pedidos'], ['precisando', 'Precisando repor'], ['ofertas', 'Ofertas'], ['clientes', 'Clientes'], ['convidar', 'Convidar']]
+const fmtQty = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+const place = (f: FarmContact) => [f.owner, [f.city, f.state].filter(Boolean).join('/')].filter(Boolean).join(' · ')
 
 function inDays(n: number) {
   const d = new Date(todayISO())
@@ -64,7 +99,7 @@ export default function PainelFornecedorPage() {
   const { confirm } = useDialog()
   const [panel, setPanel] = useState<Panel | null>(null)
   const [loadError, setLoadError] = useState('')
-  const [tab, setTab] = useState<Tab>('ofertas')
+  const [tab, setTab] = useState<Tab>('pedidos')
   const [editing, setEditing] = useState<Offer | 'new' | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -86,7 +121,8 @@ export default function PainelFornecedorPage() {
   if (loadError) return <p className="mt-8 text-gray-500">{loadError}</p>
   if (!panel) return <p className="mt-8 text-gray-400 text-sm">Carregando...</p>
 
-  const { vendor, offers, clients } = panel
+  const { vendor, offers, clients, requests, needs } = panel
+  const newRequests = requests.filter((r) => r.status === 'novo').length
   const approved = vendor.status === 'aprovado'
   const today = todayISO()
   const inviteUrl = typeof window !== 'undefined' ? `${window.location.origin}/convite/${vendor.inviteCode}` : ''
@@ -170,27 +206,49 @@ export default function PainelFornecedorPage() {
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {[
-          ['Clientes', clients.length],
-          ['Ofertas ativas', activeOffers.length],
-          ['Chamadas no WhatsApp', clicks],
-          ['Ofertas novas na semana', `${panel.offersThisWeek} de ${panel.weeklyLimit}`],
-        ].map(([label, value]) => (
-          <div key={label} className="bg-white rounded-xl border border-gray-200 p-4">
+        {([
+          ['Pedidos novos', newRequests, 'pedidos', newRequests > 0],
+          ['Clientes precisando repor', needs.length, 'precisando', needs.length > 0],
+          ['Clientes', clients.length, 'clientes', false],
+          ['Ofertas ativas', activeOffers.length, 'ofertas', false],
+        ] as const).map(([label, value, target, highlight]) => (
+          <button key={label} type="button" onClick={() => setTab(target)}
+            className={`text-left rounded-xl border p-4 hover:bg-gray-50 ${highlight ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white'}`}>
             <p className="text-sm text-gray-500">{label}</p>
-            <p className="mt-2 text-2xl font-bold text-gray-900">{value}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="inline-grid grid-cols-3 gap-1 bg-gray-100 p-1 rounded-xl mb-5">
-        {([['ofertas', 'Ofertas'], ['clientes', 'Clientes'], ['convidar', 'Convidar']] as const).map(([t, label]) => (
-          <button key={t} type="button" onClick={() => setTab(t)}
-            className={`px-4 sm:px-6 py-2.5 rounded-lg text-sm font-semibold ${tab === t ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500'}`}>
-            {label}
+            <p className={`mt-2 text-2xl font-bold ${highlight ? 'text-amber-800' : 'text-gray-900'}`}>{value}</p>
           </button>
         ))}
       </div>
+
+      {/* Abas roláveis: no celular não cabem lado a lado */}
+      <div className="-mx-4 mb-5 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="inline-flex gap-1 rounded-xl bg-gray-100 p-1">
+          {TABS.map(([t, label]) => (
+            <button key={t} type="button" onClick={() => setTab(t)} aria-current={tab === t ? 'page' : undefined}
+              className={`whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-semibold ${tab === t ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500'}`}>
+              {label}
+              {t === 'pedidos' && newRequests > 0 && <span className="ml-1.5 rounded-full bg-red-600 px-1.5 py-0.5 text-xs text-white">{newRequests}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === 'pedidos' && (
+        requests.length === 0 ? (
+          <div className="py-12 text-center text-gray-500">
+            <p>Nenhum pedido de orçamento ainda.</p>
+            <p className="mt-1 text-sm">Quando um cliente pedir um produto pelo app, ele aparece aqui.</p>
+          </div>
+        ) : (
+          <ul className="grid gap-3 md:grid-cols-2">
+            {requests.map((r) => <RequestCard key={r.id} request={r} vendorName={vendor.companyName} onChanged={load} />)}
+          </ul>
+        )
+      )}
+
+      {tab === 'precisando' && (
+        <NeedsTab needs={needs} vendor={vendor} onChanged={load} />
+      )}
 
       {tab === 'ofertas' && (
         <div>
@@ -199,6 +257,7 @@ export default function PainelFornecedorPage() {
               {limitReached
                 ? 'Limite de ofertas novas da semana atingido. Você ainda pode editar ou reativar as existentes.'
                 : 'Seus clientes são avisados no app quando você publica uma oferta.'}
+              {' '}Ofertas novas na semana: {panel.offersThisWeek} de {panel.weeklyLimit} · {clicks} chamada{clicks === 1 ? '' : 's'} no WhatsApp.
             </p>
             <button type="button" onClick={() => openForm('new')} disabled={!approved || limitReached}
               className="bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
@@ -365,6 +424,213 @@ export default function PainelFornecedorPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+const REQUEST_STATUS: Record<SupplyRequest['status'], { label: string; style: string }> = {
+  novo: { label: 'Novo', style: 'bg-red-100 text-red-700' },
+  respondido: { label: 'Respondido', style: 'bg-blue-100 text-blue-800' },
+  fechado: { label: 'Atendido', style: 'bg-green-100 text-green-800' },
+  cancelado: { label: 'Cancelado', style: 'bg-gray-100 text-gray-600' },
+}
+
+function RequestCard({ request: r, vendorName, onChanged }: { request: SupplyRequest; vendorName: string; onChanged: () => void }) {
+  const [replying, setReplying] = useState(false)
+  const [reply, setReply] = useState('')
+  const [price, setPrice] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  // Resposta acabou de ser enviada: oferece avisar o cliente pelo WhatsApp com o mesmo texto
+  const [sent, setSent] = useState<{ reply: string; price: number | null } | null>(null)
+  const qty = r.quantity ? `${fmtQty(r.quantity)}${r.unit ? ` ${r.unit}` : ''}` : null
+  const status = REQUEST_STATUS[r.status]
+
+  async function send(body: { reply?: string; replyPrice?: string; status?: string }) {
+    setSaving(true)
+    setError('')
+    try {
+      const res = await fetch(`/api/fornecedor/pedidos/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const data = await res.json()
+      if (!res.ok) return setError(data.error || 'Não foi possível salvar')
+      setReplying(false)
+      setSent(body.reply ? { reply: data.reply, price: data.replyPrice } : null)
+      onChanged()
+    } catch {
+      setError('Sem conexão. Tente de novo.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <li className={`bg-white rounded-xl border p-4 ${r.status === 'novo' ? 'border-red-200' : 'border-gray-200'}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-900">{r.itemName}{qty && <span className="font-normal text-gray-600"> · {qty}</span>}</p>
+          <p className="text-sm text-gray-500">{r.farm.name}{place(r.farm) && ` · ${place(r.farm)}`}</p>
+        </div>
+        <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${status.style}`}>{status.label}</span>
+      </div>
+      {r.note && <p className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">{r.note}</p>}
+      <p className="mt-1 text-xs text-gray-500">{r.category} · pedido em {fmtDate(r.createdAt)}{r.createdBy ? ` por ${r.createdBy}` : ''}</p>
+
+      {r.reply && !replying && (
+        <p className="mt-2 text-sm text-blue-900">
+          <span className="font-semibold">Sua resposta:</span> {r.reply}{r.replyPrice !== null && ` · ${fmtMoney(r.replyPrice)}`}
+        </p>
+      )}
+
+      {sent && !replying && (
+        <div role="status" className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3">
+          <p className="text-sm font-semibold text-green-900">Resposta enviada. O cliente vê no app, no sino e em Ofertas.</p>
+          {r.farm.phone ? (
+            <a href={whatsappLink(r.farm.phone, `Olá! Aqui é da ${vendorName}. Respondi seu pedido de ${r.itemName}${qty ? ` (${qty})` : ''} no Anota Aí Agro: ${sent.reply}${sent.price !== null ? ` Valor: ${fmtMoney(sent.price)}.` : ''}`)}
+              target="_blank" rel="noopener noreferrer" onClick={() => setSent(null)}
+              className="mt-2 flex w-full items-center justify-center bg-green-700 hover:bg-green-600 text-white text-sm font-semibold py-2.5 rounded-lg">
+              Avisar o cliente pelo WhatsApp
+            </a>
+          ) : (
+            <p className="mt-1 text-xs text-green-900">Este cliente não tem telefone cadastrado.</p>
+          )}
+          <button type="button" onClick={() => setSent(null)} className="mt-2 w-full text-sm font-medium text-gray-600 hover:underline">Agora não</button>
+        </div>
+      )}
+
+      {replying ? (
+        <div className="mt-3 flex flex-col gap-2">
+          <label className="text-sm font-medium text-gray-700">Resposta para o cliente
+            <textarea value={reply} onChange={(e) => setReply(e.target.value)} rows={3} autoFocus
+              placeholder="Ex.: Tenho sim. Entrego na quinta, frete grátis." className={`mt-1 ${input} resize-none`} />
+          </label>
+          <label className="text-sm font-medium text-gray-700">Preço total (R$)
+            <input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d.,]/g, ''))} placeholder="Opcional" className={`mt-1 ${input}`} />
+          </label>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setReplying(false)} className="flex-1 border border-gray-200 text-gray-600 font-medium py-2.5 rounded-lg">Cancelar</button>
+            <button type="button" disabled={saving || !reply.trim()} onClick={() => send({ reply, replyPrice: price })}
+              className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg">
+              {saving ? 'Enviando...' : 'Enviar resposta'}
+            </button>
+          </div>
+        </div>
+      ) : r.status !== 'cancelado' && (
+        <div className="mt-3 flex flex-wrap gap-2 text-sm">
+          {r.status !== 'fechado' && (
+            <button type="button" onClick={() => { setReply(r.reply ?? ''); setPrice(r.replyPrice !== null ? String(r.replyPrice).replace('.', ',') : ''); setReplying(true) }}
+              className="bg-green-700 hover:bg-green-600 text-white font-semibold px-3 py-2 rounded-lg">
+              {r.reply ? 'Mudar resposta' : 'Responder'}
+            </button>
+          )}
+          {r.farm.phone && (
+            <a href={whatsappLink(r.farm.phone, `Olá! Aqui é da ${vendorName}. Recebi seu pedido de ${r.itemName}${qty ? ` (${qty})` : ''} pelo Anota Aí Agro.`)}
+              target="_blank" rel="noopener noreferrer" className="border border-green-700 text-green-700 font-semibold px-3 py-2 rounded-lg hover:bg-green-50">
+              WhatsApp
+            </a>
+          )}
+          {r.status !== 'fechado' && (
+            <button type="button" disabled={saving} onClick={() => send({ status: 'fechado' })} className="font-medium text-gray-600 hover:underline px-1">
+              Marcar como atendido
+            </button>
+          )}
+          {error && <p className="w-full text-sm text-red-600">{error}</p>}
+        </div>
+      )}
+    </li>
+  )
+}
+
+function NeedsTab({ needs, vendor, onChanged }: { needs: ClientNeed[]; vendor: Vendor; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false)
+  const [selected, setSelected] = useState<string[]>(vendor.categories)
+  const [saving, setSaving] = useState(false)
+
+  async function saveCategories() {
+    setSaving(true)
+    try {
+      await fetch('/api/fornecedor', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categories: selected }) })
+      setEditing(false)
+      onChanged()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-gray-700">
+            <span className="font-semibold">O que você vende:</span>{' '}
+            {vendor.categories.length ? vendor.categories.join(', ') : 'todas as categorias'}
+          </p>
+          {!editing && (
+            <button type="button" onClick={() => { setSelected(vendor.categories); setEditing(true) }} className="text-sm font-semibold text-green-700 hover:underline">
+              Alterar
+            </button>
+          )}
+        </div>
+        {editing && (
+          <div className="mt-3">
+            <div className="flex flex-wrap gap-2">
+              {SUPPLY_CATEGORIES.map((c) => {
+                const on = selected.includes(c)
+                return (
+                  <button key={c} type="button" aria-pressed={on} onClick={() => setSelected(on ? selected.filter((x) => x !== c) : [...selected, c])}
+                    className={`px-3 py-2 rounded-full text-sm font-medium border ${on ? 'bg-green-700 border-green-700 text-white' : 'border-gray-300 text-gray-700 bg-white'}`}>
+                    {c}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-xs text-gray-500">Você só vê a falta destes produtos nos clientes. Nenhum marcado = todos.</p>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => setEditing(false)} className="border border-gray-200 text-gray-600 font-medium px-4 py-2 rounded-lg">Cancelar</button>
+              <button type="button" onClick={saveCategories} disabled={saving} className="bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold px-4 py-2 rounded-lg">
+                {saving ? 'Salvando...' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {needs.length === 0 ? (
+        <div className="py-12 text-center text-gray-500">
+          <p>Nenhum cliente com estoque baixo agora.</p>
+          <p className="mt-1 text-sm">Aparecem aqui os clientes com {vendor.categories.length ? vendor.categories.join(', ').toLowerCase() : 'algum produto'} abaixo do mínimo que eles mesmos definiram.</p>
+        </div>
+      ) : (
+        <ul className="grid gap-3 md:grid-cols-2">
+          {needs.map((c) => {
+            const list = c.items.map((i) => i.name.toLowerCase()).join(', ')
+            return (
+              <li key={c.farmId} className="bg-white rounded-xl border border-amber-200 p-4">
+                <p className="font-semibold text-gray-900">{c.name}</p>
+                {place(c) && <p className="text-sm text-gray-500">{place(c)}</p>}
+                <ul className="mt-2 space-y-1">
+                  {c.items.map((i) => (
+                    <li key={i.name} className="flex justify-between gap-3 text-sm">
+                      <span className="text-gray-800">{i.name} <span className="text-xs text-gray-500">({i.category})</span></span>
+                      <span className="shrink-0 font-semibold text-amber-800">{fmtQty(i.current)} de {fmtQty(i.minimum)} {i.unit}</span>
+                    </li>
+                  ))}
+                </ul>
+                {c.phone ? (
+                  <a href={whatsappLink(c.phone, `Olá! Aqui é da ${vendor.companyName}. Posso ajudar com a reposição de ${list}? Tenho para entrega.`)}
+                    target="_blank" rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
+                    Oferecer pelo WhatsApp
+                  </a>
+                ) : (
+                  <p className="mt-3 text-xs text-gray-500">Cliente sem telefone cadastrado. Publique uma oferta: ele vê no app.</p>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      <p className="mt-4 text-xs text-gray-500">Cada cliente pode deixar de mostrar o estoque para você quando quiser.</p>
     </div>
   )
 }

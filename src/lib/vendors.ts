@@ -20,6 +20,46 @@ export async function lowStockCategories(farmId: string): Promise<string[]> {
   return [...new Set(supplies.filter((s) => s.currentQuantity <= s.minimumQuantity).map((s) => s.category))]
 }
 
+export interface ClientNeed {
+  farmId: string
+  name: string
+  owner: string | null
+  city: string | null
+  state: string | null
+  phone: string | null
+  items: { name: string; category: string; unit: string; current: number; minimum: number }[]
+}
+
+/**
+ * Clientes do fornecedor com itens abaixo do mínimo, só nas categorias que ele vende
+ * (sem categorias informadas, todas). O produtor pode desligar isso por fornecedor.
+ */
+export async function clientsNeedingSupplies(vendorId: string, categories: string[]): Promise<ClientNeed[]> {
+  const links = await prisma.vendorClient.findMany({
+    where: { vendorId, shareStock: true },
+    select: {
+      farm: {
+        select: {
+          id: true, name: true, owner: true, city: true, state: true, phone: true,
+          supplies: {
+            where: categories.length ? { category: { in: categories } } : {},
+            select: { name: true, category: true, unit: true, currentQuantity: true, minimumQuantity: true },
+            orderBy: { name: 'asc' },
+          },
+        },
+      },
+    },
+  })
+  return links
+    .map(({ farm }) => ({
+      farmId: farm.id, name: farm.name, owner: farm.owner, city: farm.city, state: farm.state, phone: farm.phone,
+      items: farm.supplies
+        .filter((s) => s.currentQuantity <= s.minimumQuantity)
+        .map((s) => ({ name: s.name, category: s.category, unit: s.unit, current: s.currentQuantity, minimum: s.minimumQuantity })),
+    }))
+    .filter((c) => c.items.length > 0)
+}
+
 /**
  * Ofertas que o produtor pode ver: as dos fornecedores dele (não silenciados) e as
  * regionais de fornecedores do mesmo estado. Sempre de fornecedor aprovado e dentro da validade.

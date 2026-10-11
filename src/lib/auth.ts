@@ -21,7 +21,8 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 /** Aceita o formato novo (scrypt) e senhas antigas em texto puro, para migrar no login. */
-export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+export async function verifyPassword(password: string, stored: string | null): Promise<boolean> {
+  if (!stored) return false
   if (stored.startsWith('scrypt$')) {
     const [, saltHex, hashHex] = stored.split('$')
     const expected = Buffer.from(hashHex, 'hex')
@@ -33,8 +34,8 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return a.length === b.length && timingSafeEqual(a, b)
 }
 
-export function isLegacyPassword(stored: string): boolean {
-  return !stored.startsWith('scrypt$')
+export function isLegacyPassword(stored: string | null): boolean {
+  return !!stored && !stored.startsWith('scrypt$')
 }
 
 // ── Sessão (cookie assinado com HMAC) ───────────────────────────────────
