@@ -178,6 +178,13 @@ export async function requireProducer(edit: boolean) {
   return { user, farmId: user.effectiveFarmId } as const
 }
 
+/** Qualquer usuário logado (usado pelo Anota Aí Leite). */
+export async function requireUser() {
+  const user = await getSessionUser()
+  if (!user) return { error: NextResponse.json({ error: 'Faça login para continuar' }, { status: 401 }) } as const
+  return { user } as const
+}
+
 export async function requireAdmin() {
   const user = await getSessionUser()
   if (!user || user.role !== 'admin') {

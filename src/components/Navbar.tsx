@@ -19,6 +19,7 @@ const groups: { label: string; links: NavLink[] }[] = [
   { label: 'Rebanho e produção', links: [
     { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },
     { href: '/milk-production', label: 'Produção de leite', module: 'leite', Icon: LeiteIcon },
+    { href: '/lite', label: 'Anota Aí Leite', module: null, Icon: LeiteIcon },
     { href: '/veterinary-treatment', label: 'Tratamentos', module: 'veterinario', Icon: TratamentoIcon },
     { href: '/vacinacao', label: 'Vacinação', module: 'vacinacao', Icon: VacinaIcon },
     { href: '/reproducao', label: 'Reprodução', module: 'reproducao', Icon: ReproducaoIcon },

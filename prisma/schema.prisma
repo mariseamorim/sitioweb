@@ -38,19 +38,20 @@ model Farm {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
+  id           String      @id @default(cuid())
+  email        String      @unique
   name         String
   password     String
-  role         String    @default("viewer")
+  role         String      @default("viewer")
   permissions  Json? // String[] de chaves de módulo; null = admin tem tudo
   farmId       String?
-  farm         Farm?     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farm         Farm?       @relation(fields: [farmId], references: [id], onDelete: Cascade)
   vendorId     String? // preenchido quando role = "fornecedor"
-  vendor       Vendor?   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor       Vendor?     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   offersSeenAt DateTime? // última vez que o produtor abriu a tela de ofertas
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  milkPoints   MilkPoint[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   @@map("users")
 }
@@ -268,4 +269,39 @@ model Promotion {
 
   @@index([vendorId])
   @@map("promotions")
+}
+
+// ── Anota Aí Leite (versão lite) ──────────────────────────────────────
+
+/// Local onde o leite é anotado: um sítio ou um tanque comunitário.
+/// Pertence a quem anota (produtor, motorista ou coletor).
+model MilkPoint {
+  id        String   @id @default(cuid())
+  ownerId   String
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String
+  kind      String   @default("sitio") // sitio | tanque
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries MilkEntry[]
+
+  @@index([ownerId])
+  @@map("milk_points")
+}
+
+/// Litros anotados em um local num dia. Um valor por local por dia:
+/// salvar de novo substitui, o que torna o reenvio offline seguro.
+model MilkEntry {
+  id        String    @id @default(cuid())
+  pointId   String
+  point     MilkPoint @relation(fields: [pointId], references: [id], onDelete: Cascade)
+  date      DateTime
+  liters    Float
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([pointId, date])
+  @@map("milk_entries")
 }
