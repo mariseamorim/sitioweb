@@ -255,7 +255,8 @@ export default function LitePage() {
             </>
           )
         ) : tab === 'historico' ? (
-          <History data={data} />
+          <History data={data} online={online} canWrite={canWrite}
+            onPriceSaved={(milkPrice) => { const d = { ...data, milkPrice }; setData(d); writeCache(d) }} />
         ) : driver ? (
           <Points data={data} online={online} onPointOp={pointOp} onChanged={(d) => { setData(d); writeCache(d) }} />
         ) : null}
@@ -436,7 +437,12 @@ function Points({ data, online, onPointOp, onChanged }: {
 
 // ── Histórico ───────────────────────────────────────────────────────────
 
-function History({ data }: { data: LiteData }) {
+function History({ data, online, canWrite, onPriceSaved }: {
+  data: LiteData
+  online: boolean
+  canWrite: boolean
+  onPriceSaved: (price: number | null) => void
+}) {
   const [days, setDays] = useState(7)
   const [pointId, setPointId] = useState('') // '' = todos os locais
   const today = todayISO()
@@ -464,6 +470,22 @@ function History({ data }: { data: LiteData }) {
   const price = isDriverRole(data.role) ? null : data.milkPrice
   const periodCollections = (data.collections ?? []).filter((c) => c.date >= from && c.date <= today)
   const collected = periodCollections.reduce((s, c) => s + c.liters, 0)
+  const best = dayList.reduce<[string, number] | null>((b, [day, d]) => (!b || d.total > b[1] ? [day, d.total] : b), null)
+  // Gráfico: um traço por dia em 7 e 30 dias; em 90 dias, um por semana para caber na tela
+  const step = days > 30 ? 7 : 1
+  const bars: { label: string; title: string; liters: number }[] = []
+  for (let start = from; start <= today; start = shiftDay(start, step)) {
+    const end = step === 1 ? start : (shiftDay(start, step - 1) < today ? shiftDay(start, step - 1) : today)
+    let liters = 0
+    for (let d = start; d <= end; d = shiftDay(d, 1)) liters += byDay.get(d)?.total ?? 0
+    bars.push({
+      label: step === 1 ? fmtDay(start, days === 7 ? { weekday: 'short' } : { day: 'numeric' }) : fmtDay(start, { day: 'numeric', month: 'numeric' }),
+      title: `${step === 1 ? fmtDay(start) : `${fmtDay(start)} a ${fmtDay(end)}`}: ${fmtNumber(liters)} L`,
+      liters,
+    })
+  }
+  const maxBar = Math.max(...bars.map((b) => b.liters), 1)
+  const labelEvery = bars.length > 14 ? Math.ceil(bars.length / 7) : 1
 
   function download() {
     const place = selected ? selected.name : 'Todos os locais'
@@ -523,25 +545,50 @@ function History({ data }: { data: LiteData }) {
         ))}
       </div>
 
-      <div className="mt-4 bg-white rounded-2xl border border-gray-200 p-4">
-        {selected && <p className="mb-2 text-base font-semibold text-gray-900">{selected.name}</p>}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-500">Total no período</p>
-            <p className="text-2xl font-bold text-green-800">{fmtNumber(total)} L</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm text-gray-500">Média por dia anotado</p>
-            <p className="text-2xl font-bold text-gray-900">{fmtNumber(dayList.length ? total / dayList.length : 0)} L</p>
-          </div>
+      {selected && <p className="mt-4 text-base font-semibold text-gray-900">{selected.name}</p>}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="rounded-2xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">Total no período</p>
+          <p className="text-2xl font-bold text-green-800">{fmtNumber(total)} L</p>
         </div>
-        <p className="mt-2 text-sm text-gray-500">{dayList.length} dia{dayList.length === 1 ? '' : 's'} com anotação</p>
-        {price ? (
-          <p className="mt-1 text-sm text-gray-600">
-            <strong className="text-gray-900">≈ {fmtMoney(total * price)}</strong> a {fmtMoney(price)} o litro
-          </p>
-        ) : null}
+        <div className="rounded-2xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">Média por dia anotado</p>
+          <p className="text-2xl font-bold text-gray-900">{fmtNumber(dayList.length ? total / dayList.length : 0)} L</p>
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">Melhor dia</p>
+          <p className="text-lg font-bold text-gray-900">{best ? `${fmtNumber(best[1])} L` : '—'}</p>
+          {best && <p className="text-xs text-gray-500">{fmtDay(best[0])}</p>}
+        </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">Dias anotados</p>
+          <p className="text-lg font-bold text-gray-900">{dayList.length} de {days}</p>
+        </div>
       </div>
+
+      {total > 0 && (
+        <section className="mt-3 rounded-2xl border border-gray-200 bg-white p-4" aria-label="Litros por dia">
+          <h2 className="text-sm font-semibold text-gray-700">{step === 1 ? 'Litros por dia' : 'Litros por semana'}</h2>
+          <div className="mt-3 flex h-36 items-end gap-1">
+            {bars.map((b, i) => (
+              <div key={i} title={b.title} className="flex h-full min-w-0 flex-1 flex-col justify-end">
+                <div className={`w-full rounded-t ${b.liters ? 'bg-green-600' : 'bg-gray-100'}`} style={{ height: `${b.liters ? Math.max((b.liters / maxBar) * 100, 4) : 2}%` }} />
+              </div>
+            ))}
+          </div>
+          <div className="mt-1 flex gap-1" aria-hidden="true">
+            {bars.map((b, i) => (
+              <span key={i} className="min-w-0 flex-1 overflow-visible whitespace-nowrap text-center text-[10px] text-gray-500">{i % labelEvery === 0 ? b.label : ''}</span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {!isDriverRole(data.role) && (
+        <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 pb-4">
+          <PriceLine data={data} liters={total} period="no período" online={online} canWrite={canWrite} onSaved={onPriceSaved} />
+        </div>
+      )}
 
       {periodCollections.length > 0 && (
         <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
@@ -612,9 +659,10 @@ function History({ data }: { data: LiteData }) {
 
 // ── Valor do litro ──────────────────────────────────────────────────────
 
-function PriceLine({ data, liters, online, canWrite, onSaved }: {
+function PriceLine({ data, liters, period = 'no dia', online, canWrite, onSaved }: {
   data: LiteData
   liters: number
+  period?: string
   online: boolean
   canWrite: boolean
   onSaved: (price: number | null) => void
@@ -669,7 +717,7 @@ function PriceLine({ data, liters, online, canWrite, onSaved }: {
   return (
     <p className="mt-4 text-sm text-gray-600">
       {price
-        ? <>Litro a {fmtMoney(price)} · <strong className="text-gray-900">≈ {fmtMoney(liters * price)}</strong> no dia</>
+        ? <>Litro a {fmtMoney(price)} · aproximadamente <strong className="text-gray-900">{fmtMoney(liters * price)}</strong> {period}</>
         : 'Quer saber quanto vai receber?'}
       {canWrite && (
         <button type="button" onClick={() => { setValue(price ? String(price).replace('.', ',') : ''); setEditing(true) }}
