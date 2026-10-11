@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { OfflineVoiceSetup, VoiceButton } from '@/components/VoiceButton'
 import { useDialog } from '@/components/DialogProvider'
 import { SetaDireitaIcon, SemSinalIcon, SincronizarIcon, CheckIcon } from '@/components/ModuleIcons'
 import { KIND_LABEL, LiteChange, LiteData, LitePoint, PointKind, isDriverRole, isLiteOnlyRole, parseLiters } from '@/lib/lite'
@@ -133,6 +134,11 @@ export default function LitePage() {
     return () => document.removeEventListener('visibilitychange', flush)
   }, [])
 
+  // Número falado vai para o campo como se tivesse sido digitado (o salvar sozinho grava)
+  function setSpoken(pointId: string, liters: number) {
+    setDrafts((d) => ({ ...d, [`${date}|${pointId}`]: String(liters).replace('.', ',') }))
+  }
+
   // Trocar de dia não perde o que acabou de ser digitado
   function goToDay(day: string) {
     void saveRef.current({ auto: true })
@@ -238,14 +244,15 @@ export default function LitePage() {
                       className="w-44 border border-gray-300 rounded-2xl px-4 py-4 !text-5xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-green-600" />
                     <span className="text-2xl text-gray-500">L</span>
                   </span>
+                  {canWrite && <VoiceButton label="os litros do dia" onNumber={(v) => setSpoken(single.id, v)} />}
                   <PriceLine data={data} liters={parseLiters(valueOf(single.id)) ?? 0} online={online} canWrite={canWrite}
                     onSaved={(milkPrice) => { const d = { ...data, milkPrice }; setData(d); writeCache(d) }} />
                 </div>
               ) : (
               <ul className="mt-5 space-y-3">
                 {activePoints.map((p) => (
-                  <li key={p.id} className="bg-white rounded-2xl border border-gray-200 p-4">
-                    <label className="flex items-center gap-3">
+                  <li key={p.id} className="bg-white rounded-2xl border border-gray-200 p-4 flex items-start gap-2">
+                    <label className="flex flex-1 min-w-0 items-center gap-3">
                       <span className="flex-1 min-w-0">
                         <span className="block text-lg font-semibold text-gray-900 truncate">{p.name}</span>
                         {p.kind === 'tanque' && <span className="text-xs font-medium text-gray-500">{KIND_LABEL.tanque}</span>}
@@ -258,10 +265,12 @@ export default function LitePage() {
                         <span className="text-lg text-gray-500">L</span>
                       </span>
                     </label>
+                    {canWrite && <VoiceButton size="sm" label={`os litros de ${p.name}`} onNumber={(v) => setSpoken(p.id, v)} />}
                   </li>
                 ))}
               </ul>
               )}
+              {canWrite && <OfflineVoiceSetup online={online} />}
 
               {dayCollections.length > 0 && (
                 <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">

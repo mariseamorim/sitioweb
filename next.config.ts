@@ -9,6 +9,8 @@ const withPWA = (require("next-pwa") as any)({
   register: false,
   skipWaiting: true,
   runtimeCaching,
+  // A voz sem internet (~38 MB) é baixada só por quem pedir, no Anota Aí Leite
+  publicExcludes: ["!noprecache/**/*", "!voz/**/*"],
   fallbacks: {
     document: "/offline",
   },
