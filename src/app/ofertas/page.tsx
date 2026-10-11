@@ -6,6 +6,7 @@ import { useDialog } from '@/components/DialogProvider'
 import { AlertaIcon } from '@/components/ModuleIcons'
 import { fmtDate, fmtMoney } from '@/lib/reports'
 import { whatsappLink } from '@/lib/utils'
+import { RequestQuote } from '@/components/RequestQuote'
 
 interface Offer {
   id: string
@@ -45,6 +46,7 @@ interface MyRequest {
   replyPrice: number | null
   repliedAt: string | null
   createdAt: string
+  supplyId: string | null
   vendor: { id: string; companyName: string; whatsapp: string | null; phone: string }
 }
 
@@ -58,9 +60,11 @@ const REQUEST_STATUS: Record<MyRequest['status'], { label: string; style: string
 interface Found {
   id: string
   companyName: string
+  contactName: string
   city: string | null
   state: string | null
   description: string | null
+  linked: boolean
 }
 
 export default function OfertasPage() {
@@ -75,6 +79,8 @@ export default function OfertasPage() {
   const [query, setQuery] = useState('')
   const [found, setFound] = useState<Found[]>([])
   const [error, setError] = useState('')
+  // Fornecedor escolhido para "Mandar mensagem"
+  const [messageTo, setMessageTo] = useState<string | null>(null)
 
   function load() {
     fetch('/api/ofertas')
@@ -244,11 +250,12 @@ export default function OfertasPage() {
 
       {requests.length > 0 && (
         <section id="pedidos" className="mt-10 scroll-mt-24">
-          <h2 className="text-lg font-bold text-gray-900">Meus pedidos de orçamento</h2>
+          <h2 className="text-lg font-bold text-gray-900">Meus pedidos e mensagens</h2>
           <ul className="mt-3 grid gap-3 md:grid-cols-2">
             {requests.map((r) => {
               const status = REQUEST_STATUS[r.status]
               const open = r.status === 'novo' || r.status === 'respondido'
+              const isMessage = !r.supplyId && !r.quantity
               return (
                 <li key={r.id} className={`bg-white rounded-xl border p-4 ${r.status === 'respondido' ? 'border-blue-300' : 'border-gray-200'}`}>
                   <div className="flex items-start justify-between gap-2">
@@ -257,13 +264,14 @@ export default function OfertasPage() {
                         {r.itemName}
                         {r.quantity && <span className="font-normal text-gray-600"> · {r.quantity.toLocaleString('pt-BR')}{r.unit ? ` ${r.unit}` : ''}</span>}
                       </p>
-                      <p className="text-sm text-gray-500">{r.vendor.companyName} · pedido em {fmtDate(r.createdAt)}</p>
+                      <p className="text-sm text-gray-500">{r.vendor.companyName} · {isMessage ? 'mensagem enviada' : 'pedido'} em {fmtDate(r.createdAt)}</p>
                     </div>
                     <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${status.style}`}>{status.label}</span>
                   </div>
+                  {r.note && <p className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700"><span className="text-gray-500">Você: </span>{r.note}</p>}
                   {r.reply && (
                     <div className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900">
-                      <p>{r.reply}</p>
+                      <p><span className="font-semibold">{r.vendor.companyName}: </span>{r.reply}</p>
                       {r.replyPrice !== null && <p className="mt-1 text-base font-bold">{fmtMoney(r.replyPrice)}</p>}
                     </div>
                   )}
@@ -291,30 +299,39 @@ export default function OfertasPage() {
         {vendors.length === 0 ? (
           <p className="mt-2 text-gray-500">Nenhum fornecedor ainda.</p>
         ) : (
-          <ul className="mt-3 bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+          <ul className="mt-3 grid gap-3 md:grid-cols-2">
             {vendors.map((v) => (
-              <li key={v.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900">{v.companyName}</p>
-                  <p className="text-sm text-gray-500">
-                    {[v.contactName, [v.city, v.state].filter(Boolean).join('/')].filter(Boolean).join(' · ')}
-                    {v.muted && ' · ofertas silenciadas'}
-                    {v.status === 'pendente' && ' · cadastro em análise'}
-                  </p>
-                  <p className="text-xs text-gray-500">{v.shareStock ? 'Vê seu estoque baixo' : 'Não vê seu estoque'}</p>
-                </div>
-                <a href={whatsappLink(v.whatsapp || v.phone, 'Olá! Te encontrei pelo Anota Aí Agro.')} target="_blank" rel="noopener noreferrer"
-                  className="text-sm font-semibold text-green-700 hover:underline">WhatsApp</a>
-                {canEdit && (
-                  <>
-                    <button onClick={() => toggleMute(v)} className="text-sm font-medium text-gray-600 hover:underline">
-                      {v.muted ? 'Voltar a receber' : 'Silenciar'}
+              <li key={v.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                {/* Dados em cima, ações embaixo: no celular o nome não fica espremido pelos botões */}
+                <p className="font-semibold text-gray-900">{v.companyName}</p>
+                <p className="text-sm text-gray-500">
+                  {[v.contactName, [v.city, v.state].filter(Boolean).join('/')].filter(Boolean).join(' · ')}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  {v.shareStock ? 'Vê seu estoque baixo' : 'Não vê seu estoque'}
+                  {v.muted && ' · ofertas silenciadas'}
+                  {v.status === 'pendente' && ' · cadastro em análise'}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {canEdit && (
+                    <button type="button" onClick={() => setMessageTo(v.id)}
+                      className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-3 py-2 rounded-lg">
+                      Mandar mensagem
                     </button>
-                    <button onClick={() => toggleShareStock(v)} className="text-sm font-medium text-gray-600 hover:underline">
+                  )}
+                  <a href={whatsappLink(v.whatsapp || v.phone, 'Olá! Te encontrei pelo Anota Aí Agro.')} target="_blank" rel="noopener noreferrer"
+                    className="border border-green-700 text-green-700 text-sm font-semibold px-3 py-2 rounded-lg hover:bg-green-50">WhatsApp</a>
+                </div>
+                {canEdit && (
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 border-t border-gray-100 pt-3 text-sm">
+                    <button type="button" onClick={() => toggleMute(v)} className="font-medium text-gray-600 hover:underline">
+                      {v.muted ? 'Voltar a receber ofertas' : 'Silenciar ofertas'}
+                    </button>
+                    <button type="button" onClick={() => toggleShareStock(v)} className="font-medium text-gray-600 hover:underline">
                       {v.shareStock ? 'Esconder estoque' : 'Mostrar estoque'}
                     </button>
-                    <button onClick={() => removeVendor(v)} className="text-sm font-medium text-red-600 hover:underline">Remover</button>
-                  </>
+                    <button type="button" onClick={() => removeVendor(v)} className="font-medium text-red-600 hover:underline">Remover</button>
+                  </div>
                 )}
               </li>
             ))}
@@ -324,7 +341,7 @@ export default function OfertasPage() {
         {canEdit && (
           <div className="mt-4 max-w-xl">
             <label className="text-sm font-medium text-gray-700">Procurar fornecedor
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Nome da loja ou cidade"
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Nome da loja, do vendedor ou cidade"
                 className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600" />
             </label>
             {query.trim().length >= 2 && (
@@ -335,11 +352,18 @@ export default function OfertasPage() {
                   <li key={f.id} className="flex items-center gap-3 px-4 py-3">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900">{f.companyName}</p>
-                      <p className="text-sm text-gray-500 truncate">{[f.city, f.state].filter(Boolean).join('/')}{f.description ? ` · ${f.description}` : ''}</p>
+                      <p className="text-sm text-gray-500">
+                        {[f.contactName, [f.city, f.state].filter(Boolean).join('/')].filter(Boolean).join(' · ')}
+                      </p>
+                      {f.description && <p className="text-xs text-gray-500 line-clamp-1">{f.description}</p>}
                     </div>
-                    <button onClick={() => addVendor(f.id)} className="shrink-0 text-sm font-semibold text-green-700 border border-green-700 rounded-lg px-3 py-1.5 hover:bg-green-50">
-                      Adicionar
-                    </button>
+                    {f.linked ? (
+                      <span className="shrink-0 rounded-full bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-800">Já é seu fornecedor</span>
+                    ) : (
+                      <button onClick={() => addVendor(f.id)} className="shrink-0 text-sm font-semibold text-green-700 border border-green-700 rounded-lg px-3 py-1.5 hover:bg-green-50">
+                        Adicionar
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -347,6 +371,8 @@ export default function OfertasPage() {
           </div>
         )}
       </section>
+
+      {messageTo && <RequestQuote vendorId={messageTo} onClose={() => { setMessageTo(null); load() }} />}
     </div>
   )
 }
