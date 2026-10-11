@@ -10,12 +10,16 @@ async function findLink(vendorId: string) {
   return { where } as const
 }
 
-// PATCH: { muted } silencia ou volta a receber as ofertas deste fornecedor
+// PATCH: { muted } silencia ou volta a receber as ofertas deste fornecedor;
+// { shareStock } mostra ou esconde dele os itens do estoque abaixo do mínimo
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ vendorId: string }> }) {
   const link = await findLink((await params).vendorId)
   if ('error' in link) return link.error
-  const { muted } = await request.json()
-  await prisma.vendorClient.update({ where: link.where, data: { muted: !!muted } })
+  const body = await request.json()
+  const data: { muted?: boolean; shareStock?: boolean } = {}
+  if (body.muted !== undefined) data.muted = !!body.muted
+  if (body.shareStock !== undefined) data.shareStock = !!body.shareStock
+  await prisma.vendorClient.update({ where: link.where, data })
   return NextResponse.json({ ok: true })
 }
 

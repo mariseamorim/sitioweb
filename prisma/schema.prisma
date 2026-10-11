@@ -35,6 +35,7 @@ model Farm {
   milkProductions MilkProduction[]
   vendorClients   VendorClient[]
   milkPoints      MilkPoint[] // sítios de rota de motoristas ligados a esta propriedade
+  supplyRequests  SupplyRequest[]
 
   @@map("farms")
 }
@@ -196,6 +197,7 @@ model Supply {
   farmId          String
   farm            Farm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
   movements       SupplyMovement[]
+  requests        SupplyRequest[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -230,12 +232,14 @@ model Vendor {
   description String?
   status      String   @default("pendente") // pendente | aprovado | bloqueado
   inviteCode  String   @unique
+  categories  String[] @default([]) // o que vende (categorias de insumo); vazio = todas
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   users      User[]
   clients    VendorClient[]
   promotions Promotion[]
+  requests   SupplyRequest[]
 
   @@map("vendors")
 }
@@ -248,10 +252,38 @@ model VendorClient {
   farmId    String
   farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
   muted     Boolean  @default(false) // produtor silenciou as ofertas deste fornecedor
+  shareStock Boolean @default(true) // fornecedor vê os itens do estoque abaixo do mínimo
   createdAt DateTime @default(now())
 
   @@unique([vendorId, farmId])
   @@map("vendor_clients")
+}
+
+/// Pedido de orçamento do produtor a um fornecedor vinculado (geralmente de um item em falta)
+model SupplyRequest {
+  id         String    @id @default(cuid())
+  farmId     String
+  farm       Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  vendorId   String
+  vendor     Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  supplyId   String?
+  supply     Supply?   @relation(fields: [supplyId], references: [id], onDelete: SetNull)
+  itemName   String
+  category   String
+  quantity   Float?
+  unit       String?
+  note       String?
+  status     String    @default("novo") // novo | respondido | fechado | cancelado
+  reply      String?
+  replyPrice Float?
+  repliedAt  DateTime?
+  createdBy  String? // nome de quem pediu
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([vendorId, status])
+  @@index([farmId, status])
+  @@map("supply_requests")
 }
 
 model Promotion {

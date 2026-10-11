@@ -101,6 +101,18 @@ export async function getTodayTasks(
       tone: 'amber',
     })
   }
+  // Pedidos de orçamento respondidos e ainda não encerrados pelo produtor
+  const answered = can('estoque')
+    ? await prisma.supplyRequest.findMany({
+        where: { farmId, status: 'respondido' },
+        select: { itemName: true, vendor: { select: { companyName: true } } },
+        orderBy: { repliedAt: 'desc' },
+        take: 3,
+      })
+    : []
+  for (const r of answered) {
+    tasks.push({ title: `${r.vendor.companyName} respondeu: ${r.itemName}`, detail: 'Veja o orçamento', href: '/ofertas#pedidos', tone: 'blue' })
+  }
   if (newOffers > 0) {
     tasks.push({
       title: `${newOffers} oferta${newOffers > 1 ? 's' : ''} nova${newOffers > 1 ? 's' : ''} dos seus fornecedores`,

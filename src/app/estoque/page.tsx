@@ -8,6 +8,7 @@ import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon } from '@/components/ModuleIcons'
 import { SUPPLY_CATEGORIES } from '@/lib/supplies'
+import { RequestQuote } from '@/components/RequestQuote'
 
 interface SupplyMovement { id: string; type: string; quantity: number; date: string; description?: string | null }
 interface Supply {
@@ -30,6 +31,7 @@ export default function EstoquePage() {
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
   const [detail, setDetail] = useState<Supply | null>(null)
+  const [quoteFor, setQuoteFor] = useState<Supply | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [showMov, setShowMov] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -276,9 +278,15 @@ export default function EstoquePage() {
                 </div>
               </div>
 
-              <button onClick={() => setShowMov(true)} className="w-full bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg mb-4">
+              <button onClick={() => setShowMov(true)} className="w-full bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg mb-2">
                 + Movimentação (Entrada / Saída)
               </button>
+              {canEdit && (
+                <button onClick={() => setQuoteFor(detail)}
+                  className={`w-full text-sm font-semibold py-2 rounded-lg mb-4 border-2 ${isLow(detail) ? 'border-amber-500 text-amber-800 hover:bg-amber-50' : 'border-green-700 text-green-800 hover:bg-green-50'}`}>
+                  Pedir orçamento a um fornecedor
+                </button>
+              )}
 
               {detail.movements.length > 0 && (
                 <>
@@ -415,6 +423,7 @@ export default function EstoquePage() {
           </div>
         </div>
       )}
+      {quoteFor && <RequestQuote item={quoteFor} onClose={() => setQuoteFor(null)} />}
     </div>
     </PermissionGuard>
   )
