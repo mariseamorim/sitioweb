@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import Image from 'next/image';
+import { InstallAppButton } from '@/components/InstallAppButton';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -54,6 +55,16 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   const trigger = useRef<HTMLButtonElement>(null);
   const isVendor = user?.role === 'fornecedor';
   const homeHref = isVendor ? '/fornecedor' : '/';
+  // Celular: atalhos do dia a dia no rodapé, como num app; o resto fica em "Mais"
+  const bottomTabs = isVendor
+    ? [{ href: '/fornecedor', label: 'Painel', Icon: LojaIcon }]
+    : [
+        { href: '/', label: 'Painel', module: null, Icon: PainelIcon },
+        { href: '/lite', label: 'Anotar', module: 'leite', Icon: LeiteIcon },
+        { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },
+        { href: '/vacinacao', label: 'Vacinas', module: 'vacinacao', Icon: VacinaIcon },
+      ].filter((tab) => !tab.module || canAccess(tab.module));
+  const isTabActive = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/'));
   const visibleGroups = (isVendor ? vendorGroups : groups).map(group => ({ ...group, links: group.links.filter(link => (!link.module || canAccess(link.module)) && (!link.adminOnly || user?.role === 'admin')) })).filter(group => group.links.length);
   const activeLink = visibleGroups.flatMap(group => group.links).find(link => link.href === '/' ? pathname === '/' : pathname === link.href || pathname.startsWith(link.href + '/'));
   const role = user?.role === 'admin' ? 'Administrador' : user?.role === 'editor' ? 'Editor' : isVendor ? 'Fornecedor' : 'Leitor';
@@ -121,6 +132,7 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
       <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-sm font-bold text-green-800">{user.name.slice(0, 1).toUpperCase()}</span>
       <div className="min-w-0"><p className="truncate text-sm font-semibold text-gray-800">{user.name}</p><p className="text-xs text-gray-500">{role}</p></div>
     </div>}
+    <InstallAppButton className="mb-2" />
     <button type="button" onClick={handleLogout} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium text-gray-500 hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-green-700">
       <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" /></svg>Sair da conta
     </button>
@@ -149,6 +161,19 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
       </div>
       <div className="px-4 pb-2 empty:hidden sm:hidden"><SyncStatus /></div>
     </header>
+    <nav aria-label="Atalhos" className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <ul className="grid" style={{ gridTemplateColumns: `repeat(${bottomTabs.length + 1}, minmax(0, 1fr))` }}>
+        {bottomTabs.map(({ href, label, Icon }) => {
+          const active = isTabActive(href);
+          return <li key={href}><Link href={href} aria-current={active ? 'page' : undefined} className={`flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-semibold ${active ? 'text-green-800' : 'text-gray-500'}`}>
+            <span aria-hidden="true" className={`flex h-8 w-12 items-center justify-center rounded-full ${active ? 'bg-green-100' : ''}`}><Icon className="h-6 w-6" /></span>{label}
+          </Link></li>;
+        })}
+        <li><button type="button" onClick={() => setOpenPath(pathname)} aria-label="Mais opções do menu" className="flex min-h-16 w-full flex-col items-center justify-center gap-1 text-xs font-semibold text-gray-500">
+          <span aria-hidden="true" className="flex h-8 w-12 items-center justify-center rounded-full"><MenuIcon className="h-6 w-6" /></span>Mais
+        </button></li>
+      </ul>
+    </nav>
     {drawerOpen && <div className="fixed inset-0 z-[60] lg:hidden">
       <div className="absolute inset-0 bg-gray-950/45" aria-hidden="true" onClick={() => setOpenPath(null)} />
       <div ref={drawer} id="menu-lateral" role="dialog" aria-modal="true" aria-label="Menu de navegação" className="relative flex h-full h-dvh w-[min(288px,calc(100vw-32px))] flex-col bg-white shadow-2xl" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>

@@ -1,5 +1,6 @@
 ﻿import type { Metadata } from 'next'
 import Image from 'next/image'
+import { InstallAppButton } from '@/components/InstallAppButton'
 import Link from 'next/link'
 import { AnimalIcon, LeiteIcon, TratamentoIcon, FinanceiroIcon, EstoqueIcon, PainelIcon, GraoIcon, SincronizarIcon, CheckIcon, SetaDireitaIcon, SetaBaixoIcon } from '@/components/ModuleIcons'
 import { LandingHeader } from '@/components/LandingHeader'
@@ -23,7 +24,7 @@ export default function LandingPage() {
       <p className="landing-eyebrow">Gestão rural que acompanha o seu ritmo</p>
       <h1>Mais tempo no campo.<br /><em>Mais clareza</em><br />para decidir.</h1>
       <p className="hero-description">O sistema para cuidar do seu rebanho, produção e negócio, mesmo quando a internet não chega.</p>
-      <div className="landing-actions"><Link className="landing-button button-sage" href="/criar-conta">Criar minha conta <SetaDireitaIcon /></Link><a className="landing-button button-outline" href="#recursos">Ver recursos <SetaBaixoIcon /></a></div>
+      <div className="landing-actions"><Link className="landing-button button-sage" href="/criar-conta">Criar minha conta <SetaDireitaIcon /></Link><a className="landing-button button-outline" href="#recursos">Ver recursos <SetaBaixoIcon /></a></div><InstallAppButton className="mt-4 max-w-xs" />
     </div><div className="hero-caption landing-container">Da rotina no campo às decisões da sua propriedade.</div></section>
     <section id="recursos" className="landing-section landing-container">
       <div className="section-intro"><div><p className="landing-eyebrow">Tudo em um só lugar</p><h2>A sua propriedade,<br /><em>mais inteligente.</em></h2></div><p>Do primeiro cadastro ao fechamento do mês, o Anota Aí Agro transforma a rotina da fazenda em informações simples para você acompanhar o que realmente importa.</p></div>
