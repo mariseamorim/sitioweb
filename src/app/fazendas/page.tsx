@@ -119,9 +119,9 @@ export default function PropriedadesPage() {
             <div key={f.id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative">
               <div className="flex items-start justify-between gap-2 mb-2">
                 <h2 className="font-bold text-gray-800 text-lg leading-tight">{f.name}</h2>
-                <div className="flex gap-1 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                   {f.propertyType && (
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColor[f.propertyType] ?? 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold leading-none ${typeColor[f.propertyType] ?? 'bg-gray-100 text-gray-600'}`}>
                       {f.propertyType}
                     </span>
                   )}

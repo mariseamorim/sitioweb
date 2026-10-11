@@ -24,6 +24,6 @@ export function LandingHeader() {
     <nav className="desktop-navigation" aria-label="Navegação principal">{links.map(([href, label]) => <a key={href} href={href}>{label}</a>)}</nav>
     <Link className="header-login" href="/login">Entrar<span className="login-desktop-label"> no sistema</span><SetaDireitaIcon className="h-4 w-4" /></Link>
     <button ref={trigger} className="mobile-menu-button" type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls={open ? 'landing-mobile-menu' : undefined} aria-label={open ? 'Fechar menu' : 'Abrir menu'}>{open ? <FecharIcon /> : <MenuIcon />}</button>
-    {open && <nav id="landing-mobile-menu" className="mobile-navigation" aria-label="Navegação no celular">{links.map(([href, label]) => <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>)}<Link href="/cadastro" onClick={() => setOpen(false)}>Criar minha conta</Link></nav>}
+    {open && <nav id="landing-mobile-menu" className="mobile-navigation" aria-label="Navegação no celular">{links.map(([href, label]) => <a key={href} href={href} onClick={() => setOpen(false)}>{label}</a>)}<Link href="/criar-conta" onClick={() => setOpen(false)}>Criar minha conta</Link></nav>}
   </div></header>
 }

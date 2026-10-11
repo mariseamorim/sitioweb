@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { PageHelp } from '@/components/PageHelp'
 import { Navbar } from '@/components/Navbar'
 const FULL_BLEED_PATHS = ['/inicio']
-const AUTH_PATHS = ['/login', '/cadastro', '/setup', '/fornecedor/cadastro']
+const AUTH_PATHS = ['/login', '/cadastro', '/criar-conta', '/setup', '/fornecedor/cadastro']
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const [desktopOpen, setDesktopOpen] = useState(true)

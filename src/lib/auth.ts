@@ -185,6 +185,33 @@ export async function requireUser() {
   return { user } as const
 }
 
+/**
+ * Quem pode gerenciar a equipe da propriedade: o admin ou o editor com o módulo "usuarios"
+ * (normalmente o dono, que recebe todos os módulos no cadastro).
+ */
+export async function requireUserManager() {
+  const user = await getSessionUser()
+  if (!user) return { error: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }) } as const
+  const allowed = user.role === 'admin' || (user.role === 'editor' && !!user.permissions?.includes('usuarios'))
+  if (!allowed) {
+    return { error: NextResponse.json({ error: 'Você não tem permissão para gerenciar usuários' }, { status: 403 }) } as const
+  }
+  if (!user.effectiveFarmId) {
+    return { error: NextResponse.json({ error: 'Selecione uma propriedade antes de gerenciar usuários' }, { status: 400 }) } as const
+  }
+  return { me: user, farmId: user.effectiveFarmId } as const
+}
+
+/** Permissões que quem gerencia pode conceder: o admin concede todas; os demais, só as que têm. */
+export function grantablePermissions(me: SessionUser, requested: unknown, allModules: readonly string[]): string[] | { error: string } {
+  if (!Array.isArray(requested)) return []
+  const wanted = [...new Set(requested.map(String))].filter((m) => allModules.includes(m))
+  if (me.role === 'admin') return wanted
+  const own = me.permissions ?? []
+  const notAllowed = wanted.filter((m) => !own.includes(m))
+  return notAllowed.length ? { error: 'Você só pode liberar módulos que você também tem acesso' } : wanted
+}
+
 export async function requireAdmin() {
   const user = await getSessionUser()
   if (!user || user.role !== 'admin') {

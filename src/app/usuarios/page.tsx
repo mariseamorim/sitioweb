@@ -30,31 +30,36 @@ const roleColor: Record<string, string> = {
 
 const EMPTY_FORM = { name: '', email: '', password: '', role: 'viewer', permissions: [] as string[] }
 
-function PermissionsGrid({ value, onChange, disabled }: {
+function PermissionsGrid({ value, onChange, disabled, allowed }: {
   value: string[]
   onChange: (v: string[]) => void
   disabled: boolean
+  /** Módulos que quem está editando pode liberar (undefined = todos) */
+  allowed?: string[]
 }) {
   function toggle(key: string) {
     onChange(value.includes(key) ? value.filter(k => k !== key) : [...value, key])
   }
   return (
     <div className="grid grid-cols-3 gap-2">
-      {MODULES.map(m => (
+      {MODULES.map(m => {
+        const locked = disabled || (allowed !== undefined && !allowed.includes(m.key))
+        return (
         <label key={m.key} className={`flex items-center gap-1.5 p-2 rounded-lg border text-xs cursor-pointer select-none transition-colors ${
-          disabled ? 'opacity-40 cursor-not-allowed' :
+          locked ? 'opacity-40 cursor-not-allowed' :
           value.includes(m.key) ? 'border-green-400 bg-green-50 text-green-800' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
         }`}>
           <input
             type="checkbox"
             className="accent-green-600"
             checked={value.includes(m.key)}
-            onChange={() => !disabled && toggle(m.key)}
-            disabled={disabled}
+            onChange={() => !locked && toggle(m.key)}
+            disabled={locked}
           />
           <span className="truncate">{m.label}</span>
         </label>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -62,6 +67,10 @@ function PermissionsGrid({ value, onChange, disabled }: {
 export default function UsuariosPage() {
   const { confirm, notify } = useDialog()
   const { user: me } = useUser()
+  // O admin e o dono da propriedade (editor com o módulo Usuários) gerenciam a equipe
+  const canManage = me?.role === 'admin' || (me?.role === 'editor' && !!me?.permissions?.includes('usuarios'))
+  const grantable = me?.role === 'admin' ? undefined : me?.permissions ?? []
+  const canTouch = (u: User) => canManage && u.role !== 'admin'
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
@@ -114,11 +123,10 @@ export default function UsuariosPage() {
     const res = await fetch(`/api/users/${editUser.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: editForm.name,
-        role: editForm.role,
-        permissions: editForm.permissions,
-      }),
+      // Ao editar a si mesmo, só o nome muda (perfil e módulos ficam como estão)
+      body: JSON.stringify(editUser.id === me?.id
+        ? { name: editForm.name }
+        : { name: editForm.name, role: editForm.role, permissions: editForm.permissions }),
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error || 'Erro ao salvar'); setSaving(false); return }
@@ -140,12 +148,14 @@ export default function UsuariosPage() {
             <h1 className="text-2xl font-bold text-gray-800">Usuários</h1>
             <p className="text-gray-500 text-sm mt-1">Gerencie acesso e permissões por módulo</p>
           </div>
+          {canManage && (
           <button
             onClick={() => { setShowCreate(true); setError(''); setForm(EMPTY_FORM) }}
             className="bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg"
           >
             + Novo Usuário
           </button>
+          )}
         </div>
 
         {loading ? (
@@ -190,6 +200,7 @@ export default function UsuariosPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {canTouch(u) && (
                         <button
                           onClick={() => openEdit(u)}
                           className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -199,7 +210,8 @@ export default function UsuariosPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
                         </button>
-                        {u.id !== me?.id && (
+                        )}
+                        {canTouch(u) && u.id !== me?.id && (
                           <button
                             onClick={() => handleDelete(u.id, u.name)}
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -254,7 +266,7 @@ export default function UsuariosPage() {
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-600 block mb-1.5">Módulos permitidos</label>
-                    <PermissionsGrid value={form.permissions} onChange={p => setForm({ ...form, permissions: p })} disabled={false} />
+                    <PermissionsGrid value={form.permissions} onChange={p => setForm({ ...form, permissions: p })} disabled={false} allowed={grantable} />
                   </div>
                   {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
                   <div className="flex gap-2 pt-1">
@@ -302,8 +314,12 @@ export default function UsuariosPage() {
                     <PermissionsGrid
                       value={editForm.permissions}
                       onChange={p => setEditForm({ ...editForm, permissions: p })}
-                      disabled={false}
+                      disabled={editUser.id === me?.id}
+                      allowed={grantable}
                     />
+                    {editUser.id === me?.id && (
+                      <p className="text-xs text-gray-400 mt-1">Você não pode alterar seus próprios módulos.</p>
+                    )}
                   </div>
                   {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
                   <div className="flex gap-2 pt-1">

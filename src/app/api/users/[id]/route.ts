@@ -1,31 +1,48 @@
 import { prisma } from '@/lib/prisma'
-import { getSessionUser } from '@/lib/auth'
+import { grantablePermissions, requireUserManager } from '@/lib/auth'
+import { MODULES } from '@/lib/modules'
 import { NextRequest, NextResponse } from 'next/server'
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const me = await getSessionUser()
-  if (!me || me.role !== 'admin') {
-    return NextResponse.json({ error: 'Apenas administradores podem editar usuários' }, { status: 403 })
+const MODULE_KEYS = MODULES.map((m) => m.key)
+const TEAM_ROLES = ['editor', 'viewer']
+
+/** Alguém da equipe desta propriedade que quem está logado pode alterar. */
+async function findManageable(id: string, farmId: string) {
+  const target = await prisma.user.findUnique({ where: { id }, select: { id: true, farmId: true, role: true } })
+  if (!target || target.farmId !== farmId) {
+    return { error: NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 }) } as const
   }
+  if (target.role === 'admin') {
+    return { error: NextResponse.json({ error: 'Administradores não podem ser alterados por aqui' }, { status: 403 }) } as const
+  }
+  return { target } as const
+}
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireUserManager()
+  if ('error' in auth) return auth.error
+  const { me, farmId } = auth
 
   const { id } = await params
-  const body = await request.json()
-  const { name, role, permissions } = body
+  const found = await findManageable(id, farmId)
+  if ('error' in found) return found.error
 
-  // Cannot edit a user from another farm
-  const target = await prisma.user.findUnique({ where: { id }, select: { farmId: true } })
-  if (!target || target.farmId !== me.effectiveFarmId) {
-    return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
+  const { name, role, permissions } = await request.json()
+  const self = id === me.id
+
+  // Ninguém altera o próprio perfil nem as próprias permissões (evita se trancar para fora)
+  if (self && (role !== undefined || permissions !== undefined)) {
+    return NextResponse.json({ error: 'Você não pode alterar seu próprio perfil ou permissões' }, { status: 400 })
+  }
+  if (role !== undefined && !TEAM_ROLES.includes(role)) {
+    return NextResponse.json({ error: 'Perfil inválido. Use Editor ou Leitor.' }, { status: 400 })
   }
 
-  // Cannot promote to admin
-  if (role === 'admin') {
-    return NextResponse.json({ error: 'Não é possível promover usuários a administrador por aqui' }, { status: 400 })
-  }
-
-  // Cannot change your own role
-  if (id === me.id && role) {
-    return NextResponse.json({ error: 'Você não pode alterar seu próprio perfil' }, { status: 400 })
+  let granted: string[] | undefined
+  if (permissions !== undefined) {
+    const result = grantablePermissions(me, permissions, MODULE_KEYS)
+    if ('error' in result) return NextResponse.json({ error: result.error }, { status: 403 })
+    granted = result
   }
 
   const user = await prisma.user.update({
@@ -33,7 +50,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     data: {
       ...(name && { name }),
       ...(role && { role }),
-      permissions: permissions ?? null,
+      ...(granted && { permissions: granted }),
     },
     select: { id: true, name: true, email: true, role: true, permissions: true, farmId: true },
   })
@@ -41,21 +58,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const me = await getSessionUser()
-  if (!me || me.role !== 'admin') {
-    return NextResponse.json({ error: 'Apenas administradores podem excluir usuários' }, { status: 403 })
-  }
+  const auth = await requireUserManager()
+  if ('error' in auth) return auth.error
+  const { me, farmId } = auth
 
   const { id } = await params
-
   if (id === me.id) {
     return NextResponse.json({ error: 'Você não pode excluir sua própria conta' }, { status: 400 })
   }
-
-  const target = await prisma.user.findUnique({ where: { id }, select: { farmId: true } })
-  if (!target || target.farmId !== me.effectiveFarmId) {
-    return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
-  }
+  const found = await findManageable(id, farmId)
+  if ('error' in found) return found.error
 
   await prisma.user.delete({ where: { id } })
   return NextResponse.json({ ok: true })
