@@ -11,6 +11,8 @@ interface Props {
   totalsByDay: Map<string, number>
   isOnline: boolean
   onDone: (result: { pending: number }) => void
+  /** Salvo sozinho: atualiza a tela sem fechar o formulário */
+  onSaved: (result: { pending: number }) => void
   onCancel: () => void
 }
 
@@ -19,7 +21,7 @@ const AUTO_SAVE_SECONDS = 5
 const toQuantity = (text: string) => parseFloat(text.replace(',', '.'))
 
 // Lançamento do leite do dia todo, sem separar por vaca (comum em sítio pequeno)
-export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onCancel }: Props) {
+export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCancel }: Props) {
   const [date, setDate] = useState(todayISO())
   const [liters, setLiters] = useState('')
   const [cows, setCows] = useState('')
@@ -27,19 +29,26 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onCancel }: Prop
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [countdown, setCountdown] = useState<number | null>(null)
+  const [savedNote, setSavedNote] = useState('')
   const formRef = useRef<HTMLFormElement>(null)
+  // O salvar sozinho mantém o formulário aberto; o botão Salvar fecha
+  const autoRef = useRef(false)
 
   const quantity = toQuantity(liters)
   const already = totalsByDay.get(date)
 
   // Recomeça a contagem a cada mudança (só com litros válidos)
-  const restartAutoSave = (litersText = liters) => setCountdown(toQuantity(litersText) > 0 ? AUTO_SAVE_SECONDS : null)
+  const restartAutoSave = (litersText = liters) => {
+    setSavedNote('')
+    setCountdown(toQuantity(litersText) > 0 ? AUTO_SAVE_SECONDS : null)
+  }
 
   useEffect(() => {
     if (countdown === null || saving) return
     const timer = setTimeout(() => {
       if (countdown > 1) return setCountdown(countdown - 1)
       setCountdown(null)
+      autoRef.current = true
       formRef.current?.requestSubmit()
     }, 1000)
     return () => clearTimeout(timer)
@@ -48,12 +57,24 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onCancel }: Prop
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setCountdown(null)
+    const auto = autoRef.current
+    autoRef.current = false
     if (!(quantity > 0) || saving) return
     setError('')
     const record = { date, quantity, cowsMilked: cows ? parseInt(cows, 10) : undefined, observations }
 
+    // Sozinho: limpa os campos para a próxima ordenha e continua aberto
+    const finish = (result: { pending: number }) => {
+      if (!auto) return onDone(result)
+      setLiters('')
+      setCows('')
+      setObservations('')
+      setSavedNote(`Salvo: ${fmtNumber(quantity)} L${result.pending ? ' no celular (envia quando houver internet)' : ''}. Pode fechar ou anotar outra ordenha.`)
+      onSaved(result)
+    }
+
     if (!isOnline) {
-      onDone({ pending: addPendingRecord('milk_productions', record) })
+      finish({ pending: addPendingRecord('milk_productions', record) })
       return
     }
 
@@ -69,7 +90,7 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onCancel }: Prop
         setError(data.error || 'Não foi possível salvar. Tente de novo.')
         return
       }
-      onDone({ pending: 0 })
+      finish({ pending: 0 })
     } catch {
       setError('Sem conexão. Tente de novo ou salve quando o sinal voltar.')
     } finally {
@@ -111,6 +132,9 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onCancel }: Prop
           />
           <span className="text-lg text-gray-500">L</span>
         </div>
+        {savedNote && countdown === null && (
+          <p role="status" className="mt-2 rounded-lg bg-green-50 px-3 py-2.5 text-sm font-medium text-green-900">{savedNote}</p>
+        )}
         {countdown !== null && !saving && (
           <div role="status" className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-green-50 px-3 py-2.5 text-sm text-green-900">
             <span>Salvando sozinho em {countdown} s...</span>

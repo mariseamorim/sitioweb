@@ -441,10 +441,12 @@ function RequestCard({ request: r, vendorName, onChanged }: { request: SupplyReq
   const [price, setPrice] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // Resposta acabou de ser enviada: oferece avisar o cliente pelo WhatsApp com o mesmo texto
+  const [sent, setSent] = useState<{ reply: string; price: number | null } | null>(null)
   const qty = r.quantity ? `${fmtQty(r.quantity)}${r.unit ? ` ${r.unit}` : ''}` : null
   const status = REQUEST_STATUS[r.status]
 
-  async function send(body: object) {
+  async function send(body: { reply?: string; replyPrice?: string; status?: string }) {
     setSaving(true)
     setError('')
     try {
@@ -452,6 +454,7 @@ function RequestCard({ request: r, vendorName, onChanged }: { request: SupplyReq
       const data = await res.json()
       if (!res.ok) return setError(data.error || 'Não foi possível salvar')
       setReplying(false)
+      setSent(body.reply ? { reply: data.reply, price: data.replyPrice } : null)
       onChanged()
     } catch {
       setError('Sem conexão. Tente de novo.')
@@ -476,6 +479,22 @@ function RequestCard({ request: r, vendorName, onChanged }: { request: SupplyReq
         <p className="mt-2 text-sm text-blue-900">
           <span className="font-semibold">Sua resposta:</span> {r.reply}{r.replyPrice !== null && ` · ${fmtMoney(r.replyPrice)}`}
         </p>
+      )}
+
+      {sent && !replying && (
+        <div role="status" className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3">
+          <p className="text-sm font-semibold text-green-900">Resposta enviada. O cliente vê no app, no sino e em Ofertas.</p>
+          {r.farm.phone ? (
+            <a href={whatsappLink(r.farm.phone, `Olá! Aqui é da ${vendorName}. Respondi seu pedido de ${r.itemName}${qty ? ` (${qty})` : ''} no Anota Aí Agro: ${sent.reply}${sent.price !== null ? ` Valor: ${fmtMoney(sent.price)}.` : ''}`)}
+              target="_blank" rel="noopener noreferrer" onClick={() => setSent(null)}
+              className="mt-2 flex w-full items-center justify-center bg-green-700 hover:bg-green-600 text-white text-sm font-semibold py-2.5 rounded-lg">
+              Avisar o cliente pelo WhatsApp
+            </a>
+          ) : (
+            <p className="mt-1 text-xs text-green-900">Este cliente não tem telefone cadastrado.</p>
+          )}
+          <button type="button" onClick={() => setSent(null)} className="mt-2 w-full text-sm font-medium text-gray-600 hover:underline">Agora não</button>
+        </div>
       )}
 
       {replying ? (
