@@ -8,6 +8,8 @@ import { useUser } from '@/contexts/UserContext';
 import { PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon } from '@/components/ModuleIcons';
 import { SyncStatus } from '@/components/SyncStatus';
 import { TaskBell } from '@/components/TaskBell';
+import { useDialog } from '@/components/DialogProvider';
+import { countAllPendingOnDevice } from '@/lib/offlineStorage';
 
 type NavLink = { href: string; label: string; module: string | null; adminOnly?: boolean; Icon: (p: { className?: string }) => React.ReactNode };
 
@@ -45,6 +47,7 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   const pathname = usePathname();
   const router = useRouter();
   const { canAccess, user } = useUser();
+  const { notify } = useDialog();
   const [openPath, setOpenPath] = useState<string | null>(null);
   const drawerOpen = openPath === pathname;
   const drawer = useRef<HTMLDivElement>(null);
@@ -83,6 +86,15 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   }, [drawerOpen]);
 
   async function handleLogout() {
+    // Sair apaga os dados do aparelho: com anotações ainda não enviadas, elas se perderiam
+    const pending = countAllPendingOnDevice();
+    if (pending > 0) {
+      await notify(
+        `Há ${pending} registro${pending > 1 ? 's' : ''} ainda não enviado${pending > 1 ? 's' : ''}`,
+        'Conecte-se à internet e espere o envio terminar antes de sair, senão esses registros se perdem.',
+      );
+      return;
+    }
     localStorage.clear();
     sessionStorage.clear();
     if ('caches' in window) void caches.keys().then(names => Promise.all(names.map(name => caches.delete(name))));

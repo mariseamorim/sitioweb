@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getSessionUser } from '@/lib/auth'
+import { getSessionUser, renewSession } from '@/lib/auth'
 
 export async function GET() {
   const user = await getSessionUser()
@@ -10,7 +10,7 @@ export async function GET() {
     ? await prisma.farm.findUnique({ where: { id: user.effectiveFarmId }, select: { name: true } })
     : null
 
-  return NextResponse.json({
+  return renewSession(NextResponse.json({
     id: user.id,
     name: user.name,
     email: user.email,
@@ -18,5 +18,5 @@ export async function GET() {
     farmId: user.effectiveFarmId,
     farmName: farm?.name ?? null,
     permissions: user.permissions,
-  })
+  }))
 }

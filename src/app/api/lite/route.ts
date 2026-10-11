@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { canAccessModule, canEdit, requireUser } from '@/lib/auth'
+import { canAccessModule, canEdit, renewSession, requireUser } from '@/lib/auth'
 import { FARM_POINT_ID, LITE_HISTORY_DAYS, LiteChange, LiteData, parseLiters, usesFarmMode } from '@/lib/lite'
 import { todayUTC } from '@/lib/utils'
 
@@ -49,7 +49,7 @@ export async function GET() {
       })),
       milkPrice: farm?.milkPrice ?? null,
     }
-    return NextResponse.json(data)
+    return renewSession(NextResponse.json(data))
   }
 
   const points = await prisma.milkPoint.findMany({
@@ -74,7 +74,7 @@ export async function GET() {
     collections: [],
     milkPrice: owner?.milkPrice ?? null,
   }
-  return NextResponse.json(data)
+  return renewSession(NextResponse.json(data))
 }
 
 // PUT: grava as anotações (um valor por local por dia). Reenviar o mesmo dado não duplica.

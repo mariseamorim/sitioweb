@@ -1,21 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-
-function countPending(): number {
-  try {
-    let total = 0
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (!key?.startsWith('pending_')) continue
-      const list = JSON.parse(localStorage.getItem(key) || '[]')
-      if (Array.isArray(list)) total += list.length
-    }
-    return total
-  } catch {
-    return 0
-  }
-}
+import { countAllPendingOnDevice } from '@/lib/offlineStorage'
 
 // Mostra na barra do topo se o aparelho está sem sinal e quantos registros aguardam envio
 export function SyncStatus() {
@@ -25,7 +11,7 @@ export function SyncStatus() {
   useEffect(() => {
     const refresh = () => {
       setOnline(navigator.onLine)
-      setPending(countPending())
+      setPending(countAllPendingOnDevice())
     }
     refresh()
     const timer = setInterval(refresh, 3000)

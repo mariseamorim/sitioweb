@@ -8,7 +8,9 @@ const scryptAsync = promisify(scrypt) as (pw: string, salt: Buffer, len: number)
 
 export const SESSION_COOKIE = 'session'
 export const ACTIVE_FARM_COOKIE = 'activeFarmId'
-const SESSION_MAX_AGE = 60 * 60 * 24 * 30 // 30 dias
+// Sessão renovável: cada uso com internet volta a contar o prazo (quem usa com frequência não precisa entrar de novo)
+const SESSION_MAX_AGE = 60 * 60 * 24 * 90 // 90 dias
+const SESSION_RENEW_AFTER = 60 * 60 * 24 // renova no máximo uma vez por dia
 
 // ── Senhas ──────────────────────────────────────────────────────────────
 
@@ -56,7 +58,7 @@ function createSessionToken(userId: string): string {
   return `${payload}.${sign(payload)}`
 }
 
-function readSessionToken(token: string | undefined): string | null {
+function parseSessionToken(token: string | undefined): { userId: string; expires: number } | null {
   if (!token) return null
   const parts = token.split('.')
   if (parts.length !== 3) return null
@@ -65,7 +67,21 @@ function readSessionToken(token: string | undefined): string | null {
   const given = Buffer.from(signature)
   if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null
   if (Number(expires) < Date.now()) return null
-  return userId
+  return { userId, expires: Number(expires) }
+}
+
+function readSessionToken(token: string | undefined): string | null {
+  return parseSessionToken(token)?.userId ?? null
+}
+
+/** Renova a sessão (mais 90 dias) se ela foi emitida ou renovada há mais de um dia. */
+export async function renewSession(response: NextResponse) {
+  const cookieStore = await cookies()
+  const session = parseSessionToken(cookieStore.get(SESSION_COOKIE)?.value)
+  if (!session) return response
+  const issuedAt = session.expires - SESSION_MAX_AGE * 1000
+  if (Date.now() - issuedAt > SESSION_RENEW_AFTER * 1000) setSessionCookie(response, session.userId)
+  return response
 }
 
 export function setSessionCookie(response: NextResponse, userId: string) {
