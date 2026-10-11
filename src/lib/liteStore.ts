@@ -1,9 +1,10 @@
 // Dados do Anota Aí Leite guardados no aparelho e fila de envio.
 // A tela sempre lê daqui; o servidor só recebe e devolve a cópia oficial.
-import type { LiteChange, LiteData, LiteEntry } from '@/lib/lite'
+import type { LiteChange, LiteData, LiteEntry, PointKind } from '@/lib/lite'
 
 const CACHE_KEY = 'lite_cache_v1'
 const QUEUE_KEY = 'lite_queue_v1'
+const POINTS_KEY = 'lite_points_queue_v1'
 
 type Queue = Record<string, LiteChange>
 
@@ -85,9 +86,92 @@ export async function flushQueue(): Promise<SyncResult> {
   return 'ok'
 }
 
+// ── Locais criados ou alterados sem internet ────────────────────────────
+
+/** Criação ou alteração de um local. O id é gerado no aparelho para funcionar sem internet. */
+export interface PointOp {
+  id: string
+  create?: boolean
+  name?: string
+  kind?: PointKind
+  active?: boolean
+}
+
+type PointQueue = Record<string, PointOp>
+
+export function newPointId(): string {
+  const random = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID().replace(/-/g, '')
+    : Date.now().toString(36) + Math.random().toString(36).slice(2)
+  return `lp${random}`.slice(0, 40)
+}
+
+export function pendingPointOps(): PointOp[] {
+  return Object.values(read<PointQueue>(POINTS_KEY, {}))
+}
+
+/** Quantos itens aguardam envio (locais e anotações) */
+export function pendingCount(): number {
+  return pendingPointOps().length + pendingChanges().length
+}
+
+export function applyPointOps(data: LiteData, ops: PointOp[]): LiteData {
+  const points = [...data.points]
+  for (const op of ops) {
+    const i = points.findIndex((p) => p.id === op.id)
+    if (i === -1) {
+      if (op.create) points.push({ id: op.id, name: op.name ?? '', kind: op.kind ?? 'sitio', active: op.active ?? true, farm: null })
+      continue
+    }
+    points[i] = {
+      ...points[i],
+      ...(op.name !== undefined && { name: op.name }),
+      ...(op.kind !== undefined && { kind: op.kind }),
+      ...(op.active !== undefined && { active: op.active }),
+    }
+  }
+  return { ...data, points }
+}
+
+/** Guarda a operação na fila (juntando com o que já estava pendente para o mesmo local). */
+export function enqueuePoint(op: PointOp) {
+  const queue = read<PointQueue>(POINTS_KEY, {})
+  const previous = queue[op.id]
+  queue[op.id] = { ...previous, ...op, create: previous?.create || op.create }
+  write(POINTS_KEY, queue)
+  const cache = readCache()
+  if (cache) writeCache(applyPointOps(cache, [op]))
+}
+
+async function flushPoints(): Promise<SyncResult> {
+  for (const op of pendingPointOps()) {
+    let res: Response
+    try {
+      const { id, create, ...fields } = op
+      res = await fetch(create ? '/api/lite/locais' : `/api/lite/locais/${id}`, {
+        method: create ? 'POST' : 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(create ? { id, ...fields } : fields),
+      })
+    } catch {
+      return 'offline'
+    }
+    if (res.status === 401) return 'auth'
+    if (!res.ok) return 'error'
+    // Só tira da fila se nada mudou enquanto enviava
+    const queue = read<PointQueue>(POINTS_KEY, {})
+    if (JSON.stringify(queue[op.id]) === JSON.stringify(op)) delete queue[op.id]
+    write(POINTS_KEY, queue)
+  }
+  return 'ok'
+}
+
 /** Envia o que estiver pendente e busca a cópia oficial. Sem internet, devolve o que há no aparelho. */
 export async function syncLite(): Promise<{ data: LiteData | null; result: SyncResult }> {
-  const flushed = await flushQueue()
+  // Locais primeiro: as anotações podem ser de um local criado sem internet
+  const points = await flushPoints()
+  if (points === 'auth') return { data: readCache(), result: 'auth' }
+  const flushed = points === 'ok' ? await flushQueue() : points
   if (flushed === 'auth') return { data: readCache(), result: 'auth' }
 
   try {
@@ -103,5 +187,5 @@ export async function syncLite(): Promise<{ data: LiteData | null; result: SyncR
 }
 
 function withPending(data: LiteData | null): LiteData | null {
-  return data ? applyChanges(data, pendingChanges()) : null
+  return data ? applyChanges(applyPointOps(data, pendingPointOps()), pendingChanges()) : null
 }

@@ -4,6 +4,7 @@ import { useUser } from '@/contexts/UserContext'
 import { getPendingRecords, removePendingRecord } from '@/lib/offlineStorage'
 import { MilkDailyEntry } from '@/components/MilkDailyEntry'
 import { MilkTotalEntry } from '@/components/MilkTotalEntry'
+import { MilkCollections } from '@/components/MilkCollections'
 
 import { useEffect, useState, useMemo } from 'react'
 import { useDialog } from '@/components/DialogProvider'
@@ -386,6 +387,8 @@ export default function MilkProductionPage() {
           )}
         </div>
       )}
+
+      <MilkCollections from={from} to={to} canEdit={canEdit} />
 
       {/* Detalhe do dia */}
       {detailDay && (

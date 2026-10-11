@@ -6,9 +6,9 @@ import Link from 'next/link'
 import { useDialog } from '@/components/DialogProvider'
 import { SetaDireitaIcon, SemSinalIcon, SincronizarIcon, CheckIcon } from '@/components/ModuleIcons'
 import { KIND_LABEL, LiteChange, LiteData, LitePoint, PointKind, isDriverRole, isLiteOnlyRole, parseLiters } from '@/lib/lite'
-import { applyChanges, enqueue, pendingChanges, readCache, syncLite, writeCache } from '@/lib/liteStore'
+import { PointOp, applyChanges, applyPointOps, enqueue, enqueuePoint, newPointId, pendingChanges, pendingCount, pendingPointOps, readCache, syncLite, writeCache } from '@/lib/liteStore'
 import { exportCSV } from '@/lib/reportExport'
-import { fmtNumber } from '@/lib/reports'
+import { fmtMoney, fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
 
 type Tab = 'anotar' | 'historico' | 'locais'
@@ -35,6 +35,7 @@ export default function LitePage() {
   const [date, setDate] = useState(todayISO())
   const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [message, setMessage] = useState('')
+  const [upgrading, setUpgrading] = useState(false)
 
   const today = todayISO()
 
@@ -43,7 +44,7 @@ export default function LitePage() {
     const { data: fresh, result } = await syncLite()
     if (fresh) setData(fresh)
     setNeedsLogin(result === 'auth' && navigator.onLine)
-    setPending(pendingChanges().length)
+    setPending(pendingCount())
     setSyncing(false)
   }, [])
 
@@ -52,8 +53,8 @@ export default function LitePage() {
     // (Lido após a montagem para o HTML do servidor e o do navegador serem iguais.)
     void Promise.resolve().then(() => {
       const cached = readCache()
-      if (cached) setData(applyChanges(cached, pendingChanges()))
-      setPending(pendingChanges().length)
+      if (cached) setData(applyChanges(applyPointOps(cached, pendingPointOps()), pendingChanges()))
+      setPending(pendingCount())
       setOnline(navigator.onLine)
       return sync()
     })
@@ -74,6 +75,9 @@ export default function LitePage() {
   // Motorista anota a rota (vários locais); produtor anota só a própria produção
   const driver = isDriverRole(data?.role)
   const single = !driver && activePoints.length === 1 ? activePoints[0] : null
+  // Leitor da propriedade (versão completa) vê, mas não anota
+  const canWrite = data?.canEdit !== false
+  const dayCollections = (data?.collections ?? []).filter((c) => c.date === date)
   const tabs = driver
     ? ([['anotar', 'Anotar'], ['historico', 'Histórico'], ['locais', 'Rota']] as const)
     : ([['anotar', 'Anotar'], ['historico', 'Histórico']] as const)
@@ -103,15 +107,22 @@ export default function LitePage() {
     enqueue(changes)
     setData(applyChanges(data, changes))
     setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => !k.startsWith(`${date}|`))))
-    setPending(pendingChanges().length)
+    setPending(pendingCount())
     // O aparelho pode dizer que está online sem o sinal chegar: a mensagem segue o resultado do envio
     if (navigator.onLine) await sync()
-    setMessage(pendingChanges().length ? 'Salvo no celular. Será enviado quando houver internet.' : 'Salvo e enviado.')
+    setMessage(pendingCount() ? 'Salvo no celular. Será enviado quando houver internet.' : 'Salvo e enviado.')
     setTimeout(() => setMessage(''), 4000)
   }
 
+  function pointOp(op: PointOp) {
+    enqueuePoint(op)
+    setData((d) => (d ? applyPointOps(d, [op]) : d))
+    setPending(pendingCount())
+    if (navigator.onLine) void sync()
+  }
+
   async function logout() {
-    if (pendingChanges().length > 0) {
+    if (pendingCount() > 0) {
       await notify('Ainda há anotações não enviadas', 'Conecte-se à internet para enviá-las antes de sair, senão elas se perdem.')
       return
     }
@@ -160,7 +171,7 @@ export default function LitePage() {
           <p className="py-16 text-center text-gray-500">{online ? 'Carregando...' : 'Sem internet. Abra o app uma vez com internet para começar.'}</p>
         ) : tab === 'anotar' ? (
           activePoints.length === 0 ? (
-            <FirstPoint driver={driver} online={online} onCreated={() => void sync()} />
+            <FirstPoint driver={driver} onPointOp={pointOp} />
           ) : (
             <>
               <div className="flex items-center gap-2">
@@ -184,17 +195,19 @@ export default function LitePage() {
               </p>
 
               {single ? (
-                <label className="mt-5 block bg-white rounded-2xl border border-gray-200 p-5 text-center">
+                <div className="mt-5 bg-white rounded-2xl border border-gray-200 p-5 text-center">
                   <span className="block text-sm font-medium text-gray-500">{single.name}</span>
                   <span className="mt-1 block text-lg font-semibold text-gray-900">Leite do dia</span>
                   <span className="mt-4 flex items-center justify-center gap-2">
-                    <input type="text" inputMode="decimal" placeholder="0" value={valueOf(single.id)} autoFocus
+                    <input type="text" inputMode="decimal" placeholder="0" value={valueOf(single.id)} autoFocus readOnly={!canWrite}
                       onChange={(e) => setDrafts({ ...drafts, [`${date}|${single.id}`]: e.target.value.replace(/[^\d.,]/g, '') })}
                       aria-label={`Litros de ${single.name}`}
                       className="w-44 border border-gray-300 rounded-2xl px-4 py-4 !text-5xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-green-600" />
                     <span className="text-2xl text-gray-500">L</span>
                   </span>
-                </label>
+                  <PriceLine data={data} liters={parseLiters(valueOf(single.id)) ?? 0} online={online} canWrite={canWrite}
+                    onSaved={(milkPrice) => { const d = { ...data, milkPrice }; setData(d); writeCache(d) }} />
+                </div>
               ) : (
               <ul className="mt-5 space-y-3">
                 {activePoints.map((p) => (
@@ -216,12 +229,27 @@ export default function LitePage() {
                 ))}
               </ul>
               )}
+
+              {dayCollections.length > 0 && (
+                <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                  <h2 className="text-sm font-semibold text-blue-900">Coletado pelo motorista neste dia</h2>
+                  <ul className="mt-2 space-y-1">
+                    {dayCollections.map((c) => (
+                      <li key={c.pointId} className="flex justify-between text-sm text-blue-900">
+                        <span>{c.driverName} · {c.pointName}</span>
+                        <span className="font-semibold">{fmtNumber(c.liters)} L</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+              {!canWrite && <p className="mt-4 text-center text-sm text-gray-500">Seu acesso é só de leitura.</p>}
             </>
           )
         ) : tab === 'historico' ? (
           <History data={data} />
         ) : driver ? (
-          <Points data={data} online={online} onChanged={(d) => { setData(d); writeCache(d) }} onSync={() => void sync()} />
+          <Points data={data} online={online} onPointOp={pointOp} onChanged={(d) => { setData(d); writeCache(d) }} />
         ) : null}
 
         {data && (
@@ -229,13 +257,20 @@ export default function LitePage() {
             <p>{data.userName}</p>
             <div className="flex gap-4">
               {!isLiteOnlyRole(data.role) && <Link href="/" className="font-medium text-green-700 underline">Abrir app completo</Link>}
+              {data.role === 'lite' && (
+                <button type="button" onClick={() => setUpgrading(true)} className="font-medium text-green-700 underline">Quero a versão completa</button>
+              )}
               <button type="button" onClick={logout} className="font-medium text-gray-600 underline">Sair</button>
             </div>
           </footer>
         )}
       </main>
 
-      {tab === 'anotar' && activePoints.length > 0 && (
+      {upgrading && data && (
+        <UpgradeModal data={data} online={online} pending={pending} onClose={() => setUpgrading(false)} />
+      )}
+
+      {tab === 'anotar' && activePoints.length > 0 && canWrite && (
         <div className="fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <div className="mx-auto max-w-xl px-4 py-3 flex items-center gap-4">
             {!single && (
@@ -258,7 +293,7 @@ export default function LitePage() {
 
 // ── Primeiro local ──────────────────────────────────────────────────────
 
-function FirstPoint({ driver, online, onCreated }: { driver: boolean; online: boolean; onCreated: () => void }) {
+function FirstPoint({ driver, onPointOp }: { driver: boolean; onPointOp: (op: PointOp) => void }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-5">
       <h1 className="text-xl font-bold text-gray-900">{driver ? 'Monte sua rota' : 'Qual o nome do seu sítio?'}</h1>
@@ -267,43 +302,30 @@ function FirstPoint({ driver, online, onCreated }: { driver: boolean; online: bo
           ? 'Cadastre os sítios e tanques comunitários onde você recolhe o leite. Comece pelo primeiro.'
           : 'É só para aparecer nas suas anotações e na planilha.'}
       </p>
-      <div className="mt-4"><PointForm online={online} chooseKind={driver} onSaved={onCreated} /></div>
+      <div className="mt-4">
+        <PointForm chooseKind={driver} onSubmit={({ name, kind }) => onPointOp({ id: newPointId(), create: true, name, kind })} />
+      </div>
     </div>
   )
 }
 
-function PointForm({ online, point, chooseKind = true, onSaved, onCancel }: {
-  online: boolean
+/** Cadastro ou edição de local. Funciona sem internet: o local entra na fila de envio. */
+function PointForm({ point, chooseKind = true, onSubmit, onCancel }: {
   point?: LitePoint
   /** Motorista escolhe entre sítio e tanque comunitário; produtor anota sempre o próprio sítio */
   chooseKind?: boolean
-  onSaved: (p: LitePoint) => void
+  onSubmit: (values: { name: string; kind: PointKind }) => void
   onCancel?: () => void
 }) {
   const [name, setName] = useState(point?.name ?? '')
   const [kind, setKind] = useState<PointKind>(point?.kind ?? 'sitio')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault()
-    setSaving(true)
-    setError('')
-    try {
-      const res = await fetch(point ? `/api/lite/locais/${point.id}` : '/api/lite/locais', {
-        method: point ? 'PATCH' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, kind }),
-      })
-      const data = await res.json()
-      if (!res.ok) return setError(data.error || 'Não foi possível salvar')
-      if (!point) setName('')
-      onSaved(data)
-    } catch {
-      setError('Sem internet. Para cadastrar locais é preciso estar conectado.')
-    } finally {
-      setSaving(false)
-    }
+    const trimmed = name.trim()
+    if (!trimmed) return
+    onSubmit({ name: trimmed, kind })
+    if (!point) setName('')
   }
 
   return (
@@ -322,12 +344,10 @@ function PointForm({ online, point, chooseKind = true, onSaved, onCancel }: {
           ))}
         </div>
       )}
-      {!online && <p className="text-sm text-amber-700">Para cadastrar locais é preciso estar com internet.</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">
         {onCancel && <button type="button" onClick={onCancel} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl">Cancelar</button>}
-        <button type="submit" disabled={saving || !online} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-3 rounded-xl">
-          {saving ? 'Salvando...' : point ? 'Salvar' : chooseKind ? 'Adicionar local' : 'Começar a anotar'}
+        <button type="submit" className="flex-1 bg-green-700 hover:bg-green-600 text-white font-semibold py-3 rounded-xl">
+          {point ? 'Salvar' : chooseKind ? 'Adicionar local' : 'Começar a anotar'}
         </button>
       </div>
     </form>
@@ -336,31 +356,18 @@ function PointForm({ online, point, chooseKind = true, onSaved, onCancel }: {
 
 // ── Locais ──────────────────────────────────────────────────────────────
 
-function Points({ data, online, onChanged, onSync }: {
+function Points({ data, online, onPointOp, onChanged }: {
   data: LiteData
   online: boolean
+  onPointOp: (op: PointOp) => void
+  /** Resposta do servidor ao ligar/desligar um sítio a uma propriedade (precisa de internet) */
   onChanged: (d: LiteData) => void
-  onSync: () => void
 }) {
   const [editing, setEditing] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
 
-  const upsert = (p: LitePoint) => {
-    const exists = data.points.some((x) => x.id === p.id)
-    onChanged({ ...data, points: exists ? data.points.map((x) => (x.id === p.id ? p : x)) : [...data.points, p] })
-    setEditing(null)
-    setAdding(false)
-    onSync()
-  }
-
-  async function toggle(p: LitePoint) {
-    const res = await fetch(`/api/lite/locais/${p.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ active: !p.active }),
-    }).catch(() => null)
-    if (res?.ok) upsert(await res.json())
-  }
+  const linked = (p: LitePoint) => onChanged({ ...data, points: data.points.map((x) => (x.id === p.id ? p : x)) })
+  const toggle = (p: LitePoint) => onPointOp({ id: p.id, active: !p.active })
 
   const active = data.points.filter((p) => p.active)
   const archived = data.points.filter((p) => !p.active)
@@ -371,16 +378,19 @@ function Points({ data, online, onChanged, onSync }: {
         {active.map((p) => (
           <li key={p.id} className="bg-white rounded-2xl border border-gray-200 p-4">
             {editing === p.id ? (
-              <PointForm online={online} point={p} onSaved={upsert} onCancel={() => setEditing(null)} />
+              <PointForm point={p} onSubmit={(v) => { onPointOp({ id: p.id, ...v }); setEditing(null) }} onCancel={() => setEditing(null)} />
             ) : (
-              <div className="flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 truncate">{p.name}</p>
-                  <p className="text-sm text-gray-500">{KIND_LABEL[p.kind]}</p>
+              <>
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">{p.name}</p>
+                    <p className="text-sm text-gray-500">{KIND_LABEL[p.kind]}</p>
+                  </div>
+                  <button type="button" onClick={() => setEditing(p.id)} className="text-sm font-semibold text-green-700">Editar</button>
+                  <button type="button" onClick={() => toggle(p)} className="text-sm font-semibold text-gray-600">Arquivar</button>
                 </div>
-                <button type="button" onClick={() => setEditing(p.id)} disabled={!online} className="text-sm font-semibold text-green-700 disabled:text-gray-300">Editar</button>
-                <button type="button" onClick={() => toggle(p)} disabled={!online} className="text-sm font-semibold text-gray-600 disabled:text-gray-300">Arquivar</button>
-              </div>
+                {p.kind === 'sitio' && <FarmLinker point={p} online={online} onChanged={linked} />}
+              </>
             )}
           </li>
         ))}
@@ -388,7 +398,9 @@ function Points({ data, online, onChanged, onSync }: {
 
       <div className="mt-4">
         {adding ? (
-          <div className="bg-white rounded-2xl border border-gray-200 p-4"><PointForm online={online} onSaved={upsert} onCancel={() => setAdding(false)} /></div>
+          <div className="bg-white rounded-2xl border border-gray-200 p-4">
+            <PointForm onSubmit={(v) => { onPointOp({ id: newPointId(), create: true, ...v }); setAdding(false) }} onCancel={() => setAdding(false)} />
+          </div>
         ) : (
           <button type="button" onClick={() => setAdding(true)} className="w-full border-2 border-dashed border-gray-300 text-gray-700 font-semibold py-4 rounded-2xl hover:bg-white">
             + Adicionar local
@@ -404,7 +416,7 @@ function Points({ data, online, onChanged, onSync }: {
             {archived.map((p) => (
               <li key={p.id} className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-3">
                 <span className="flex-1 text-gray-700">{p.name}</span>
-                <button type="button" onClick={() => toggle(p)} disabled={!online} className="text-sm font-semibold text-green-700 disabled:text-gray-300">Reativar</button>
+                <button type="button" onClick={() => toggle(p)} className="text-sm font-semibold text-green-700">Reativar</button>
               </li>
             ))}
           </ul>
@@ -440,6 +452,10 @@ function History({ data }: { data: LiteData }) {
   const dayList = [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]))
   const total = entries.reduce((s, e) => s + e.liters, 0)
   const showBreakdown = !pointId && data.points.length > 1
+  // Estimativa em R$ (só para quem anota a própria produção) e coletas do motorista (versão completa)
+  const price = isDriverRole(data.role) ? null : data.milkPrice
+  const periodCollections = (data.collections ?? []).filter((c) => c.date >= from && c.date <= today)
+  const collected = periodCollections.reduce((s, c) => s + c.liters, 0)
 
   function download() {
     const place = selected ? selected.name : 'Todos os locais'
@@ -458,6 +474,17 @@ function History({ data }: { data: LiteData }) {
           title: 'Total por local',
           columns: ['Local', 'Litros'],
           rows: [...byPoint.entries()].map(([id, l]) => [names.get(id) ?? '—', fmtNumber(l)]),
+        }] : []),
+        ...(price ? [{
+          title: 'Estimativa',
+          columns: ['Valor do litro', 'Total estimado'],
+          rows: [[fmtMoney(price), fmtMoney(total * price)]],
+        }] : []),
+        ...(periodCollections.length ? [{
+          title: 'Coletado pelo motorista',
+          columns: ['Data', 'Motorista', 'Local', 'Litros'],
+          rows: periodCollections.map((c) => [fmtDay(c.date), c.driverName, c.pointName, fmtNumber(c.liters)]),
+          footer: ['', '', 'Total', fmtNumber(collected)],
         }] : []),
       ],
     })
@@ -501,7 +528,29 @@ function History({ data }: { data: LiteData }) {
           </div>
         </div>
         <p className="mt-2 text-sm text-gray-500">{dayList.length} dia{dayList.length === 1 ? '' : 's'} com anotação</p>
+        {price ? (
+          <p className="mt-1 text-sm text-gray-600">
+            <strong className="text-gray-900">≈ {fmtMoney(total * price)}</strong> a {fmtMoney(price)} o litro
+          </p>
+        ) : null}
       </div>
+
+      {periodCollections.length > 0 && (
+        <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+          <div className="flex justify-between">
+            <h2 className="text-sm font-semibold text-blue-900">Coletado pelo motorista</h2>
+            <span className="text-sm font-bold text-blue-900">{fmtNumber(collected)} L</span>
+          </div>
+          <ul className="mt-2 space-y-1">
+            {periodCollections.map((c) => (
+              <li key={`${c.pointId}|${c.date}`} className="flex justify-between text-sm text-blue-900">
+                <span>{fmtDay(c.date)} · {c.driverName}</span>
+                <span className="font-semibold">{fmtNumber(c.liters)} L</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {showBreakdown && byPoint.size > 0 && (
         <section className="mt-4">
@@ -549,6 +598,227 @@ function History({ data }: { data: LiteData }) {
         className="mt-5 w-full border-2 border-green-700 text-green-800 font-semibold py-3 rounded-xl disabled:border-gray-300 disabled:text-gray-400">
         Baixar planilha{selected ? ` de ${selected.name}` : ''}
       </button>
+    </div>
+  )
+}
+
+// ── Valor do litro ──────────────────────────────────────────────────────
+
+function PriceLine({ data, liters, online, canWrite, onSaved }: {
+  data: LiteData
+  liters: number
+  online: boolean
+  canWrite: boolean
+  onSaved: (price: number | null) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const price = data.milkPrice
+
+  async function save() {
+    setSaving(true)
+    setError('')
+    try {
+      const res = await fetch('/api/lite/preco', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ price: value.trim() || null }),
+      })
+      const body = await res.json()
+      if (!res.ok) return setError(body.error || 'Não foi possível salvar')
+      onSaved(body.milkPrice)
+      setEditing(false)
+    } catch {
+      setError('Sem internet. Tente de novo quando houver sinal.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="mt-4 text-left">
+        <label className="text-sm font-medium text-gray-700">Valor do litro (R$)
+          <input inputMode="decimal" value={value} autoFocus placeholder="Ex.: 2,50"
+            onChange={(e) => setValue(e.target.value.replace(/[^\d.,]/g, ''))}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void save() } }}
+            className={`mt-1 ${input}`} />
+        </label>
+        <p className="mt-1 text-xs text-gray-500">Opcional. Serve só para estimar quanto você vai receber. Deixe vazio para não usar.</p>
+        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        <div className="mt-2 flex gap-2">
+          <button type="button" onClick={() => setEditing(false)} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-xl">Cancelar</button>
+          <button type="button" onClick={save} disabled={saving || !online} className="flex-1 bg-green-700 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-xl">
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <p className="mt-4 text-sm text-gray-600">
+      {price
+        ? <>Litro a {fmtMoney(price)} · <strong className="text-gray-900">≈ {fmtMoney(liters * price)}</strong> no dia</>
+        : 'Quer saber quanto vai receber?'}
+      {canWrite && (
+        <button type="button" onClick={() => { setValue(price ? String(price).replace('.', ',') : ''); setEditing(true) }}
+          className="ml-2 font-semibold text-green-700 underline">
+          {price ? 'Alterar' : 'Informar valor do litro'}
+        </button>
+      )}
+    </p>
+  )
+}
+
+// ── Passar para a versão completa ───────────────────────────────────────
+
+function UpgradeModal({ data, online, pending, onClose }: {
+  data: LiteData
+  online: boolean
+  pending: number
+  onClose: () => void
+}) {
+  const [form, setForm] = useState({ name: data.points[0]?.name ?? '', propertyType: 'Sítio', city: '', state: '' })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const blocked = !online ? 'Conecte-se à internet para passar para a versão completa.'
+    : pending ? 'Envie as anotações pendentes antes de continuar (aguarde o "Tudo enviado").' : ''
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      const res = await fetch('/api/lite/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const body = await res.json()
+      if (!res.ok) return setError(body.error || 'Não foi possível concluir')
+      try { localStorage.removeItem('lite_cache_v1') } catch {}
+      window.location.href = '/'
+    } catch {
+      setError('Sem internet. Tente de novo quando houver sinal.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-white rounded-2xl p-5 flex flex-col gap-3 max-h-[95vh] overflow-y-auto">
+        <h2 className="text-xl font-bold text-gray-900">Versão completa</h2>
+        <p className="text-gray-600">
+          Além do leite, você passa a controlar rebanho, vacinas, financeiro, estoque e relatórios.
+          Todas as suas anotações de leite vão junto, e você continua anotando por aqui.
+        </p>
+        <label className="text-sm font-medium text-gray-700">Nome da propriedade
+          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={`mt-1 ${input}`} />
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          {['Sítio', 'Fazenda'].map((t) => (
+            <button key={t} type="button" onClick={() => setForm({ ...form, propertyType: t })} aria-pressed={form.propertyType === t}
+              className={`py-3 rounded-xl border-2 text-sm font-semibold ${form.propertyType === t ? 'border-green-700 bg-green-50 text-green-800' : 'border-gray-200 text-gray-600'}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <label className="col-span-2 text-sm font-medium text-gray-700">Cidade
+            <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required className={`mt-1 ${input}`} />
+          </label>
+          <label className="text-sm font-medium text-gray-700">UF
+            <input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })} required maxLength={2} placeholder="MG" className={`mt-1 ${input}`} />
+          </label>
+        </div>
+        <p className="text-xs text-gray-500">A cidade ajuda o motorista do leite a encontrar sua propriedade e mostrar as coletas para você.</p>
+        {(blocked || error) && <p className="text-sm text-red-600">{blocked || error}</p>}
+        <div className="flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl">Agora não</button>
+          <button type="submit" disabled={saving || !!blocked} className="flex-1 bg-green-700 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl">
+            {saving ? 'Criando...' : 'Quero a versão completa'}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+// ── Motorista: ligar sítio da rota a uma propriedade Pro ────────────────
+
+function FarmLinker({ point, online, onChanged }: { point: LitePoint; online: boolean; onChanged: (p: LitePoint) => void }) {
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const [city, setCity] = useState('')
+  const [found, setFound] = useState<NonNullable<LitePoint['farm']>[]>([])
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (q.trim().length < 3) return
+    const timer = setTimeout(() => {
+      fetch(`/api/lite/propriedades?q=${encodeURIComponent(q.trim())}&cidade=${encodeURIComponent(city.trim())}`)
+        .then((r) => (r.ok ? r.json() : []))
+        .then(setFound)
+        .catch(() => setFound([]))
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [q, city])
+
+  async function link(farmId: string | null) {
+    setError('')
+    const res = await fetch(`/api/lite/locais/${point.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ farmId }),
+    }).catch(() => null)
+    if (!res?.ok) return setError(online ? 'Não foi possível salvar' : 'Sem internet')
+    onChanged(await res.json())
+    setOpen(false)
+  }
+
+  if (point.farm) {
+    return (
+      <p className="mt-2 text-sm text-gray-600">
+        Ligado a <strong className="text-gray-900">{point.farm.name}</strong>
+        {(point.farm.city || point.farm.state) && ` (${[point.farm.city, point.farm.state].filter(Boolean).join('/')})`}
+        <button type="button" onClick={() => link(null)} disabled={!online} className="ml-2 font-semibold text-gray-600 underline disabled:text-gray-300">Desligar</button>
+      </p>
+    )
+  }
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} disabled={!online} className="mt-2 text-sm font-semibold text-green-700 underline disabled:text-gray-300">
+        Ligar à propriedade do produtor
+      </button>
+    )
+  }
+  return (
+    <div className="mt-3 rounded-xl bg-gray-50 p-3">
+      <p className="text-sm text-gray-600">Procure a propriedade pelo nome. O produtor passa a ver o que você coletar aqui.</p>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nome da propriedade" aria-label="Nome da propriedade" className={`col-span-2 ${input}`} />
+        <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Cidade" aria-label="Cidade" className={input} />
+      </div>
+      {q.trim().length >= 3 && (
+        <ul className="mt-2 divide-y divide-gray-200 rounded-xl border border-gray-200 bg-white">
+          {found.length === 0 ? (
+            <li className="px-3 py-2.5 text-sm text-gray-500">Nenhuma propriedade encontrada.</li>
+          ) : found.map((f) => (
+            <li key={f.id}>
+              <button type="button" onClick={() => link(f.id)} className="w-full px-3 py-2.5 text-left hover:bg-green-50">
+                <span className="block font-medium text-gray-900">{f.name}</span>
+                <span className="block text-sm text-gray-500">{[f.city, f.state].filter(Boolean).join('/') || 'Sem cidade informada'}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+      <button type="button" onClick={() => setOpen(false)} className="mt-2 text-sm font-medium text-gray-600 underline">Cancelar</button>
     </div>
   )
 }
