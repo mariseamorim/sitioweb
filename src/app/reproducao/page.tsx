@@ -1,4 +1,5 @@
 'use client'
+import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
 
@@ -40,6 +41,7 @@ export default function ReproducaoPage() {
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const [reproductions, setReproductions] = useState<Reproduction[]>([])
   const [females, setFemales] = useState<Animal[]>([])
+  const [animalSearch, setAnimalSearch] = useState('')
   const [herd, setHerd] = useState<Animal[]>([])
   const [registeringBirth, setRegisteringBirth] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -121,9 +123,9 @@ export default function ReproducaoPage() {
   }
 
   const filtered = useMemo(() => {
-    if (filterStatus === 'Todas') return reproductions
-    return reproductions.filter(r => r.status === filterStatus)
-  }, [reproductions, filterStatus])
+    const term = animalSearch.trim().toLowerCase()
+    return reproductions.filter(r => (filterStatus === 'Todas' || r.status === filterStatus) && [r.femaleId, r.female.code, r.female.name].some(text => text.toLowerCase().includes(term)))
+  }, [reproductions, filterStatus, animalSearch])
 
   const upcomingBirths = useMemo(() => {
     const in30 = new Date(); in30.setDate(in30.getDate() + 30)
@@ -259,6 +261,9 @@ export default function ReproducaoPage() {
         ))}
       </div>
 
+      <label className="mb-4 block text-xs font-medium text-gray-600">Buscar animal por ID, código ou nome
+        <input type="search" value={animalSearch} onChange={e => setAnimalSearch(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+      </label>
       {loading ? <p className="text-gray-400 text-sm">Carregando...</p> : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg">Nenhum registro encontrado</p>
@@ -363,14 +368,7 @@ export default function ReproducaoPage() {
                 <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
               <form onSubmit={handleSave} className="flex flex-col gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-600">Fêmea *</label>
-                  <select value={form.femaleId} onChange={e => setForm({ ...form, femaleId: e.target.value })} required
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
-                    <option value="">— Selecione —</option>
-                    {females.map(a => <option key={a.id} value={a.id}>{a.name} ({a.code}) — {a.species}</option>)}
-                  </select>
-                </div>
+                <AnimalPicker animals={females} value={form.femaleId} onChange={id => setForm({ ...form, femaleId: id })} label="Fêmea" />
                 <div>
                   <label className="text-xs font-medium text-gray-600">Reprodutor</label>
                   <input type="text" value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} placeholder="Nome ou código do touro"

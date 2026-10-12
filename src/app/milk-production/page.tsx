@@ -5,11 +5,14 @@ import { getPendingRecords, removePendingRecord } from '@/lib/offlineStorage'
 import { MilkDailyEntry } from '@/components/MilkDailyEntry'
 import { MilkTotalEntry } from '@/components/MilkTotalEntry'
 import { MilkCollections } from '@/components/MilkCollections'
+import { MilkProductionEditor } from '@/components/MilkProductionEditor'
+import { MilkPriceSettings } from '@/components/MilkPriceSettings'
+import { pendingCount as litePendingCount, readCache as readLiteCache, syncLite } from '@/lib/liteStore'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useDialog } from '@/components/DialogProvider'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
-import { fmtNumber } from '@/lib/reports'
+import { fmtNumber, fmtMoney } from '@/lib/reports'
 
 interface Animal {
   id: string
@@ -22,6 +25,7 @@ interface Production {
   animalId: string | null
   date: string
   quantity: number
+  pricePerLiter?: number | null
   cowsMilked?: number | null
   observations?: string | null
   animal: Animal | null
@@ -57,10 +61,14 @@ export default function MilkProductionPage() {
   const [isOnline, setIsOnline] = useState(true)
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
+  const [editingProduction, setEditingProduction] = useState<Production | null>(null)
+  const [price, setPrice] = useState<number | null>(null)
 
   useEffect(() => {
-    setIsOnline(navigator.onLine)
-    setPendingCount(getPendingRecords('milk_productions').length)
+    void Promise.resolve().then(() => {
+      setIsOnline(navigator.onLine)
+      setPendingCount(getPendingRecords('milk_productions').length)
+    })
     const handleOnline = () => setIsOnline(true)
     const handleOffline = () => setIsOnline(false)
     window.addEventListener('online', handleOnline)
@@ -71,22 +79,16 @@ export default function MilkProductionPage() {
     }
   }, [])
 
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data.farmId) return
-        setFarmId(data.farmId)
-        loadData(data.farmId)
-      })
-  }, [])
-
-  function loadData(fid: string) {
+  const loadData = useCallback(async (fid: string) => {
     setLoading(true)
+    const liteCache = readLiteCache()
+    if (navigator.onLine && liteCache?.mode === 'fazenda' && liteCache.farmId === fid && litePendingCount() > 0) await syncLite()
     Promise.all([
-      fetch(`/api/milk-production?farmId=${fid}`).then((r) => r.json()),
+      fetch(`/api/milk-production?farmId=${fid}`, { cache: 'no-store' }).then((r) => r.json()),
       fetch(`/api/animals?farmId=${fid}`).then((r) => r.json()),
-    ]).then(([prods, animals]) => {
+      fetch('/api/milk-production/price', { cache: 'no-store' }).then(r => r.ok ? r.json() : null),
+    ]).then(([prods, animals, priceData]) => {
+      if (priceData) setPrice(priceData.price)
       setProductions(Array.isArray(prods) ? prods : [])
       setAllAnimals(
         Array.isArray(animals)
@@ -99,8 +101,28 @@ export default function MilkProductionPage() {
           : []
       )
       setLoading(false)
-    })
-  }
+    }).catch(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.farmId) return
+        setFarmId(data.farmId)
+        loadData(data.farmId)
+      })
+  }, [loadData])
+
+  useEffect(() => {
+    const refresh = () => { if (farmId && navigator.onLine) loadData(farmId) }
+    window.addEventListener('focus', refresh)
+    window.addEventListener('online', refresh)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('online', refresh)
+    }
+  }, [farmId, loadData])
 
   function openRegister() {
     setRegisterMode(readMode())
@@ -122,6 +144,9 @@ export default function MilkProductionPage() {
   }, [productions, from, to])
 
   const grandTotal = filtered.reduce((s, p) => s + p.quantity, 0)
+  const estimatedValue = filtered.reduce((sum, p) => sum + p.quantity * (p.pricePerLiter ?? 0), 0)
+  const hasPricedRecords = filtered.some(p => p.pricePerLiter != null)
+  const unpricedRecords = filtered.filter(p => p.pricePerLiter == null).length
 
   // Por dia: soma os totais do dia e os lançamentos por vaca
   const byDay = useMemo(() => {
@@ -194,6 +219,7 @@ export default function MilkProductionPage() {
           body: JSON.stringify({
             animalId: record.animalId, date: record.date, quantity: record.quantity,
             cowsMilked: record.cowsMilked, observations: record.observations,
+            pricePerLiter: record.pricePerLiter,
           }),
         })
         if (res.ok) removePendingRecord('milk_productions', pendingId)
@@ -230,6 +256,9 @@ export default function MilkProductionPage() {
       </svg>
     </button>
   )
+  const editButton = (production: Production) => canEdit && (
+    <button type="button" disabled={!isOnline} onClick={() => { setDetailDay(null); setDetailAnimalId(null); setEditingProduction(production) }} className="px-2 py-1 text-xs font-semibold text-green-700 hover:underline disabled:text-gray-400" aria-label={`Editar lançamento de ${fmtDay(production.date)}`} title={isOnline ? 'Editar lançamento' : 'Conecte-se para editar'}>Editar</button>
+  )
 
   return (
     <PermissionGuard module="leite">
@@ -238,7 +267,7 @@ export default function MilkProductionPage() {
       <div className="page-toolbar flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Produção de Leite</h1>
-          <p className="text-gray-500 text-sm mt-1">Leite produzido no período selecionado</p>
+          <p className="text-gray-500 text-sm mt-1">Abra um dia ou uma vaca para consultar e editar os lançamentos.</p>
         </div>
         <button
           onClick={openRegister}
@@ -273,6 +302,7 @@ export default function MilkProductionPage() {
         </div>
       )}
 
+      <MilkPriceSettings price={price} canEdit={canEdit} online={isOnline} onSaved={setPrice} />
       {/* Period filter + total */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-end">
@@ -304,6 +334,11 @@ export default function MilkProductionPage() {
               <p className="text-2xl font-bold text-green-700">{fmtNumber(grandTotal)} L</p>
             </div>
           </div>
+        </div>
+        <div className="mt-4 rounded-lg bg-green-50 p-3 text-green-900">
+          <p className="text-xs font-medium">Valor estimado no período</p>
+          <p className="text-2xl font-bold">{price !== null ? fmtMoney(grandTotal * price) : 'Informe o preço por litro'}</p>
+          {price !== null && <p className="mt-1 text-sm">{fmtNumber(grandTotal)} L × {fmtMoney(price)}/L</p>}
         </div>
       </div>
 
@@ -394,6 +429,7 @@ export default function MilkProductionPage() {
       )}
 
       <MilkCollections from={from} to={to} canEdit={canEdit} />
+      {hasPricedRecords && <p className="mb-5 rounded-lg bg-green-50 p-3 text-sm text-green-800">Valor pelos preços registrados: <strong>{fmtMoney(estimatedValue)}</strong>{unpricedRecords > 0 && ` · ${unpricedRecords} lançamento(s) sem preço não incluído(s).`}</p>}
 
       {/* Detalhe do dia */}
       {detailDay && (
@@ -418,6 +454,8 @@ export default function MilkProductionPage() {
                       )}
                     </div>
                     <span className="font-semibold text-gray-800">{fmtNumber(p.quantity)} L</span>
+                    {p.pricePerLiter != null && <span className="text-xs text-gray-500">{fmtMoney(p.pricePerLiter)}/L</span>}
+                    {editButton(p)}
                     {deleteButton(p.id)}
                   </li>
                 ))}
@@ -463,7 +501,7 @@ export default function MilkProductionPage() {
                         <td className="px-4 py-2 text-gray-700">{fmtDay(p.date)}</td>
                         <td className="px-4 py-2 text-right font-medium text-gray-800">{fmtNumber(p.quantity)}</td>
                         <td className="hidden sm:table-cell px-4 py-2 text-gray-500 text-xs">{p.observations || '—'}</td>
-                        <td className="px-4 py-2 text-right">{deleteButton(p.id)}</td>
+                        <td className="px-4 py-2 text-right">{editButton(p)}{deleteButton(p.id)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -501,6 +539,7 @@ export default function MilkProductionPage() {
 
               {registerMode === 'total' ? (
                 <MilkTotalEntry
+                  defaultPrice={price}
                   totalsByDay={totalsByDay}
                   isOnline={isOnline}
                   onCancel={() => setShowRegister(false)}
@@ -509,6 +548,7 @@ export default function MilkProductionPage() {
                 />
               ) : (
                 <MilkDailyEntry
+                  defaultPrice={price}
                   cows={allAnimals}
                   productions={productions}
                   isOnline={isOnline}
@@ -520,6 +560,7 @@ export default function MilkProductionPage() {
           </div>
         </div>
       )}
+      {editingProduction && <MilkProductionEditor key={editingProduction.id} production={editingProduction} onCancel={() => setEditingProduction(null)} onSaved={() => { setEditingProduction(null); loadData(farmId) }} />}
       </div>
     </PermissionGuard>
   )

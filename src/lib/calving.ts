@@ -1,4 +1,5 @@
 // Contas de crias e partos, usadas na ficha da vaca, no painel da Reprodução e nos relatórios
+import { animalToday, canAddCalf } from '@/lib/animalRules'
 
 /** Crias nascidas com até estes dias de diferença são do mesmo parto (gêmeos) */
 export const SAME_CALVING_DAYS = 30
@@ -79,13 +80,13 @@ export interface HerdCalving {
   late: LateCow[]
 }
 
-const isActiveCow = (a: CowLike) => a.species === 'Vaca' && a.gender === 'Fêmea' && a.status !== 'Morto' && a.status !== 'Vendido'
+const isActiveCow = (a: CowLike, today: string) => canAddCalf(a, today) && a.status !== 'Morto' && a.status !== 'Vendido'
 
 /**
  * Situação do rebanho. `pregnant`: vacas com cobertura/prenhez em aberto, que não contam como atrasadas.
  */
 export function herdCalving(herd: CowLike[], pregnant: Set<string>, now = new Date()): HerdCalving {
-  const cows = herd.filter(isActiveCow).map((c) => cowCalving(c, herd, now))
+  const cows = herd.filter(a => isActiveCow(a, animalToday(now))).map((c) => cowCalving(c, herd, now))
   const late: LateCow[] = []
   for (const s of cows) {
     if (pregnant.has(s.cow.id)) continue

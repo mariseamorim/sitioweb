@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
+import { milkDay, milkNumber, milkPrice } from '@/lib/milkValidation'
 
 export async function GET(request: NextRequest) {
   const auth = await requireFarmAccess('leite', 'view')
@@ -28,12 +29,17 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { animalId, date, observations } = body
-    const quantity = parseFloat(String(body.quantity ?? '').replace(',', '.'))
-    const cowsMilked = parseInt(String(body.cowsMilked ?? ''), 10)
+    const quantity = milkNumber(body.quantity)
+    const cowsMilked = body.cowsMilked === undefined || body.cowsMilked === null || body.cowsMilked === '' ? null : milkNumber(body.cowsMilked)
+    const day = milkDay(date)
 
-    if (!date || !(quantity > 0)) {
+    if (!day || !Number.isFinite(quantity) || !(quantity > 0)) {
       return NextResponse.json({ error: 'Data e quantidade são obrigatórias' }, { status: 400 })
     }
+    if (cowsMilked !== null && (!Number.isInteger(cowsMilked) || cowsMilked <= 0)) return NextResponse.json({ error: 'Informe um número inteiro de vacas ordenhadas' }, { status: 400 })
+    const farm = body.pricePerLiter === undefined ? await prisma.farm.findUnique({ where: { id: auth.farmId }, select: { milkPrice: true } }) : null
+    const pricePerLiter = milkPrice(body.pricePerLiter === undefined ? farm?.milkPrice ?? null : body.pricePerLiter)
+    if (pricePerLiter === undefined) return NextResponse.json({ error: 'Preço por litro inválido' }, { status: 400 })
     if (animalId) {
       const animal = await prisma.animal.findFirst({ where: { id: animalId, farmId: auth.farmId }, select: { id: true } })
       if (!animal) return notFound('Animal não encontrado')
@@ -43,9 +49,10 @@ export async function POST(request: NextRequest) {
       data: {
         farmId: auth.farmId,
         animalId: animalId || null,
-        date: new Date(date),
+        date: day,
         quantity,
-        cowsMilked: !animalId && cowsMilked > 0 ? cowsMilked : null,
+        pricePerLiter,
+        cowsMilked: !animalId ? cowsMilked : null,
         observations: observations || null,
       },
       include: { animal: true },

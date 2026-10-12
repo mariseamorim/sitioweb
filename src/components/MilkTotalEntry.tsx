@@ -1,12 +1,15 @@
 'use client'
+import { MilkDecimalInput } from '@/components/MilkDecimalInput'
 
 import { useEffect, useRef, useState } from 'react'
 import { addPendingRecord } from '@/lib/offlineStorage'
 import { todayISO } from '@/lib/utils'
 import { fmtNumber } from '@/lib/reports'
 import { OfflineVoiceSetup, VoiceButton } from '@/components/VoiceButton'
+import { milkNumber, milkPrice } from '@/lib/milkValidation'
 
 interface Props {
+  defaultPrice?: number | null
   /** Total já lançado por data (yyyy-mm-dd), para avisar lançamento em dobro */
   totalsByDay: Map<string, number>
   isOnline: boolean
@@ -18,14 +21,15 @@ interface Props {
 
 // Cada lançamento soma ao dia, então o salvar sozinho espera a pessoa parar e salva uma vez só
 const AUTO_SAVE_SECONDS = 5
-const toQuantity = (text: string) => parseFloat(text.replace(',', '.'))
+const toQuantity = milkNumber
 
 // Lançamento do leite do dia todo, sem separar por vaca (comum em sítio pequeno)
-export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCancel }: Props) {
+export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCancel, defaultPrice = null }: Props) {
   const [date, setDate] = useState(todayISO())
   const [liters, setLiters] = useState('')
   const [cows, setCows] = useState('')
   const [observations, setObservations] = useState('')
+  const [price, setPrice] = useState(defaultPrice === null ? '' : defaultPrice.toFixed(2).replace('.', ','))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [countdown, setCountdown] = useState<number | null>(null)
@@ -61,7 +65,9 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCance
     autoRef.current = false
     if (!(quantity > 0) || saving) return
     setError('')
-    const record = { date, quantity, cowsMilked: cows ? parseInt(cows, 10) : undefined, observations }
+    const pricePerLiter = milkPrice(price)
+    if (pricePerLiter === undefined) { setError('Informe um preço por litro válido, por exemplo 2,50'); return }
+    const record = { date, quantity, cowsMilked: cows ? parseInt(cows, 10) : undefined, observations, pricePerLiter }
 
     // Sozinho: limpa os campos para a próxima ordenha e continua aberto
     const finish = (result: { pending: number }) => {
@@ -120,7 +126,7 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCance
       <div>
         <label className="text-sm font-medium text-gray-700 block mb-1">Litros de leite</label>
         <div className="flex items-center gap-2">
-          <input
+          <MilkDecimalInput
             type="text"
             inputMode="decimal"
             placeholder="0"
@@ -176,6 +182,9 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCance
         />
       </div>
 
+      <label className="text-sm font-medium text-gray-700">Preço por litro (R$) <span className="font-normal text-gray-400">(opcional)</span>
+        <MilkDecimalInput decimals={2} inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} onFocus={() => setCountdown(null)} onBlur={() => restartAutoSave()} placeholder="Ex.: 2,50" className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-3 text-base" />
+      </label>
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex gap-2">

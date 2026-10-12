@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { canAddCalf } from '@/lib/animalRules'
 
 // Crias: cada vaca guarda as suas crias (Animal.motherId), e a cria é um animal do rebanho
 
@@ -6,9 +7,9 @@ import { prisma } from '@/lib/prisma'
 export async function findValidMother(motherId: string, farmId: string, childId?: string) {
   const mother = await prisma.animal.findFirst({
     where: { id: motherId, farmId, gender: 'Fêmea' },
-    select: { id: true, motherId: true },
+    select: { id: true, motherId: true, species: true, gender: true, birthDate: true },
   })
-  if (!mother || mother.id === childId || (childId && mother.motherId === childId)) return null
+  if (!mother || !canAddCalf(mother) || mother.id === childId || (childId && mother.motherId === childId)) return null
   return mother
 }
 

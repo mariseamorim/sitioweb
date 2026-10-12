@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireFarmAccess } from '@/lib/auth'
+import { milkDay, milkNumber, milkPrice } from '@/lib/milkValidation'
 
 interface BatchItem {
   animalId: string
@@ -13,15 +14,20 @@ export async function POST(request: NextRequest) {
   const auth = await requireFarmAccess('leite', 'edit')
   if (auth.error) return auth.error
 
-  const { date, items } = (await request.json()) as { date?: string; items?: BatchItem[] }
+  const { date, items, pricePerLiter: rawPrice } = (await request.json()) as { date?: string; items?: BatchItem[]; pricePerLiter?: unknown }
+  const day = milkDay(date)
 
-  if (!date || !Array.isArray(items)) {
+  if (!day || !Array.isArray(items)) {
     return NextResponse.json({ error: 'Data e lista de vacas são obrigatórias' }, { status: 400 })
   }
+  if (items.some(i => !i || typeof i.animalId !== 'string' || !i.animalId || !Number.isFinite(milkNumber(i.quantity)) || milkNumber(i.quantity) <= 0)) return NextResponse.json({ error: 'Informe vacas e quantidades válidas' }, { status: 400 })
+  const farm = rawPrice === undefined ? await prisma.farm.findUnique({ where: { id: auth.farmId }, select: { milkPrice: true } }) : null
+  const pricePerLiter = milkPrice(rawPrice === undefined ? farm?.milkPrice ?? null : rawPrice)
+  if (pricePerLiter === undefined) return NextResponse.json({ error: 'Preço por litro inválido' }, { status: 400 })
 
   const entries = items
-    .map((i) => ({ animalId: i.animalId, quantity: parseFloat(String(i.quantity).replace(',', '.')), observations: i.observations || null }))
-    .filter((i) => i.animalId && i.quantity > 0)
+    .map((i) => ({ animalId: i.animalId, quantity: milkNumber(i.quantity), observations: i.observations || null }))
+    .filter((i) => i.animalId && Number.isFinite(i.quantity) && i.quantity > 0)
 
   if (entries.length === 0) {
     return NextResponse.json({ error: 'Informe a quantidade de pelo menos uma vaca' }, { status: 400 })
@@ -34,9 +40,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const day = new Date(date)
     const result = await prisma.milkProduction.createMany({
-      data: entries.map((e) => ({ ...e, farmId: auth.farmId, date: day })),
+      data: entries.map((e) => ({ ...e, farmId: auth.farmId, date: day, pricePerLiter })),
     })
     return NextResponse.json({ created: result.count }, { status: 201 })
   } catch {

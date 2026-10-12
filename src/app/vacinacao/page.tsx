@@ -1,4 +1,5 @@
 'use client'
+import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
 
@@ -42,6 +43,7 @@ export default function VacinacaoPage() {
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
   const [animals, setAnimals] = useState<Animal[]>([])
+  const [animalSearch, setAnimalSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
   const [filter, setFilter] = useState<VaccStatus>('Todas')
@@ -117,9 +119,9 @@ export default function VacinacaoPage() {
   }
 
   const filtered = useMemo(() => {
-    if (filter === 'Todas') return vaccinations
-    return vaccinations.filter(v => getStatus(v) === filter)
-  }, [vaccinations, filter])
+    const term = animalSearch.trim().toLowerCase()
+    return vaccinations.filter(v => (filter === 'Todas' || getStatus(v) === filter) && [v.animalId, v.animal.code, v.animal.name].some(text => text.toLowerCase().includes(term)))
+  }, [vaccinations, filter, animalSearch])
 
   const alertCount = useMemo(() => {
     const in7 = new Date(); in7.setDate(in7.getDate() + 7)
@@ -247,6 +249,9 @@ export default function VacinacaoPage() {
         ))}
       </div>
 
+      <label className="mb-4 block text-xs font-medium text-gray-600">Buscar animal por ID, código ou nome
+        <input type="search" value={animalSearch} onChange={e => setAnimalSearch(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+      </label>
       {loading ? <p className="text-gray-400 text-sm">Carregando...</p> : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg">Nenhuma vacinação encontrada</p>
@@ -330,14 +335,7 @@ export default function VacinacaoPage() {
                 <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
               <form onSubmit={handleSave} className="flex flex-col gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-600">Animal *</label>
-                  <select value={form.animalId} onChange={e => setForm({ ...form, animalId: e.target.value })} required
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
-                    <option value="">— Selecione —</option>
-                    {animals.map(a => <option key={a.id} value={a.id}>{a.name} ({a.code})</option>)}
-                  </select>
-                </div>
+                <AnimalPicker animals={animals} value={form.animalId} onChange={id => setForm({ ...form, animalId: id })} label="Animal" />
                 <div>
                   <label className="text-xs font-medium text-gray-600">Vacina *</label>
                   <input type="text" value={form.vaccineName} onChange={e => setForm({ ...form, vaccineName: e.target.value })} required placeholder="Ex: Febre Aftosa"

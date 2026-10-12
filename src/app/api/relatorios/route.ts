@@ -4,6 +4,7 @@ import { requireFarmAccess } from '@/lib/auth'
 import { formatarIdade } from '@/lib/utils'
 import { REPORT_TYPES, Report, fmtDate, fmtMoney, fmtNumber } from '@/lib/reports'
 import { cowCalving, herdCalving, LATE_MONTHS } from '@/lib/calving'
+import { animalCategory } from '@/lib/animalRules'
 
 interface Period {
   gte: Date
@@ -145,7 +146,7 @@ async function animalReport(farmId: string, animalId: string | null): Promise<Re
   const data: [string, string][] = [
     ['Código', a.code],
     ['Nome', a.name],
-    ['Espécie', a.species],
+    ['Espécie', animalCategory(a)],
     ['Sexo', a.gender],
     ['Nascimento', fmtDate(a.birthDate)],
     ['Idade', formatarIdade(a.birthDate.toISOString())],
@@ -281,7 +282,8 @@ async function financeReport(farmId: string, period: Period): Promise<Report> {
 // ── Inventário do rebanho ──────────────────────────────────────────────
 
 async function herdReport(farmId: string): Promise<Report> {
-  const animals = await prisma.animal.findMany({ where: { farmId }, orderBy: [{ species: 'asc' }, { name: 'asc' }] })
+  const records = await prisma.animal.findMany({ where: { farmId }, orderBy: [{ species: 'asc' }, { name: 'asc' }] })
+  const animals = records.map(animal => ({ ...animal, species: animalCategory(animal) }))
 
   const statuses = [...new Set(animals.map((a) => a.status))].sort()
   const bySpecies = new Map<string, Map<string, number>>()

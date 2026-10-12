@@ -58,7 +58,7 @@ export function enqueue(changes: LiteChange[]) {
   if (cache) writeCache(applyChanges(cache, changes))
 }
 
-export type SyncResult = 'ok' | 'offline' | 'auth' | 'error'
+export type SyncResult = 'ok' | 'offline' | 'auth' | 'error' | 'conflict'
 
 /** Envia a fila. Só remove o que o servidor confirmou e que não mudou durante o envio. */
 export async function flushQueue(): Promise<SyncResult> {
@@ -75,6 +75,7 @@ export async function flushQueue(): Promise<SyncResult> {
     return 'offline'
   }
   if (res.status === 401) return 'auth'
+  if (res.status === 409) return 'conflict'
   if (!res.ok) return 'error'
 
   const queue = read<Queue>(QUEUE_KEY, {})

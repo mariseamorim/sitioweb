@@ -1,4 +1,5 @@
 'use client'
+import { MilkDecimalInput } from '@/components/MilkDecimalInput'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
@@ -47,6 +48,8 @@ export default function LitePage() {
     setNeedsLogin(result === 'auth' && navigator.onLine)
     setPending(pendingCount())
     setSyncing(false)
+    if (result === 'conflict') setMessage('O total é menor que os litros registrados na Produção de leite. Corrija o total aqui ou ajuste os lançamentos na Produção de leite.')
+    return result
   }, [])
 
   useEffect(() => {
@@ -66,9 +69,12 @@ export default function LitePage() {
     const goOffline = () => setOnline(false)
     window.addEventListener('online', goOnline)
     window.addEventListener('offline', goOffline)
+    const refresh = () => { if (navigator.onLine) void sync() }
+    window.addEventListener('focus', refresh)
     return () => {
       window.removeEventListener('online', goOnline)
       window.removeEventListener('offline', goOffline)
+      window.removeEventListener('focus', refresh)
     }
   }, [sync])
 
@@ -113,7 +119,7 @@ export default function LitePage() {
     if (!auto) setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => !k.startsWith(`${date}|`))))
     setPending(pendingCount())
     // O aparelho pode dizer que está online sem o sinal chegar: a mensagem segue o resultado do envio
-    if (navigator.onLine) await sync()
+    if (navigator.onLine && await sync() === 'conflict') return
     setMessage(pendingCount() ? 'Salvo no celular. Será enviado quando houver internet.' : 'Salvo e enviado.')
     setTimeout(() => setMessage(''), 4000)
   }
@@ -174,20 +180,25 @@ export default function LitePage() {
       <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
         <div className="mx-auto max-w-xl px-4 h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <Link href="/lite/perfil" className="text-xs font-semibold text-green-700 hover:underline">Meu cadastro</Link>
-            {/* Quem tem o app completo volta para o painel; produtor lite e motorista usam só o lite */}
-            {data && !isLiteOnlyRole(data.role) && (
-              <Link href="/" aria-label="Voltar ao painel"
-                className="inline-flex h-10 shrink-0 items-center gap-1 rounded-xl border border-gray-300 px-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                <SetaDireitaIcon className="h-4 w-4 rotate-180" />
-                Painel
-              </Link>
-            )}
             <Image src="/anota-ai-agro-logo.png" width={132} height={38} alt="Anota Aí Leite" className="h-auto w-24 shrink-0" />
           </div>
           <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${status.style}`} role="status">
             {status.icon}{status.text}
           </span>
+        </div>
+        <div className="mx-auto mb-3 flex max-w-xl gap-2 px-4">
+          <Link href="/lite/perfil" className="group flex min-h-12 min-w-0 flex-1 items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-green-900 transition-colors hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-green-700" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><circle cx="12" cy="8" r="3.5" /><path d="M5 21v-2a7 7 0 0 1 14 0v2" /></svg>
+            </span>
+            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">Meu cadastro</span><span className="block text-xs text-green-700">Ver e editar meus dados</span></span>
+            <SetaDireitaIcon className="h-4 w-4 shrink-0" />
+          </Link>
+          {data && !isLiteOnlyRole(data.role) && (
+            <Link href="/" aria-label="Voltar ao painel" className="inline-flex min-h-12 shrink-0 items-center gap-1 rounded-xl border border-gray-300 px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600">
+              <SetaDireitaIcon className="h-4 w-4 rotate-180" />Painel
+            </Link>
+          )}
         </div>
         <nav className={`mx-auto max-w-xl px-4 pb-2 grid gap-1 ${tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`} aria-label="Seções">
           {tabs.map(([t, label]) => (
@@ -239,7 +250,7 @@ export default function LitePage() {
                   <span className="block text-sm font-medium text-gray-500">{single.name}</span>
                   <span className="mt-1 block text-lg font-semibold text-gray-900">Leite do dia</span>
                   <span className="mt-4 flex items-center justify-center gap-2">
-                    <input type="text" inputMode="decimal" placeholder="0" value={valueOf(single.id)} autoFocus readOnly={!canWrite}
+                    <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={valueOf(single.id)} autoFocus readOnly={!canWrite}
                       onChange={(e) => setDrafts({ ...drafts, [`${date}|${single.id}`]: e.target.value.replace(/[^\d.,]/g, '') })}
                       aria-label={`Litros de ${single.name}`}
                       className="w-44 border border-gray-300 rounded-2xl px-4 py-4 !text-5xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-green-600" />
@@ -259,7 +270,7 @@ export default function LitePage() {
                         {p.kind === 'tanque' && <span className="text-xs font-medium text-gray-500">{KIND_LABEL.tanque}</span>}
                       </span>
                       <span className="flex items-center gap-2 shrink-0">
-                        <input type="text" inputMode="decimal" placeholder="0" value={valueOf(p.id)}
+                        <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={valueOf(p.id)}
                           onChange={(e) => setDrafts({ ...drafts, [`${date}|${p.id}`]: e.target.value.replace(/[^\d.,]/g, '') })}
                           aria-label={`Litros de ${p.name}`}
                           className="w-28 border border-gray-300 rounded-xl px-3 py-3 !text-2xl font-semibold text-right focus:outline-none focus:ring-2 focus:ring-green-600" />
@@ -734,7 +745,7 @@ function PriceLine({ data, liters, period = 'no dia', online, canWrite, onSaved 
     return (
       <div className="mt-4 text-left">
         <label className="text-sm font-medium text-gray-700">Valor do litro (R$)
-          <input inputMode="decimal" value={value} autoFocus placeholder="Ex.: 2,50"
+          <MilkDecimalInput decimals={2} inputMode="decimal" value={value} autoFocus placeholder="Ex.: 2,50"
             onChange={(e) => setValue(e.target.value.replace(/[^\d.,]/g, ''))}
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void save() } }}
             className={`mt-1 ${input}`} />
@@ -757,7 +768,7 @@ function PriceLine({ data, liters, period = 'no dia', online, canWrite, onSaved 
         ? <>Litro a {fmtMoney(price)} · aproximadamente <strong className="text-gray-900">{fmtMoney(liters * price)}</strong> {period}</>
         : 'Quer saber quanto vai receber?'}
       {canWrite && (
-        <button type="button" onClick={() => { setValue(price ? String(price).replace('.', ',') : ''); setEditing(true) }}
+        <button type="button" onClick={() => { setValue(price ? price.toFixed(2).replace('.', ',') : ''); setEditing(true) }}
           className="ml-2 font-semibold text-green-700 underline">
           {price ? 'Alterar' : 'Informar valor do litro'}
         </button>
