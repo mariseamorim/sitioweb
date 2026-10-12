@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { visibleOffersWhere } from '@/lib/vendors'
+import { BOVINE_CATEGORIES, canAddCalf } from '@/lib/animalRules'
 
 // Tarefas do dia mostradas no sino de notificações da barra do topo
 
@@ -26,7 +27,7 @@ export async function getTodayTasks(
 
   const [cows, milkToday, vaccines, births, supplies, treatments] = await Promise.all([
     can('leite')
-      ? prisma.animal.count({ where: { farmId, species: 'Vaca', gender: 'Fêmea', status: { notIn: ['Morto', 'Vendido'] } } })
+      ? prisma.animal.findMany({ where: { farmId, species: { in: BOVINE_CATEGORIES }, gender: 'Fêmea', status: { notIn: ['Morto', 'Vendido'] } }, select: { species: true, gender: true, birthDate: true } }).then(animals => animals.filter(a => canAddCalf(a, todayStr)).length)
       : 0,
     can('leite') ? prisma.milkProduction.count({ where: { date: today, farmId } }) : 0,
     can('vacinacao')

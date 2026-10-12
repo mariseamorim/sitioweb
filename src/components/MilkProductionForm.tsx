@@ -1,4 +1,5 @@
 'use client'
+import { MilkDecimalInput } from '@/components/MilkDecimalInput'
 
 import { useState } from 'react'
 
@@ -23,6 +24,7 @@ export function MilkProductionForm({ animalId, onSuccess }: MilkProductionFormPr
       date: formData.get('date'),
       quantity: formData.get('quantity'),
       observations: formData.get('observations'),
+      pricePerLiter: formData.get('pricePerLiter'),
     }
 
     try {
@@ -64,15 +66,17 @@ export function MilkProductionForm({ animalId, onSuccess }: MilkProductionFormPr
 
         <div>
           <label className="text-xs font-medium text-gray-600">Quantidade (litros) *</label>
-          <input
-            type="number"
+          <MilkDecimalInput
+            inputMode="decimal"
             name="quantity"
-            step="0.1"
             required
             className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
           />
         </div>
 
+        <label className="text-xs font-medium text-gray-600">Preço por litro (R$)
+          <MilkDecimalInput decimals={2} name="pricePerLiter" inputMode="decimal" placeholder="Opcional" className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+        </label>
         <div className="md:col-span-2">
           <label className="text-xs font-medium text-gray-600">Observações</label>
           <textarea

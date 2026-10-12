@@ -1,4 +1,5 @@
 'use client'
+import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
 
@@ -34,6 +35,7 @@ export default function VeterinaryTreatmentPage() {
   const now = new Date()
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [allAnimals, setAllAnimals] = useState<Animal[]>([])
+  const [animalSearch, setAnimalSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
   const [from, setFrom] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10))
@@ -120,9 +122,10 @@ export default function VeterinaryTreatmentPage() {
       const d = new Date(t.startDate)
       if (from && d < new Date(from)) return false
       if (to && d > new Date(to + 'T23:59:59')) return false
-      return true
+      const term = animalSearch.trim().toLowerCase()
+      return [t.animalId, t.animal.code, t.animal.name].some(text => text.toLowerCase().includes(term))
     })
-  }, [treatments, from, to])
+  }, [treatments, from, to, animalSearch])
 
   const summary = useMemo(() => {
     const map = new Map<string, { animal: Animal; count: number; last: string }>()
@@ -284,6 +287,9 @@ export default function VeterinaryTreatmentPage() {
       </div>
 
       {/* Animals table */}
+      <label className="mb-4 block text-xs font-medium text-gray-600">Buscar animal por ID, código ou nome
+        <input type="search" value={animalSearch} onChange={e => setAnimalSearch(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+      </label>
       {loading ? (
         <p className="text-gray-400 text-sm">Carregando...</p>
       ) : summary.length === 0 ? (
@@ -420,20 +426,7 @@ export default function VeterinaryTreatmentPage() {
               </div>
 
               <form onSubmit={handleSave} className="flex flex-col gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-600">Animal *</label>
-                  <select
-                    value={form.animalId}
-                    onChange={(e) => setForm({ ...form, animalId: e.target.value })}
-                    required
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                  >
-                    <option value="">— Selecione —</option>
-                    {allAnimals.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name} ({a.code})</option>
-                    ))}
-                  </select>
-                </div>
+                <AnimalPicker animals={allAnimals} value={form.animalId} onChange={id => setForm({ ...form, animalId: id })} label="Animal" />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>

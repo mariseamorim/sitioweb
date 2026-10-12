@@ -28,7 +28,7 @@ export async function GET() {
     const [farm, records, collections] = await Promise.all([
       prisma.farm.findUnique({ where: { id: farmId }, select: { name: true, milkPrice: true } }),
       prisma.milkProduction.findMany({
-        where: { farmId, source: 'lite', date: { gte: since } },
+        where: { farmId, date: { gte: since } },
         select: { date: true, quantity: true },
       }),
       prisma.milkEntry.findMany({
@@ -41,9 +41,14 @@ export async function GET() {
       userName: user.name,
       role: user.role,
       mode: 'fazenda',
+      farmId,
       canEdit: canEdit(user),
       points: [{ id: FARM_POINT_ID, name: farm?.name ?? 'Minha propriedade', kind: 'sitio', active: true }],
-      entries: records.map((r) => ({ pointId: FARM_POINT_ID, date: isoDay(r.date), liters: r.quantity })),
+      entries: [...records.reduce((days, r) => {
+        const day = isoDay(r.date)
+        days.set(day, (days.get(day) ?? 0) + r.quantity)
+        return days
+      }, new Map<string, number>())].map(([date, liters]) => ({ pointId: FARM_POINT_ID, date, liters: Math.round(liters * 1000) / 1000 })),
       collections: collections.map((c) => ({
         date: isoDay(c.date), liters: c.liters, pointId: c.pointId, pointName: c.point.name, driverName: c.point.owner.name,
       })),
@@ -101,7 +106,12 @@ export async function PUT(request: NextRequest) {
     if (valid.some((c) => c.pointId !== FARM_POINT_ID)) {
       return NextResponse.json({ error: 'Local não encontrado' }, { status: 404 })
     }
-    await saveFarmChanges(user.effectiveFarmId!, valid)
+    try {
+      await saveFarmChanges(user.effectiveFarmId!, valid)
+    } catch (error) {
+      if (error instanceof FarmMilkConflict) return NextResponse.json({ error: error.message }, { status: 409 })
+      throw error
+    }
     return NextResponse.json({ saved: valid.length })
   }
 
@@ -124,19 +134,30 @@ export async function PUT(request: NextRequest) {
   return NextResponse.json({ saved: valid.length })
 }
 
-/** Modo fazenda: um registro "lite" por dia na Produção de leite (substitui ou apaga). */
+class FarmMilkConflict extends Error {}
+
+/** O valor do Lite é o total diário. Ajusta apenas sua parcela, preservando as ordenhas detalhadas. */
 async function saveFarmChanges(farmId: string, changes: LiteChange[]) {
   await prisma.$transaction(async (tx) => {
+    const farm = await tx.farm.findUnique({ where: { id: farmId }, select: { milkPrice: true } })
     for (const c of changes) {
       const date = new Date(c.date)
       const liters = parseLiters(c.liters)
-      const existing = await tx.milkProduction.findFirst({ where: { farmId, date, source: 'lite' }, select: { id: true } })
-      if (liters === null) {
-        if (existing) await tx.milkProduction.delete({ where: { id: existing.id } })
+      // Serializa os reenvios do Lite para não criar duas parcelas para o mesmo dia.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${farmId}), hashtext(${c.date}))`
+      const records = await tx.milkProduction.findMany({ where: { farmId, date }, select: { id: true, source: true, quantity: true } })
+      const liteRecords = records.filter(r => r.source === 'lite')
+      const existing = liteRecords[0]
+      const detailedTotal = records.filter(r => r.source !== 'lite').reduce((sum, r) => sum + r.quantity, 0)
+      const remaining = Math.round(((liters ?? 0) - detailedTotal) * 1000) / 1000
+      if (remaining < 0) throw new FarmMilkConflict('O total é menor que os litros já registrados na Produção de leite. Ajuste os lançamentos nessa tela primeiro.')
+      if (remaining === 0) {
+        await tx.milkProduction.deleteMany({ where: { farmId, date, source: 'lite' } })
       } else if (existing) {
-        await tx.milkProduction.update({ where: { id: existing.id }, data: { quantity: liters } })
+        await tx.milkProduction.update({ where: { id: existing.id }, data: { quantity: remaining } })
+        if (liteRecords.length > 1) await tx.milkProduction.deleteMany({ where: { id: { in: liteRecords.slice(1).map(r => r.id) } } })
       } else {
-        await tx.milkProduction.create({ data: { farmId, date, quantity: liters, source: 'lite', observations: 'Anota Aí Leite' } })
+        await tx.milkProduction.create({ data: { farmId, date, quantity: remaining, pricePerLiter: farm?.milkPrice ?? null, source: 'lite', observations: 'Anota Aí Leite' } })
       }
     }
   })

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { addPendingRecord } from '@/lib/offlineStorage'
 import { todayISO } from '@/lib/utils'
 import { calvingStarts, cowCalving, monthsLabel, plural } from '@/lib/calving'
+import { canAddCalf } from '@/lib/animalRules'
 
 export interface HerdAnimal {
   id: string
@@ -34,6 +35,7 @@ export function CalfSection({ mother, animals, farmId, canEdit, isOnline, onOpen
 }) {
   const calves = animals.filter((a) => a.motherId === mother.id).sort((a, b) => a.birthDate.localeCompare(b.birthDate))
   const [adding, setAdding] = useState(false)
+  const eligible = canAddCalf(mother)
 
   // Intervalo conta entre partos (gêmeos são o mesmo parto)
   const stats = cowCalving(mother, animals)
@@ -54,11 +56,12 @@ export function CalfSection({ mother, animals, farmId, canEdit, isOnline, onOpen
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-base font-semibold text-gray-900">Crias</h3>
         {canEdit && !adding && !mother.id.startsWith('pending_') && (
-          <button type="button" onClick={() => setAdding(true)} className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-3 py-2 rounded-lg">
+          <button type="button" disabled={!eligible} onClick={() => setAdding(true)} className="bg-green-700 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-3 py-2 rounded-lg">
             + Adicionar cria
           </button>
         )}
       </div>
+      {!eligible && <p className="mt-2 text-sm text-amber-700">Adicionar cria fica disponível quando a fêmea completar 2 anos e meio.</p>}
 
       {calves.length > 0 && (
         <p className="mt-1 text-sm text-gray-600">
@@ -69,7 +72,7 @@ export function CalfSection({ mother, animals, farmId, canEdit, isOnline, onOpen
         </p>
       )}
 
-      {adding && (
+      {adding && eligible && (
         <AddCalfForm mother={mother} animals={animals} farmId={farmId} isOnline={isOnline}
           onCancel={() => setAdding(false)} onSaved={() => { setAdding(false); onChanged() }} />
       )}
@@ -126,6 +129,7 @@ export function AddCalfForm({ mother, animals, farmId, isOnline, onCancel, onSav
   async function save(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    if (!canAddCalf(mother)) return setError('A mãe precisa ter pelo menos 2 anos e meio para adicionar cria')
     if (existing) {
       if (!existingId) return setError('Escolha a cria')
       if (!isOnline) return setError('Para ligar uma cria já cadastrada, é preciso internet.')

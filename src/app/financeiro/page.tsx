@@ -131,7 +131,7 @@ export default function FinanceiroPage() {
       date: form.date,
       amount: parseFloat(form.amount),
       description: form.description || null,
-      animalId: form.animalId || null,
+      animalId: form.type === 'Receita' && form.category !== 'Venda de Animal' ? null : form.animalId || null,
       farmId,
     }
 
@@ -307,7 +307,7 @@ export default function FinanceiroPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Tipo *</label>
-                    <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value, category: e.target.value === 'Receita' ? 'Venda de Leite' : 'Medicamentos' })}
+                    <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value, category: e.target.value === 'Receita' ? 'Venda de Leite' : 'Medicamentos', animalId: '' })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
                       <option>Receita</option>
                       <option>Despesa</option>
@@ -315,7 +315,7 @@ export default function FinanceiroPage() {
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-600">Categoria *</label>
-                    <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
+                    <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value, animalId: '' })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
                       {cats.map(c => <option key={c}>{c}</option>)}
                     </select>
@@ -338,7 +338,7 @@ export default function FinanceiroPage() {
                   <input type="text" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
-                <div>
+                {(form.type !== 'Receita' || form.category === 'Venda de Animal') && <div>
                   <label className="text-xs font-medium text-gray-600">Animal (opcional)</label>
                   <select value={form.animalId} onChange={e => setForm({ ...form, animalId: e.target.value })}
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
@@ -348,7 +348,7 @@ export default function FinanceiroPage() {
                   {!isOnline && animals.length === 0 && (
                     <p className="text-xs text-gray-400 mt-1">Lista de animais indisponível offline</p>
                   )}
-                </div>
+                </div>}
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setShowRegister(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
                   <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>

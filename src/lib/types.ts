@@ -16,6 +16,7 @@ export type MotivoBaixa = 'Morto' | 'Vendido' | 'Consumo Próprio' | 'Sem Altera
 export type Especie =
   | 'Vaca'
   | 'Boi'
+  | 'Boi de engorda'
   | 'Touro'
   | 'Cavalo'
   | 'Porco'
@@ -23,7 +24,8 @@ export type Especie =
   | 'Galinha'
   | 'Galo'
   | 'Pato'
-  | 'Bezerro';
+  | 'Bezerro'
+  | 'Bezerra';
 
 export interface Animal {
   id: string;
@@ -41,8 +43,8 @@ export interface Animal {
 }
 
 export const ESPECIES: Especie[] = [
-  'Vaca', 'Boi', 'Touro', 'Cavalo', 'Porco',
-  'Cachorro', 'Galinha', 'Galo', 'Pato', 'Bezerro',
+  'Vaca', 'Boi de engorda', 'Touro', 'Cavalo', 'Porco',
+  'Cachorro', 'Galinha', 'Galo', 'Pato', 'Bezerro', 'Bezerra',
 ];
 
 export const STATUS_LIST: StatusAnimal[] = ['Vivo', 'Morto', 'Vendido', 'Doente', 'Arrendado'];

@@ -1,10 +1,12 @@
 'use client'
+import { MilkDecimalInput } from '@/components/MilkDecimalInput'
 
 import { useMemo, useState } from 'react'
 import { addPendingRecord } from '@/lib/offlineStorage'
 import { todayISO } from '@/lib/utils'
 import { fmtNumber } from '@/lib/reports'
 import { OfflineVoiceSetup, VoiceButton } from '@/components/VoiceButton'
+import { milkNumber, milkPrice } from '@/lib/milkValidation'
 
 interface Cow {
   id: string
@@ -13,6 +15,7 @@ interface Cow {
 }
 
 interface Props {
+  defaultPrice?: number | null
   cows: Cow[]
   productions: { animalId: string | null; date: string; quantity: number }[]
   isOnline: boolean
@@ -21,11 +24,12 @@ interface Props {
 }
 
 // Lançamento da ordenha do dia: todas as vacas numa lista, um campo de litros por vaca
-export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel }: Props) {
+export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel, defaultPrice = null }: Props) {
   const [date, setDate] = useState(todayISO())
   const [liters, setLiters] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [price, setPrice] = useState(defaultPrice === null ? '' : defaultPrice.toFixed(2).replace('.', ','))
 
   // Quanto cada vaca já tem lançado na data escolhida
   const alreadyByCow = useMemo(() => {
@@ -38,18 +42,20 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel }
   }, [productions, date])
 
   const filled = cows
-    .map((c) => ({ animalId: c.id, quantity: parseFloat(liters[c.id]?.replace(',', '.') ?? '') }))
+    .map((c) => ({ animalId: c.id, quantity: milkNumber(liters[c.id] ?? '') }))
     .filter((i) => i.quantity > 0)
   const total = filled.reduce((s, i) => s + i.quantity, 0)
 
   async function handleSave() {
     if (filled.length === 0) return
     setError('')
+    const pricePerLiter = milkPrice(price)
+    if (pricePerLiter === undefined) { setError('Informe um preço por litro válido, por exemplo 2,50'); return }
 
     if (!isOnline) {
       let pending = 0
       for (const item of filled) {
-        pending = addPendingRecord('milk_productions', { animalId: item.animalId, date, quantity: item.quantity, observations: '' })
+        pending = addPendingRecord('milk_productions', { animalId: item.animalId, date, quantity: item.quantity, observations: '', pricePerLiter })
       }
       onDone({ saved: 0, pending })
       return
@@ -60,7 +66,7 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel }
       const res = await fetch('/api/milk-production/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date, items: filled }),
+        body: JSON.stringify({ date, items: filled, pricePerLiter }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -106,7 +112,7 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel }
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <input
+                  <MilkDecimalInput
                     type="text"
                     inputMode="decimal"
                     placeholder="0"
@@ -126,6 +132,9 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel }
       )}
       {cows.length > 0 && <OfflineVoiceSetup online={isOnline} />}
 
+      <label className="text-sm font-medium text-gray-700">Preço por litro (R$) <span className="font-normal text-gray-400">(opcional, aplicado a todas as vacas deste lançamento)</span>
+        <MilkDecimalInput decimals={2} inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} placeholder="Ex.: 2,50" className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-3 text-base" />
+      </label>
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex items-center justify-between text-sm text-gray-600">

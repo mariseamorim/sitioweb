@@ -5,10 +5,11 @@ import { useUser } from '@/contexts/UserContext'
 import { useEffect, useState, useCallback } from 'react'
 import { ESPECIES, STATUS_LIST, type Especie, type StatusAnimal } from '@/lib/types'
 import { ImagePicker } from '@/components/ImagePicker'
-import { getPendingRecords, addPendingRecord, clearPendingRecords, syncPendingRecords } from '@/lib/offlineStorage'
+import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/offlineStorage'
 import { useDialog } from '@/components/DialogProvider'
 import { SemSinalIcon, SincronizarIcon, AnimalIcon, FecharIcon } from '@/components/ModuleIcons'
 import { CalfSection } from '@/components/CalfSection'
+import { animalCategory, animalRuleError, animalToday, canAddCalf, fixedAnimalGender, isBovine } from '@/lib/animalRules'
 
 interface Animal {
   id: string
@@ -17,6 +18,8 @@ interface Animal {
   species: string
   gender: string
   birthDate: string
+  isCastrated?: boolean
+  acquisitionType?: string
   status: string
   gta?: string
   observations?: string
@@ -30,15 +33,17 @@ function readHerdCache(fid: string): Animal[] {
   try { return JSON.parse(localStorage.getItem(cacheKey(fid)) || '[]') } catch { return [] }
 }
 function writeHerdCache(fid: string, list: Animal[]) {
-  try { localStorage.setItem(cacheKey(fid), JSON.stringify(list.map(({ imageUrl: _image, ...a }) => a))) } catch {}
+  try { localStorage.setItem(cacheKey(fid), JSON.stringify(list.map(a => ({ ...a, imageUrl: undefined })))) } catch {}
 }
 
 const EMPTY_FORM = {
   code: '',
   name: '',
-  species: 'Vaca' as Especie,
+  species: 'Bezerro' as Especie,
   gender: 'Fêmea',
   birthDate: '',
+  isCastrated: false,
+  acquisitionType: 'nascimento',
   status: 'Vivo' as StatusAnimal,
   gta: '',
   observations: '',
@@ -68,7 +73,8 @@ export default function AnimaisPage() {
   const fetchAnimals = useCallback((fid: string) => {
     setLoading(true)
     // Link de outra tela (ex.: painel da Reprodução): /animais?animal=<id> abre a ficha
-    const show = (list: Animal[]) => {
+    const show = (rawList: Animal[]) => {
+      const list = rawList.map(a => ({ ...a, species: animalCategory(a) }))
       setAnimals(list)
       const wanted = new URLSearchParams(window.location.search).get('animal')
       if (!wanted) return
@@ -87,6 +93,8 @@ export default function AnimaisPage() {
         species: r.species,
         gender: r.gender,
         birthDate: r.birthDate,
+        isCastrated: r.isCastrated ?? false,
+        acquisitionType: r.acquisitionType ?? 'nascimento',
         status: r.status,
         gta: r.gta,
         observations: r.observations,
@@ -96,7 +104,7 @@ export default function AnimaisPage() {
 
     // Sem internet: o rebanho guardado no aparelho mais o que ainda não foi enviado
     if (!navigator.onLine) {
-      show([...readHerdCache(fid), ...pending])
+      show([...readHerdCache(fid), ...pending].map(a => ({ ...a, species: animalCategory(a) })))
       setLoading(false)
       return
     }
@@ -125,24 +133,23 @@ export default function AnimaisPage() {
     const pending = getPendingRecords('animais')
     if (!pending.length) return
     setSyncing(true)
-    let successCount = 0
     
     for (const record of pending) {
-      const { _pendingId, _type, farmId: _, ...data } = record
+      if (record.farmId !== farmId) continue
+      const { _pendingId, ...data } = record
       try {
         const res = await fetch('/api/animals', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...data, farmId }),
         })
-        if (res.ok) successCount++
+        if (res.ok) removePendingRecord('animais', _pendingId)
       } catch (err) {
         console.error('Sync error:', err)
       }
     }
     
-    clearPendingRecords('animais')
-    setPendingCount(0)
+    setPendingCount(getPendingRecords('animais').filter(r => r.farmId === farmId).length)
     setSyncing(false)
     fetchAnimals(farmId)
   }, [farmId, fetchAnimals])
@@ -191,8 +198,10 @@ export default function AnimaisPage() {
       code: a.code,
       name: a.name,
       species: a.species as Especie,
-      gender: a.gender,
+      gender: fixedAnimalGender(a.species) ?? a.gender,
       birthDate: a.birthDate.slice(0, 10),
+      isCastrated: a.isCastrated ?? ['Boi', 'Boi de engorda'].includes(a.species),
+      acquisitionType: a.acquisitionType || 'existente',
       status: a.status as StatusAnimal,
       gta: a.gta || '',
       observations: a.observations || '',
@@ -213,8 +222,10 @@ export default function AnimaisPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setSaving(true)
     setError('')
+    const ruleError = animalRuleError(form)
+    if (ruleError) { setError(ruleError); return }
+    setSaving(true)
 
     // Se estiver offline e criando novo (não editando), salva no localStorage
     if (!isOnline && !editing) {
@@ -233,6 +244,7 @@ export default function AnimaisPage() {
     const method = editing ? 'PUT' : 'POST'
     const body = editing ? form : { ...form, farmId }
 
+    try {
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
@@ -249,6 +261,11 @@ export default function AnimaisPage() {
     setSaving(false)
     setShowForm(false)
     fetchAnimals(farmId)
+    } catch {
+      setError('Não foi possível salvar. Verifique a conexão e tente novamente.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleDelete(id: string) {
@@ -260,12 +277,13 @@ export default function AnimaisPage() {
 
   const mother = selectedAnimal?.motherId ? animals.find((a) => a.id === selectedAnimal.motherId) : undefined
   // Mães possíveis no formulário: fêmeas, menos o próprio animal
-  const motherOptions = animals.filter((a) => a.gender === 'Fêmea' && a.id !== editing?.id && !a.id.startsWith('pending_'))
+  const motherOptions = animals.filter((a) => canAddCalf(a) && a.id !== editing?.id && !a.id.startsWith('pending_'))
 
   const filtered = animals.filter(
     (a) =>
       a.name.toLowerCase().includes(search.toLowerCase()) ||
       a.code.toLowerCase().includes(search.toLowerCase()) ||
+      a.id.toLowerCase().includes(search.toLowerCase()) ||
       a.species.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -324,14 +342,16 @@ export default function AnimaisPage() {
         </div>
       )}
 
+      <div className="mb-4">
       <input
         type="text"
-        aria-label="Buscar animal por nome, número ou espécie"
-        placeholder="Digite o nome ou número do animal"
+        aria-label="Buscar animal por ID, código, nome ou espécie"
+        placeholder="Digite o ID, código ou nome do animal"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-green-600"
+        className="min-w-0 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
       />
+      </div>
 
       {loading ? (
         <p className="text-gray-400 text-sm">Carregando...</p>
@@ -429,6 +449,7 @@ export default function AnimaisPage() {
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500">Código</p>
                     <p className="text-base sm:text-lg font-semibold text-gray-800 break-words">{selectedAnimal.code}</p>
+                    <p className="text-xs text-gray-500 break-all">ID: {selectedAnimal.id}</p>
                     <p className="text-xs sm:text-sm text-gray-500 truncate">{selectedAnimal.species}</p>
                   </div>
                 </div>
@@ -480,7 +501,7 @@ export default function AnimaisPage() {
                 )}
               </div>
 
-              {selectedAnimal.gender === 'Fêmea' && (
+              {selectedAnimal.gender === 'Fêmea' && isBovine(selectedAnimal.species) && (
                 <CalfSection key={selectedAnimal.id} mother={selectedAnimal} animals={animals} farmId={farmId} canEdit={canEdit} isOnline={isOnline}
                   onOpen={(calf) => setSelectedAnimal(animals.find((a) => a.id === calf.id) ?? null)}
                   onChanged={() => { setPendingCount(getPendingRecords('animais').length); fetchAnimals(farmId) }} />
@@ -566,22 +587,29 @@ export default function AnimaisPage() {
                     <label className="text-xs font-medium text-gray-600">Espécie *</label>
                     <select
                       value={form.species}
-                      onChange={(e) => setForm({ ...form, species: e.target.value as Especie })}
+                      onChange={(e) => {
+                        const species = e.target.value as Especie
+                        const gender = fixedAnimalGender(species) ?? form.gender
+                        setForm({ ...form, species, gender, isCastrated: species === 'Boi de engorda' })
+                      }}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                     >
                       {ESPECIES.map((s) => <option key={s}>{s}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Sexo *</label>
+                    <label htmlFor="animal-gender" className="text-xs font-medium text-gray-600">Sexo *</label>
                     <select
+                      id="animal-gender"
                       value={form.gender}
-                      onChange={(e) => setForm({ ...form, gender: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                      disabled={fixedAnimalGender(form.species) !== null}
+                      onChange={(e) => setForm({ ...form, gender: e.target.value, isCastrated: e.target.value === 'Macho' && form.isCastrated })}
+                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 disabled:bg-gray-50 disabled:text-gray-500"
                     >
                       <option>Fêmea</option>
                       <option>Macho</option>
                     </select>
+                    {fixedAnimalGender(form.species) && <p className="mt-1 text-xs text-gray-500">Definido automaticamente pela espécie.</p>}
                   </div>
                 </div>
 
@@ -590,6 +618,7 @@ export default function AnimaisPage() {
                     <label className="text-xs font-medium text-gray-600">Data de Nascimento *</label>
                     <input
                       type="date"
+                      max={animalToday()}
                       value={form.birthDate}
                       onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
                       required
@@ -608,6 +637,16 @@ export default function AnimaisPage() {
                   </div>
                 </div>
 
+                {isBovine(form.species) && <div className="rounded-lg bg-green-50 p-3 text-sm text-green-900">
+                  <p>Classificação por idade e sexo: <strong>{form.birthDate ? animalCategory(form) : 'Informe a data de nascimento'}</strong></p>
+                  {form.gender === 'Macho' && <label className="mt-2 flex items-center gap-2"><input type="checkbox" checked={form.isCastrated} onChange={e => setForm({ ...form, isCastrated: e.target.checked })} />Animal castrado</label>}
+                </div>}
+                <label className="text-xs font-medium text-gray-600">Origem do animal
+                  <select value={form.acquisitionType} onChange={e => setForm({ ...form, acquisitionType: e.target.value })} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                    <option value="nascimento">Nascimento na propriedade</option><option value="compra">Compra</option><option value="existente">Já estava no rebanho</option>
+                  </select>
+                </label>
+                {form.acquisitionType === 'compra' && form.gender === 'Fêmea' && isBovine(form.species) && <p className="text-xs text-amber-800">Uma vaca comprada deve ter pelo menos 3 anos. Fêmeas jovens são cadastradas como bezerras.</p>}
                 <div>
                   <label className="text-xs font-medium text-gray-600">Mãe <span className="font-normal text-gray-400">(se for cria de uma vaca do rebanho)</span>
                     <select

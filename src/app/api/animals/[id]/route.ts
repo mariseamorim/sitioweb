@@ -2,9 +2,10 @@ import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
 import { findValidMother } from '@/lib/calves'
+import { animalCategory, animalRuleError } from '@/lib/animalRules'
 
 async function findOwned(id: string, farmId: string) {
-  return prisma.animal.findFirst({ where: { id, farmId }, select: { id: true } })
+  return prisma.animal.findFirst({ where: { id, farmId } })
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -12,12 +13,22 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (auth.error) return auth.error
 
   const { id } = await params
-  if (!(await findOwned(id, auth.farmId))) return notFound('Animal não encontrado')
+  const existing = await findOwned(id, auth.farmId)
+  if (!existing) return notFound('Animal não encontrado')
 
   const body = await request.json()
   const { code, name, species, gender, birthDate, status, gta, observations, lowDate, lowReason, imageUrl, motherId } = body
+  const classification = {
+    species: species ?? existing.species, gender: gender ?? existing.gender,
+    birthDate: birthDate ?? existing.birthDate,
+    isCastrated: body.isCastrated ?? existing.isCastrated,
+    acquisitionType: body.acquisitionType ?? existing.acquisitionType,
+  }
+  if (typeof classification.species !== 'string' || typeof classification.gender !== 'string' || typeof classification.isCastrated !== 'boolean' || typeof classification.acquisitionType !== 'string') return NextResponse.json({ error: 'Dados do animal inválidos' }, { status: 400 })
+  const ruleError = animalRuleError(classification)
+  if (ruleError) return NextResponse.json({ error: ruleError }, { status: 400 })
   if (motherId && !(await findValidMother(String(motherId), auth.farmId, id))) {
-    return NextResponse.json({ error: 'Mãe inválida para este animal' }, { status: 400 })
+    return NextResponse.json({ error: 'A mãe deve ser uma fêmea bovina da propriedade com pelo menos 2 anos e meio' }, { status: 400 })
   }
 
   const animal = await prisma.animal.update({
@@ -25,9 +36,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     data: {
       code,
       name,
-      species,
-      gender,
-      birthDate: new Date(birthDate),
+      species: animalCategory(classification),
+      gender: classification.gender,
+      birthDate: new Date(classification.birthDate),
+      isCastrated: classification.isCastrated,
+      acquisitionType: classification.acquisitionType,
       status,
       gta: gta || null,
       observations: observations || null,

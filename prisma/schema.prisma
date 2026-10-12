@@ -68,6 +68,8 @@ model Animal {
   species      String
   gender       String
   birthDate    DateTime
+  isCastrated  Boolean   @default(false)
+  acquisitionType String @default("existente") // existente | nascimento | compra
   status       String
   gta          String?
   observations String?
@@ -114,6 +116,7 @@ model MilkProduction {
   animal       Animal?  @relation(fields: [animalId], references: [id], onDelete: Cascade)
   date         DateTime
   quantity     Float
+  pricePerLiter Float? // preço do litro no momento do lançamento, preserva o histórico
   cowsMilked   Int? // no total do dia: quantas vacas foram ordenhadas
   source       String? // "lite" = anotado pelo Anota Aí Leite (um por dia); vazio = app completo
   observations String?

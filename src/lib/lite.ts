@@ -36,6 +36,8 @@ export interface LiteData {
   role: string
   /** "pessoal": locais próprios (produtor lite e motorista). "fazenda": grava na Produção de leite da propriedade (Pro) */
   mode: 'pessoal' | 'fazenda'
+  /** Identifica a propriedade da fila para sincronizar também pela tela completa. */
+  farmId?: string
   /** No modo fazenda, se pode anotar (editor/admin) ou só ver */
   canEdit: boolean
   points: LitePoint[]
