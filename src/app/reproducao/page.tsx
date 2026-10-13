@@ -3,6 +3,8 @@ import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
 import { animalSearchText } from '@/lib/animalCode'
+import { useSort } from '@/lib/useSort'
+import { SortTh } from '@/components/SortTh'
 
 import { useEffect, useState, useMemo } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
@@ -130,6 +132,10 @@ export default function ReproducaoPage() {
     const term = animalSearch.trim().toLowerCase()
     return reproductions.filter(r => (filterStatus === 'Todas' || r.status === filterStatus) && animalSearchText(r.female).includes(term))
   }, [reproductions, filterStatus, animalSearch])
+  const { rows: sortedReproductions, sort } = useSort(filtered, {
+    female: r => r.female.name, male: r => r.maleName ?? '', coverage: r => new Date(r.coverageDate),
+    expected: r => (r.expectedBirthDate ? new Date(r.expectedBirthDate) : null), status: r => r.status,
+  })
 
   const upcomingBirths = useMemo(() => {
     const in30 = new Date(); in30.setDate(in30.getDate() + 30)
@@ -305,15 +311,15 @@ export default function ReproducaoPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">Fêmea</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-left">Reprodutor</th>
-                <th className="px-4 py-3 text-left">Cobertura</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-left">Parto Esperado</th>
-                <th className="px-4 py-3 text-left">Status</th>
+                <SortTh label="Fêmea" sortKey="female" sort={sort} className="px-4 py-3 text-left" />
+                <SortTh label="Reprodutor" sortKey="male" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label="Cobertura" sortKey="coverage" sort={sort} className="px-4 py-3 text-left" />
+                <SortTh label="Parto Esperado" sortKey="expected" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label="Status" sortKey="status" sort={sort} className="px-4 py-3 text-left" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map(r => (
+              {sortedReproductions.map(r => (
                 <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetail(r); setRegisteringBirth(false); setEditStatus(r.status); setEditBirthDate(r.actualBirthDate?.slice(0, 10) || '') }}>
                   <td className="px-4 py-3 font-medium text-gray-800">{r.female.name}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{r.maleName || '—'}</td>

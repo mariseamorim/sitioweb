@@ -14,6 +14,8 @@ import { useDialog } from '@/components/DialogProvider'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
 import { fmtNumber, fmtMoney } from '@/lib/reports'
 import { currentMonthRange, inDayRange } from '@/lib/utils'
+import { useSort } from '@/lib/useSort'
+import { SortTh } from '@/components/SortTh'
 
 interface Animal {
   id: string
@@ -190,6 +192,15 @@ export default function MilkProductionPage() {
       .filter((p) => p.animalId === detailAnimalId)
       .sort((a, b) => b.date.localeCompare(a.date))
   }, [productions, detailAnimalId])
+  const { rows: sortedDays, sort: daySort } = useSort(byDay, {
+    day: (d) => d.day, cows: (d) => d.cows.size + d.cowsInTotal || null, total: (d) => d.total,
+  })
+  const { rows: sortedCows, sort: cowSort } = useSort(byCow, {
+    name: (c) => c.animal.name, code: (c) => c.animal.code, total: (c) => c.total, count: (c) => c.count,
+  })
+  const { rows: sortedAnimalItems, sort: itemSort } = useSort(detailAnimalItems, {
+    date: (p) => p.date, quantity: (p) => p.quantity, observations: (p) => p.observations ?? '',
+  })
   const detailAnimalPeriodTotal = filtered
     .filter((p) => p.animalId === detailAnimalId)
     .reduce((s, p) => s + p.quantity, 0)
@@ -365,13 +376,13 @@ export default function MilkProductionPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">Dia</th>
-                <th className="px-4 py-3 text-right">Vacas</th>
-                <th className="px-4 py-3 text-right">Total (L)</th>
+                <SortTh label="Dia" sortKey="day" sort={daySort} className="px-4 py-3 text-left" />
+                <SortTh label="Vacas" sortKey="cows" sort={daySort} align="right" className="px-4 py-3 text-right" />
+                <SortTh label="Total (L)" sortKey="total" sort={daySort} align="right" className="px-4 py-3 text-right" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {byDay.map((d) => {
+              {sortedDays.map((d) => {
                 const cows = d.cows.size + d.cowsInTotal
                 return (
                   <tr key={d.day} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetailDay(d.day)}>
@@ -398,14 +409,14 @@ export default function MilkProductionPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">Animal</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-left">Código</th>
-                <th className="px-4 py-3 text-right">Total (L)</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-right">Registros</th>
+                <SortTh label="Animal" sortKey="name" sort={cowSort} className="px-4 py-3 text-left" />
+                <SortTh label="Código" sortKey="code" sort={cowSort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label="Total (L)" sortKey="total" sort={cowSort} align="right" className="px-4 py-3 text-right" />
+                <SortTh label="Registros" sortKey="count" sort={cowSort} align="right" className="hidden sm:table-cell px-4 py-3 text-right" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {byCow.map(({ animal, total, count }) => (
+              {sortedCows.map(({ animal, total, count }) => (
                 <tr key={animal.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetailAnimalId(animal.id)}>
                   <td className="px-4 py-3 font-medium text-gray-800">{animal.name}</td>
                   <td className="hidden sm:table-cell px-4 py-3 font-mono text-gray-500 text-xs">{animal.code}</td>
@@ -484,14 +495,14 @@ export default function MilkProductionPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                     <tr>
-                      <th className="px-4 py-2 text-left">Data</th>
-                      <th className="px-4 py-2 text-right">Qtd (L)</th>
-                      <th className="hidden sm:table-cell px-4 py-2 text-left">Observações</th>
+                      <SortTh label="Data" sortKey="date" sort={itemSort} className="px-4 py-2 text-left" />
+                      <SortTh label="Qtd (L)" sortKey="quantity" sort={itemSort} align="right" className="px-4 py-2 text-right" />
+                      <SortTh label="Observações" sortKey="observations" sort={itemSort} className="hidden sm:table-cell px-4 py-2 text-left" />
                       <th className="px-4 py-2"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {detailAnimalItems.map((p) => (
+                    {sortedAnimalItems.map((p) => (
                       <tr key={p.id} className="hover:bg-gray-50">
                         <td className="px-4 py-2 text-gray-700">{fmtDay(p.date)}</td>
                         <td className="px-4 py-2 text-right font-medium text-gray-800">{fmtNumber(p.quantity)}</td>

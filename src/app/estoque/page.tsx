@@ -9,6 +9,8 @@ import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon } from '@/components/ModuleIcons'
 import { SUPPLY_CATEGORIES } from '@/lib/supplies'
 import { RequestQuote } from '@/components/RequestQuote'
+import { useSort } from '@/lib/useSort'
+import { SortTh } from '@/components/SortTh'
 
 interface SupplyMovement { id: string; type: string; quantity: number; date: string; description?: string | null }
 interface Supply {
@@ -100,6 +102,13 @@ export default function EstoquePage() {
   }
 
   const alertCount = supplies.filter(s => s.currentQuantity <= s.minimumQuantity).length
+  const { rows: sortedSupplies, sort } = useSort(supplies, {
+    name: s => s.name, category: s => s.category, current: s => s.currentQuantity, minimum: s => s.minimumQuantity,
+    status: s => (s.currentQuantity <= s.minimumQuantity ? 0 : 1),
+  })
+  const { rows: sortedMovements, sort: movementSort } = useSort(detail?.movements ?? [], {
+    date: m => new Date(m.date), type: m => m.type, quantity: m => m.quantity,
+  })
 
   async function handleDelete(id: string) {
     if (!canEdit) return
@@ -226,15 +235,15 @@ export default function EstoquePage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">Insumo</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-left">Categoria</th>
-                <th className="px-4 py-3 text-right">Atual</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-right">Mínimo</th>
-                <th className="px-4 py-3 text-left">Status</th>
+                <SortTh label="Insumo" sortKey="name" sort={sort} className="px-4 py-3 text-left" />
+                <SortTh label="Categoria" sortKey="category" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label="Atual" sortKey="current" sort={sort} align="right" className="px-4 py-3 text-right" />
+                <SortTh label="Mínimo" sortKey="minimum" sort={sort} align="right" className="hidden sm:table-cell px-4 py-3 text-right" />
+                <SortTh label="Status" sortKey="status" sort={sort} className="px-4 py-3 text-left" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {supplies.map(s => (
+              {sortedSupplies.map(s => (
                 <tr key={s.id} className={`hover:bg-gray-50 cursor-pointer ${isLow(s) ? 'bg-red-50/40' : ''}`} onClick={() => setDetail(s)}>
                   <td className="px-4 py-3 font-medium text-gray-800">{s.name}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{s.category}</td>
@@ -295,13 +304,13 @@ export default function EstoquePage() {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                         <tr>
-                          <th className="px-3 py-2 text-left">Data</th>
-                          <th className="px-3 py-2 text-left">Tipo</th>
-                          <th className="px-3 py-2 text-right">Qtd</th>
+                          <SortTh label="Data" sortKey="date" sort={movementSort} className="px-3 py-2 text-left" />
+                          <SortTh label="Tipo" sortKey="type" sort={movementSort} className="px-3 py-2 text-left" />
+                          <SortTh label="Qtd" sortKey="quantity" sort={movementSort} align="right" className="px-3 py-2 text-right" />
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {detail.movements.map(m => (
+                        {sortedMovements.map(m => (
                           <tr key={m.id} className="hover:bg-gray-50">
                             <td className="px-3 py-2 text-gray-600">{fmt(m.date)}</td>
                             <td className="px-3 py-2">

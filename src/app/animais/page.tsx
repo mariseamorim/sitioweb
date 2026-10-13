@@ -11,6 +11,8 @@ import { SemSinalIcon, SincronizarIcon, AnimalIcon, FecharIcon } from '@/compone
 import { CalfSection } from '@/components/CalfSection'
 import { animalCategory, animalRuleError, animalToday, canAddCalf, fixedAnimalGender, isBovine } from '@/lib/animalRules'
 import { animalCodes, animalSearchText } from '@/lib/animalCode'
+import { useSort } from '@/lib/useSort'
+import { SortTh } from '@/components/SortTh'
 
 interface Animal {
   id: string
@@ -287,6 +289,9 @@ export default function AnimaisPage() {
   // Busca por nome, código, outro código (brinco...) ou espécie; o id interno não entra
   const term = search.trim().toLocaleLowerCase('pt-BR')
   const filtered = animals.filter((a) => `${animalSearchText(a)} ${a.species.toLocaleLowerCase('pt-BR')}`.includes(term))
+  const { rows: sortedAnimals, sort } = useSort(filtered, {
+    code: (a) => a.code, name: (a) => a.name, species: (a) => a.species, gender: (a) => a.gender, status: (a) => a.status,
+  })
 
   const statusColor: Record<string, string> = {
     Vivo: 'bg-green-100 text-green-700',
@@ -368,16 +373,16 @@ export default function AnimaisPage() {
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 <th className="px-2 sm:px-4 py-3 text-left">Foto</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-left">Código</th>
-                <th className="px-2 sm:px-4 py-3 text-left">Nome</th>
-                <th className="hidden md:table-cell px-4 py-3 text-left">Espécie</th>
-                <th className="hidden lg:table-cell px-4 py-3 text-left">Sexo</th>
-                <th className="hidden md:table-cell px-4 py-3 text-left">Status</th>
+                <SortTh label="Código" sortKey="code" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label="Nome" sortKey="name" sort={sort} className="px-2 sm:px-4 py-3 text-left" />
+                <SortTh label="Espécie" sortKey="species" sort={sort} className="hidden md:table-cell px-4 py-3 text-left" />
+                <SortTh label="Sexo" sortKey="gender" sort={sort} className="hidden lg:table-cell px-4 py-3 text-left" />
+                <SortTh label="Status" sortKey="status" sort={sort} className="hidden md:table-cell px-4 py-3 text-left" />
                 <th className="px-2 sm:px-4 py-3 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map((a) => (
+              {sortedAnimals.map((a) => (
                 <tr
                   key={a.id}
                   className="hover:bg-gray-50 cursor-pointer"

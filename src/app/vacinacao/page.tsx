@@ -3,6 +3,8 @@ import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
 import { animalSearchText } from '@/lib/animalCode'
+import { useSort } from '@/lib/useSort'
+import { SortTh } from '@/components/SortTh'
 
 import { useEffect, useState, useMemo } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
@@ -123,6 +125,10 @@ export default function VacinacaoPage() {
     const term = animalSearch.trim().toLowerCase()
     return vaccinations.filter(v => (filter === 'Todas' || getStatus(v) === filter) && animalSearchText(v.animal).includes(term))
   }, [vaccinations, filter, animalSearch])
+  const { rows: sortedVaccinations, sort } = useSort(filtered, {
+    animal: v => v.animal.name, vaccine: v => v.vaccineName, scheduled: v => new Date(v.scheduledDate),
+    applied: v => (v.appliedDate ? new Date(v.appliedDate) : null), status: v => getStatus(v),
+  })
 
   const alertCount = useMemo(() => {
     const in7 = new Date(); in7.setDate(in7.getDate() + 7)
@@ -263,15 +269,15 @@ export default function VacinacaoPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">Animal</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-left">Vacina</th>
-                <th className="px-4 py-3 text-left">Agendado</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-left">Aplicado</th>
-                <th className="px-4 py-3 text-left">Status</th>
+                <SortTh label="Animal" sortKey="animal" sort={sort} className="px-4 py-3 text-left" />
+                <SortTh label="Vacina" sortKey="vaccine" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label="Agendado" sortKey="scheduled" sort={sort} className="px-4 py-3 text-left" />
+                <SortTh label="Aplicado" sortKey="applied" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label="Status" sortKey="status" sort={sort} className="px-4 py-3 text-left" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map(v => {
+              {sortedVaccinations.map(v => {
                 const status = getStatus(v)
                 return (
                   <tr key={v.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetail(v)}>

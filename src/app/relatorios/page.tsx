@@ -5,6 +5,7 @@ import { useUser } from '@/contexts/UserContext'
 import { REPORT_TYPES, Report } from '@/lib/reports'
 import { exportCSV, exportPDF } from '@/lib/reportExport'
 import { todayISO } from '@/lib/utils'
+import { cellSortValue, compareValues } from '@/lib/useSort'
 
 type Preset = 'mes' | 'mes-passado' | 'ano' | 'outro'
 
@@ -213,37 +214,7 @@ export default function RelatoriosPage() {
                 {report.sections.map((section, i) => (
                   <div key={i}>
                     {section.title && <h3 className="text-sm font-semibold text-gray-700 mb-2">{section.title}</h3>}
-                    <div className="overflow-x-auto rounded-lg border border-gray-100">
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                          <tr>
-                            {section.columns.map((c, j) => (
-                              <th key={j} className={`px-3 py-2 whitespace-nowrap ${section.numeric?.includes(j) ? 'text-right' : 'text-left'}`}>{c}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {section.rows.length === 0 ? (
-                            <tr><td colSpan={section.columns.length} className="px-3 py-6 text-center text-gray-400">Nenhum registro</td></tr>
-                          ) : section.rows.map((row, r) => (
-                            <tr key={r}>
-                              {row.map((v, j) => (
-                                <td key={j} className={`px-3 py-2 text-gray-700 ${section.numeric?.includes(j) ? 'text-right whitespace-nowrap' : ''}`}>{v}</td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                        {section.footer && (
-                          <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-semibold text-gray-800">
-                            <tr>
-                              {section.footer.map((v, j) => (
-                                <td key={j} className={`px-3 py-2 ${section.numeric?.includes(j) ? 'text-right whitespace-nowrap' : ''}`}>{v}</td>
-                              ))}
-                            </tr>
-                          </tfoot>
-                        )}
-                      </table>
-                    </div>
+                    <SortableReportTable section={section} />
                   </div>
                 ))}
               </div>
@@ -251,6 +222,63 @@ export default function RelatoriosPage() {
           )}
         </>
       )}
+    </div>
+  )
+}
+// Tabela do relatório: tocar no título da coluna ordena (datas, números e valores em R$ entendidos)
+function SortableReportTable({ section }: { section: Report['sections'][number] }) {
+  const [sortCol, setSortCol] = useState<{ col: number; dir: 'asc' | 'desc' } | null>(null)
+  const rows = useMemo(() => {
+    if (!sortCol) return section.rows
+    return section.rows
+      .map((row, i) => ({ row, i }))
+      .sort((a, b) => compareValues(cellSortValue(a.row[sortCol.col]), cellSortValue(b.row[sortCol.col]), sortCol.dir) || a.i - b.i)
+      .map((x) => x.row)
+  }, [section.rows, sortCol])
+  const toggle = (col: number) => setSortCol((s) => (s?.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-gray-100">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+          <tr>
+            {section.columns.map((c, j) => {
+              const right = section.numeric?.includes(j)
+              const active = sortCol?.col === j
+              return (
+                <th key={j} aria-sort={active ? (sortCol.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  className={`px-3 py-2 whitespace-nowrap ${right ? 'text-right' : 'text-left'}`}>
+                  <button type="button" onClick={() => toggle(j)} title={`Ordenar por ${c.toLowerCase()}`}
+                    className={`inline-flex items-center gap-1 uppercase hover:text-gray-800 ${right ? 'flex-row-reverse' : ''} ${active ? 'text-gray-800' : ''}`}>
+                    {c}
+                    <span aria-hidden="true" className={`text-[10px] ${active ? '' : 'text-gray-300'}`}>{active ? (sortCol.dir === 'asc' ? '▲' : '▼') : '▲▼'}</span>
+                  </button>
+                </th>
+              )
+            })}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {rows.length === 0 ? (
+            <tr><td colSpan={section.columns.length} className="px-3 py-6 text-center text-gray-400">Nenhum registro</td></tr>
+          ) : rows.map((row, r) => (
+            <tr key={r}>
+              {row.map((v, j) => (
+                <td key={j} className={`px-3 py-2 text-gray-700 ${section.numeric?.includes(j) ? 'text-right whitespace-nowrap' : ''}`}>{v}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+        {section.footer && (
+          <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-semibold text-gray-800">
+            <tr>
+              {section.footer.map((v, j) => (
+                <td key={j} className={`px-3 py-2 ${section.numeric?.includes(j) ? 'text-right whitespace-nowrap' : ''}`}>{v}</td>
+              ))}
+            </tr>
+          </tfoot>
+        )}
+      </table>
     </div>
   )
 }

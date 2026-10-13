@@ -5,6 +5,8 @@ import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/
 import { useEffect, useState, useMemo } from 'react'
 import { useDialog } from '@/components/DialogProvider'
 import { currentMonthRange, inDayRange, todayISO } from '@/lib/utils'
+import { useSort } from '@/lib/useSort'
+import { SortTh } from '@/components/SortTh'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
 
 interface Animal { id: string; name: string; code: string }
@@ -101,6 +103,11 @@ export default function FinanceiroPage() {
     })
   }, [transactions, from, to, filterType])
 
+  // Valor com sinal: despesa conta como negativa ao ordenar
+  const { rows: sortedTransactions, sort } = useSort(filtered, {
+    date: t => new Date(t.date), category: t => t.category, description: t => t.description || t.animal?.name || '',
+    amount: t => (t.type === 'Receita' ? t.amount : -t.amount),
+  })
   const totalReceita = filtered.filter(t => t.type === 'Receita').reduce((s, t) => s + t.amount, 0)
   const totalDespesa = filtered.filter(t => t.type === 'Despesa').reduce((s, t) => s + t.amount, 0)
   const saldo = totalReceita - totalDespesa
@@ -260,15 +267,15 @@ export default function FinanceiroPage() {
           <table className="w-full text-xs sm:text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left">Data</th>
-                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left">Categoria</th>
-                <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left">Descrição</th>
-                <th className="px-2 sm:px-4 py-2 sm:py-3 text-right">Valor</th>
+                <SortTh label="Data" sortKey="date" sort={sort} className="px-2 sm:px-4 py-2 sm:py-3 text-left" />
+                <SortTh label="Categoria" sortKey="category" sort={sort} className="px-2 sm:px-4 py-2 sm:py-3 text-left" />
+                <SortTh label="Descrição" sortKey="description" sort={sort} className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left" />
+                <SortTh label="Valor" sortKey="amount" sort={sort} align="right" className="px-2 sm:px-4 py-2 sm:py-3 text-right" />
                 <th className="px-2 sm:px-4 py-2 sm:py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map(t => (
+              {sortedTransactions.map(t => (
                 <tr key={t.id} className="hover:bg-gray-50">
                   <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-600 whitespace-nowrap">{fmt(t.date)}</td>
                   <td className="px-2 sm:px-4 py-2 sm:py-3">

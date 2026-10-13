@@ -3,6 +3,8 @@ import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
 import { animalSearchText } from '@/lib/animalCode'
+import { useSort } from '@/lib/useSort'
+import { SortTh } from '@/components/SortTh'
 
 import { useEffect, useState, useMemo } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
@@ -138,6 +140,10 @@ export default function VeterinaryTreatmentPage() {
     }
     return Array.from(map.values()).sort((a, b) => new Date(b.last).getTime() - new Date(a.last).getTime())
   }, [filtered])
+
+  const { rows: sortedSummary, sort } = useSort(summary, {
+    name: s => s.animal.name, code: s => s.animal.code, count: s => s.count, last: s => new Date(s.last),
+  })
 
   const detailAnimal = detailAnimalId
     ? treatments.find((t) => t.animalId === detailAnimalId)?.animal ?? null
@@ -300,14 +306,14 @@ export default function VeterinaryTreatmentPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">Animal</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-left">Código</th>
-                <th className="px-4 py-3 text-right">Tratamentos</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-right">Último</th>
+                <SortTh label="Animal" sortKey="name" sort={sort} className="px-4 py-3 text-left" />
+                <SortTh label="Código" sortKey="code" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label="Tratamentos" sortKey="count" sort={sort} align="right" className="px-4 py-3 text-right" />
+                <SortTh label="Último" sortKey="last" sort={sort} align="right" className="hidden sm:table-cell px-4 py-3 text-right" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {summary.map(({ animal, count, last }) => (
+              {sortedSummary.map(({ animal, count, last }) => (
                 <tr
                   key={animal.id}
                   className="hover:bg-gray-50 cursor-pointer"

@@ -6,6 +6,8 @@ import { MODULES } from '@/lib/modules'
 import { useUser } from '@/contexts/UserContext'
 import { useDialog } from '@/components/DialogProvider'
 import { FecharIcon } from '@/components/ModuleIcons'
+import { useSort } from '@/lib/useSort'
+import { SortTh } from '@/components/SortTh'
 
 interface User {
   id: string
@@ -72,6 +74,10 @@ export default function UsuariosPage() {
   const grantable = me?.role === 'admin' ? undefined : me?.permissions ?? []
   const canTouch = (u: User) => canManage && u.role !== 'admin'
   const [users, setUsers] = useState<User[]>([])
+  const { rows: sortedUsers, sort } = useSort(users, {
+    name: u => u.name, email: u => u.email, role: u => ROLE_LABEL[u.role] || u.role,
+    modules: u => (u.role === 'admin' ? 999 : u.permissions?.length ?? 0),
+  })
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [editUser, setEditUser] = useState<User | null>(null)
@@ -169,15 +175,15 @@ export default function UsuariosPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                 <tr>
-                  <th className="px-4 py-3 text-left">Nome</th>
-                  <th className="hidden sm:table-cell px-4 py-3 text-left">E-mail</th>
-                  <th className="px-4 py-3 text-left">Perfil</th>
-                  <th className="hidden sm:table-cell px-4 py-3 text-left">Módulos</th>
+                  <SortTh label="Nome" sortKey="name" sort={sort} className="px-4 py-3 text-left" />
+                  <SortTh label="E-mail" sortKey="email" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                  <SortTh label="Perfil" sortKey="role" sort={sort} className="px-4 py-3 text-left" />
+                  <SortTh label="Módulos" sortKey="modules" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {users.map(u => (
+                {sortedUsers.map(u => (
                   <tr key={u.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-800">{u.name}</p>
