@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { OfflineVoiceSetup, VoiceButton } from '@/components/VoiceButton'
+import { RouteStopInfo } from '@/components/RouteStopInfo'
 import { useDialog } from '@/components/DialogProvider'
 import { SetaDireitaIcon, SemSinalIcon, SincronizarIcon, CheckIcon } from '@/components/ModuleIcons'
 import { KIND_LABEL, LiteChange, LiteData, LitePoint, PointKind, isDriverRole, isLiteOnlyRole, parseLiters } from '@/lib/lite'
@@ -108,6 +109,42 @@ export default function LitePage() {
     return liters === (saved.get(p.id) ?? null) ? [] : [{ pointId: p.id, date, liters }]
   })
   const dayTotal = activePoints.reduce((s, p) => s + (parseLiters(valueOf(p.id)) ?? 0), 0)
+
+  // Motorista de laticínio: paradas das rotas do dia em ordem, depois os demais locais
+  const skipped = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const e of data?.entries ?? []) if (e.date === date && e.skipReason) map.set(e.pointId, e.skipReason)
+    return map
+  }, [data, date])
+  const sections = useMemo(() => {
+    if (!driver) return [{ title: '', points: activePoints }]
+    const weekday = new Date(`${date}T00:00:00Z`).getUTCDay()
+    const routes = new Map<string, { title: string; stops: { point: LitePoint; position: number }[] }>()
+    for (const p of activePoints) {
+      for (const r of p.routes ?? []) {
+        if (!r.days.includes(weekday)) continue
+        const route = routes.get(r.id) ?? { title: `Rota de hoje: ${r.name}`, stops: [] }
+        route.stops.push({ point: p, position: r.position })
+        routes.set(r.id, route)
+      }
+    }
+    const inRoutes = new Set([...routes.values()].flatMap((r) => r.stops.map((s) => s.point.id)))
+    const list = [...routes.values()].map((r) => ({ title: r.title, points: r.stops.sort((a, b) => a.position - b.position).map((s) => s.point) }))
+    const others = activePoints.filter((p) => !inRoutes.has(p.id))
+    if (others.length) list.push({ title: list.length ? 'Outros locais' : '', points: others })
+    return list
+  }, [driver, activePoints, date])
+
+  // Coleta não realizada: grava na hora (não espera digitar) com o motivo; "Desfazer" apaga
+  async function markSkip(point: LitePoint, skipReason: string | null) {
+    if (!data || !canWrite) return
+    const change: LiteChange = { pointId: point.id, date, liters: null, skipReason }
+    enqueue([change])
+    setData(applyChanges(data, [change]))
+    setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== `${date}|${point.id}`)))
+    setPending(pendingCount())
+    if (navigator.onLine) await sync()
+  }
 
   // auto: salvamento sozinho. Não apaga anotação (campo vazio) e mantém o que está digitado
   // no campo, para não atrapalhar quem ainda está escrevendo
@@ -261,26 +298,39 @@ export default function LitePage() {
                     onSaved={(milkPrice) => { const d = { ...data, milkPrice }; setData(d); writeCache(d) }} />
                 </div>
               ) : (
-              <ul className="mt-5 space-y-3">
-                {activePoints.map((p) => (
-                  <li key={p.id} className="bg-white rounded-2xl border border-gray-200 p-4 flex items-start gap-2">
-                    <label className="flex flex-1 min-w-0 items-center gap-3">
-                      <span className="flex-1 min-w-0">
-                        <span className="block text-lg font-semibold text-gray-900 truncate">{p.name}</span>
-                        {p.kind === 'tanque' && <span className="text-xs font-medium text-gray-500">{KIND_LABEL.tanque}</span>}
-                      </span>
-                      <span className="flex items-center gap-2 shrink-0">
-                        <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={valueOf(p.id)}
-                          onChange={(e) => setDrafts({ ...drafts, [`${date}|${p.id}`]: e.target.value.replace(/[^\d.,]/g, '') })}
-                          aria-label={`Litros de ${p.name}`}
-                          className="w-28 border border-gray-300 rounded-xl px-3 py-3 !text-2xl font-semibold text-right focus:outline-none focus:ring-2 focus:ring-green-600" />
-                        <span className="text-lg text-gray-500">L</span>
-                      </span>
-                    </label>
-                    {canWrite && <VoiceButton size="sm" label={`os litros de ${p.name}`} onNumber={(v) => setSpoken(p.id, v)} />}
-                  </li>
+              <div className="mt-5 space-y-5">
+                {sections.map((section) => (
+                  <section key={section.title || 'locais'}>
+                    {section.title && <h2 className="mb-2 text-sm font-semibold text-gray-600">{section.title}</h2>}
+                    <ul className="space-y-3">
+                      {section.points.map((p) => (
+                        <li key={p.id} className="bg-white rounded-2xl border border-gray-200 p-4">
+                          <div className="flex items-start gap-2">
+                            <label className="flex flex-1 min-w-0 items-center gap-3">
+                              <span className="flex-1 min-w-0">
+                                <span className="block text-lg font-semibold text-gray-900 truncate">{p.name}</span>
+                                {p.kind === 'tanque' && <span className="text-xs font-medium text-gray-500">{KIND_LABEL.tanque}</span>}
+                              </span>
+                              {!skipped.has(p.id) && (
+                                <span className="flex items-center gap-2 shrink-0">
+                                  <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={valueOf(p.id)}
+                                    onChange={(e) => setDrafts({ ...drafts, [`${date}|${p.id}`]: e.target.value.replace(/[^\d.,]/g, '') })}
+                                    aria-label={`Litros de ${p.name}`}
+                                    className="w-28 border border-gray-300 rounded-xl px-3 py-3 !text-2xl font-semibold text-right focus:outline-none focus:ring-2 focus:ring-green-600" />
+                                  <span className="text-lg text-gray-500">L</span>
+                                </span>
+                              )}
+                            </label>
+                            {canWrite && !skipped.has(p.id) && <VoiceButton size="sm" label={`os litros de ${p.name}`} onNumber={(v) => setSpoken(p.id, v)} />}
+                          </div>
+                          {p.org && <RouteStopInfo point={p} skipReason={skipped.get(p.id) ?? null} canWrite={canWrite}
+                            hasLiters={!!parseLiters(valueOf(p.id))} onSkip={(reason) => markSkip(p, reason)} />}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
                 ))}
-              </ul>
+              </div>
               )}
               {canWrite && <OfflineVoiceSetup online={online} />}
 
@@ -426,8 +476,9 @@ function Points({ data, online, onPointOp, onChanged }: {
   const linked = (p: LitePoint) => onChanged({ ...data, points: data.points.map((x) => (x.id === p.id ? p : x)) })
   const toggle = (p: LitePoint) => onPointOp({ id: p.id, active: !p.active })
 
-  const active = data.points.filter((p) => p.active)
-  const archived = data.points.filter((p) => !p.active)
+  // Pontos do laticínio vêm prontos nas rotas: aqui o motorista cuida só dos locais dele
+  const active = data.points.filter((p) => p.active && !p.org)
+  const archived = data.points.filter((p) => !p.active && !p.org)
 
   return (
     <div>

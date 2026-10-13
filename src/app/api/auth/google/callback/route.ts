@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       if (!vendor || vendor.status === 'bloqueado') return redirect('/login?googleError=blocked')
     }
     const next = safeNext(flow.next)
-    const onboardingNext = next.startsWith('/convite/') ? `/cadastro?convite=${encodeURIComponent(next.slice('/convite/'.length).split('?')[0])}` : ['/cadastro', '/lite/cadastro', '/fornecedor/cadastro'].some(p => next.split('?')[0] === p) ? next : '/criar-conta'
+    const onboardingNext = next.startsWith('/convite/') ? `/cadastro?convite=${encodeURIComponent(next.slice('/convite/'.length).split('?')[0])}` : ['/cadastro', '/lite/cadastro', '/fornecedor/cadastro', '/organizacao/cadastro'].some(p => next.split('?')[0] === p) ? next : '/criar-conta'
     const response = redirect(user.role === 'onboarding' ? onboardingNext : next)
     clearSessionCookies(response)
     setSessionCookie(response, user.id)

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { canAccessModule, canEdit, renewSession, requireUser } from '@/lib/auth'
-import { FARM_POINT_ID, LITE_HISTORY_DAYS, LiteChange, LiteData, parseLiters, usesFarmMode } from '@/lib/lite'
+import { FARM_POINT_ID, LITE_HISTORY_DAYS, LiteChange, LiteData, isDriverRole, parseLiters, usesFarmMode } from '@/lib/lite'
+import { driverRoutePointIds, todayWeekday } from '@/lib/laticinio'
 import { todayUTC } from '@/lib/utils'
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
@@ -57,15 +58,22 @@ export async function GET() {
     return renewSession(NextResponse.json(data))
   }
 
+  // Motorista de laticínio: além dos locais próprios, os pontos das rotas atribuídas a ele
+  const routePointIds = isDriverRole(user.role) ? await driverRoutePointIds(user.id) : new Set<string>()
   const points = await prisma.milkPoint.findMany({
-    where: { ownerId: user.id },
+    where: { OR: [{ ownerId: user.id, organizationId: null }, { id: { in: [...routePointIds] } }] },
     orderBy: [{ active: 'desc' }, { createdAt: 'asc' }],
-    select: { id: true, name: true, kind: true, active: true, farm: { select: { id: true, name: true, city: true, state: true } } },
+    select: {
+      id: true, name: true, kind: true, active: true, contactName: true, phone: true, address: true, accessNotes: true,
+      farm: { select: { id: true, name: true, city: true, state: true } },
+      organization: { select: { name: true } },
+      stops: { where: { route: { driverId: user.id, active: true } }, select: { position: true, route: { select: { id: true, name: true, days: true } } } },
+    },
   })
   const owner = await prisma.user.findUnique({ where: { id: user.id }, select: { milkPrice: true } })
   const entries = await prisma.milkEntry.findMany({
-    where: { point: { ownerId: user.id }, date: { gte: since } },
-    select: { pointId: true, date: true, liters: true },
+    where: { pointId: { in: points.map((p) => p.id) }, date: { gte: since } },
+    select: { pointId: true, date: true, liters: true, skipReason: true, note: true },
     orderBy: { date: 'desc' },
   })
 
@@ -74,10 +82,16 @@ export async function GET() {
     role: user.role,
     mode: 'pessoal',
     canEdit: true,
-    points: points.map((p) => ({ ...p, kind: p.kind === 'tanque' ? 'tanque' : 'sitio' })),
-    entries: entries.map((e) => ({ pointId: e.pointId, date: isoDay(e.date), liters: e.liters })),
+    points: points.map(({ organization, stops, ...p }) => ({
+      ...p,
+      kind: p.kind === 'tanque' ? 'tanque' : 'sitio',
+      org: organization ? { name: organization.name } : null,
+      routes: stops.map((s) => ({ id: s.route.id, name: s.route.name, days: s.route.days, position: s.position })),
+    })),
+    entries: entries.map((e) => ({ pointId: e.pointId, date: isoDay(e.date), liters: e.liters, skipReason: e.skipReason, note: e.note })),
     collections: [],
     milkPrice: owner?.milkPrice ?? null,
+    todayWeekday: todayWeekday(),
   }
   return renewSession(NextResponse.json(data))
 }
@@ -115,20 +129,25 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ saved: valid.length })
   }
 
+  // Pode anotar nos locais próprios e, se for motorista de laticínio, nos pontos das suas rotas
   const ids = [...new Set(valid.map((c) => c.pointId))]
-  const owned = await prisma.milkPoint.count({ where: { id: { in: ids }, ownerId: user.id } })
-  if (owned !== ids.length) return NextResponse.json({ error: 'Local não encontrado' }, { status: 404 })
+  const routePointIds = isDriverRole(user.role) ? await driverRoutePointIds(user.id) : new Set<string>()
+  const owned = await prisma.milkPoint.findMany({ where: { id: { in: ids }, ownerId: user.id, organizationId: null }, select: { id: true } })
+  const allowed = new Set([...owned.map((p) => p.id), ...ids.filter((id) => routePointIds.has(id))])
+  if (ids.some((id) => !allowed.has(id))) return NextResponse.json({ error: 'Local não encontrado' }, { status: 404 })
 
+  const now = new Date()
   await prisma.$transaction(
     valid.map((c) => {
       const liters = parseLiters(c.liters)
-      return liters === null
-        ? prisma.milkEntry.deleteMany({ where: { pointId: c.pointId, date: new Date(c.date) } })
-        : prisma.milkEntry.upsert({
-            where: { pointId_date: { pointId: c.pointId, date: new Date(c.date) } },
-            create: { pointId: c.pointId, date: new Date(c.date), liters },
-            update: { liters },
-          })
+      const skipReason = typeof c.skipReason === 'string' && c.skipReason.trim() ? c.skipReason.trim().slice(0, 120) : null
+      const note = typeof c.note === 'string' && c.note.trim() ? c.note.trim().slice(0, 300) : null
+      const where = { pointId_date: { pointId: c.pointId, date: new Date(c.date) } }
+      // Sem litros e sem motivo: apaga a anotação do dia
+      if (liters === null && !skipReason) return prisma.milkEntry.deleteMany({ where: { pointId: c.pointId, date: new Date(c.date) } })
+      // Coleta não realizada fica com 0 L e o motivo; quem coletou e a hora valem para o laticínio
+      const fields = { liters: skipReason ? 0 : liters!, skipReason, note, collectedById: user.id, collectedAt: now }
+      return prisma.milkEntry.upsert({ where, create: { pointId: c.pointId, date: new Date(c.date), ...fields }, update: fields })
     }),
   )
   return NextResponse.json({ saved: valid.length })
