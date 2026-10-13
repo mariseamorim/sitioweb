@@ -1,6 +1,10 @@
 import { prisma } from '@/lib/prisma'
+import type { OrgType } from '@/lib/organizations'
 
 // Regras do laticínio: rotas do dia, pendências e acesso do motorista aos pontos da rota
+
+/** Quem usa as ferramentas de coleta (pontos, rotas, motoristas, recebimento): o laticínio e a associação (coleta compartilhada) */
+export const COLLECTION_ORGS: OrgType[] = ['laticinio', 'associacao']
 
 /** Dia da semana de hoje no horário de Brasília (0 = domingo) */
 export function todayWeekday(now = new Date()): number {

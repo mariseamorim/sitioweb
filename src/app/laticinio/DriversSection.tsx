@@ -39,7 +39,7 @@ export function DriversSection({ drivers, routes, onChanged }: { drivers: Driver
   }
 
   async function unlink(driver: Driver) {
-    if (!(await confirm({ title: `Desligar ${driver.name}?`, message: 'Ele sai das rotas e deixa de ver os pontos do laticínio. As coletas já feitas continuam no histórico.', confirmLabel: 'Desligar', danger: true }))) return
+    if (!(await confirm({ title: `Desligar ${driver.name}?`, message: 'Ele sai das rotas e deixa de ver os pontos de coleta. As coletas já feitas continuam no histórico.', confirmLabel: 'Desligar', danger: true }))) return
     await send(`/api/laticinio/motoristas/${driver.id}`, 'DELETE')
     onChanged()
   }

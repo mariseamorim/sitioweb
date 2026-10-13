@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hashPassword, requireOrganization } from '@/lib/auth'
-import { cleanText } from '@/lib/laticinio'
+import { COLLECTION_ORGS, cleanText } from '@/lib/laticinio'
 
 // POST: o laticínio cria o acesso do motorista (ele entra no Anota Aí Leite e vê as rotas atribuídas)
 export async function POST(request: NextRequest) {
-  const auth = await requireOrganization('laticinio')
+  const auth = await requireOrganization(COLLECTION_ORGS)
   if ('error' in auth) return auth.error
 
   const body = await request.json()

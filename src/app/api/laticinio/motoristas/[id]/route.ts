@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { notFound, requireOrganization } from '@/lib/auth'
-import { cleanText } from '@/lib/laticinio'
+import { COLLECTION_ORGS, cleanText } from '@/lib/laticinio'
 
 async function findDriver(id: string) {
-  const auth = await requireOrganization('laticinio')
+  const auth = await requireOrganization(COLLECTION_ORGS)
   if ('error' in auth) return { error: auth.error } as const
   const driver = await prisma.user.findFirst({ where: { id, organizationId: auth.organization.id, role: 'motorista' }, select: { id: true } })
   if (!driver) return { error: notFound('Motorista não encontrado') } as const

@@ -3,6 +3,7 @@ import { promisify } from 'util'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { OrgType } from '@/lib/organizations'
 
 const scryptAsync = promisify(scrypt) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>
 
@@ -190,16 +191,19 @@ export async function requireVendor() {
 }
 
 /** Laticínio ou associação: o perfil administra uma organização desse tipo, não bloqueada. */
-export async function requireOrganization(type: 'laticinio' | 'associacao') {
+/** Laticínio ou associação aprovada/pendente; com uma lista, aceita qualquer um dos tipos (ex.: coleta compartilhada). */
+export async function requireOrganization(type: OrgType | OrgType[]) {
+  const types: string[] = Array.isArray(type) ? type : [type]
   const user = await getSessionUser()
   if (!user) {
     return { error: NextResponse.json({ error: 'Faça login para continuar' }, { status: 401 }) } as const
   }
-  const organization = user.role === type && user.organizationId
+  const organization = types.includes(user.role) && user.organizationId
     ? await prisma.organization.findUnique({ where: { id: user.organizationId } })
     : null
-  if (!organization || organization.type !== type || organization.status === 'bloqueado') {
-    return { error: NextResponse.json({ error: type === 'laticinio' ? 'Acesso restrito a laticínios' : 'Acesso restrito a associações' }, { status: 403 }) } as const
+  if (!organization || organization.type !== user.role || organization.status === 'bloqueado') {
+    const who = types.map((t) => (t === 'laticinio' ? 'laticínios' : 'associações')).join(' e ')
+    return { error: NextResponse.json({ error: `Acesso restrito a ${who}` }, { status: 403 }) } as const
   }
   return { user, organization } as const
 }

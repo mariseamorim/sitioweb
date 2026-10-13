@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireOrganization } from '@/lib/auth'
-import { cleanNumber, cleanText } from '@/lib/laticinio'
+import { COLLECTION_ORGS, cleanNumber, cleanText } from '@/lib/laticinio'
 import { todayUTC } from '@/lib/utils'
 
 // POST: { date, routeId?, liters, note? } litros recebidos no laticínio (comparados com os coletados)
 export async function POST(request: NextRequest) {
-  const auth = await requireOrganization('laticinio')
+  const auth = await requireOrganization(COLLECTION_ORGS)
   if ('error' in auth) return auth.error
 
   const body = await request.json()

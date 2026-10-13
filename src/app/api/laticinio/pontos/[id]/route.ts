@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { notFound, requireOrganization } from '@/lib/auth'
-import { cleanText, pointData } from '@/lib/laticinio'
+import { COLLECTION_ORGS, cleanText, pointData } from '@/lib/laticinio'
 
 // PATCH: edita o ponto ou arquiva/reativa ({ active }). Arquivar mantém o histórico de coletas.
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await requireOrganization('laticinio')
+  const auth = await requireOrganization(COLLECTION_ORGS)
   if ('error' in auth) return auth.error
   const { id } = await params
   if (!(await prisma.milkPoint.findFirst({ where: { id, organizationId: auth.organization.id }, select: { id: true } }))) return notFound('Ponto de coleta não encontrado')

@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireOrganization } from '@/lib/auth'
-import { todayStops } from '@/lib/laticinio'
+import { COLLECTION_ORGS, todayStops } from '@/lib/laticinio'
 import { todayUTC } from '@/lib/utils'
 
 const isDay = (v: string | null) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v)
 
 // GET ?from&to: tudo o que o painel do laticínio precisa (cadastros, coletas e recebimentos do período e o dia de hoje)
 export async function GET(request: NextRequest) {
-  const auth = await requireOrganization('laticinio')
+  const auth = await requireOrganization(COLLECTION_ORGS)
   if ('error' in auth) return auth.error
   const { organization } = auth
 

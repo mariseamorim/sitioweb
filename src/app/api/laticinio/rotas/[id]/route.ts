@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { notFound, requireOrganization } from '@/lib/auth'
-import { routeInput } from '@/lib/laticinio'
+import { COLLECTION_ORGS, routeInput } from '@/lib/laticinio'
 
 async function findRoute(id: string) {
-  const auth = await requireOrganization('laticinio')
+  const auth = await requireOrganization(COLLECTION_ORGS)
   if ('error' in auth) return { error: auth.error } as const
   const route = await prisma.route.findFirst({ where: { id, organizationId: auth.organization.id }, select: { id: true } })
   if (!route) return { error: notFound('Rota não encontrada') } as const
