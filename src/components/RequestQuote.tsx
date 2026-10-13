@@ -78,7 +78,7 @@ export function RequestQuote({ item, vendorId: initialVendorId = '', onClose }: 
     : `Olá! Mandei uma mensagem pelo Anota Aí Agro sobre ${subject}: ${note}`
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70] p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70] p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="p-5 sm:p-6">
           <div className="flex items-center justify-between mb-3">

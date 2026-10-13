@@ -358,7 +358,7 @@ export default function PainelFornecedorPage() {
       )}
 
       {editing && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setEditing(null)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <form onSubmit={saveOffer} className="p-5 sm:p-6 flex flex-col gap-4">
               <div className="flex items-center justify-between">

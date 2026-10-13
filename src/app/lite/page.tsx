@@ -827,7 +827,7 @@ function UpgradeModal({ data, online, pending, onClose }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4">
       <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-white rounded-2xl p-5 flex flex-col gap-3 max-h-[95vh] overflow-y-auto">
         <h2 className="text-xl font-bold text-gray-900">Versão completa</h2>
         <p className="text-gray-600">

@@ -48,7 +48,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     <DialogContext.Provider value={{ confirm, notify }}>
       {children}
       {dialog && (
-        <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-4" onClick={() => close(false)}>
+        <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-4">
           <div
             role="alertdialog"
             aria-modal="true"
