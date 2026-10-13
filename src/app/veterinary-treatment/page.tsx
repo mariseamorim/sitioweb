@@ -7,7 +7,7 @@ import { animalSearchText } from '@/lib/animalCode'
 import { useEffect, useState, useMemo } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
 import { useDialog } from '@/components/DialogProvider'
-import { todayISO } from '@/lib/utils'
+import { currentMonthRange, inDayRange, todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
 
 interface Animal {
@@ -33,14 +33,13 @@ export default function VeterinaryTreatmentPage() {
   const { confirm } = useDialog()
   const { user } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
-  const now = new Date()
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [allAnimals, setAllAnimals] = useState<Animal[]>([])
   const [animalSearch, setAnimalSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
-  const [from, setFrom] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10))
-  const [to, setTo] = useState(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10))
+  const [from, setFrom] = useState(() => currentMonthRange().from)
+  const [to, setTo] = useState(() => currentMonthRange().to)
   const [detailAnimalId, setDetailAnimalId] = useState<string | null>(null)
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -120,9 +119,7 @@ export default function VeterinaryTreatmentPage() {
 
   const filtered = useMemo(() => {
     return treatments.filter((t) => {
-      const d = new Date(t.startDate)
-      if (from && d < new Date(from)) return false
-      if (to && d > new Date(to + 'T23:59:59')) return false
+      if (!inDayRange(t.startDate, from, to)) return false
       const term = animalSearch.trim().toLowerCase()
       return animalSearchText(t.animal).includes(term)
     })

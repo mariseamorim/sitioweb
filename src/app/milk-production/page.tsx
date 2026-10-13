@@ -13,6 +13,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useDialog } from '@/components/DialogProvider'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
 import { fmtNumber, fmtMoney } from '@/lib/reports'
+import { currentMonthRange, inDayRange } from '@/lib/utils'
 
 interface Animal {
   id: string
@@ -46,13 +47,12 @@ export default function MilkProductionPage() {
   const { confirm } = useDialog()
   const { user } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
-  const now = new Date()
   const [productions, setProductions] = useState<Production[]>([])
   const [allAnimals, setAllAnimals] = useState<Animal[]>([])
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
-  const [from, setFrom] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10))
-  const [to, setTo] = useState(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10))
+  const [from, setFrom] = useState(() => currentMonthRange().from)
+  const [to, setTo] = useState(() => currentMonthRange().to)
   const [view, setView] = useState<'dia' | 'vaca'>('dia')
   const [detailDay, setDetailDay] = useState<string | null>(null)
   const [detailAnimalId, setDetailAnimalId] = useState<string | null>(null)
@@ -135,12 +135,7 @@ export default function MilkProductionPage() {
   }
 
   const filtered = useMemo(() => {
-    return productions.filter((p) => {
-      const d = new Date(p.date)
-      if (from && d < new Date(from)) return false
-      if (to && d > new Date(to + 'T23:59:59')) return false
-      return true
-    })
+    return productions.filter((p) => inDayRange(p.date, from, to))
   }, [productions, from, to])
 
   const grandTotal = filtered.reduce((s, p) => s + p.quantity, 0)

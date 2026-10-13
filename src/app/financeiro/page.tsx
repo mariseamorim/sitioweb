@@ -4,7 +4,7 @@ import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/
 
 import { useEffect, useState, useMemo } from 'react'
 import { useDialog } from '@/components/DialogProvider'
-import { todayISO } from '@/lib/utils'
+import { currentMonthRange, inDayRange, todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
 
 interface Animal { id: string; name: string; code: string }
@@ -23,13 +23,12 @@ const CATEGORIES_DESPESA = ['Medicamentos', 'Ração', 'Vacinas', 'Mão de Obra'
 
 export default function FinanceiroPage() {
   const { confirm } = useDialog()
-  const now = new Date()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [animals, setAnimals] = useState<Animal[]>([])
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
-  const [from, setFrom] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10))
-  const [to, setTo] = useState(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10))
+  const [from, setFrom] = useState(() => currentMonthRange().from)
+  const [to, setTo] = useState(() => currentMonthRange().to)
   const [filterType, setFilterType] = useState('Todas')
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -96,9 +95,7 @@ export default function FinanceiroPage() {
 
   const filtered = useMemo(() => {
     return transactions.filter(t => {
-      const d = new Date(t.date)
-      if (from && d < new Date(from)) return false
-      if (to && d > new Date(to + 'T23:59:59')) return false
+      if (!inDayRange(t.date, from, to)) return false
       if (filterType !== 'Todas' && t.type !== filterType) return false
       return true
     })

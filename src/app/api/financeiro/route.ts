@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
         ...(from || to ? {
           date: {
             ...(from ? { gte: new Date(from) } : {}),
-            ...(to ? { lte: new Date(to + 'T23:59:59') } : {}),
+            ...(to ? { lte: new Date(to + 'T23:59:59Z') } : {}), // Z: datas gravadas em UTC, independente do fuso do servidor
           },
         } : {}),
       },
