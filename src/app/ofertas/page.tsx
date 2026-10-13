@@ -230,7 +230,7 @@ export default function OfertasPage() {
                   </div>
                   <p className="text-base font-semibold text-gray-900">{o.title}</p>
                   {o.price && (
-                    <p className="text-lg font-bold text-green-700">{fmtMoney(o.price)}{o.unit && <span className="text-sm font-normal text-gray-500"> / {o.unit}</span>}</p>
+                    <p className="text-lg font-bold text-green-700">{fmtMoney(o.price)}{o.unit && <span className="text-sm font-normal text-gray-500"> / {o.unit.toLowerCase()}</span>}</p>
                   )}
                   {o.description && <p className="text-sm text-gray-600 mt-1">{o.description}</p>}
                   <p className="text-xs text-gray-500 mt-1">

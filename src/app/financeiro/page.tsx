@@ -128,7 +128,8 @@ export default function FinanceiroPage() {
       date: form.date,
       amount: parseFloat(form.amount),
       description: form.description || null,
-      animalId: form.type === 'Receita' && form.category !== 'Venda de Animal' ? null : form.animalId || null,
+      // Animal só na venda de animal; despesa não tem animal
+      animalId: form.type === 'Receita' && form.category === 'Venda de Animal' ? form.animalId || null : null,
       farmId,
     }
 
@@ -335,7 +336,7 @@ export default function FinanceiroPage() {
                   <input type="text" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
-                {(form.type !== 'Receita' || form.category === 'Venda de Animal') && <div>
+                {form.type === 'Receita' && form.category === 'Venda de Animal' && <div>
                   <label className="text-xs font-medium text-gray-600">Animal (opcional)</label>
                   <select value={form.animalId} onChange={e => setForm({ ...form, animalId: e.target.value })}
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">

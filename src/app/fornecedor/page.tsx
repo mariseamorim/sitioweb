@@ -92,6 +92,9 @@ function inDays(n: number) {
   return d.toISOString().slice(0, 10)
 }
 
+const OFFER_UNITS = ['Kg', 'Saco', 'Litro']
+// Unidade antiga em minúsculas ("saco") vira a opção da lista ("Saco")
+const matchUnit = (unit: string) => OFFER_UNITS.find((u) => u.toLowerCase() === unit.toLowerCase()) ?? unit
 const EMPTY_FORM = { title: '', category: 'Ração', price: '', unit: '', description: '', imageUrl: '', reach: 'clientes', validUntil: '' }
 const input = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 
@@ -137,7 +140,7 @@ export default function PainelFornecedorPage() {
       ? { ...EMPTY_FORM, validUntil: inDays(14) }
       : {
           title: offer.title, category: offer.category, price: offer.price ? String(offer.price).replace('.', ',') : '',
-          unit: offer.unit ?? '', description: offer.description ?? '', imageUrl: offer.imageUrl ?? '',
+          unit: matchUnit(offer.unit ?? ''), description: offer.description ?? '', imageUrl: offer.imageUrl ?? '',
           reach: offer.reach, validUntil: offer.validUntil.slice(0, 10),
         })
   }
@@ -280,7 +283,7 @@ export default function PainelFornecedorPage() {
                       </div>
                       <p className="text-sm text-gray-500">
                         {o.category}
-                        {o.price ? ` · ${fmtMoney(o.price)}${o.unit ? ` / ${o.unit}` : ''}` : ''}
+                        {o.price ? ` · ${fmtMoney(o.price)}${o.unit ? ` / ${o.unit.toLowerCase()}` : ''}` : ''}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         Até {fmtDate(o.validUntil)} · {o.reach === 'regiao' ? `Clientes e região (${vendor.state ?? '—'})` : 'Só clientes'} · {o.whatsappClicks} chamada{o.whatsappClicks === 1 ? '' : 's'}
@@ -376,7 +379,12 @@ export default function PainelFornecedorPage() {
                   <input inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value.replace(/[^\d.,]/g, '') })} placeholder="Opcional" className={`mt-1 ${input}`} />
                 </label>
                 <label className="text-sm font-medium text-gray-700">Por
-                  <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="saco, kg..." className={`mt-1 ${input}`} />
+                  <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className={`mt-1 ${input} bg-white`}>
+                    <option value="">—</option>
+                    {OFFER_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                    {/* Oferta antiga com unidade escrita à mão: mantém o valor até ser trocado */}
+                    {form.unit && !OFFER_UNITS.some((u) => u.toLowerCase() === form.unit.toLowerCase()) && <option value={form.unit}>{form.unit}</option>}
+                  </select>
                 </label>
               </div>
               <label className="text-sm font-medium text-gray-700">Detalhes

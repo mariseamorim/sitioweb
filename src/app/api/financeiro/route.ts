@@ -38,7 +38,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { type, category, date, amount, description, animalId } = body
+    const { type, category, date, amount, description } = body
+    // Despesa não tem animal; só a receita (venda de animal) pode ter
+    const animalId = type === 'Receita' ? body.animalId : null
 
     if (!type || !category || !date || !amount) {
       return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
