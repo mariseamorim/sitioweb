@@ -2,6 +2,7 @@
 import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
+import { animalSearchText } from '@/lib/animalCode'
 
 import { useEffect, useState, useMemo } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
@@ -124,7 +125,7 @@ export default function ReproducaoPage() {
 
   const filtered = useMemo(() => {
     const term = animalSearch.trim().toLowerCase()
-    return reproductions.filter(r => (filterStatus === 'Todas' || r.status === filterStatus) && [r.femaleId, r.female.code, r.female.name].some(text => text.toLowerCase().includes(term)))
+    return reproductions.filter(r => (filterStatus === 'Todas' || r.status === filterStatus) && animalSearchText(r.female).includes(term))
   }, [reproductions, filterStatus, animalSearch])
 
   const upcomingBirths = useMemo(() => {
@@ -261,7 +262,7 @@ export default function ReproducaoPage() {
         ))}
       </div>
 
-      <label className="mb-4 block text-xs font-medium text-gray-600">Buscar animal por ID, código ou nome
+      <label className="mb-4 block text-xs font-medium text-gray-600">Buscar animal por nome, código ou brinco
         <input type="search" value={animalSearch} onChange={e => setAnimalSearch(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
       </label>
       {loading ? <p className="text-gray-400 text-sm">Carregando...</p> : filtered.length === 0 ? (

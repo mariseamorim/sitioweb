@@ -2,6 +2,7 @@
 import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
+import { animalSearchText } from '@/lib/animalCode'
 
 import { useEffect, useState, useMemo } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
@@ -120,7 +121,7 @@ export default function VacinacaoPage() {
 
   const filtered = useMemo(() => {
     const term = animalSearch.trim().toLowerCase()
-    return vaccinations.filter(v => (filter === 'Todas' || getStatus(v) === filter) && [v.animalId, v.animal.code, v.animal.name].some(text => text.toLowerCase().includes(term)))
+    return vaccinations.filter(v => (filter === 'Todas' || getStatus(v) === filter) && animalSearchText(v.animal).includes(term))
   }, [vaccinations, filter, animalSearch])
 
   const alertCount = useMemo(() => {
@@ -249,7 +250,7 @@ export default function VacinacaoPage() {
         ))}
       </div>
 
-      <label className="mb-4 block text-xs font-medium text-gray-600">Buscar animal por ID, código ou nome
+      <label className="mb-4 block text-xs font-medium text-gray-600">Buscar animal por nome, código ou brinco
         <input type="search" value={animalSearch} onChange={e => setAnimalSearch(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
       </label>
       {loading ? <p className="text-gray-400 text-sm">Carregando...</p> : filtered.length === 0 ? (

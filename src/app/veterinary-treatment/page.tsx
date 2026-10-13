@@ -2,6 +2,7 @@
 import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
+import { animalSearchText } from '@/lib/animalCode'
 
 import { useEffect, useState, useMemo } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
@@ -123,7 +124,7 @@ export default function VeterinaryTreatmentPage() {
       if (from && d < new Date(from)) return false
       if (to && d > new Date(to + 'T23:59:59')) return false
       const term = animalSearch.trim().toLowerCase()
-      return [t.animalId, t.animal.code, t.animal.name].some(text => text.toLowerCase().includes(term))
+      return animalSearchText(t.animal).includes(term)
     })
   }, [treatments, from, to, animalSearch])
 
@@ -287,7 +288,7 @@ export default function VeterinaryTreatmentPage() {
       </div>
 
       {/* Animals table */}
-      <label className="mb-4 block text-xs font-medium text-gray-600">Buscar animal por ID, código ou nome
+      <label className="mb-4 block text-xs font-medium text-gray-600">Buscar animal por nome, código ou brinco
         <input type="search" value={animalSearch} onChange={e => setAnimalSearch(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
       </label>
       {loading ? (

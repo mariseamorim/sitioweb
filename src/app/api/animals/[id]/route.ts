@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
 import { findValidMother } from '@/lib/calves'
 import { animalCategory, animalRuleError } from '@/lib/animalRules'
+import { cleanCustomCode, duplicateCodeMessage } from '@/lib/animalCode'
 
 async function findOwned(id: string, farmId: string) {
   return prisma.animal.findFirst({ where: { id, farmId } })
@@ -31,10 +32,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'A mãe deve ser uma fêmea bovina da propriedade com pelo menos 2 anos e meio' }, { status: 400 })
   }
 
+  try {
   const animal = await prisma.animal.update({
     where: { id },
     data: {
       code,
+      // Só muda o outro código quando o formulário manda o campo
+      ...(body.customCode !== undefined ? { customCode: cleanCustomCode(body.customCode) } : {}),
       name,
       species: animalCategory(classification),
       gender: classification.gender,
@@ -52,6 +56,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     },
   })
   return NextResponse.json(animal)
+  } catch (error: unknown) {
+    const duplicate = duplicateCodeMessage(error)
+    if (duplicate) return NextResponse.json({ error: duplicate }, { status: 409 })
+    throw error
+  }
 }
 
 // PATCH: { motherId } liga (ou desliga, com null) uma cria já cadastrada à mãe
