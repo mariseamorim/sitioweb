@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { canAccessModule, canEdit, renewSession, requireUser } from '@/lib/auth'
 import { FARM_POINT_ID, LITE_HISTORY_DAYS, LiteChange, LiteData, isDriverRole, parseLiters, usesFarmMode } from '@/lib/lite'
 import { driverRoutePointIds, todayWeekday } from '@/lib/laticinio'
+import { associationAlerts } from '@/lib/associacao'
 import { todayUTC } from '@/lib/utils'
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
@@ -92,6 +93,8 @@ export async function GET() {
     collections: [],
     milkPrice: owner?.milkPrice ?? null,
     todayWeekday: todayWeekday(),
+    // Produtor do Anota Aí Leite associado: novidades da associação (comunicado, visita, mensalidade)
+    associationAlerts: user.role === 'lite' ? (await associationAlerts({ userId: user.id }, todayUTC())).length : 0,
   }
   return renewSession(NextResponse.json(data))
 }

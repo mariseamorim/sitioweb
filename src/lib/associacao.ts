@@ -13,7 +13,37 @@ export function memberIdentity(user: SessionUser): { farmId: string } | { userId
   return null
 }
 
-export const canManageMembership = (user: SessionUser) => user.role === 'lite' || canEdit(user)
+export interface AssociationAlert { title: string; detail?: string }
+
+/**
+ * Novidades da associação para o associado: comunicado da última semana, evento nos próximos 7 dias,
+ * visita técnica agendada para os próximos 7 dias e mensalidade atrasada.
+ */
+export async function associationAlerts(identity: { farmId: string } | { userId: string }, today: Date): Promise<AssociationAlert[]> {
+  const weekAgo = new Date(today.getTime() - 7 * 864e5)
+  const inWeek = new Date(today.getTime() + 7 * 864e5)
+  const members = await prisma.orgMember.findMany({
+    where: identity,
+    select: {
+      organization: {
+        select: {
+          name: true,
+          notices: { where: { OR: [{ createdAt: { gte: weekAgo } }, { eventDate: { gte: today, lte: inWeek } }] }, orderBy: { createdAt: 'desc' }, take: 3 },
+        },
+      },
+      visits: { where: { status: 'agendada', scheduledFor: { gte: today, lte: inWeek } }, take: 3 },
+      fees: { where: { paidAt: null, dueDate: { lt: today } }, take: 3 },
+    },
+  })
+  const fmt = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' })
+  return members.flatMap((m) => [
+    ...m.organization.notices.map((n) => ({ title: `${m.organization.name}: ${n.title}`, detail: n.eventDate ? `Dia ${fmt(n.eventDate)}` : 'Comunicado novo' })),
+    ...m.visits.map((v) => ({ title: `Visita técnica: ${v.subject}`, detail: `Dia ${fmt(v.scheduledFor!)}${v.technician ? ` com ${v.technician}` : ''}` })),
+    ...m.fees.map((f) => ({ title: `Mensalidade atrasada: ${m.organization.name}`, detail: `Venceu em ${fmt(f.dueDate)}` })),
+  ])
+}
+
+export const canManageMembership =(user: SessionUser) => user.role === 'lite' || canEdit(user)
 
 /** Litros produzidos no período por associado que autorizou compartilhar */
 export async function sharedProduction(members: { id: string; farmId: string | null; userId: string | null; shareProduction: boolean }[], from: Date, to: Date) {

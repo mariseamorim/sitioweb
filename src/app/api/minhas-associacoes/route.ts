@@ -22,8 +22,11 @@ export async function GET() {
         select: {
           name: true, contactName: true, phone: true, status: true,
           purchases: { orderBy: [{ status: 'asc' }, { createdAt: 'desc' }], take: 30, include: { orders: { select: { memberId: true, quantity: true, note: true } } } },
+          notices: { orderBy: { createdAt: 'desc' }, take: 20 },
         },
       },
+      visits: { orderBy: { createdAt: 'desc' }, take: 20 },
+      fees: { orderBy: { reference: 'desc' }, take: 12 },
     },
     orderBy: { createdAt: 'desc' },
   })
@@ -40,6 +43,9 @@ export async function GET() {
         const mine = orders.find((o) => o.memberId === m.id)
         return { ...p, myQuantity: mine?.quantity ?? null, myNote: mine?.note ?? null, total: orders.reduce((s, o) => s + o.quantity, 0) }
       }),
+      notices: m.organization.notices,
+      visits: m.visits,
+      fees: m.fees.map((f) => ({ ...f, dueDate: f.dueDate.toISOString().slice(0, 10) })),
     })),
   })
 }

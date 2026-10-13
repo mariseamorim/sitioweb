@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
   const to = isDay(params.get('to')) ? new Date(params.get('to')!) : todayUTC()
   const from = isDay(params.get('from')) ? new Date(params.get('from')!) : new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1))
 
-  const [members, purchases] = await Promise.all([
+  const yearAgo = new Date(Date.UTC(to.getUTCFullYear() - 1, to.getUTCMonth(), 1))
+  const [members, purchases, notices, visits, fees] = await Promise.all([
     prisma.orgMember.findMany({
       where: { organizationId: organization.id },
       include: {
@@ -30,6 +31,9 @@ export async function GET(request: NextRequest) {
       include: { orders: { select: { id: true, memberId: true, quantity: true, note: true, updatedAt: true } } },
       orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
     }),
+    prisma.orgNotice.findMany({ where: { organizationId: organization.id }, orderBy: { createdAt: 'desc' }, take: 50 }),
+    prisma.techVisit.findMany({ where: { organizationId: organization.id, OR: [{ status: { in: ['solicitada', 'agendada'] } }, { updatedAt: { gte: yearAgo } }] }, orderBy: { createdAt: 'desc' } }),
+    prisma.memberFee.findMany({ where: { organizationId: organization.id, dueDate: { gte: yearAgo } }, orderBy: [{ reference: 'desc' }] }),
   ])
   const production = await sharedProduction(members, from, to)
 
@@ -53,5 +57,8 @@ export async function GET(request: NextRequest) {
       ...p,
       total: p.orders.reduce((s, o) => s + o.quantity, 0),
     })),
+    notices,
+    visits,
+    fees: fees.map((f) => ({ ...f, dueDate: f.dueDate.toISOString().slice(0, 10) })),
   })
 }

@@ -59,6 +59,8 @@ export interface LiteData {
   milkPrice: number | null
   /** Motorista de laticínio: dia da semana de hoje (0 = domingo), para mostrar as rotas do dia */
   todayWeekday?: number
+  /** Produtor associado: quantas novidades da associação (comunicados, visitas, mensalidade atrasada) */
+  associationAlerts?: number
 }
 
 /** Uma anotação a enviar: liters null apaga o valor daquele local no dia. */

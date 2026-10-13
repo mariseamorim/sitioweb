@@ -408,6 +408,9 @@ model Organization {
   receptions MilkReception[]
   members    OrgMember[]
   purchases  GroupPurchase[]
+  notices    OrgNotice[]
+  visits     TechVisit[]
+  fees       MemberFee[]
 
   @@map("organizations")
 }
@@ -475,10 +478,65 @@ model OrgMember {
   createdAt       DateTime     @default(now())
 
   orders GroupPurchaseOrder[]
+  visits TechVisit[]
+  fees   MemberFee[]
 
   @@unique([organizationId, farmId])
   @@unique([organizationId, userId])
   @@map("org_members")
+}
+
+/// Comunicado da associação para os associados: reunião, curso, campanha de vacinação ou aviso
+model OrgNotice {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kind           String       @default("aviso") // aviso | reuniao | curso | vacinacao
+  title          String
+  body           String?
+  eventDate      DateTime? // data da reunião, curso ou campanha
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@map("org_notices")
+}
+
+/// Assistência técnica: o associado pede a visita (ou a associação agenda) e acompanha
+model TechVisit {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberId       String
+  member         OrgMember    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  subject        String
+  description    String?
+  status         String       @default("solicitada") // solicitada | agendada | concluida | cancelada
+  scheduledFor   DateTime?
+  technician     String?
+  result         String? // o que foi feito / orientação deixada
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, status])
+  @@map("tech_visits")
+}
+
+/// Mensalidade do associado (uma por mês de referência)
+model MemberFee {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberId       String
+  member         OrgMember    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  reference      String // aaaa-mm
+  amount         Float
+  dueDate        DateTime
+  paidAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@unique([memberId, reference])
+  @@index([organizationId, reference])
+  @@map("member_fees")
 }
 
 /// Compra coletiva da associação: reúne os pedidos dos associados para negociar com fornecedores

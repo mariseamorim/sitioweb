@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { visibleOffersWhere } from '@/lib/vendors'
 import { BOVINE_CATEGORIES, canAddCalf } from '@/lib/animalRules'
 import { monthsLabel, pregnancyChecks } from '@/lib/calving'
+import { associationAlerts } from '@/lib/associacao'
 
 // Tarefas do dia mostradas no sino de notificações da barra do topo
 
@@ -101,6 +102,10 @@ export async function getTodayTasks(
     if (checks.length > 3) {
       tasks.push({ title: `Confirmar prenhez de mais ${checks.length - 3} vaca${checks.length - 3 > 1 ? 's' : ''}`, href: '/reproducao#confirmar-prenhez', tone: 'amber' })
     }
+  }
+  // Associação: comunicados, eventos, visitas agendadas e mensalidade atrasada
+  for (const a of await associationAlerts({ farmId }, today)) {
+    tasks.push({ title: a.title, detail: a.detail, href: '/lite/associacao', tone: a.title.startsWith('Mensalidade') ? 'red' : 'blue' })
   }
   for (const t of treatments) {
     tasks.push({ title: `Tratamento de ${t.animal.name}: ${t.medicine}`, detail: `Até ${fmtDay(t.endDate!)}`, href: '/veterinary-treatment', tone: 'blue' })

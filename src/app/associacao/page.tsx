@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useDialog } from '@/components/DialogProvider'
 import { SUPPLY_CATEGORIES } from '@/lib/supplies'
-import { membersOrdered, qtyWithUnit } from '@/lib/organizations'
+import { feeStatus, membersOrdered, qtyWithUnit } from '@/lib/organizations'
 import { currentMonthRange, todayISO, whatsappLink } from '@/lib/utils'
 import { field, fmtDay, fmtL, send } from '@/app/laticinio/types'
 import { PeriodPicker } from '@/app/laticinio/CollectionsSection'
+import { FeesSection, NoticesSection, VisitsSection, type Fee, type Notice, type Visit } from './ServicesSections'
 
 interface Member {
   id: string
@@ -38,9 +39,12 @@ interface Panel {
   period: { from: string; to: string }
   members: Member[]
   purchases: Purchase[]
+  notices: Notice[]
+  visits: Visit[]
+  fees: Fee[]
 }
 
-type Tab = 'associados' | 'producao' | 'compras' | 'convidar'
+type Tab = 'associados' | 'producao' | 'compras' | 'comunicados' | 'visitas' | 'mensalidades' | 'convidar'
 const fmtQty = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
 
 // Painel da associação: associados, produção que eles compartilham e compras coletivas
@@ -112,6 +116,9 @@ export default function AssociacaoPage() {
     ['associados', 'Associados ativos', String(active.length)],
     ['producao', 'Leite compartilhado no período', fmtL(totalLiters)],
     ['compras', 'Compras coletivas abertas', String(open.length)],
+    ['comunicados', 'Comunicados', String(panel.notices.length)],
+    ['visitas', 'Visitas técnicas pendentes', String(panel.visits.filter((v) => v.status === 'solicitada' || v.status === 'agendada').length)],
+    ['mensalidades', 'Mensalidades atrasadas', String(panel.fees.filter((f) => feeStatus(f, todayISO()) === 'atrasada').length)],
     ['convidar', 'Convidar produtores', '+'],
   ]
 
@@ -260,6 +267,10 @@ export default function AssociacaoPage() {
           )}
         </div>
       )}
+
+      {tab === 'comunicados' && <NoticesSection orgName={panel.organization.name} notices={panel.notices} onChange={load} />}
+      {tab === 'visitas' && <VisitsSection members={panel.members} visits={panel.visits} onChange={load} />}
+      {tab === 'mensalidades' && <FeesSection orgName={panel.organization.name} members={panel.members} fees={panel.fees} onChange={load} />}
 
       {tab === 'convidar' && (
         <div className="max-w-2xl rounded-xl border border-gray-200 bg-white p-5">
