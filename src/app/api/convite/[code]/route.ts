@@ -25,6 +25,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ code: 
     state: vendor.state,
     description: vendor.description,
     loggedIn: !!user,
+    isVendor: user?.role === 'fornecedor',
     canLink: !!user?.effectiveFarmId && user.role !== 'fornecedor',
     linked,
   })
