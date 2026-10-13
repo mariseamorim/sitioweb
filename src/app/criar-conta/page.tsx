@@ -1,12 +1,12 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
-import { LeiteIcon, LojaIcon, PropriedadeIcon, SetaDireitaIcon, SincronizarIcon } from '@/components/ModuleIcons'
+import { EstoqueIcon, LeiteIcon, LojaIcon, PropriedadeIcon, SetaDireitaIcon, SincronizarIcon, UsuariosIcon } from '@/components/ModuleIcons'
 import { BackLink } from '@/components/BackLink'
 
 export const metadata: Metadata = {
   title: 'Criar conta - Anota Aí Agro',
-  description: 'Escolha como você vai usar o Anota Aí Agro: produtor, motorista ou fornecedor.',
+  description: 'Escolha como você vai usar o Anota Aí Agro: produtor, motorista, fornecedor, laticínio ou associação.',
 }
 
 const OPTIONS = [
@@ -33,6 +33,18 @@ const OPTIONS = [
     Icon: LojaIcon,
     title: 'Fornecedor de insumos',
     text: 'Divulgue ofertas de ração, sal mineral e outros produtos para os produtores.',
+  },
+  {
+    href: '/organizacao/cadastro?tipo=laticinio',
+    Icon: EstoqueIcon,
+    title: 'Laticínio',
+    text: 'Organize pontos de coleta, rotas e motoristas e confira o leite recebido.',
+  },
+  {
+    href: '/organizacao/cadastro?tipo=associacao',
+    Icon: UsuariosIcon,
+    title: 'Associação de produtores',
+    text: 'Acompanhe os associados, a produção compartilhada e faça compras coletivas.',
   },
 ]
 

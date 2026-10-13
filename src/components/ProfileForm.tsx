@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useUser } from '@/contexts/UserContext'
 import { GoogleLoginButton, GOOGLE_ERRORS } from '@/components/GoogleLoginButton'
+import { homeForRole } from '@/lib/organizations'
 
 interface Profile {
   name: string
@@ -53,7 +54,7 @@ export function ProfileForm() {
     finally { setSaving(false) }
   }
 
-  const home = profile?.role === 'fornecedor' ? '/fornecedor' : profile?.role === 'lite' || profile?.role === 'motorista' ? '/lite' : '/'
+  const home = homeForRole(profile?.role)
   const input = 'mt-1 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
   return <div className="mx-auto w-full max-w-xl px-4 py-6">
     <Link href={home} className="text-sm font-medium text-green-700">← Voltar</Link>

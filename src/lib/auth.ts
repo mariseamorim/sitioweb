@@ -3,6 +3,7 @@ import { promisify } from 'util'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { OrgType } from '@/lib/organizations'
 
 const scryptAsync = promisify(scrypt) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>
 
@@ -115,6 +116,8 @@ export interface SessionUser {
   farmId: string | null
   /** Empresa do usuário quando role = "fornecedor" */
   vendorId: string | null
+  /** Laticínio/associação que administra (role laticinio/associacao) ou de que é motorista */
+  organizationId: string | null
   /** Fazenda em uso: a do usuário ou, para admin, a escolhida no seletor. */
   effectiveFarmId: string | null
 }
@@ -126,7 +129,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, role: true, permissions: true, farmId: true, vendorId: true },
+    select: { id: true, name: true, email: true, role: true, permissions: true, farmId: true, vendorId: true, organizationId: true },
   })
   if (!user) return null
 
@@ -185,6 +188,24 @@ export async function requireVendor() {
     return { error: NextResponse.json({ error: 'Acesso restrito a fornecedores' }, { status: 403 }) } as const
   }
   return { user, vendor } as const
+}
+
+/** Laticínio ou associação: o perfil administra uma organização desse tipo, não bloqueada. */
+/** Laticínio ou associação aprovada/pendente; com uma lista, aceita qualquer um dos tipos (ex.: coleta compartilhada). */
+export async function requireOrganization(type: OrgType | OrgType[]) {
+  const types: string[] = Array.isArray(type) ? type : [type]
+  const user = await getSessionUser()
+  if (!user) {
+    return { error: NextResponse.json({ error: 'Faça login para continuar' }, { status: 401 }) } as const
+  }
+  const organization = types.includes(user.role) && user.organizationId
+    ? await prisma.organization.findUnique({ where: { id: user.organizationId } })
+    : null
+  if (!organization || organization.type !== user.role || organization.status === 'bloqueado') {
+    const who = types.map((t) => (t === 'laticinio' ? 'laticínios' : 'associações')).join(' e ')
+    return { error: NextResponse.json({ error: `Acesso restrito a ${who}` }, { status: 403 }) } as const
+  }
+  return { user, organization } as const
 }
 
 /** Produtor (qualquer perfil com propriedade ativa, exceto fornecedor). */

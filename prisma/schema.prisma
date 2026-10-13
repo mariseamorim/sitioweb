@@ -36,6 +36,7 @@ model Farm {
   vendorClients   VendorClient[]
   milkPoints      MilkPoint[] // sítios de rota de motoristas ligados a esta propriedade
   supplyRequests  SupplyRequest[]
+  orgMemberships  OrgMember[] // associações de que a propriedade participa
 
   @@map("farms")
 }
@@ -55,9 +56,18 @@ model User {
   offersSeenAt DateTime? // última vez que o produtor abriu a tela de ofertas
   milkPrice    Float? // Anota Aí Leite: valor do litro informado pelo produtor
   milkPoints   MilkPoint[]
+  /// Laticínio/associação: quem administra (role laticinio/associacao) ou motorista do laticínio
+  organizationId String?
+  organization   Organization? @relation("OrgUsers", fields: [organizationId], references: [id], onDelete: SetNull)
+  phone          String? // contato (motorista do laticínio)
+  vehicle        String? // veículo do motorista do laticínio
+  driverRoutes     Route[]        @relation("RouteDriver")
+  collectedEntries MilkEntry[]    @relation("EntryCollector")
+  orgMemberships   OrgMember[] // associações do produtor do Anota Aí Leite (sem propriedade)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
+  @@index([organizationId])
   @@map("users")
 }
 
@@ -332,13 +342,23 @@ model MilkPoint {
   /// Propriedade Pro ligada a este sítio da rota: o produtor vê as coletas do motorista
   farmId    String?
   farm      Farm?    @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  /// Ponto de coleta do laticínio (cadastrado por ele e visitado pelos motoristas das rotas)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contactName    String? // responsável
+  phone          String?
+  address        String? // localização / como chegar
+  tankLiters     Float? // capacidade do tanque
+  accessNotes    String? // instruções de acesso (porteira, cachorro...)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   entries MilkEntry[]
+  stops   RouteStop[]
 
   @@index([ownerId])
   @@index([farmId])
+  @@index([organizationId])
   @@map("milk_points")
 }
 
@@ -350,9 +370,206 @@ model MilkEntry {
   point     MilkPoint @relation(fields: [pointId], references: [id], onDelete: Cascade)
   date      DateTime
   liters    Float
+  /// Coleta do laticínio: observação, motivo de não ter coletado (litros 0), quem coletou e quando
+  note          String?
+  skipReason    String?
+  collectedById String?
+  collectedBy   User?     @relation("EntryCollector", fields: [collectedById], references: [id], onDelete: SetNull)
+  collectedAt   DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
   @@unique([pointId, date])
   @@map("milk_entries")
+}
+
+// ── Laticínio e associação ─────────────────────────────────────────────
+
+/// Conta de laticínio (organiza as coletas) ou associação (acompanha e apoia os associados).
+/// Aprovada pelo admin, como o fornecedor.
+model Organization {
+  id          String   @id @default(cuid())
+  type        String // laticinio | associacao
+  name        String
+  document    String?
+  contactName String
+  phone       String
+  email       String
+  city        String?
+  state       String?
+  status      String   @default("pendente") // pendente | aprovado | bloqueado
+  inviteCode  String   @unique // associação: link para o produtor se associar
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users      User[]          @relation("OrgUsers")
+  points     MilkPoint[]
+  routes     Route[]
+  receptions MilkReception[]
+  members    OrgMember[]
+  purchases  GroupPurchase[]
+  notices    OrgNotice[]
+  visits     TechVisit[]
+  fees       MemberFee[]
+
+  @@map("organizations")
+}
+
+/// Rota de coleta do laticínio: dias da semana, motorista e sequência das paradas
+model Route {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  days           Int[]        @default([]) // 0 = domingo ... 6 = sábado
+  driverId       String?
+  driver         User?        @relation("RouteDriver", fields: [driverId], references: [id], onDelete: SetNull)
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  stops      RouteStop[]
+  receptions MilkReception[]
+
+  @@index([organizationId])
+  @@index([driverId])
+  @@map("routes")
+}
+
+model RouteStop {
+  id       String    @id @default(cuid())
+  routeId  String
+  route    Route     @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  pointId  String
+  point    MilkPoint @relation(fields: [pointId], references: [id], onDelete: Cascade)
+  position Int
+
+  @@unique([routeId, pointId])
+  @@map("route_stops")
+}
+
+/// Litros recebidos no laticínio (separado do coletado e do produzido, para conferir diferenças)
+model MilkReception {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  date           DateTime
+  routeId        String?
+  route          Route?       @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  liters         Float
+  note           String?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, date])
+  @@map("milk_receptions")
+}
+
+/// Associado: propriedade (versão completa) ou produtor do Anota Aí Leite. O vínculo é feito pelo produtor.
+model OrgMember {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  farmId          String?
+  farm            Farm?        @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status          String       @default("ativo") // ativo | inativo (definido pela associação)
+  shareProduction Boolean      @default(true) // o produtor autoriza mostrar o total de leite
+  createdAt       DateTime     @default(now())
+
+  orders GroupPurchaseOrder[]
+  visits TechVisit[]
+  fees   MemberFee[]
+
+  @@unique([organizationId, farmId])
+  @@unique([organizationId, userId])
+  @@map("org_members")
+}
+
+/// Comunicado da associação para os associados: reunião, curso, campanha de vacinação ou aviso
+model OrgNotice {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kind           String       @default("aviso") // aviso | reuniao | curso | vacinacao
+  title          String
+  body           String?
+  eventDate      DateTime? // data da reunião, curso ou campanha
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@map("org_notices")
+}
+
+/// Assistência técnica: o associado pede a visita (ou a associação agenda) e acompanha
+model TechVisit {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberId       String
+  member         OrgMember    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  subject        String
+  description    String?
+  status         String       @default("solicitada") // solicitada | agendada | concluida | cancelada
+  scheduledFor   DateTime?
+  technician     String?
+  result         String? // o que foi feito / orientação deixada
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, status])
+  @@map("tech_visits")
+}
+
+/// Mensalidade do associado (uma por mês de referência)
+model MemberFee {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberId       String
+  member         OrgMember    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  reference      String // aaaa-mm
+  amount         Float
+  dueDate        DateTime
+  paidAt         DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@unique([memberId, reference])
+  @@index([organizationId, reference])
+  @@map("member_fees")
+}
+
+/// Compra coletiva da associação: reúne os pedidos dos associados para negociar com fornecedores
+model GroupPurchase {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title          String
+  category       String
+  unit           String
+  description    String?
+  deadline       DateTime?
+  status         String       @default("aberta") // aberta | fechada
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  orders GroupPurchaseOrder[]
+
+  @@index([organizationId])
+  @@map("group_purchases")
+}
+
+model GroupPurchaseOrder {
+  id         String        @id @default(cuid())
+  purchaseId String
+  purchase   GroupPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  memberId   String
+  member     OrgMember     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  quantity   Float
+  note       String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([purchaseId, memberId])
+  @@map("group_purchase_orders")
 }

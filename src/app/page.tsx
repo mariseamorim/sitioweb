@@ -14,6 +14,8 @@ export default async function Home() {
   if (!user) redirect('/inicio')
   if (user.role === 'onboarding') redirect('/criar-conta')
   if (user.role === 'fornecedor') redirect('/fornecedor')
+  if (user.role === 'laticinio') redirect('/laticinio')
+  if (user.role === 'associacao') redirect('/associacao')
   if (user.role === 'lite' || user.role === 'motorista') redirect('/lite')
 
   const effectiveFarmId = user.effectiveFarmId

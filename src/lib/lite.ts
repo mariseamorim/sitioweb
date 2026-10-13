@@ -9,6 +9,14 @@ export interface LitePoint {
   active: boolean
   /** Propriedade Pro ligada a este sítio da rota do motorista */
   farm?: { id: string; name: string; city: string | null; state: string | null } | null
+  /** Ponto de coleta do laticínio (o motorista não edita; vem pronto nas rotas) */
+  org?: { name: string } | null
+  contactName?: string | null
+  phone?: string | null
+  address?: string | null
+  accessNotes?: string | null
+  /** Rotas do laticínio em que este ponto é parada, com a posição na sequência */
+  routes?: { id: string; name: string; days: number[]; position: number }[]
 }
 
 /** Coleta do motorista num sítio ligado à propriedade (o produtor Pro vê) */
@@ -28,6 +36,9 @@ export interface LiteEntry {
   /** yyyy-mm-dd */
   date: string
   liters: number
+  /** Coleta não realizada (laticínio): motivo; os litros ficam 0 */
+  skipReason?: string | null
+  note?: string | null
 }
 
 export interface LiteData {
@@ -46,6 +57,10 @@ export interface LiteData {
   collections: LiteCollection[]
   /** Valor do litro informado (opcional), para estimar quanto vai receber */
   milkPrice: number | null
+  /** Motorista de laticínio: dia da semana de hoje (0 = domingo), para mostrar as rotas do dia */
+  todayWeekday?: number
+  /** Produtor associado: quantas novidades da associação (comunicados, visitas, mensalidade atrasada) */
+  associationAlerts?: number
 }
 
 /** Uma anotação a enviar: liters null apaga o valor daquele local no dia. */
@@ -53,6 +68,9 @@ export interface LiteChange {
   pointId: string
   date: string
   liters: number | null
+  /** Coleta não realizada, com motivo (litros ficam 0) */
+  skipReason?: string | null
+  note?: string | null
 }
 
 export const KIND_LABEL: Record<PointKind, string> = { sitio: 'Sítio', tanque: 'Tanque comunitário' }

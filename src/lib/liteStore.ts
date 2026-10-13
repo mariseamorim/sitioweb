@@ -43,8 +43,9 @@ export function pendingChanges(): LiteChange[] {
 export function applyChanges(data: LiteData, changes: LiteChange[]): LiteData {
   const map = new Map<string, LiteEntry>(data.entries.map((e) => [keyOf(e), e]))
   for (const c of changes) {
-    if (c.liters === null) map.delete(keyOf(c))
-    else map.set(keyOf(c), { pointId: c.pointId, date: c.date, liters: c.liters })
+    // "Não coletado" (motivo) fica como 0 L com o motivo; sem litros e sem motivo apaga
+    if (c.liters === null && !c.skipReason) map.delete(keyOf(c))
+    else map.set(keyOf(c), { pointId: c.pointId, date: c.date, liters: c.skipReason ? 0 : c.liters ?? 0, skipReason: c.skipReason ?? null, note: c.note ?? null })
   }
   return { ...data, entries: [...map.values()] }
 }
@@ -81,7 +82,8 @@ export async function flushQueue(): Promise<SyncResult> {
   const queue = read<Queue>(QUEUE_KEY, {})
   for (const c of sent) {
     const current = queue[keyOf(c)]
-    if (current && current.liters === c.liters) delete queue[keyOf(c)]
+    // Só sai da fila se não mudou durante o envio (litros, motivo e observação)
+    if (current && current.liters === c.liters && (current.skipReason ?? null) === (c.skipReason ?? null) && (current.note ?? null) === (c.note ?? null)) delete queue[keyOf(c)]
   }
   write(QUEUE_KEY, queue)
   return 'ok'
