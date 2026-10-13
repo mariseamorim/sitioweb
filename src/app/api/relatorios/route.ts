@@ -4,6 +4,7 @@ import { requireFarmAccess } from '@/lib/auth'
 import { formatarIdade } from '@/lib/utils'
 import { REPORT_TYPES, Report, fmtDate, fmtMoney, fmtNumber } from '@/lib/reports'
 import { cowCalving, herdCalving, LATE_MONTHS } from '@/lib/calving'
+import { animalCodes } from '@/lib/animalCode'
 import { animalCategory } from '@/lib/animalRules'
 
 interface Period {
@@ -145,6 +146,7 @@ async function animalReport(farmId: string, animalId: string | null): Promise<Re
 
   const data: [string, string][] = [
     ['Código', a.code],
+    ...(a.customCode ? [['Outro código', a.customCode] as [string, string]] : []),
     ['Nome', a.name],
     ['Espécie', animalCategory(a)],
     ['Sexo', a.gender],
@@ -310,7 +312,7 @@ async function herdReport(farmId: string): Promise<Report> {
         title: 'Animais',
         columns: ['Código', 'Nome', 'Espécie', 'Sexo', 'Nascimento', 'Idade', 'Situação', 'GTA'],
         rows: animals.map((a) => [
-          a.code, a.name, a.species, a.gender, fmtDate(a.birthDate), formatarIdade(a.birthDate.toISOString()), a.status, a.gta || '—',
+          animalCodes(a), a.name, a.species, a.gender, fmtDate(a.birthDate), formatarIdade(a.birthDate.toISOString()), a.status, a.gta || '—',
         ]),
       },
     ],

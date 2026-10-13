@@ -4,7 +4,9 @@ import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/
 
 import { useEffect, useState, useMemo } from 'react'
 import { useDialog } from '@/components/DialogProvider'
-import { todayISO } from '@/lib/utils'
+import { currentMonthRange, inDayRange, todayISO } from '@/lib/utils'
+import { useSort } from '@/lib/useSort'
+import { SortTh } from '@/components/SortTh'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
 
 interface Animal { id: string; name: string; code: string }
@@ -23,13 +25,12 @@ const CATEGORIES_DESPESA = ['Medicamentos', 'Ração', 'Vacinas', 'Mão de Obra'
 
 export default function FinanceiroPage() {
   const { confirm } = useDialog()
-  const now = new Date()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [animals, setAnimals] = useState<Animal[]>([])
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
-  const [from, setFrom] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10))
-  const [to, setTo] = useState(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10))
+  const [from, setFrom] = useState(() => currentMonthRange().from)
+  const [to, setTo] = useState(() => currentMonthRange().to)
   const [filterType, setFilterType] = useState('Todas')
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -96,14 +97,17 @@ export default function FinanceiroPage() {
 
   const filtered = useMemo(() => {
     return transactions.filter(t => {
-      const d = new Date(t.date)
-      if (from && d < new Date(from)) return false
-      if (to && d > new Date(to + 'T23:59:59')) return false
+      if (!inDayRange(t.date, from, to)) return false
       if (filterType !== 'Todas' && t.type !== filterType) return false
       return true
     })
   }, [transactions, from, to, filterType])
 
+  // Valor com sinal: despesa conta como negativa ao ordenar
+  const { rows: sortedTransactions, sort } = useSort(filtered, {
+    date: t => new Date(t.date), category: t => t.category, description: t => t.description || t.animal?.name || '',
+    amount: t => (t.type === 'Receita' ? t.amount : -t.amount),
+  })
   const totalReceita = filtered.filter(t => t.type === 'Receita').reduce((s, t) => s + t.amount, 0)
   const totalDespesa = filtered.filter(t => t.type === 'Despesa').reduce((s, t) => s + t.amount, 0)
   const saldo = totalReceita - totalDespesa
@@ -131,7 +135,8 @@ export default function FinanceiroPage() {
       date: form.date,
       amount: parseFloat(form.amount),
       description: form.description || null,
-      animalId: form.type === 'Receita' && form.category !== 'Venda de Animal' ? null : form.animalId || null,
+      // Animal só na venda de animal; despesa não tem animal
+      animalId: form.type === 'Receita' && form.category === 'Venda de Animal' ? form.animalId || null : null,
       farmId,
     }
 
@@ -262,15 +267,15 @@ export default function FinanceiroPage() {
           <table className="w-full text-xs sm:text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left">Data</th>
-                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left">Categoria</th>
-                <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left">Descrição</th>
-                <th className="px-2 sm:px-4 py-2 sm:py-3 text-right">Valor</th>
+                <SortTh label="Data" sortKey="date" sort={sort} className="px-2 sm:px-4 py-2 sm:py-3 text-left" />
+                <SortTh label="Categoria" sortKey="category" sort={sort} className="px-2 sm:px-4 py-2 sm:py-3 text-left" />
+                <SortTh label="Descrição" sortKey="description" sort={sort} className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left" />
+                <SortTh label="Valor" sortKey="amount" sort={sort} align="right" className="px-2 sm:px-4 py-2 sm:py-3 text-right" />
                 <th className="px-2 sm:px-4 py-2 sm:py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map(t => (
+              {sortedTransactions.map(t => (
                 <tr key={t.id} className="hover:bg-gray-50">
                   <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-600 whitespace-nowrap">{fmt(t.date)}</td>
                   <td className="px-2 sm:px-4 py-2 sm:py-3">
@@ -296,7 +301,7 @@ export default function FinanceiroPage() {
 
       {/* Register modal */}
       {showRegister && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowRegister(false)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -338,7 +343,7 @@ export default function FinanceiroPage() {
                   <input type="text" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
-                {(form.type !== 'Receita' || form.category === 'Venda de Animal') && <div>
+                {form.type === 'Receita' && form.category === 'Venda de Animal' && <div>
                   <label className="text-xs font-medium text-gray-600">Animal (opcional)</label>
                   <select value={form.animalId} onChange={e => setForm({ ...form, animalId: e.target.value })}
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">

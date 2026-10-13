@@ -10,10 +10,14 @@ import { useDialog } from '@/components/DialogProvider'
 import { SemSinalIcon, SincronizarIcon, AnimalIcon, FecharIcon } from '@/components/ModuleIcons'
 import { CalfSection } from '@/components/CalfSection'
 import { animalCategory, animalRuleError, animalToday, canAddCalf, fixedAnimalGender, isBovine } from '@/lib/animalRules'
+import { animalCodes, animalSearchText } from '@/lib/animalCode'
+import { useSort } from '@/lib/useSort'
+import { SortTh } from '@/components/SortTh'
 
 interface Animal {
   id: string
   code: string
+  customCode?: string | null
   name: string
   species: string
   gender: string
@@ -38,6 +42,7 @@ function writeHerdCache(fid: string, list: Animal[]) {
 
 const EMPTY_FORM = {
   code: '',
+  customCode: '',
   name: '',
   species: 'Bezerro' as Especie,
   gender: 'Fêmea',
@@ -89,6 +94,7 @@ export default function AnimaisPage() {
       .map(r => ({
         id: `pending_${r._pendingId}`,
         code: r.code,
+        customCode: r.customCode || null,
         name: r.name,
         species: r.species,
         gender: r.gender,
@@ -196,6 +202,7 @@ export default function AnimaisPage() {
     setEditing(a)
     setForm({
       code: a.code,
+      customCode: a.customCode || '',
       name: a.name,
       species: a.species as Especie,
       gender: fixedAnimalGender(a.species) ?? a.gender,
@@ -279,13 +286,12 @@ export default function AnimaisPage() {
   // Mães possíveis no formulário: fêmeas, menos o próprio animal
   const motherOptions = animals.filter((a) => canAddCalf(a) && a.id !== editing?.id && !a.id.startsWith('pending_'))
 
-  const filtered = animals.filter(
-    (a) =>
-      a.name.toLowerCase().includes(search.toLowerCase()) ||
-      a.code.toLowerCase().includes(search.toLowerCase()) ||
-      a.id.toLowerCase().includes(search.toLowerCase()) ||
-      a.species.toLowerCase().includes(search.toLowerCase())
-  )
+  // Busca por nome, código, outro código (brinco...) ou espécie; o id interno não entra
+  const term = search.trim().toLocaleLowerCase('pt-BR')
+  const filtered = animals.filter((a) => `${animalSearchText(a)} ${a.species.toLocaleLowerCase('pt-BR')}`.includes(term))
+  const { rows: sortedAnimals, sort } = useSort(filtered, {
+    code: (a) => a.code, name: (a) => a.name, species: (a) => a.species, gender: (a) => a.gender, status: (a) => a.status,
+  })
 
   const statusColor: Record<string, string> = {
     Vivo: 'bg-green-100 text-green-700',
@@ -345,8 +351,8 @@ export default function AnimaisPage() {
       <div className="mb-4">
       <input
         type="text"
-        aria-label="Buscar animal por ID, código, nome ou espécie"
-        placeholder="Digite o ID, código ou nome do animal"
+        aria-label="Buscar animal por nome, código, brinco ou espécie"
+        placeholder="Digite o nome, código ou brinco do animal"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="min-w-0 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
@@ -367,16 +373,16 @@ export default function AnimaisPage() {
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 <th className="px-2 sm:px-4 py-3 text-left">Foto</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-left">Código</th>
-                <th className="px-2 sm:px-4 py-3 text-left">Nome</th>
-                <th className="hidden md:table-cell px-4 py-3 text-left">Espécie</th>
-                <th className="hidden lg:table-cell px-4 py-3 text-left">Sexo</th>
-                <th className="hidden md:table-cell px-4 py-3 text-left">Status</th>
+                <SortTh label="Código" sortKey="code" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label="Nome" sortKey="name" sort={sort} className="px-2 sm:px-4 py-3 text-left" />
+                <SortTh label="Espécie" sortKey="species" sort={sort} className="hidden md:table-cell px-4 py-3 text-left" />
+                <SortTh label="Sexo" sortKey="gender" sort={sort} className="hidden lg:table-cell px-4 py-3 text-left" />
+                <SortTh label="Status" sortKey="status" sort={sort} className="hidden md:table-cell px-4 py-3 text-left" />
                 <th className="px-2 sm:px-4 py-3 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filtered.map((a) => (
+              {sortedAnimals.map((a) => (
                 <tr
                   key={a.id}
                   className="hover:bg-gray-50 cursor-pointer"
@@ -389,8 +395,15 @@ export default function AnimaisPage() {
                       <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400"><AnimalIcon className="w-5 h-5 sm:w-6 sm:h-6" /></div>
                     )}
                   </td>
-                  <td className="hidden sm:table-cell px-4 py-3 font-mono text-gray-600 text-xs sm:text-sm">{a.code}</td>
-                  <td className="px-2 sm:px-4 py-3 font-medium text-gray-800 text-xs sm:text-sm">{a.name}</td>
+                  <td className="hidden sm:table-cell px-4 py-3 font-mono text-gray-600 text-xs sm:text-sm">
+                    {a.code}
+                    {a.customCode && <span className="block font-sans text-gray-500">{a.customCode}</span>}
+                  </td>
+                  <td className="px-2 sm:px-4 py-3 font-medium text-gray-800 text-xs sm:text-sm">
+                    {a.name}
+                    {/* No celular a coluna de código some: mostra os códigos embaixo do nome */}
+                    <span className="block sm:hidden font-normal text-gray-500">{animalCodes(a)}</span>
+                  </td>
                   <td className="hidden md:table-cell px-4 py-3 text-gray-600 text-xs sm:text-sm">{a.species}</td>
                   <td className="hidden lg:table-cell px-4 py-3 text-gray-600 text-xs sm:text-sm">{a.gender}</td>
                   <td className="hidden md:table-cell px-4 py-3">
@@ -433,7 +446,7 @@ export default function AnimaisPage() {
       )}
 
       {selectedAnimal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-2 sm:p-4" onClick={closeDetails}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-2 sm:p-4">
           <div
             className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
@@ -449,7 +462,7 @@ export default function AnimaisPage() {
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500">Código</p>
                     <p className="text-base sm:text-lg font-semibold text-gray-800 break-words">{selectedAnimal.code}</p>
-                    <p className="text-xs text-gray-500 break-all">ID: {selectedAnimal.id}</p>
+                    {selectedAnimal.customCode && <p className="text-xs sm:text-sm text-gray-600 break-words">Outro código: <strong>{selectedAnimal.customCode}</strong></p>}
                     <p className="text-xs sm:text-sm text-gray-500 truncate">{selectedAnimal.species}</p>
                   </div>
                 </div>
@@ -580,6 +593,18 @@ export default function AnimaisPage() {
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-gray-600">Outro código <span className="font-normal text-gray-400">(opcional: brinco, SISBOV ou o número que você já usa)</span>
+                    <input
+                      value={form.customCode}
+                      onChange={(e) => setForm({ ...form, customCode: e.target.value })}
+                      maxLength={40}
+                      placeholder="Ex.: 4471"
+                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                    />
+                  </label>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

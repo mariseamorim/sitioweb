@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireFarmAccess } from '@/lib/auth'
 import { closeOpenPregnancy, findValidMother } from '@/lib/calves'
 import { animalCategory, animalRuleError } from '@/lib/animalRules'
+import { cleanCustomCode, duplicateCodeMessage } from '@/lib/animalCode'
 
 export async function GET() {
   const auth = await requireFarmAccess('animais', 'view')
@@ -64,14 +65,14 @@ export async function POST(request: NextRequest) {
         observations: observations || null,
         imageUrl: imageUrl || null,
         motherId: motherId || null,
+        customCode: cleanCustomCode(body.customCode),
       },
     })
     if (animal.motherId) await closeOpenPregnancy(animal.motherId, animal.id, animal.birthDate)
     return NextResponse.json(animal, { status: 201 })
   } catch (error: unknown) {
-    if ((error as { code?: string }).code === 'P2002') {
-      return NextResponse.json({ error: 'Já existe um animal com esse código nessa fazenda' }, { status: 409 })
-    }
+    const duplicate = duplicateCodeMessage(error)
+    if (duplicate) return NextResponse.json({ error: duplicate }, { status: 409 })
     return NextResponse.json({ error: 'Erro ao criar animal' }, { status: 500 })
   }
 }

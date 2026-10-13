@@ -2,11 +2,14 @@
 import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
+import { animalSearchText } from '@/lib/animalCode'
+import { useSort } from '@/lib/useSort'
+import { SortTh } from '@/components/SortTh'
 
 import { useEffect, useState, useMemo } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
 import { useDialog } from '@/components/DialogProvider'
-import { todayISO } from '@/lib/utils'
+import { currentMonthRange, inDayRange, todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
 
 interface Animal {
@@ -32,14 +35,13 @@ export default function VeterinaryTreatmentPage() {
   const { confirm } = useDialog()
   const { user } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
-  const now = new Date()
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [allAnimals, setAllAnimals] = useState<Animal[]>([])
   const [animalSearch, setAnimalSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
-  const [from, setFrom] = useState(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10))
-  const [to, setTo] = useState(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10))
+  const [from, setFrom] = useState(() => currentMonthRange().from)
+  const [to, setTo] = useState(() => currentMonthRange().to)
   const [detailAnimalId, setDetailAnimalId] = useState<string | null>(null)
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -119,11 +121,9 @@ export default function VeterinaryTreatmentPage() {
 
   const filtered = useMemo(() => {
     return treatments.filter((t) => {
-      const d = new Date(t.startDate)
-      if (from && d < new Date(from)) return false
-      if (to && d > new Date(to + 'T23:59:59')) return false
+      if (!inDayRange(t.startDate, from, to)) return false
       const term = animalSearch.trim().toLowerCase()
-      return [t.animalId, t.animal.code, t.animal.name].some(text => text.toLowerCase().includes(term))
+      return animalSearchText(t.animal).includes(term)
     })
   }, [treatments, from, to, animalSearch])
 
@@ -140,6 +140,10 @@ export default function VeterinaryTreatmentPage() {
     }
     return Array.from(map.values()).sort((a, b) => new Date(b.last).getTime() - new Date(a.last).getTime())
   }, [filtered])
+
+  const { rows: sortedSummary, sort } = useSort(summary, {
+    name: s => s.animal.name, code: s => s.animal.code, count: s => s.count, last: s => new Date(s.last),
+  })
 
   const detailAnimal = detailAnimalId
     ? treatments.find((t) => t.animalId === detailAnimalId)?.animal ?? null
@@ -287,7 +291,7 @@ export default function VeterinaryTreatmentPage() {
       </div>
 
       {/* Animals table */}
-      <label className="mb-4 block text-xs font-medium text-gray-600">Buscar animal por ID, código ou nome
+      <label className="mb-4 block text-xs font-medium text-gray-600">Buscar animal por nome, código ou brinco
         <input type="search" value={animalSearch} onChange={e => setAnimalSearch(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
       </label>
       {loading ? (
@@ -302,14 +306,14 @@ export default function VeterinaryTreatmentPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <th className="px-4 py-3 text-left">Animal</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-left">Código</th>
-                <th className="px-4 py-3 text-right">Tratamentos</th>
-                <th className="hidden sm:table-cell px-4 py-3 text-right">Último</th>
+                <SortTh label="Animal" sortKey="name" sort={sort} className="px-4 py-3 text-left" />
+                <SortTh label="Código" sortKey="code" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label="Tratamentos" sortKey="count" sort={sort} align="right" className="px-4 py-3 text-right" />
+                <SortTh label="Último" sortKey="last" sort={sort} align="right" className="hidden sm:table-cell px-4 py-3 text-right" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {summary.map(({ animal, count, last }) => (
+              {sortedSummary.map(({ animal, count, last }) => (
                 <tr
                   key={animal.id}
                   className="hover:bg-gray-50 cursor-pointer"
@@ -335,7 +339,7 @@ export default function VeterinaryTreatmentPage() {
 
       {/* Detail modal */}
       {detailAnimalId && detailAnimal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setDetailAnimalId(null)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -417,7 +421,7 @@ export default function VeterinaryTreatmentPage() {
 
       {/* Register modal */}
       {showRegister && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowRegister(false)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">

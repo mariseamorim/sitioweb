@@ -102,5 +102,47 @@ export function herdCalving(herd: CowLike[], pregnant: Set<string>, now = new Da
   }
 }
 
+/** Dias depois do parto para pedir a confirmação de prenhez (a partir da 1ª cria) */
+export const PREGNANCY_CHECK_DAYS = 60
+// Situações que respondem a pergunta "está prenha?" depois do parto
+const ANSWERED = ['Prenha', 'Vazia', 'Perdida', 'Parida']
+
+export interface ReproductionLike {
+  id: string
+  femaleId: string
+  coverageDate: string | Date
+  status: string
+  observations?: string | null
+}
+
+export interface PregnancyCheck {
+  cow: CowLike
+  lastCalving: string
+  daysSince: number
+  /** Cobertura anotada depois do parto, ainda sem confirmação */
+  openCoverage: ReproductionLike | null
+}
+
+/**
+ * Vacas que já criaram e, 2 meses ou mais depois do último parto, ainda não têm prenhez confirmada
+ * (nem foram dadas como vazias). Usado no sino e no painel da Reprodução.
+ */
+export function pregnancyChecks(herd: CowLike[], reproductions: ReproductionLike[], now = new Date()): PregnancyCheck[] {
+  const today = animalToday(now)
+  const checks: PregnancyCheck[] = []
+  for (const cow of herd.filter((a) => isActiveCow(a, today))) {
+    const last = calvingStarts(herd.filter((c) => c.motherId === cow.id).map((c) => c.birthDate)).at(-1)
+    if (!last) continue
+    const daysSince = Math.floor((now.getTime() - time(last)) / DAY)
+    if (daysSince < PREGNANCY_CHECK_DAYS) continue
+    const afterCalving = reproductions
+      .filter((r) => r.femaleId === cow.id && time(r.coverageDate) > time(last))
+      .sort((a, b) => time(b.coverageDate) - time(a.coverageDate))
+    if (afterCalving.some((r) => ANSWERED.includes(r.status))) continue
+    checks.push({ cow, lastCalving: last, daysSince, openCoverage: afterCalving.find((r) => r.status === 'Coberta') ?? null })
+  }
+  return checks.sort((a, b) => b.daysSince - a.daysSince)
+}
+
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 export const monthsLabel = (n: number) => (n < 1 ? 'menos de 1 mês' : plural(n, 'mês', 'meses'))

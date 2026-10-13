@@ -35,6 +35,23 @@ export function todayISO(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** Primeiro e último dia do mês atual (aaaa-mm-dd, no horário do aparelho) */
+export function currentMonthRange(): { from: string; to: string } {
+  const d = new Date();
+  const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, '0')}` };
+}
+
+/**
+ * A data (gravada como meia-noite UTC) está entre `from` e `to`, inclusive? Compara só o dia (aaaa-mm-dd):
+ * comparar com horário local trazia o dia seguinte junto no filtro.
+ */
+export function inDayRange(date: string | Date, from?: string, to?: string): boolean {
+  const day = typeof date === 'string' ? date.slice(0, 10) : date.toISOString().slice(0, 10);
+  return (!from || day >= from) && (!to || day <= to);
+}
+
 /** "Hoje" no horário de Brasília, como meia-noite UTC (formato em que as datas são gravadas). */
 export function todayUTC(): Date {
   return new Date(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date()));

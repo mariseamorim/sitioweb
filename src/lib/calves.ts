@@ -13,13 +13,19 @@ export async function findValidMother(motherId: string, farmId: string, childId?
   return mother
 }
 
-/** Ao registrar o parto, fecha a cobertura em aberto da mãe (a mais recente antes do nascimento) */
+/**
+ * Cria anotada (nova, ou mãe informada depois): a vaca deixa de estar coberta/prenha.
+ * Fecha como "Parida" todas as coberturas em aberto de antes do nascimento; a mais recente fica ligada à cria.
+ */
 export async function closeOpenPregnancy(motherId: string, calfId: string, birthDate: Date) {
-  const open = await prisma.reproduction.findFirst({
+  const open = await prisma.reproduction.findMany({
     where: { femaleId: motherId, actualBirthDate: null, status: { in: ['Coberta', 'Prenha'] }, coverageDate: { lte: birthDate } },
     orderBy: { coverageDate: 'desc' },
     select: { id: true },
   })
-  if (!open) return
-  await prisma.reproduction.update({ where: { id: open.id }, data: { actualBirthDate: birthDate, calfId, status: 'Parida' } })
+  if (!open.length) return
+  await prisma.$transaction(open.map((r, i) => prisma.reproduction.update({
+    where: { id: r.id },
+    data: { actualBirthDate: birthDate, status: 'Parida', ...(i === 0 ? { calfId } : {}) },
+  })))
 }

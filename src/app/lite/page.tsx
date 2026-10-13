@@ -633,8 +633,8 @@ function History({ data, online, canWrite, onPriceSaved }: {
       )}
 
       {!isDriverRole(data.role) && (
-        <div className="mt-3 rounded-2xl border border-gray-200 bg-white px-4 pb-4">
-          <PriceLine data={data} liters={total} period="no período" online={online} canWrite={canWrite} onSaved={onPriceSaved} />
+        <div className={`mt-3 rounded-2xl border-2 px-4 pb-4 ${data.milkPrice ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'}`}>
+          <PriceLine data={data} liters={total} period="no período" highlight online={online} canWrite={canWrite} onSaved={onPriceSaved} />
         </div>
       )}
 
@@ -707,10 +707,11 @@ function History({ data, online, canWrite, onPriceSaved }: {
 
 // ── Valor do litro ──────────────────────────────────────────────────────
 
-function PriceLine({ data, liters, period = 'no dia', online, canWrite, onSaved }: {
+function PriceLine({ data, liters, period = 'no dia', highlight = false, online, canWrite, onSaved }: {
   data: LiteData
   liters: number
   period?: string
+  highlight?: boolean
   online: boolean
   canWrite: boolean
   onSaved: (price: number | null) => void
@@ -762,17 +763,30 @@ function PriceLine({ data, liters, period = 'no dia', online, canWrite, onSaved 
     )
   }
 
+  const editButton = canWrite && (
+    <button type="button" onClick={() => { setValue(price ? price.toFixed(2).replace('.', ',') : ''); setEditing(true) }}
+      className="ml-2 font-semibold text-green-700 underline">
+      {price ? 'Alterar' : 'Informar valor do litro'}
+    </button>
+  )
+
+  // No Histórico o valor do período é a informação principal: número grande em destaque
+  if (highlight && price) {
+    return (
+      <div className="pt-4">
+        <p className="text-sm font-medium text-green-900">Você recebe aproximadamente {period}</p>
+        <p className="mt-1 text-3xl font-bold text-green-800">{fmtMoney(liters * price)}</p>
+        <p className="mt-1 text-sm text-gray-600">Litro a {fmtMoney(price)}{editButton}</p>
+      </div>
+    )
+  }
+
   return (
     <p className="mt-4 text-sm text-gray-600">
       {price
         ? <>Litro a {fmtMoney(price)} · aproximadamente <strong className="text-gray-900">{fmtMoney(liters * price)}</strong> {period}</>
         : 'Quer saber quanto vai receber?'}
-      {canWrite && (
-        <button type="button" onClick={() => { setValue(price ? price.toFixed(2).replace('.', ',') : ''); setEditing(true) }}
-          className="ml-2 font-semibold text-green-700 underline">
-          {price ? 'Alterar' : 'Informar valor do litro'}
-        </button>
-      )}
+      {editButton}
     </p>
   )
 }
@@ -813,7 +827,7 @@ function UpgradeModal({ data, online, pending, onClose }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4">
       <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-white rounded-2xl p-5 flex flex-col gap-3 max-h-[95vh] overflow-y-auto">
         <h2 className="text-xl font-bold text-gray-900">Versão completa</h2>
         <p className="text-gray-600">

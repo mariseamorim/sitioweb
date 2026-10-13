@@ -54,6 +54,15 @@ export function animalCategory(animal: ClassifiedAnimal, today = animalToday()):
   return hasAnimalAge(animal.birthDate, 30, today) ? 'Vaca' : 'Bezerra'
 }
 
+/** Idade mínima para cobertura (Reprodução): 2 anos */
+export const BREEDING_AGE_MONTHS = 24
+
+/** Fêmea que pode aparecer na Reprodução: bovina a partir de 2 anos (outras espécies, qualquer idade), viva */
+export function canBreed(animal: ClassifiedAnimal & { status?: string }, today = animalToday()) {
+  if (animal.gender !== 'Fêmea' || animal.status === 'Morto' || animal.status === 'Vendido') return false
+  return !isBovine(animal.species) || hasAnimalAge(animal.birthDate, BREEDING_AGE_MONTHS, today)
+}
+
 export function canAddCalf(animal: ClassifiedAnimal, today = animalToday()) {
   return animal.gender === 'Fêmea' && isBovine(animal.species) && hasAnimalAge(animal.birthDate, 30, today)
 }

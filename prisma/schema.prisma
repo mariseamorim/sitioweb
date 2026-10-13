@@ -63,7 +63,8 @@ model User {
 
 model Animal {
   id           String    @id @default(cuid())
-  code         String
+  code         String // número automático da propriedade (01, 02...)
+  customCode   String? // outro código opcional do produtor: brinco, SISBOV...
   name         String
   species      String
   gender       String
@@ -92,6 +93,7 @@ model Animal {
   transactions         Transaction[]
 
   @@unique([farmId, code])
+  @@unique([farmId, customCode])
   @@index([motherId])
   @@map("animals")
 }

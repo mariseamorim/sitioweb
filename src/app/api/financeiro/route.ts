@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
         ...(from || to ? {
           date: {
             ...(from ? { gte: new Date(from) } : {}),
-            ...(to ? { lte: new Date(to + 'T23:59:59') } : {}),
+            ...(to ? { lte: new Date(to + 'T23:59:59Z') } : {}), // Z: datas gravadas em UTC, independente do fuso do servidor
           },
         } : {}),
       },
@@ -38,7 +38,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { type, category, date, amount, description, animalId } = body
+    const { type, category, date, amount, description } = body
+    // Despesa não tem animal; só a receita (venda de animal) pode ter
+    const animalId = type === 'Receita' ? body.animalId : null
 
     if (!type || !category || !date || !amount) {
       return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
