@@ -31,5 +31,17 @@ export function homeForRole(role: string | undefined): string {
 /** Dias da semana das rotas (0 = domingo, como Date.getDay) */
 export const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] as const
 
+const UNIT_PLURAL: Record<string, string> = { saco: 'sacos', litro: 'litros', unidade: 'unidades', dose: 'doses', kg: 'kg' }
+
+/** Quantidade da compra coletiva: "4 sacos", "1 saco", "2,5 kg" */
+export function qtyWithUnit(quantity: number, unit: string) {
+  const one = unit.toLowerCase()
+  const label = quantity === 1 ? one : UNIT_PLURAL[one] ?? one
+  return `${quantity.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${label}`
+}
+
+/** "1 associado pediu", "2 associados pediram" */
+export const membersOrdered = (n: number) => (n === 1 ? '1 associado pediu' : `${n} associados pediram`)
+
 /** Motivos de coleta não realizada */
 export const SKIP_REASONS = ['Sem leite', 'Acesso bloqueado', 'Produtor ausente', 'Leite recusado', 'Outro'] as const

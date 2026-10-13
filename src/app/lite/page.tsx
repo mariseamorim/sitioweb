@@ -365,6 +365,7 @@ export default function LitePage() {
               {data.role === 'lite' && (
                 <button type="button" onClick={() => setUpgrading(true)} className="font-medium text-green-700 underline">Quero a versão completa</button>
               )}
+              {data.role === 'lite' && <Link href="/lite/associacao" className="font-medium text-green-700 underline">Minha associação</Link>}
               <button type="button" onClick={logout} className="font-medium text-gray-600 underline">Sair</button>
             </div>
           </footer>
