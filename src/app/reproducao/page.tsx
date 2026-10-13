@@ -9,7 +9,9 @@ import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, FecharIcon, ReproducaoIcon } from '@/components/ModuleIcons'
-import { HerdCalvingPanel } from '@/components/HerdCalvingPanel'
+import { HerdCalvingPanel, PregnancyCheckPanel } from '@/components/HerdCalvingPanel'
+import { canBreed } from '@/lib/animalRules'
+import { pregnancyChecks, type PregnancyCheck } from '@/lib/calving'
 import { AddCalfForm } from '@/components/CalfSection'
 
 interface Animal { id: string; name: string; code: string; species: string; gender: string; status: string; birthDate: string; motherId?: string | null }
@@ -112,7 +114,8 @@ export default function ReproducaoPage() {
     ]).then(([repros, anims]) => {
       const pending = mapPending()
       setReproductions(Array.isArray(repros) ? [...repros, ...pending] : pending)
-      setFemales(Array.isArray(anims) ? anims.filter((a: Animal) => a.gender === 'Fêmea') : [])
+      // Só fêmeas vivas e, se bovinas, com 2 anos ou mais
+      setFemales(Array.isArray(anims) ? anims.filter((a: Animal) => canBreed(a)) : [])
       setHerd(Array.isArray(anims) ? anims : [])
       setLoading(false)
     }).catch(() => {
@@ -130,8 +133,31 @@ export default function ReproducaoPage() {
 
   const upcomingBirths = useMemo(() => {
     const in30 = new Date(); in30.setDate(in30.getDate() + 30)
-    return reproductions.filter(r => r.expectedBirthDate && !r.actualBirthDate && new Date(r.expectedBirthDate) <= in30).length
+    return reproductions.filter(r => (r.status === 'Coberta' || r.status === 'Prenha') && r.expectedBirthDate && !r.actualBirthDate && new Date(r.expectedBirthDate) <= in30).length
   }, [reproductions])
+
+  // Resposta do "Confirmar prenhez": atualiza a cobertura anotada depois do parto ou cria o registro
+  async function answerPregnancyCheck(check: PregnancyCheck, answer: 'Prenha' | 'Vazia') {
+    if (check.openCoverage) {
+      await fetch(`/api/reproducao/${check.openCoverage.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: answer, observations: check.openCoverage.observations ?? null }),
+      })
+    } else if (answer === 'Vazia') {
+      await fetch('/api/reproducao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ femaleId: check.cow.id, coverageDate: todayISO(), status: 'Vazia', observations: 'Confirmada vazia depois do parto' }),
+      })
+    } else {
+      // Prenha sem cobertura anotada: abre o registro já preenchido para informar a data da cobertura
+      setForm({ femaleId: check.cow.id, maleName: '', coverageDate: '', status: 'Prenha', observations: '' })
+      setShowRegister(true)
+      return
+    }
+    loadData(farmId)
+  }
 
   async function handleDelete(id: string) {
     if (!canEdit) return
@@ -244,6 +270,10 @@ export default function ReproducaoPage() {
         </div>
       )}      </div>
 
+      {!loading && (
+        <PregnancyCheckPanel checks={pregnancyChecks(herd, reproductions.filter(r => !r.id.startsWith('pending_')))} canEdit={canEdit && isOnline}
+          onAnswer={answerPregnancyCheck} />
+      )}
       {!loading && <HerdCalvingPanel herd={herd} reproductions={reproductions} />}
 
       {upcomingBirths > 0 && (
@@ -378,8 +408,11 @@ export default function ReproducaoPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Data Cobertura *</label>
-                    <input type="date" value={form.coverageDate} onChange={e => setForm({ ...form, coverageDate: e.target.value })} required
+                    <input type="date" value={form.coverageDate} onChange={e => setForm({ ...form, coverageDate: e.target.value })} required max={todayISO()}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                    {form.status === 'Prenha' && !form.coverageDate && (
+                      <p className="mt-1 text-xs text-amber-800">Se não souber o dia certo, coloque uma data aproximada: ela define a previsão do parto.</p>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-600">Status</label>

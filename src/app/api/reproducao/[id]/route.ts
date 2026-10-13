@@ -31,6 +31,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       expected.setDate(expected.getDate() + 280)
       data.expectedBirthDate = expected
     }
+    // Confirmada vazia ou perdida: deixa de ter parto previsto (não gera aviso de parto)
+    if (status === 'Vazia' || status === 'Perdida') data.expectedBirthDate = null
 
     const reproduction = await prisma.reproduction.update({
       where: { id },

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { visibleOffersWhere } from '@/lib/vendors'
 import { BOVINE_CATEGORIES, canAddCalf } from '@/lib/animalRules'
+import { monthsLabel, pregnancyChecks } from '@/lib/calving'
 
 // Tarefas do dia mostradas no sino de notificações da barra do topo
 
@@ -40,7 +41,7 @@ export async function getTodayTasks(
       : [],
     can('reproducao')
       ? prisma.reproduction.findMany({
-          where: { farmId, actualBirthDate: null, expectedBirthDate: { lte: in7 } },
+          where: { farmId, actualBirthDate: null, status: { in: ['Coberta', 'Prenha'] }, expectedBirthDate: { lte: in7 } },
           include: { female: { select: { name: true } } },
           orderBy: { expectedBirthDate: 'asc' },
           take: 5,
@@ -78,6 +79,28 @@ export async function getTodayTasks(
       href: '/reproducao',
       tone: date < today ? 'red' : 'amber',
     })
+  }
+  // Confirmar prenhez: a partir da 1ª cria, 2 meses depois do parto, enquanto não houver prenha/vazia anotada
+  if (can('reproducao')) {
+    const [herd, reproductions] = await Promise.all([
+      prisma.animal.findMany({
+        where: { farmId },
+        select: { id: true, code: true, name: true, species: true, gender: true, status: true, birthDate: true, motherId: true },
+      }),
+      prisma.reproduction.findMany({ where: { farmId }, select: { id: true, femaleId: true, coverageDate: true, status: true } }),
+    ])
+    const checks = pregnancyChecks(herd, reproductions)
+    for (const c of checks.slice(0, 3)) {
+      tasks.push({
+        title: `Confirmar prenhez: ${c.cow.name}`,
+        detail: `Pariu em ${fmtDay(new Date(c.lastCalving))}, há ${monthsLabel(Math.floor(c.daysSince / 30.44))}`,
+        href: '/reproducao#confirmar-prenhez',
+        tone: 'amber',
+      })
+    }
+    if (checks.length > 3) {
+      tasks.push({ title: `Confirmar prenhez de mais ${checks.length - 3} vaca${checks.length - 3 > 1 ? 's' : ''}`, href: '/reproducao#confirmar-prenhez', tone: 'amber' })
+    }
   }
   for (const t of treatments) {
     tasks.push({ title: `Tratamento de ${t.animal.name}: ${t.medicine}`, detail: `Até ${fmtDay(t.endDate!)}`, href: '/veterinary-treatment', tone: 'blue' })

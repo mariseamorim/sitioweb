@@ -1,8 +1,62 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { herdCalving, LATE_MONTHS, monthsLabel, plural, type CowLike } from '@/lib/calving'
+import { herdCalving, LATE_MONTHS, monthsLabel, plural, type CowLike, type PregnancyCheck } from '@/lib/calving'
+
+const fmtDay = (d: string | Date) => new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+
+// "Confirmar prenhez": vacas que pariram há 2 meses ou mais e ainda não têm prenha/vazia anotada
+export function PregnancyCheckPanel({ checks, canEdit, onAnswer }: {
+  checks: PregnancyCheck[]
+  canEdit: boolean
+  onAnswer: (check: PregnancyCheck, answer: 'Prenha' | 'Vazia') => Promise<void>
+}) {
+  const ref = useRef<HTMLElement>(null)
+  const [busy, setBusy] = useState('')
+  // Vindo do sino (#confirmar-prenhez): rola até o painel
+  useEffect(() => {
+    if (window.location.hash === '#confirmar-prenhez') ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+  if (checks.length === 0) return null
+
+  async function answer(check: PregnancyCheck, value: 'Prenha' | 'Vazia') {
+    setBusy(check.cow.id)
+    try { await onAnswer(check, value) } finally { setBusy('') }
+  }
+
+  return (
+    <section ref={ref} id="confirmar-prenhez" className="mb-6 scroll-mt-24 rounded-xl border border-amber-300 bg-amber-50 p-4" aria-label="Confirmar prenhez">
+      <h2 className="text-base font-semibold text-amber-900">Confirmar prenhez</h2>
+      <p className="text-sm text-amber-900">Vacas que pariram há 2 meses ou mais. Ela está prenha de novo?</p>
+      <ul className="mt-3 space-y-2">
+        {checks.map((c) => (
+          <li key={c.cow.id} className="rounded-xl border border-amber-200 bg-white p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <Link href={`/animais?animal=${c.cow.id}`} className="font-semibold text-gray-900 underline-offset-2 hover:underline">{c.cow.name}</Link>
+                <span className="text-sm text-gray-500"> ({c.cow.code})</span>
+                <p className="text-sm text-gray-600">
+                  Pariu em {fmtDay(c.lastCalving)}, há {monthsLabel(Math.floor(c.daysSince / 30.44))}
+                  {c.openCoverage && ` · coberta em ${fmtDay(c.openCoverage.coverageDate)}`}
+                </p>
+              </div>
+              {canEdit && (
+                <div className="flex gap-2">
+                  <button type="button" disabled={busy === c.cow.id} onClick={() => answer(c, 'Prenha')}
+                    className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-gray-300">Prenha</button>
+                  <button type="button" disabled={busy === c.cow.id} onClick={() => answer(c, 'Vazia')}
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:text-gray-300">Vazia</button>
+                </div>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {!canEdit && <p className="mt-2 text-xs text-amber-900">Para confirmar é preciso internet e permissão de edição.</p>}
+    </section>
+  )
+}
 
 interface OpenReproduction { femaleId: string; status: string; actualBirthDate?: string | null }
 
