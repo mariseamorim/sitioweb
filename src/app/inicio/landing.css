@@ -47,3 +47,45 @@
 @media(max-width:767px){.contact-grid{grid-template-columns:minmax(0,1fr);gap:28px}.contact-card{padding:24px}.contact-description{font-size:16px}.contact-email{font-size:16px}}
 
 .contact-form{margin-top:24px}.contact-form fieldset{border:0;padding:0;min-width:0}.contact-form label{display:block;font-size:16px;font-weight:600;margin:18px 0 8px}.contact-form input,.contact-form select,.contact-form textarea{display:block;width:100%;min-height:48px;padding:12px;border:1px solid #8d9f91;border-radius:8px;background:#fff;color:#1c3327;font:inherit;font-size:16px}.contact-form textarea{resize:vertical}.contact-form input:focus-visible,.contact-form select:focus-visible,.contact-form textarea:focus-visible{outline:3px solid #627548;outline-offset:2px}.contact-form input::placeholder,.contact-form textarea::placeholder{color:#59695e}.contact-form fieldset:disabled{opacity:.7}.contact-form button:disabled{cursor:wait;transform:none}.contact-trap{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.contact-error{padding:14px;border:1px solid #b33838;background:#fff0ee;color:#8c2020;border-radius:8px;font-size:16px;line-height:1.6;margin-top:16px}.contact-success{margin-top:24px;padding:20px;border-radius:12px;background:#e8eddf;line-height:1.7}.contact-success h4{font-size:20px;font-weight:600}.contact-secondary{min-height:48px;text-decoration:underline;font-size:16px;font-weight:600;margin-top:12px;cursor:pointer}
+
+/* Para quem é: um cartão por público, com a tela real do sistema. */
+.audience-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.audience-card{display:flex;flex-direction:column;background:#fbfaf5;border:1px solid #dce1d4;border-radius:20px;overflow:hidden;min-width:0}
+.audience-shot{background:#e8eddf;padding:24px 32px 0;height:360px;overflow:hidden}
+.audience-shot img{display:block;width:100%;max-width:210px;height:auto;margin-inline:auto;border:6px solid #183c2b;border-bottom:0;border-radius:26px 26px 0 0;box-shadow:0 16px 40px #183c2b26}
+.audience-body{display:flex;flex-direction:column;flex:1;padding:24px 26px 26px}
+.audience-body .landing-eyebrow{margin-bottom:10px}
+.audience-body h3{font-size:20px}
+.audience-body ul,.plan-card ul{list-style:none;margin-top:16px}
+.audience-body li,.plan-card li{display:flex;gap:10px;align-items:flex-start;font-size:15px;line-height:1.5;color:#465b4c;margin-top:8px}
+.audience-body li>span,.plan-card li>span{display:grid;place-items:center;flex-shrink:0;width:22px;height:22px;margin-top:1px;border-radius:50%;background:#dfe8d2;color:#183c2b}
+.audience-link{display:inline-flex;align-items:center;gap:8px;margin-top:auto;padding-top:20px;min-height:44px;font-weight:700;color:#183c2b;text-decoration:underline;text-underline-offset:4px}
+
+/* Ofertas: tela real em vez do exemplo. */
+.offer-shot{display:flex;justify-content:center;min-width:0}
+.offer-shot img{width:100%;max-width:320px;height:auto;border:8px solid #183c2b;border-radius:32px;box-shadow:0 24px 60px #183c2b30}
+
+/* Planos */
+.plans-section{background:#183c2b;color:#f7f3e7;padding-block:90px}
+.plans-section .landing-eyebrow{color:#c6d39b}.plans-section em{color:#c6d39b}.plans-section .section-intro>p{color:#bdccba}
+.plans-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;align-items:stretch}
+.plan-card{position:relative;display:flex;flex-direction:column;background:#fbfaf5;color:#1c3327;border-radius:22px;padding:32px 28px;min-width:0}
+.plan-highlight{background:#f3f6ed;outline:3px solid #b8c88e}
+.plan-badge{position:absolute;top:-14px;left:28px;background:#d5b463;color:#123c2c;font-size:12px;font-weight:700;padding:6px 12px;border-radius:20px}
+.plan-card h3{font-size:20px}
+.plan-price{margin-top:14px;display:flex;align-items:baseline;flex-wrap:wrap;gap:6px}.plan-price strong{font-family:Georgia,'Times New Roman',serif;font-weight:400;font-size:40px;letter-spacing:-.03em;color:#183c2b}.plan-price span{font-size:14px;color:#6d7b72}
+.plan-text{margin-top:10px;font-size:15px;line-height:1.6;color:#465b4c}
+.plan-tiers{margin-top:16px;border:1px solid #dce1d4;border-radius:12px;overflow:hidden}.plan-tiers div{display:flex;justify-content:space-between;gap:10px;padding:10px 14px;font-size:15px;background:#fff}.plan-tiers div+div{border-top:1px solid #e6eadf}.plan-tiers dd{font-weight:700}
+.plan-card .landing-button{margin-top:auto;width:100%}.plan-card ul{margin-bottom:26px}
+
+/* Dúvidas frequentes */
+.faq-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:64px;align-items:start}
+.faq-list details{border-top:1px solid #cfd8cd}.faq-list details:last-child{border-bottom:1px solid #cfd8cd}
+.faq-list summary{display:flex;justify-content:space-between;align-items:center;gap:16px;min-height:60px;padding:16px 0;font-size:17px;font-weight:600;cursor:pointer;list-style:none}
+.faq-list summary::-webkit-details-marker{display:none}
+.faq-list summary::after{content:'+';flex-shrink:0;font-size:24px;font-weight:400;color:#627548}
+.faq-list details[open] summary::after{content:'−'}
+.faq-list details p{padding-bottom:20px;font-size:16px;line-height:1.7;color:#465b4c}
+
+@media(max-width:1023px){.audience-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.plans-grid{grid-template-columns:minmax(0,1fr);max-width:560px}.faq-grid{grid-template-columns:minmax(0,1fr);gap:28px}}
+@media(max-width:767px){.audience-grid{grid-template-columns:minmax(0,1fr)}.audience-shot{height:360px}.plans-section{padding-block:58px}.plan-card{padding:28px 22px}.offer-shot img{max-width:280px}}
