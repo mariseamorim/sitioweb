@@ -15,7 +15,7 @@ export function SortTh({ label, sortKey, sort, className = '', align = 'left' }:
   return (
     <th className={className} aria-sort={ariaSort}>
       <button type="button" onClick={() => sort.toggle(sortKey)} title={`Ordenar por ${label.toLowerCase()}`}
-        className={`inline-flex items-center gap-1 uppercase hover:text-gray-800 ${align === 'right' ? 'flex-row-reverse' : ''} ${active ? 'text-gray-800' : ''}`}>
+        className={`inline-flex items-center gap-1 whitespace-nowrap uppercase hover:text-gray-800 ${align === 'right' ? 'flex-row-reverse' : ''} ${active ? 'text-gray-800' : ''}`}>
         {label}
         <span aria-hidden="true" className={`text-[10px] ${active ? '' : 'text-gray-300'}`}>{active ? (sort.dir === 'asc' ? '▲' : '▼') : '▲▼'}</span>
       </button>

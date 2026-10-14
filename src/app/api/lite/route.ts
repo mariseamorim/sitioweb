@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma'
 import { canAccessModule, canEdit, renewSession, requireUser } from '@/lib/auth'
 import { FARM_POINT_ID, LITE_HISTORY_DAYS, LiteChange, LiteData, isDriverRole, parseLiters, usesFarmMode } from '@/lib/lite'
 import { driverRoutePointIds, todayWeekday } from '@/lib/laticinio'
-import { associationAlerts } from '@/lib/associacao'
 import { todayUTC } from '@/lib/utils'
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
@@ -27,7 +26,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Você não tem acesso ao módulo de leite' }, { status: 403 })
     }
     const farmId = user.effectiveFarmId!
-    const [farm, records, collections] = await Promise.all([
+    const [farm, records, collections, sheets] = await Promise.all([
       prisma.farm.findUnique({ where: { id: farmId }, select: { name: true, milkPrice: true } }),
       prisma.milkProduction.findMany({
         where: { farmId, date: { gte: since } },
@@ -38,6 +37,7 @@ export async function GET() {
         select: { date: true, liters: true, pointId: true, point: { select: { name: true, owner: { select: { name: true } } } } },
         orderBy: { date: 'desc' },
       }),
+      prisma.milkSheet.findMany({ where: { farmId, date: { gte: since } }, select: { date: true, liters: true } }),
     ])
     const data: LiteData = {
       userName: user.name,
@@ -55,6 +55,7 @@ export async function GET() {
         date: isoDay(c.date), liters: c.liters, pointId: c.pointId, pointName: c.point.name, driverName: c.point.owner.name,
       })),
       milkPrice: farm?.milkPrice ?? null,
+      sheets: sheets.map((s) => ({ date: isoDay(s.date), liters: s.liters })),
     }
     return renewSession(NextResponse.json(data))
   }
@@ -72,6 +73,8 @@ export async function GET() {
     },
   })
   const owner = await prisma.user.findUnique({ where: { id: user.id }, select: { milkPrice: true } })
+  // Folha do motorista: só o produtor confere (o motorista é quem faz a folha)
+  const sheets = isDriverRole(user.role) ? [] : await prisma.milkSheet.findMany({ where: { userId: user.id, date: { gte: since } }, select: { date: true, liters: true } })
   const entries = await prisma.milkEntry.findMany({
     where: { pointId: { in: points.map((p) => p.id) }, date: { gte: since } },
     select: { pointId: true, date: true, liters: true, skipReason: true, note: true },
@@ -92,9 +95,8 @@ export async function GET() {
     entries: entries.map((e) => ({ pointId: e.pointId, date: isoDay(e.date), liters: e.liters, skipReason: e.skipReason, note: e.note })),
     collections: [],
     milkPrice: owner?.milkPrice ?? null,
+    sheets: sheets.map((s) => ({ date: isoDay(s.date), liters: s.liters })),
     todayWeekday: todayWeekday(),
-    // Produtor do Anota Aí Leite associado: novidades da associação (comunicado, visita, mensalidade)
-    associationAlerts: user.role === 'lite' ? (await associationAlerts({ userId: user.id }, todayUTC())).length : 0,
   }
   return renewSession(NextResponse.json(data))
 }
@@ -167,6 +169,11 @@ async function saveFarmChanges(farmId: string, changes: LiteChange[]) {
       const liters = parseLiters(c.liters)
       // Serializa os reenvios do Lite para não criar duas parcelas para o mesmo dia.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${farmId}), hashtext(${c.date}))`
+      // Excluir: apaga só o que veio do Anota Aí Leite; ordenhas lançadas na Produção de leite ficam
+      if (liters === null) {
+        await tx.milkProduction.deleteMany({ where: { farmId, date, source: 'lite' } })
+        continue
+      }
       const records = await tx.milkProduction.findMany({ where: { farmId, date }, select: { id: true, source: true, quantity: true } })
       const liteRecords = records.filter(r => r.source === 'lite')
       const existing = liteRecords[0]

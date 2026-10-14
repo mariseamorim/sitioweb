@@ -376,9 +376,9 @@ export default function MilkProductionPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <SortTh label="Dia" sortKey="day" sort={daySort} className="px-4 py-3 text-left" />
-                <SortTh label="Vacas" sortKey="cows" sort={daySort} align="right" className="px-4 py-3 text-right" />
-                <SortTh label="Total (L)" sortKey="total" sort={daySort} align="right" className="px-4 py-3 text-right" />
+                <SortTh label="Dia" sortKey="day" sort={daySort} className="px-3 py-3 sm:px-4 text-left" />
+                <SortTh label="Vacas" sortKey="cows" sort={daySort} align="right" className="px-3 py-3 sm:px-4 text-right" />
+                <SortTh label="Total (L)" sortKey="total" sort={daySort} align="right" className="px-3 py-3 sm:px-4 text-right" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -386,20 +386,20 @@ export default function MilkProductionPage() {
                 const cows = d.cows.size + d.cowsInTotal
                 return (
                   <tr key={d.day} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetailDay(d.day)}>
-                    <td className="px-4 py-3 text-gray-800">
+                    <td className="px-3 py-3 sm:px-4 text-gray-800 whitespace-nowrap">
                       <span className="font-medium">{fmtDay(d.day)}</span>
-                      <span className="ml-2 text-xs text-gray-400">{fmtWeekday(d.day)}</span>
+                      <span className="ml-1.5 text-xs text-gray-400">{fmtWeekday(d.day)}</span>
                     </td>
-                    <td className="px-4 py-3 text-right text-gray-500">{cows || '—'}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-green-700">{fmtNumber(d.total)}</td>
+                    <td className="px-3 py-3 sm:px-4 text-right text-gray-500">{cows || '—'}</td>
+                    <td className="px-3 py-3 sm:px-4 text-right font-semibold text-green-700">{fmtNumber(d.total)}</td>
                   </tr>
                 )
               })}
             </tbody>
             <tfoot className="border-t-2 border-gray-200 bg-gray-50">
               <tr>
-                <td colSpan={2} className="px-4 py-3 text-xs font-bold text-gray-600 uppercase">Total ({byDay.length} dias)</td>
-                <td className="px-4 py-3 text-right font-bold text-green-700">{fmtNumber(grandTotal)}</td>
+                <td colSpan={2} className="px-3 py-3 sm:px-4 text-xs font-bold text-gray-600 uppercase">Total ({byDay.length} dias)</td>
+                <td className="px-3 py-3 sm:px-4 text-right font-bold text-green-700">{fmtNumber(grandTotal)}</td>
               </tr>
             </tfoot>
           </table>
@@ -409,19 +409,19 @@ export default function MilkProductionPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <SortTh label="Animal" sortKey="name" sort={cowSort} className="px-4 py-3 text-left" />
-                <SortTh label="Código" sortKey="code" sort={cowSort} className="hidden sm:table-cell px-4 py-3 text-left" />
-                <SortTh label="Total (L)" sortKey="total" sort={cowSort} align="right" className="px-4 py-3 text-right" />
-                <SortTh label="Registros" sortKey="count" sort={cowSort} align="right" className="hidden sm:table-cell px-4 py-3 text-right" />
+                <SortTh label="Animal" sortKey="name" sort={cowSort} className="px-3 py-3 sm:px-4 text-left" />
+                <SortTh label="Código" sortKey="code" sort={cowSort} className="hidden sm:table-cell px-3 py-3 sm:px-4 text-left" />
+                <SortTh label="Total (L)" sortKey="total" sort={cowSort} align="right" className="px-3 py-3 sm:px-4 text-right" />
+                <SortTh label="Registros" sortKey="count" sort={cowSort} align="right" className="hidden sm:table-cell px-3 py-3 sm:px-4 text-right" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {sortedCows.map(({ animal, total, count }) => (
                 <tr key={animal.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetailAnimalId(animal.id)}>
-                  <td className="px-4 py-3 font-medium text-gray-800">{animal.name}</td>
-                  <td className="hidden sm:table-cell px-4 py-3 font-mono text-gray-500 text-xs">{animal.code}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-green-700">{fmtNumber(total)}</td>
-                  <td className="hidden sm:table-cell px-4 py-3 text-right text-gray-500">{count}</td>
+                  <td className="px-3 py-3 sm:px-4 font-medium text-gray-800">{animal.name}</td>
+                  <td className="hidden sm:table-cell px-3 py-3 sm:px-4 font-mono text-gray-500 text-xs">{animal.code}</td>
+                  <td className="px-3 py-3 sm:px-4 text-right font-semibold text-green-700">{fmtNumber(total)}</td>
+                  <td className="hidden sm:table-cell px-3 py-3 sm:px-4 text-right text-gray-500">{count}</td>
                 </tr>
               ))}
             </tbody>
@@ -495,19 +495,19 @@ export default function MilkProductionPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                     <tr>
-                      <SortTh label="Data" sortKey="date" sort={itemSort} className="px-4 py-2 text-left" />
-                      <SortTh label="Qtd (L)" sortKey="quantity" sort={itemSort} align="right" className="px-4 py-2 text-right" />
-                      <SortTh label="Observações" sortKey="observations" sort={itemSort} className="hidden sm:table-cell px-4 py-2 text-left" />
-                      <th className="px-4 py-2"></th>
+                      <SortTh label="Data" sortKey="date" sort={itemSort} className="px-3 py-2 sm:px-4 text-left" />
+                      <SortTh label="Qtd (L)" sortKey="quantity" sort={itemSort} align="right" className="px-3 py-2 sm:px-4 text-right" />
+                      <SortTh label="Observações" sortKey="observations" sort={itemSort} className="hidden sm:table-cell px-3 py-2 sm:px-4 text-left" />
+                      <th className="px-3 py-2 sm:px-4"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {sortedAnimalItems.map((p) => (
                       <tr key={p.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 text-gray-700">{fmtDay(p.date)}</td>
-                        <td className="px-4 py-2 text-right font-medium text-gray-800">{fmtNumber(p.quantity)}</td>
-                        <td className="hidden sm:table-cell px-4 py-2 text-gray-500 text-xs">{p.observations || '—'}</td>
-                        <td className="px-4 py-2 text-right">{editButton(p)}{deleteButton(p.id)}</td>
+                        <td className="px-3 py-2 sm:px-4 text-gray-700 whitespace-nowrap">{fmtDay(p.date)}</td>
+                        <td className="px-3 py-2 sm:px-4 text-right font-medium text-gray-800">{fmtNumber(p.quantity)}</td>
+                        <td className="hidden sm:table-cell px-3 py-2 sm:px-4 text-gray-500 text-xs">{p.observations || '—'}</td>
+                        <td className="px-3 py-2 sm:px-4 text-right whitespace-nowrap">{editButton(p)}{deleteButton(p.id)}</td>
                       </tr>
                     ))}
                   </tbody>

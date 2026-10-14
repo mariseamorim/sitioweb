@@ -3,12 +3,12 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin, setSessionCookie } from '@/lib/auth'
 import { registrationIdentity } from '@/lib/registration'
 import { newInviteCode } from '@/lib/vendors'
-import { isOrgType } from '@/lib/organizations'
 
-// POST: cadastro público de laticínio ou associação. Fica "pendente" até o admin aprovar.
+// POST: cadastro público de laticínio. Fica "pendente" até o admin aprovar.
+// Associação não aceita mais cadastro novo; as contas existentes continuam funcionando.
 export async function POST(request: NextRequest) {
   const { organization: org, user } = await request.json()
-  if (!isOrgType(org?.type)) return NextResponse.json({ error: 'Tipo de cadastro inválido' }, { status: 400 })
+  if (org?.type !== 'laticinio') return NextResponse.json({ error: 'Tipo de cadastro inválido' }, { status: 400 })
   const auth = await registrationIdentity({ ...user, name: org?.contactName })
   if (auth.error) return auth.error
   const identity = auth.identity!
