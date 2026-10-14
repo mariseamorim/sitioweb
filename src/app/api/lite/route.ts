@@ -169,6 +169,11 @@ async function saveFarmChanges(farmId: string, changes: LiteChange[]) {
       const liters = parseLiters(c.liters)
       // Serializa os reenvios do Lite para não criar duas parcelas para o mesmo dia.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${farmId}), hashtext(${c.date}))`
+      // Excluir: apaga só o que veio do Anota Aí Leite; ordenhas lançadas na Produção de leite ficam
+      if (liters === null) {
+        await tx.milkProduction.deleteMany({ where: { farmId, date, source: 'lite' } })
+        continue
+      }
       const records = await tx.milkProduction.findMany({ where: { farmId, date }, select: { id: true, source: true, quantity: true } })
       const liteRecords = records.filter(r => r.source === 'lite')
       const existing = liteRecords[0]

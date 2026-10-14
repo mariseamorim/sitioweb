@@ -177,6 +177,23 @@ export default function LitePage() {
     return () => document.removeEventListener('visibilitychange', flush)
   }, [])
 
+  // Excluir a anotação de um local no dia (também sem internet: entra na fila como as outras)
+  async function removeEntry(point: LitePoint) {
+    if (!data || !canWrite) return
+    const label = single ? fmtDay(date) : `${point.name} em ${fmtDay(date)}`
+    if (!(await confirm({ title: `Excluir o leite de ${label}?`, message: data.mode === 'fazenda'
+      ? 'Apaga o que foi anotado por aqui. Ordenhas lançadas na tela Produção de leite continuam.'
+      : `${fmtNumber(saved.get(point.id) ?? 0)} L serão apagados.`, confirmLabel: 'Excluir', danger: true }))) return
+    const change: LiteChange = { pointId: point.id, date, liters: null }
+    enqueue([change])
+    setData(applyChanges(data, [change]))
+    setDrafts((d) => Object.fromEntries(Object.entries(d).filter(([k]) => k !== `${date}|${point.id}`)))
+    setPending(pendingCount())
+    if (navigator.onLine && await sync() === 'conflict') return
+    setMessage(pendingCount() ? 'Excluído no celular. Será enviado quando houver internet.' : 'Anotação excluída.')
+    setTimeout(() => setMessage(''), 4000)
+  }
+
   // Número falado vai para o campo como se tivesse sido digitado (o salvar sozinho grava)
   function setSpoken(pointId: string, liters: number) {
     setDrafts((d) => ({ ...d, [`${date}|${pointId}`]: String(liters).replace('.', ',') }))
@@ -302,6 +319,11 @@ export default function LitePage() {
                     <span className="text-2xl text-gray-500">L</span>
                   </span>
                   {canWrite && <VoiceButton label="os litros do dia" onNumber={(v) => setSpoken(single.id, v)} />}
+                  {canWrite && saved.has(single.id) && (
+                    <button type="button" onClick={() => void removeEntry(single)} className="mt-3 text-sm font-semibold text-red-700 underline">
+                      Excluir anotação deste dia
+                    </button>
+                  )}
                   <PriceLine data={data} liters={parseLiters(valueOf(single.id)) ?? 0} online={online} canWrite={canWrite}
                     onSaved={(milkPrice) => { const d = { ...data, milkPrice }; setData(d); writeCache(d) }} />
                 </div>
@@ -331,6 +353,11 @@ export default function LitePage() {
                             </label>
                             {canWrite && !skipped.has(p.id) && <VoiceButton size="sm" label={`os litros de ${p.name}`} onNumber={(v) => setSpoken(p.id, v)} />}
                           </div>
+                          {canWrite && saved.has(p.id) && !skipped.has(p.id) && (
+                            <div className="mt-1 text-right">
+                              <button type="button" onClick={() => void removeEntry(p)} className="text-sm font-semibold text-red-700 underline">Excluir</button>
+                            </div>
+                          )}
                           {p.org && <RouteStopInfo point={p} skipReason={skipped.get(p.id) ?? null} canWrite={canWrite}
                             hasLiters={!!parseLiters(valueOf(p.id))} onSkip={(reason) => markSkip(p, reason)} />}
                         </li>
@@ -359,7 +386,7 @@ export default function LitePage() {
             </>
           )
         ) : tab === 'historico' ? (
-          <History data={data} online={online} canWrite={canWrite}
+          <History data={data} online={online} canWrite={canWrite} onOpenDay={(day) => { goToDay(day); setTab('anotar'); window.scrollTo(0, 0) }}
             onPriceSaved={(milkPrice) => { const d = { ...data, milkPrice }; setData(d); writeCache(d) }} />
         ) : tab === 'conferir' && !driver ? (
           <Conferir data={data} online={online} canWrite={canWrite} onSave={saveSheet} />
@@ -546,10 +573,12 @@ function Points({ data, online, onPointOp, onChanged }: {
 
 // ── Histórico ───────────────────────────────────────────────────────────
 
-function History({ data, online, canWrite, onPriceSaved }: {
+function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
   data: LiteData
   online: boolean
   canWrite: boolean
+  /** Abre o dia na aba Anotar, onde dá para alterar ou excluir */
+  onOpenDay: (day: string) => void
   onPriceSaved: (price: number | null) => void
 }) {
   const [days, setDays] = useState(7)
@@ -745,7 +774,10 @@ function History({ data, online, canWrite, onPriceSaved }: {
               <li key={day} className="px-4 py-3">
                 <div className="flex justify-between">
                   <span className="text-gray-700">{fmtDay(day)} <span className="text-xs text-gray-400">{fmtDay(day, { weekday: 'short' })}</span></span>
-                  <span className="font-semibold text-gray-900">{fmtNumber(d.total)} L</span>
+                  <span className="flex items-center gap-3">
+                    <span className="font-semibold text-gray-900">{fmtNumber(d.total)} L</span>
+                    {canWrite && <button type="button" onClick={() => onOpenDay(day)} className="text-sm font-semibold text-green-700">Alterar</button>}
+                  </span>
                 </div>
                 {showBreakdown && d.parts.length > 0 && (
                   <p className="mt-0.5 text-xs text-gray-500">
