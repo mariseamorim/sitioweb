@@ -84,7 +84,7 @@ const PLANS = [
   {
     name: 'Completo', price: 'R$ 49', note: '/mês, a partir de',
     text: 'Gestão completa da propriedade, para toda a equipe.',
-    tiers: [['Até 40 vacas', 'R$ 49/mês'], ['Até 100 vacas', 'R$ 99/mês'], ['Sem limite', 'R$ 199/mês']],
+    tiers: [['Até 40 vacas', 'R$ 49/mês'], ['Até 100 vacas', 'R$ 99/mês'], ['Até 300 vacas', 'R$ 199/mês'], ['Acima de 300 vacas', 'Sob consulta']],
     items: ['Usuários sem limite', 'Rebanho, leite, saúde e reprodução', 'Financeiro, estoque e relatórios', 'Ofertas de fornecedores'],
     cta: 'Criar conta', href: '/cadastro', highlight: true,
   },
