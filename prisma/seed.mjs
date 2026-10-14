@@ -186,6 +186,99 @@ async function seedFornecedor() {
   })
 }
 
+// ── Laticínio aprovado: pontos de coleta, rota de hoje com motorista e recebimento ──
+
+const inviteCode = () => Array.from(randomBytes(8), (b) => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('')
+
+async function seedLaticinio() {
+  if (await exists('laticinio@demo.com')) return
+  const org = await prisma.organization.create({
+    data: {
+      type: 'laticinio', name: 'Laticínio Serra Verde', contactName: 'Paulo do Laticínio', phone: '(35) 98888-2222',
+      email: 'laticinio@demo.com', city: 'Lavras', state: 'MG', status: 'aprovado', inviteCode: inviteCode(),
+    },
+  })
+  const manager = await createUser({ name: 'Paulo do Laticínio', email: 'laticinio@demo.com', role: 'laticinio', organizationId: org.id })
+  const driver = await createUser({
+    name: 'Zé Motorista', email: 'motorista.laticinio@demo.com', role: 'motorista', organizationId: org.id, phone: '(35) 97777-3333', vehicle: 'Caminhão tanque ABC-1D23',
+  })
+  const stops = [
+    { name: 'Sítio Ipê', kind: 'sitio', contactName: 'Seu João', phone: '(35) 96666-1111', address: 'Estrada do Ipê, km 3', tankLiters: 500, accessNotes: 'Porteira com cadeado, chave com o vizinho', base: 140 },
+    { name: 'Sítio Bela Vista', kind: 'sitio', contactName: 'Dona Cida', phone: '(35) 96666-2222', address: 'Córrego Fundo, km 7', tankLiters: 300, accessNotes: null, base: 85 },
+    { name: 'Tanque da Ponte', kind: 'tanque', contactName: 'Associação do Córrego', phone: null, address: 'Ponte do Rio Grande', tankLiters: 2000, accessNotes: 'Coletar antes das 9h', base: 420 },
+  ]
+  const points = []
+  for (const { base, ...data } of stops) {
+    points.push(await prisma.milkPoint.create({ data: { ...data, ownerId: manager.id, organizationId: org.id } }))
+  }
+  // Rota todos os dias, com o motorista; histórico de 7 dias (ontem um local sem leite) e hoje ainda pendente
+  const route = await prisma.route.create({
+    data: {
+      organizationId: org.id, name: 'Rota do Ipê', days: [0, 1, 2, 3, 4, 5, 6], driverId: driver.id,
+      stops: { create: points.map((p, position) => ({ pointId: p.id, position })) },
+    },
+  })
+  const entries = []
+  for (let n = 1; n <= 7; n++) {
+    points.forEach((p, i) => {
+      const skipped = n === 1 && i === 1
+      entries.push({
+        pointId: p.id, date: day(-n), liters: skipped ? 0 : stops[i].base + (n % 3) * 4, skipReason: skipped ? 'Sem leite' : null,
+        collectedById: driver.id, collectedAt: new Date(day(-n).getTime() + (9 + i) * 3600e3),
+      })
+    })
+  }
+  await prisma.milkEntry.createMany({ data: entries })
+  await prisma.milkReception.createMany({
+    data: [1, 2, 3].map((n) => ({
+      organizationId: org.id, routeId: route.id, date: day(-n),
+      liters: entries.filter((e) => e.date.getTime() === day(-n).getTime()).reduce((s, e) => s + e.liters, 0) - n,
+    })),
+  })
+}
+
+// ── Associação aprovada: associados, compra coletiva, comunicado, visita e mensalidades ──
+
+async function seedAssociacao() {
+  if (await exists('associacao@demo.com')) return
+  const org = await prisma.organization.create({
+    data: {
+      type: 'associacao', name: 'Associação dos Produtores do Córrego Fundo', contactName: 'Dona Lurdes', phone: '(35) 95555-3333',
+      email: 'associacao@demo.com', city: 'Lavras', state: 'MG', status: 'aprovado', inviteCode: 'ASSOC2026',
+    },
+  })
+  await createUser({ name: 'Dona Lurdes', email: 'associacao@demo.com', role: 'associacao', organizationId: org.id })
+
+  // Associados: a produtora do Anota Aí Leite e o produtor da versão completa (os dois compartilham o leite)
+  const lite = await prisma.user.findUnique({ where: { email: 'lite@demo.com' }, select: { id: true } })
+  const farm = await prisma.farm.findFirst({ where: { users: { some: { email: 'produtor@demo.com' } } }, select: { id: true } })
+  const members = []
+  if (lite) members.push(await prisma.orgMember.create({ data: { organizationId: org.id, userId: lite.id } }))
+  if (farm) members.push(await prisma.orgMember.create({ data: { organizationId: org.id, farmId: farm.id } }))
+
+  const purchase = await prisma.groupPurchase.create({
+    data: { organizationId: org.id, title: 'Sal mineral 30 kg', category: 'Sal mineral', unit: 'Saco', description: 'Entrega na sede', deadline: day(10) },
+  })
+  if (members[0]) await prisma.groupPurchaseOrder.create({ data: { purchaseId: purchase.id, memberId: members[0].id, quantity: 4 } })
+  await prisma.orgNotice.create({
+    data: { organizationId: org.id, kind: 'vacinacao', title: 'Campanha de vacinação contra aftosa', body: 'Traga a carteira do rebanho. Das 8h às 12h na sede.', eventDate: day(5) },
+  })
+  if (members[0]) {
+    await prisma.techVisit.create({ data: { organizationId: org.id, memberId: members[0].id, subject: 'Vaca com mastite', description: 'Desde ontem com o úbere inchado' } })
+  }
+  // Mensalidade do mês passado (uma paga, uma atrasada) e a deste mês em aberto
+  const month = (offset) => { const d = day(0); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + offset); return d }
+  const ref = (d) => d.toISOString().slice(0, 7)
+  const fees = []
+  members.forEach((m, i) => {
+    const last = month(-1); last.setUTCDate(10)
+    const next = month(0); next.setUTCDate(28)
+    fees.push({ organizationId: org.id, memberId: m.id, reference: ref(last), amount: 50, dueDate: last, paidAt: i === 1 ? day(-20) : null })
+    fees.push({ organizationId: org.id, memberId: m.id, reference: ref(next), amount: 50, dueDate: next })
+  })
+  await prisma.memberFee.createMany({ data: fees })
+}
+
 async function main() {
   await seedAdmin()
   await seedProdutor()
@@ -193,6 +286,8 @@ async function main() {
   await seedLite()
   await seedMotorista(rosaFarm)
   await seedFornecedor()
+  await seedLaticinio()
+  await seedAssociacao()
 
   console.log(`
 Dados de demonstração prontos. Senha de todos: ${process.env.SEED_PASSWORD ? '(a que você definiu em SEED_PASSWORD)' : 'demo1234 (admin: admin1234)'}
@@ -204,6 +299,9 @@ Dados de demonstração prontos. Senha de todos: ${process.env.SEED_PASSWORD ? '
   lite@demo.com        Anota Aí Leite, produtora (Sítio Primavera)
   motorista@demo.com   Anota Aí Leite, motorista com rota de 4 locais
   fornecedor@demo.com  Fornecedor aprovado, convite DEMO2026
+  laticinio@demo.com   Laticínio Serra Verde: 3 pontos, Rota do Ipê, recebimento
+  motorista.laticinio@demo.com  Motorista do laticínio (rota de hoje no Anota Aí Leite)
+  associacao@demo.com  Associação do Córrego Fundo, convite ASSOC2026 (associados: lite e produtor)
 `)
 }
 
