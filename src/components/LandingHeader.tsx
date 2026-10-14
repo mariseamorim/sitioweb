@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { SetaDireitaIcon, FecharIcon, MenuIcon } from '@/components/ModuleIcons'
-const links = [['#recursos', 'O que oferece'], ['#ofertas', 'Fornecedores'], ['#como-funciona', 'Como funciona'], ['#contato', 'Fale conosco']] as const
+const links = [['#para-quem', 'Para quem é'], ['#recursos', 'O que oferece'], ['#planos', 'Planos'], ['#duvidas', 'Dúvidas'], ['#contato', 'Fale conosco']] as const
 export function LandingHeader() {
   const [open, setOpen] = useState(false)
   const header = useRef<HTMLElement>(null)
