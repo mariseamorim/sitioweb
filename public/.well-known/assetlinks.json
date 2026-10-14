@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.vercel.sitioweb_alpha.twa",
+      "sha256_cert_fingerprints": ["20:1F:6F:09:5B:F8:8B:EC:48:3F:4E:0B:02:29:75:51:BA:A1:5D:4F:0C:0B:8C:14:BD:8A:31:C0:CB:09:7F:7B"]
+    }
+  }
+]
