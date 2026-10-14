@@ -34,7 +34,6 @@ const groups: { label: string; links: NavLink[] }[] = [
   ] },
   { label: 'Fornecedores', links: [
     { href: '/ofertas', label: 'Ofertas', module: null, Icon: EtiquetaIcon },
-    { href: '/lite/associacao', label: 'Minha associação', module: null, Icon: UsuariosIcon },
     { href: '/admin/fornecedores', label: 'Aprovar fornecedores', module: null, adminOnly: true, Icon: LojaIcon },
     { href: '/admin/organizacoes', label: 'Aprovar laticínios e associações', module: null, adminOnly: true, Icon: UsuariosIcon },
   ] },

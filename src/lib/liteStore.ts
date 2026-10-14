@@ -1,10 +1,11 @@
 // Dados do Anota Aí Leite guardados no aparelho e fila de envio.
 // A tela sempre lê daqui; o servidor só recebe e devolve a cópia oficial.
-import type { LiteChange, LiteData, LiteEntry, PointKind } from '@/lib/lite'
+import type { LiteChange, LiteData, LiteEntry, LiteSheet, LiteSheetChange, PointKind } from '@/lib/lite'
 
 const CACHE_KEY = 'lite_cache_v1'
 const QUEUE_KEY = 'lite_queue_v1'
 const POINTS_KEY = 'lite_points_queue_v1'
+const SHEETS_KEY = 'lite_sheets_queue_v1'
 
 type Queue = Record<string, LiteChange>
 
@@ -113,9 +114,9 @@ export function pendingPointOps(): PointOp[] {
   return Object.values(read<PointQueue>(POINTS_KEY, {}))
 }
 
-/** Quantos itens aguardam envio (locais e anotações) */
+/** Quantos itens aguardam envio (locais, anotações e folhas do motorista) */
 export function pendingCount(): number {
-  return pendingPointOps().length + pendingChanges().length
+  return pendingPointOps().length + pendingChanges().length + pendingSheets().length
 }
 
 export function applyPointOps(data: LiteData, ops: PointOp[]): LiteData {
@@ -169,13 +170,64 @@ async function flushPoints(): Promise<SyncResult> {
   return 'ok'
 }
 
+// ── Folha do motorista (conferência) ────────────────────────────────────
+
+type SheetQueue = Record<string, LiteSheetChange>
+
+export function pendingSheets(): LiteSheetChange[] {
+  return Object.values(read<SheetQueue>(SHEETS_KEY, {}))
+}
+
+export function applySheets(data: LiteData, changes: LiteSheetChange[]): LiteData {
+  const map = new Map<string, LiteSheet>((data.sheets ?? []).map((s) => [s.date, s]))
+  for (const c of changes) {
+    if (c.liters === null) map.delete(c.date)
+    else map.set(c.date, { date: c.date, liters: c.liters })
+  }
+  return { ...data, sheets: [...map.values()] }
+}
+
+/** Guarda a folha na fila. Para o mesmo dia, vale a última. */
+export function enqueueSheet(change: LiteSheetChange) {
+  const queue = read<SheetQueue>(SHEETS_KEY, {})
+  queue[change.date] = change
+  write(SHEETS_KEY, queue)
+  const cache = readCache()
+  if (cache) writeCache(applySheets(cache, [change]))
+}
+
+async function flushSheets(): Promise<SyncResult> {
+  const sent = pendingSheets()
+  if (sent.length === 0) return 'ok'
+  let res: Response
+  try {
+    res = await fetch('/api/lite/folha', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ changes: sent }),
+    })
+  } catch {
+    return 'offline'
+  }
+  if (res.status === 401) return 'auth'
+  if (!res.ok) return 'error'
+  const queue = read<SheetQueue>(SHEETS_KEY, {})
+  for (const c of sent) if (queue[c.date]?.liters === c.liters) delete queue[c.date]
+  write(SHEETS_KEY, queue)
+  return 'ok'
+}
+
 /** Envia o que estiver pendente e busca a cópia oficial. Sem internet, devolve o que há no aparelho. */
 export async function syncLite(): Promise<{ data: LiteData | null; result: SyncResult }> {
   // Locais primeiro: as anotações podem ser de um local criado sem internet
   const points = await flushPoints()
   if (points === 'auth') return { data: readCache(), result: 'auth' }
-  const flushed = points === 'ok' ? await flushQueue() : points
-  if (flushed === 'auth') return { data: readCache(), result: 'auth' }
+  const queued = points === 'ok' ? await flushQueue() : points
+  if (queued === 'auth') return { data: readCache(), result: 'auth' }
+  // A folha não depende das anotações: vai mesmo se elas tiverem conflito
+  const sheets = points === 'ok' ? await flushSheets() : 'ok'
+  if (sheets === 'auth') return { data: readCache(), result: 'auth' }
+  const flushed = queued !== 'ok' ? queued : sheets
 
   try {
     const res = await fetch('/api/lite', { cache: 'no-store' })
@@ -190,5 +242,5 @@ export async function syncLite(): Promise<{ data: LiteData | null; result: SyncR
 }
 
 function withPending(data: LiteData | null): LiteData | null {
-  return data ? applyChanges(applyPointOps(data, pendingPointOps()), pendingChanges()) : null
+  return data ? applySheets(applyChanges(applyPointOps(data, pendingPointOps()), pendingChanges()), pendingSheets()) : null
 }

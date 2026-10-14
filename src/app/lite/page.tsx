@@ -8,13 +8,13 @@ import { OfflineVoiceSetup, VoiceButton } from '@/components/VoiceButton'
 import { RouteStopInfo } from '@/components/RouteStopInfo'
 import { useDialog } from '@/components/DialogProvider'
 import { SetaDireitaIcon, SemSinalIcon, SincronizarIcon, CheckIcon } from '@/components/ModuleIcons'
-import { KIND_LABEL, LiteChange, LiteData, LitePoint, PointKind, isDriverRole, isLiteOnlyRole, parseLiters } from '@/lib/lite'
-import { PointOp, applyChanges, applyPointOps, enqueue, enqueuePoint, newPointId, pendingChanges, pendingCount, pendingPointOps, readCache, syncLite, writeCache } from '@/lib/liteStore'
+import { KIND_LABEL, LiteChange, LiteData, LitePoint, LiteSheetChange, PointKind, SHEET_ALERT_PERCENT, checkSheets, isDriverRole, isLiteOnlyRole, parseLiters } from '@/lib/lite'
+import { PointOp, applyChanges, applyPointOps, applySheets, enqueue, enqueuePoint, enqueueSheet, newPointId, pendingChanges, pendingCount, pendingPointOps, pendingSheets, readCache, syncLite, writeCache } from '@/lib/liteStore'
 import { exportCSV } from '@/lib/reportExport'
 import { fmtMoney, fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
 
-type Tab = 'anotar' | 'historico' | 'locais'
+type Tab = 'anotar' | 'historico' | 'locais' | 'conferir'
 
 function shiftDay(iso: string, days: number) {
   const d = new Date(iso)
@@ -58,7 +58,7 @@ export default function LitePage() {
     // (Lido após a montagem para o HTML do servidor e o do navegador serem iguais.)
     void Promise.resolve().then(() => {
       const cached = readCache()
-      if (cached) setData(applyChanges(applyPointOps(cached, pendingPointOps()), pendingChanges()))
+      if (cached) setData(applySheets(applyChanges(applyPointOps(cached, pendingPointOps()), pendingChanges()), pendingSheets()))
       setPending(pendingCount())
       setOnline(navigator.onLine)
       return sync()
@@ -88,7 +88,7 @@ export default function LitePage() {
   const dayCollections = (data?.collections ?? []).filter((c) => c.date === date)
   const tabs = driver
     ? ([['anotar', 'Anotar'], ['historico', 'Histórico'], ['locais', 'Rota']] as const)
-    : ([['anotar', 'Anotar'], ['historico', 'Histórico']] as const)
+    : ([['anotar', 'Anotar'], ['historico', 'Histórico'], ['conferir', 'Conferir']] as const)
   const saved = useMemo(() => {
     const map = new Map<string, number>()
     for (const e of data?.entries ?? []) if (e.date === date) map.set(e.pointId, e.liters)
@@ -186,6 +186,14 @@ export default function LitePage() {
   function goToDay(day: string) {
     void saveRef.current({ auto: true })
     setDate(day)
+  }
+
+  // Folha do motorista: guarda no celular e envia quando houver internet
+  function saveSheet(change: LiteSheetChange) {
+    enqueueSheet(change)
+    setData((d) => (d ? applySheets(d, [change]) : d))
+    setPending(pendingCount())
+    if (navigator.onLine) void sync()
   }
 
   function pointOp(op: PointOp) {
@@ -353,6 +361,8 @@ export default function LitePage() {
         ) : tab === 'historico' ? (
           <History data={data} online={online} canWrite={canWrite}
             onPriceSaved={(milkPrice) => { const d = { ...data, milkPrice }; setData(d); writeCache(d) }} />
+        ) : tab === 'conferir' && !driver ? (
+          <Conferir data={data} online={online} canWrite={canWrite} onSave={saveSheet} />
         ) : driver ? (
           <Points data={data} online={online} onPointOp={pointOp} onChanged={(d) => { setData(d); writeCache(d) }} />
         ) : null}
@@ -364,11 +374,6 @@ export default function LitePage() {
               {!isLiteOnlyRole(data.role) && <Link href="/" className="font-medium text-green-700 underline">Abrir app completo</Link>}
               {data.role === 'lite' && (
                 <button type="button" onClick={() => setUpgrading(true)} className="font-medium text-green-700 underline">Quero a versão completa</button>
-              )}
-              {data.role === 'lite' && (
-                <Link href="/lite/associacao" className="font-medium text-green-700 underline">
-                  Minha associação{data.associationAlerts ? ` (${data.associationAlerts} novidade${data.associationAlerts > 1 ? 's' : ''})` : ''}
-                </Link>
               )}
               <button type="button" onClick={logout} className="font-medium text-gray-600 underline">Sair</button>
             </div>
@@ -757,6 +762,181 @@ function History({ data, online, canWrite, onPriceSaved }: {
         className="mt-5 w-full border-2 border-green-700 text-green-800 font-semibold py-3 rounded-xl disabled:border-gray-300 disabled:text-gray-400">
         Baixar planilha{selected ? ` de ${selected.name}` : ''}
       </button>
+    </div>
+  )
+}
+
+// ── Conferir a folha do motorista ───────────────────────────────────────
+
+const fmtSigned = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${fmtNumber(Math.abs(n))}`
+
+function Conferir({ data, online, canWrite, onSave }: {
+  data: LiteData
+  online: boolean
+  canWrite: boolean
+  onSave: (change: LiteSheetChange) => void
+}) {
+  const { confirm } = useDialog()
+  const today = todayISO()
+  const [date, setDate] = useState(today)
+  const [draft, setDraft] = useState<{ date: string; value: string } | null>(null)
+  const [message, setMessage] = useState('')
+  const formRef = useRef<HTMLDivElement>(null)
+  const sheets = useMemo(() => data.sheets ?? [], [data.sheets])
+  const existing = sheets.find((s) => s.date === date)
+  // O campo mostra o que foi digitado para este dia ou, se nada, o que já está salvo
+  const value = draft?.date === date ? draft.value : existing ? String(existing.liters).replace('.', ',') : ''
+  const liters = parseLiters(value)
+  const checks = useMemo(() => checkSheets(sheets, data.entries), [sheets, data.entries])
+
+  // Resumo do mês: total da folha, total anotado e quanto deve receber pela folha
+  const months = [0, 1, 2].map((back) => {
+    const d = new Date(`${today.slice(0, 7)}-01T00:00:00Z`)
+    d.setUTCMonth(d.getUTCMonth() - back)
+    return d.toISOString().slice(0, 7)
+  })
+  const [month, setMonth] = useState(months[0])
+  const monthSheets = sheets.filter((s) => s.date.startsWith(month))
+  const sheetTotal = monthSheets.reduce((sum, s) => sum + s.liters, 0)
+  // Comparação do mês só com as coletas conferidas, para folha e anotação cobrirem os mesmos dias
+  const compared = checks.filter((c) => c.date.startsWith(month) && c.noted)
+  const comparedSheet = compared.reduce((sum, c) => sum + c.sheet, 0)
+  const comparedNoted = compared.reduce((sum, c) => sum + (c.noted ?? 0), 0)
+  const price = data.milkPrice
+  const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('pt-BR', { timeZone: 'UTC', month: 'long' })
+
+  function save() {
+    if (!liters) return
+    onSave({ date, liters })
+    setDraft(null)
+    setMessage(online ? 'Folha salva.' : 'Salva no celular. Será enviada quando houver internet.')
+    setTimeout(() => setMessage(''), 4000)
+  }
+
+  async function remove() {
+    if (!(await confirm({ title: `Apagar a coleta de ${fmtDay(date)}?`, confirmLabel: 'Apagar' }))) return
+    onSave({ date, liters: null })
+    setDraft(null)
+  }
+
+  function edit(day: string) {
+    setDate(day)
+    setDraft(null)
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  return (
+    <div>
+      {canWrite && (
+        <div ref={formRef} className="scroll-mt-48 rounded-2xl border border-gray-200 bg-white p-5">
+          <h2 className="text-lg font-semibold text-gray-900">O motorista levou</h2>
+          <p className="mt-1 text-sm text-gray-600">Quando o caminhão passar, digite os litros que estão na folha do motorista.</p>
+          <label className="mt-4 block text-sm font-medium text-gray-700">Dia da coleta
+            <input type="date" value={date} max={today} onChange={(e) => e.target.value && setDate(e.target.value)} className={`mt-1 ${input} font-semibold`} />
+          </label>
+          <div className="mt-3 flex items-center gap-2">
+            <label className="flex flex-1 items-center gap-2">
+              <span className="sr-only">Litros da folha</span>
+              <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={value}
+                onChange={(e) => setDraft({ date, value: e.target.value.replace(/[^\d.,]/g, '') })}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); save() } }}
+                className="w-full border border-gray-300 rounded-xl px-3 py-3 !text-3xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-green-600" />
+              <span className="text-xl text-gray-500">L</span>
+            </label>
+            <VoiceButton size="sm" label="os litros da folha" onNumber={(v) => setDraft({ date, value: String(v).replace('.', ',') })} />
+          </div>
+          <div className="mt-3 flex gap-2">
+            {existing && <button type="button" onClick={remove} className="border border-gray-300 text-red-700 font-semibold px-4 py-3 rounded-xl">Apagar</button>}
+            <button type="button" onClick={save} disabled={!liters || liters === existing?.liters}
+              className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl">
+              {existing ? (liters === existing.liters ? 'Salvo' : 'Salvar alteração') : 'Salvar folha'}
+            </button>
+          </div>
+          {message && <p role="status" className="mt-2 text-center text-sm font-medium text-green-800">{message}</p>}
+        </div>
+      )}
+
+      <section className="mt-5" aria-label="Resumo do mês">
+        <div className="grid grid-cols-3 gap-2">
+          {months.map((m) => (
+            <button key={m} type="button" onClick={() => setMonth(m)}
+              className={`py-2.5 rounded-xl text-sm font-semibold border capitalize ${month === m ? 'bg-green-700 border-green-700 text-white' : 'border-gray-300 bg-white text-gray-700'}`}>
+              {monthLabel(m)}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-2xl border border-gray-200 bg-white p-3">
+            <p className="text-xs text-gray-500">Pela folha do motorista</p>
+            <p className="text-2xl font-bold text-gray-900">{fmtNumber(sheetTotal)} L</p>
+            <p className="text-xs text-gray-500">{monthSheets.length} coleta{monthSheets.length === 1 ? '' : 's'}</p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-3">
+            <p className="text-xs text-gray-500">Diferença nas coletas conferidas</p>
+            <p className={`text-2xl font-bold ${compared.length && Math.abs(comparedSheet - comparedNoted) / comparedNoted * 100 > SHEET_ALERT_PERCENT ? 'text-red-700' : 'text-gray-900'}`}>
+              {compared.length ? `${fmtSigned(Math.round((comparedSheet - comparedNoted) * 10) / 10)} L` : '—'}
+            </p>
+            <p className="text-xs text-gray-500">
+              {compared.length ? `Folha ${fmtNumber(comparedSheet)} L · você ${fmtNumber(comparedNoted)} L` : 'Precisa de duas coletas'}
+            </p>
+          </div>
+        </div>
+        {price && sheetTotal > 0 ? (
+          <div className="mt-2 rounded-2xl border-2 border-green-300 bg-green-50 p-4">
+            <p className="text-sm font-medium text-green-900">Pela folha, você deve receber em {monthLabel(month)}</p>
+            <p className="mt-1 text-3xl font-bold text-green-800">{fmtMoney(sheetTotal * price)}</p>
+            <p className="mt-1 text-sm text-gray-600">Litro a {fmtMoney(price)}. Confira com o pagamento do laticínio.</p>
+          </div>
+        ) : sheetTotal > 0 && (
+          <p className="mt-2 text-sm text-gray-600">Informe o valor do litro na aba Histórico para ver quanto deve receber.</p>
+        )}
+      </section>
+
+      <section className="mt-5">
+        <h2 className="mb-2 text-sm font-semibold text-gray-500">Cada coleta</h2>
+        {checks.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-gray-300 bg-white p-5 text-center text-gray-600">
+            Nenhuma coleta anotada ainda. Anote a próxima vez que o motorista passar.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {checks.map((c) => (
+              <li key={c.date} className={`rounded-2xl border bg-white p-4 ${c.alert ? 'border-red-300' : 'border-gray-200'}`}>
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-semibold text-gray-900">{fmtDay(c.date)} <span className="text-xs font-normal text-gray-400">{fmtDay(c.date, { weekday: 'short' })}</span></span>
+                  {canWrite && <button type="button" onClick={() => edit(c.date)} className="text-sm font-semibold text-green-700">Alterar</button>}
+                </div>
+                <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                  <div><dt className="text-gray-500">Folha do motorista</dt><dd className="text-lg font-bold text-gray-900">{fmtNumber(c.sheet)} L</dd></div>
+                  {c.noted !== null && (
+                    <div>
+                      <dt className="text-gray-500">Você anotou{c.from && c.from < c.date ? ` de ${fmtDay(c.from, { day: 'numeric', month: 'numeric' })} a ${fmtDay(c.date, { day: 'numeric', month: 'numeric' })}` : ''}</dt>
+                      <dd className="text-lg font-bold text-green-800">{fmtNumber(c.noted)} L</dd>
+                    </div>
+                  )}
+                </dl>
+                {c.noted === null ? (
+                  <p className="mt-2 text-sm text-gray-500">Primeira coleta anotada. A conferência começa na próxima.</p>
+                ) : c.noted === 0 ? (
+                  <p className="mt-2 text-sm text-gray-500">Você não anotou o leite desses dias, então não dá para conferir.</p>
+                ) : c.diff === 0 ? (
+                  <p className="mt-2 text-sm font-semibold text-green-800">A folha bate com a sua anotação.</p>
+                ) : (
+                  <p className={`mt-2 text-sm ${c.alert ? 'font-semibold text-red-700' : 'text-gray-600'}`}>
+                    {fmtSigned(c.diff!)} L na folha ({fmtSigned(c.percent ?? 0)}%).{' '}
+                    {c.alert
+                      ? c.diff! < 0 ? 'A folha tem bem menos do que você anotou. Vale conversar com o motorista.' : 'A folha tem bem mais do que você anotou. Confira a sua anotação.'
+                      : 'Diferença pequena, normal entre a régua do tanque e a ordenha.'}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-3 text-xs text-gray-500">
+          A folha é comparada com o leite que você anotou desde o dia seguinte à coleta anterior até o dia da coleta. Diferença acima de {SHEET_ALERT_PERCENT}% aparece em vermelho.
+        </p>
+      </section>
     </div>
   )
 }

@@ -37,6 +37,7 @@ model Farm {
   milkPoints      MilkPoint[] // sítios de rota de motoristas ligados a esta propriedade
   supplyRequests  SupplyRequest[]
   orgMemberships  OrgMember[] // associações de que a propriedade participa
+  milkSheets      MilkSheet[] // litros da folha do motorista, para conferir
 
   @@map("farms")
 }
@@ -64,6 +65,7 @@ model User {
   driverRoutes     Route[]        @relation("RouteDriver")
   collectedEntries MilkEntry[]    @relation("EntryCollector")
   orgMemberships   OrgMember[] // associações do produtor do Anota Aí Leite (sem propriedade)
+  milkSheets       MilkSheet[] // litros da folha do motorista, para conferir
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -381,6 +383,24 @@ model MilkEntry {
 
   @@unique([pointId, date])
   @@map("milk_entries")
+}
+
+/// Litros que a folha do motorista diz que ele levou, anotados pelo produtor para conferir com a própria anotação.
+/// Do produtor do Anota Aí Leite (userId) ou da propriedade (farmId); um registro por dia de coleta.
+model MilkSheet {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farmId    String?
+  farm      Farm?    @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  date      DateTime
+  liters    Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@unique([farmId, date])
+  @@map("milk_sheets")
 }
 
 // ── Laticínio e associação ─────────────────────────────────────────────

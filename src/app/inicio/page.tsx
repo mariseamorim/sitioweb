@@ -8,7 +8,7 @@ import { ContactForm } from '@/components/ContactForm'
 import { AudienceSection, FaqSection, PlansSection } from './sections'
 import './landing.css'
 
-export const metadata: Metadata = { title: 'Anota Aí Agro — Gestão rural que acompanha o seu ritmo', description: 'Gestão rural que liga produtor, motorista, laticínio, associação e fornecedor. Anota Aí Leite grátis, funciona sem internet e por voz.' }
+export const metadata: Metadata = { title: 'Anota Aí Agro — Gestão rural que acompanha o seu ritmo', description: 'Gestão rural que liga produtor, motorista, laticínio e fornecedor. Anota Aí Leite grátis, funciona sem internet e por voz.' }
 const features = [
   { Icon: AnimalIcon, title: 'Rebanho organizado', text: 'Cada animal identificado, com foto, informações e registros em um só lugar.' },
   { Icon: LeiteIcon, title: 'Produção de leite', text: 'Lançamentos individuais ou em lote e acompanhamento por período.' },

@@ -57,10 +57,10 @@ export interface LiteData {
   collections: LiteCollection[]
   /** Valor do litro informado (opcional), para estimar quanto vai receber */
   milkPrice: number | null
+  /** Produtor: litros da folha do motorista em cada coleta, para conferir (o motorista não usa) */
+  sheets?: LiteSheet[]
   /** Motorista de laticínio: dia da semana de hoje (0 = domingo), para mostrar as rotas do dia */
   todayWeekday?: number
-  /** Produtor associado: quantas novidades da associação (comunicados, visitas, mensalidade atrasada) */
-  associationAlerts?: number
 }
 
 /** Uma anotação a enviar: liters null apaga o valor daquele local no dia. */
@@ -71,6 +71,62 @@ export interface LiteChange {
   /** Coleta não realizada, com motivo (litros ficam 0) */
   skipReason?: string | null
   note?: string | null
+}
+
+/** Litros que a folha do motorista diz que ele levou numa coleta */
+export interface LiteSheet {
+  /** yyyy-mm-dd */
+  date: string
+  liters: number
+}
+
+/** Folha a enviar: liters null apaga a coleta daquele dia. */
+export interface LiteSheetChange {
+  date: string
+  liters: number | null
+}
+
+/** Diferença entre a folha e a anotação, em %, a partir da qual a conferência chama atenção.
+ *  Régua do tanque e balde nunca batem exato; diferença pequena é normal. */
+export const SHEET_ALERT_PERCENT = 5
+
+export interface SheetCheck {
+  /** Dia da coleta */
+  date: string
+  /** Primeiro dia anotado que entra nesta coleta (o dia seguinte à coleta anterior) */
+  from: string | null
+  sheet: number
+  /** Soma do que o produtor anotou de `from` até o dia da coleta; null na primeira coleta (não há início) */
+  noted: number | null
+  /** Folha menos anotado: negativo = a folha diz menos do que você anotou */
+  diff: number | null
+  percent: number | null
+  alert: boolean
+}
+
+const nextDay = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
+/** Confere cada coleta: a folha contra o que foi anotado desde o dia seguinte à coleta anterior até o dia dela. */
+export function checkSheets(sheets: LiteSheet[], entries: { date: string; liters: number }[]): SheetCheck[] {
+  const byDay = new Map<string, number>()
+  for (const e of entries) byDay.set(e.date, (byDay.get(e.date) ?? 0) + e.liters)
+  const sorted = [...sheets].sort((a, b) => a.date.localeCompare(b.date))
+  return sorted.map((s, i) => {
+    const from = i > 0 ? nextDay(sorted[i - 1].date) : null
+    if (!from) return { date: s.date, from, sheet: s.liters, noted: null, diff: null, percent: null, alert: false }
+    let noted = 0
+    for (const [day, liters] of byDay) if (day >= from && day <= s.date) noted += liters
+    noted = Math.round(noted * 10) / 10
+    const diff = Math.round((s.liters - noted) * 10) / 10
+    const percent = noted > 0 ? Math.round((diff / noted) * 1000) / 10 : null
+    // Sem anotação no período não há o que comparar; com anotação, chama atenção acima do limite
+    const alert = noted > 0 && Math.abs(diff / noted) * 100 > SHEET_ALERT_PERCENT
+    return { date: s.date, from, sheet: s.liters, noted, diff, percent, alert }
+  }).reverse()
 }
 
 export const KIND_LABEL: Record<PointKind, string> = { sitio: 'Sítio', tanque: 'Tanque comunitário' }

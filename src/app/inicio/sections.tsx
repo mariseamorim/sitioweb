@@ -8,7 +8,7 @@ const AUDIENCES = [
   {
     shot: 'lite', alt: 'Tela do Anota Aí Leite com o leite do dia',
     eyebrow: 'Produtor', title: 'Só quer anotar o leite?',
-    items: ['Um campo para o leite do dia', 'Funciona sem internet e por voz', 'Histórico e quanto vai receber'],
+    items: ['Um campo para o leite do dia', 'Funciona sem internet e por voz', 'Confere a folha do motorista'],
     cta: 'Começar grátis', href: '/lite/cadastro',
   },
   {
@@ -30,12 +30,6 @@ const AUDIENCES = [
     cta: 'Cadastrar laticínio', href: '/organizacao/cadastro?tipo=laticinio',
   },
   {
-    shot: 'associacao', alt: 'Painel da associação com associados e serviços',
-    eyebrow: 'Associação', title: 'Associados unidos e bem atendidos',
-    items: ['Produção compartilhada e compras coletivas', 'Comunicados, visitas técnicas e mensalidades', 'Coleta compartilhada'],
-    cta: 'Cadastrar associação', href: '/organizacao/cadastro?tipo=associacao',
-  },
-  {
     shot: 'fornecedor', alt: 'Painel do fornecedor com ofertas e pedidos',
     eyebrow: 'Fornecedor', title: 'Ofertas para quem precisa comprar',
     items: ['Ofertas para os produtores da região', 'Pedidos de orçamento e mensagens', 'Contato direto pelo WhatsApp'],
@@ -51,7 +45,7 @@ export function AudienceSection() {
           <p className="landing-eyebrow">Para quem é</p>
           <h2>Não é só um app da fazenda.<br /><em>Liga toda a cadeia do leite.</em></h2>
         </div>
-        <p>Produtor, motorista, laticínio, associação e fornecedor usam o mesmo sistema, cada um com a sua tela. O leite anotado no sítio chega ao laticínio e à associação, e a oferta do fornecedor chega a quem está com o estoque baixo.</p>
+        <p>Produtor, motorista, laticínio e fornecedor usam o mesmo sistema, cada um com a sua tela. O leite anotado no sítio chega ao laticínio, e a oferta do fornecedor chega a quem está com o estoque baixo.</p>
       </div>
       <div className="audience-grid">
         {AUDIENCES.map((a) => (
@@ -78,7 +72,7 @@ const PLANS = [
   {
     name: 'Anota Aí Leite', price: 'Grátis', note: 'para sempre',
     text: 'Para o produtor que só quer anotar o leite e para o motorista da própria rota.',
-    items: ['Leite do dia no celular', 'Funciona sem internet', 'Anotação por voz', 'Histórico e valor a receber', 'Participar de associações'],
+    items: ['Leite do dia no celular', 'Funciona sem internet', 'Anotação por voz', 'Histórico e valor a receber', 'Conferir a folha do motorista'],
     cta: 'Começar grátis', href: '/lite/cadastro', highlight: false,
   },
   {
@@ -89,9 +83,9 @@ const PLANS = [
     cta: 'Criar conta', href: '/cadastro', highlight: true,
   },
   {
-    name: 'Laticínio e associação', price: 'Sob consulta', note: 'conforme o tamanho',
-    text: 'Coleta, rotas e motoristas para o laticínio. Associados e serviços para a associação.',
-    items: ['Motoristas sem custo extra', 'Pontos de coleta e rotas', 'Recebimento e pendências', 'Comunicados, visitas e mensalidades'],
+    name: 'Laticínio', price: 'Sob consulta', note: 'conforme o tamanho',
+    text: 'Coleta, rotas e motoristas organizados, do sítio até a plataforma.',
+    items: ['Motoristas sem custo extra', 'Pontos de coleta e rotas', 'Pendências do dia', 'Recebido comparado com o coletado'],
     cta: 'Fale com a gente', href: '#contato', highlight: false,
   },
 ]
@@ -105,7 +99,7 @@ export function PlansSection() {
             <p className="landing-eyebrow">Planos</p>
             <h2>Comece grátis.<br /><em>Cresça quando precisar.</em></h2>
           </div>
-          <p>Sem taxa de implantação. O fornecedor divulga as ofertas sem custo durante o lançamento, e o motorista do laticínio ou da associação já vem incluído.</p>
+          <p>Sem taxa de implantação. O fornecedor divulga as ofertas sem custo durante o lançamento, e o motorista do laticínio já vem incluído.</p>
         </div>
         <div className="plans-grid">
           {PLANS.map((p) => (
@@ -137,8 +131,8 @@ const FAQ = [
   ['Funciona sem internet?', 'Sim. As anotações do leite ficam guardadas no celular e são enviadas sozinhas quando a conexão volta. O motorista faz a rota inteira sem sinal.'],
   ['Preciso instalar alguma coisa?', 'Não. Abra o site no celular ou no computador e, se quiser, toque em "Instalar app" para ter o ícone na tela inicial, como um aplicativo.'],
   ['Dá para anotar falando?', 'Sim. Toque no microfone e fale a quantidade de litros. Funciona até sem internet.'],
-  ['A associação ou o laticínio veem os meus dados?', 'Não. A associação só vê o total de leite se você autorizar, e você pode parar de mostrar quando quiser. Animais, financeiro e estoque continuam só seus.'],
-  ['O motorista paga alguma coisa?', 'Não. O motorista cadastrado pelo laticínio ou pela associação já vem incluído, e quem anota a própria rota usa o Anota Aí Leite grátis.'],
+  ['O laticínio vê os meus dados?', 'Não. O laticínio vê só o leite que o motorista dele coletou. Animais, financeiro e estoque continuam só seus.'],
+  ['O motorista paga alguma coisa?', 'Não. O motorista cadastrado pelo laticínio já vem incluído, e quem anota a própria rota usa o Anota Aí Leite grátis.'],
   ['Quantas pessoas da fazenda podem usar?', 'Quantas precisar. Cada pessoa tem o seu acesso, e você escolhe o que cada uma pode ver ou editar.'],
   ['Sou fornecedor. Como apareço para os produtores?', 'Faça o cadastro da empresa. Depois da aprovação, suas ofertas aparecem para os produtores da região, e quem está com o produto acabando vê primeiro.'],
 ]

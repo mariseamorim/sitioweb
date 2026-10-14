@@ -46,6 +46,8 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // Folhas do motorista anotadas para conferir passam para a propriedade
+    await tx.milkSheet.updateMany({ where: { userId: user.id }, data: { userId: null, farmId: farm.id } })
     await tx.milkPoint.deleteMany({ where: { ownerId: user.id } })
     await tx.user.update({
       where: { id: user.id },
