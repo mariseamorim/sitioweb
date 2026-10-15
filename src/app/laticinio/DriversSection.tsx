@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useDialog } from '@/components/DialogProvider'
 import { whatsappLink } from '@/lib/utils'
 import { type Driver, type Route, field, send } from './types'
+import { maskPhone } from '@/lib/masks'
 
 const EMPTY = { name: '', email: '', password: '', phone: '', vehicle: '' }
 
@@ -71,7 +72,7 @@ export function DriversSection({ drivers, routes, onChanged }: { drivers: Driver
             <input value={form.name} onChange={set('name')} required className={`${field} bg-white`} />
           </label>
           <label className="text-sm font-medium text-gray-700">Telefone / WhatsApp
-            <input value={form.phone} onChange={set('phone')} inputMode="tel" className={`${field} bg-white`} />
+            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })} inputMode="tel" placeholder="(35) 99999-0000" className={`${field} bg-white`} />
           </label>
           <label className="text-sm font-medium text-gray-700">Veículo
             <input value={form.vehicle} onChange={set('vehicle')} placeholder="Ex.: caminhão tanque ABC-1234" className={`${field} bg-white`} />

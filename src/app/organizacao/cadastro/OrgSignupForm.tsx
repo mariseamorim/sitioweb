@@ -6,6 +6,7 @@ import { BackLink } from '@/components/BackLink'
 import { GoogleLoginButton } from '@/components/GoogleLoginButton'
 import { useRegistrationAccount } from '@/lib/useRegistrationAccount'
 import { ORG_TYPES, type OrgType } from '@/lib/organizations'
+import { maskDocument, maskPhone } from '@/lib/masks'
 
 const EMPTY = { name: '', document: '', contactName: '', phone: '', city: '', state: '', email: '', password: '', confirm: '' }
 const input = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
@@ -65,7 +66,7 @@ export function OrgSignupForm({ type }: { type: OrgType }) {
                   placeholder={type === 'laticinio' ? 'Ex.: Laticínio Serra Verde' : 'Ex.: Associação dos Produtores do Córrego Fundo'} className={`mt-1 ${input}`} />
               </label>
               <label className="text-sm font-medium text-gray-700">CNPJ
-                <input value={form.document} onChange={set('document')} className={`mt-1 ${input}`} />
+                <input value={form.document} onChange={(e) => setForm({ ...form, document: maskDocument(e.target.value) })} inputMode="numeric" placeholder="CPF ou CNPJ" className={`mt-1 ${input}`} />
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <label className="col-span-2 text-sm font-medium text-gray-700">Cidade
@@ -83,7 +84,7 @@ export function OrgSignupForm({ type }: { type: OrgType }) {
                 <input value={form.contactName || account?.name || ''} onChange={set('contactName')} required className={`mt-1 ${input}`} />
               </label>
               <label className="text-sm font-medium text-gray-700">Telefone / WhatsApp *
-                <input value={form.phone} onChange={set('phone')} required inputMode="tel" placeholder="(35) 99999-0000" className={`mt-1 ${input}`} />
+                <input value={form.phone} onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })} required inputMode="tel" placeholder="(35) 99999-0000" className={`mt-1 ${input}`} />
               </label>
             </fieldset>
 

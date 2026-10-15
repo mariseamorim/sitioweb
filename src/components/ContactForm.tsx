@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, type FormEvent } from 'react'
+import { maskPhone } from '@/lib/masks'
 
 export function ContactForm() {
   const [open, setOpen] = useState(false)
@@ -43,7 +44,7 @@ export function ContactForm() {
       <fieldset disabled={sending}>
         <label htmlFor="contact-name">Seu nome *</label><input id="contact-name" name="name" autoComplete="name" required maxLength={100} />
         <label htmlFor="contact-email">Seu e-mail *</label><input id="contact-email" name="email" type="email" autoComplete="email" required maxLength={254} />
-        <label htmlFor="contact-phone">Telefone / WhatsApp (opcional)</label><input id="contact-phone" name="phone" type="tel" autoComplete="tel" maxLength={30} />
+        <label htmlFor="contact-phone">Telefone / WhatsApp (opcional)</label><input id="contact-phone" name="phone" type="tel" autoComplete="tel" maxLength={30} placeholder="(35) 99999-0000" onInput={(e) => { e.currentTarget.value = maskPhone(e.currentTarget.value) }} />
         <label htmlFor="contact-farm">Nome da propriedade (opcional)</label><input id="contact-farm" name="farm" maxLength={150} />
         <label htmlFor="contact-purpose">Como podemos ajudar? *</label><select id="contact-purpose" name="purpose" defaultValue="demo" required><option value="demo">Quero agendar uma demonstração</option><option value="question">Quero tirar uma dúvida</option></select>
         <label htmlFor="contact-message">Sua mensagem *</label><textarea id="contact-message" name="message" required minLength={10} maxLength={3000} rows={4} placeholder="Conte o que precisa. Para uma demonstração, informe os melhores dias e horários." />

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { BackLink } from '@/components/BackLink'
 import { GoogleLoginButton } from '@/components/GoogleLoginButton'
 import { useRegistrationAccount } from '@/lib/useRegistrationAccount'
+import { maskDocument, maskPhone } from '@/lib/masks'
 
 const EMPTY = {
   companyName: '', document: '', contactName: '', phone: '', whatsapp: '',
@@ -68,7 +69,7 @@ export default function CadastroFornecedorPage() {
               <input value={form.companyName} onChange={set('companyName')} required autoFocus placeholder="Ex.: Casa da Ração Boa Safra" className={`mt-1 ${input}`} />
             </label>
             <label className="text-sm font-medium text-gray-700">CNPJ ou CPF
-              <input value={form.document} onChange={set('document')} className={`mt-1 ${input}`} />
+              <input value={form.document} onChange={(e) => setForm({ ...form, document: maskDocument(e.target.value) })} inputMode="numeric" placeholder="CPF ou CNPJ" className={`mt-1 ${input}`} />
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <label className="col-span-2 text-sm font-medium text-gray-700">Cidade
@@ -90,10 +91,10 @@ export default function CadastroFornecedorPage() {
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="text-sm font-medium text-gray-700">Telefone *
-                <input value={form.phone} onChange={set('phone')} required inputMode="tel" placeholder="(35) 99999-0000" className={`mt-1 ${input}`} />
+                <input value={form.phone} onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })} required inputMode="tel" placeholder="(35) 99999-0000" className={`mt-1 ${input}`} />
               </label>
               <label className="text-sm font-medium text-gray-700">WhatsApp
-                <input value={form.whatsapp} onChange={set('whatsapp')} inputMode="tel" placeholder="Se for outro número" className={`mt-1 ${input}`} />
+                <input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: maskPhone(e.target.value) })} inputMode="tel" placeholder="Se for outro número" className={`mt-1 ${input}`} />
               </label>
             </div>
           </fieldset>

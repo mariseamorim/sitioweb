@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { BackLink } from '@/components/BackLink'
 import { GoogleLoginButton } from '@/components/GoogleLoginButton'
 import { FARM_SEGMENTS } from '@/lib/farmSegments'
+import { DOCUMENT_PLACEHOLDER, maskDocument, maskPhone } from '@/lib/masks'
 
 const EMPTY_FARM = { name: '', propertyType: 'Fazenda', documentType: 'CNPJ', documentNumber: '', owner: '', phone: '', address: '', city: '', state: '' }
 
@@ -75,9 +76,11 @@ export default function CadastroPage() {
                 </div>
               </fieldset>
               {Object.entries({ name: 'Nome da propriedade', owner: 'Proprietário', documentNumber: 'CPF/CNPJ', phone: 'Telefone', address: 'Endereço', city: 'Cidade', state: 'Estado' }).map(([key, label]) => <label key={key}>{label}
-                <input required={key === 'name'} className={input} maxLength={key === 'state' ? 2 : undefined} value={farm[key as keyof typeof farm]} onChange={e => setFarm({ ...farm, [key]: e.target.value })} />
+                <input required={key === 'name'} className={input} maxLength={key === 'state' ? 2 : undefined} value={farm[key as keyof typeof farm]} inputMode={key === 'phone' ? 'tel' : key === 'documentNumber' ? 'numeric' : undefined}
+                  placeholder={key === 'phone' ? '(35) 99999-0000' : key === 'documentNumber' ? DOCUMENT_PLACEHOLDER[farm.documentType] : undefined}
+                  onChange={e => setFarm({ ...farm, [key]: key === 'phone' ? maskPhone(e.target.value) : key === 'documentNumber' ? maskDocument(e.target.value, farm.documentType) : e.target.value })} />
               </label>)}
-              <label>Tipo de documento<select className={input} value={farm.documentType} onChange={e => setFarm({ ...farm, documentType: e.target.value })}><option>CNPJ</option><option>CPF</option></select></label>
+              <label>Tipo de documento<select className={input} value={farm.documentType} onChange={e => setFarm({ ...farm, documentType: e.target.value, documentNumber: maskDocument(farm.documentNumber, e.target.value) })}><option>CNPJ</option><option>CPF</option></select></label>
             </>}
             {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             <button type="submit" className="rounded-lg bg-green-700 py-3 font-semibold text-white hover:bg-green-600">{loading ? 'Salvando...' : step === 1 ? 'Criar conta e continuar' : 'Salvar propriedade e começar'}</button>
