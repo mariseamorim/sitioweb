@@ -1,6 +1,10 @@
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
-import { getSessionUser } from '@/lib/auth'
+import { canAccessModule, getSessionUser } from '@/lib/auth'
+import { memberFarms } from '@/lib/farms'
+import { farmsOverview } from '@/lib/farmOverview'
+import { FARM_SEGMENTS } from '@/lib/farmSegments'
+import { OpenFarmButton } from '@/components/OpenFarmButton'
 import Link from 'next/link'
 import { FarmPicker } from '@/components/FarmPicker'
 import { AdminFarmBanner } from '@/components/AdminFarmBanner'
@@ -85,6 +89,17 @@ export default async function Home() {
   const matrices = females.filter(f => canAddCalf(f))
   const withCalf = matrices.filter(m => m.calves.length > 0).length
 
+  // Quem tem mais de uma propriedade vê o resumo de todas no topo
+  const myFarms = user.role === 'admin' ? [] : await memberFarms(user.id)
+  const overview = myFarms.length > 1
+    ? await farmsOverview(
+        myFarms,
+        (m) => canAccessModule(user, m),
+        (await prisma.user.findUnique({ where: { id: user.id }, select: { offersSeenAt: true } }))?.offersSeenAt ?? null,
+        { start: startOfMonth, end: endOfMonth },
+      )
+    : []
+
   const monthBalance = monthTransactions.reduce(
     (sum, t) => sum + (t.type === 'Receita' ? t.amount : -t.amount),
     0,
@@ -130,6 +145,8 @@ export default async function Home() {
         </div>
       </div>
 
+      {overview.length > 0 && <FarmsOverview farms={overview} activeId={effectiveFarmId!} fmtBRL={fmtBRL} />}
+
       {quickActions.length > 0 && <section aria-labelledby="daily-actions" className="mb-8">
         <h2 id="daily-actions" className="text-lg font-bold text-gray-900">O que você quer fazer?</h2>
         <p className="mt-1 mb-4 text-sm text-gray-600">Escolha uma tarefa para abrir a tela correspondente.</p>
@@ -174,6 +191,56 @@ export default async function Home() {
         </section>
       )}
     </div>
+  )
+}
+
+const TASK_TONE = { red: 'text-red-700', amber: 'text-amber-700', blue: 'text-blue-700' } as const
+
+/** Resumo de todas as propriedades: cabeças, saldo do mês e os avisos de cada uma */
+function FarmsOverview({ farms, activeId, fmtBRL }: {
+  farms: Awaited<ReturnType<typeof farmsOverview>>
+  activeId: string
+  fmtBRL: (v: number) => string
+}) {
+  const alive = farms.reduce((s, f) => s + f.alive, 0)
+  const lotHeads = farms.reduce((s, f) => s + f.lotHeads, 0)
+  const balances = farms.filter(f => f.monthBalance !== null)
+  const balance = balances.reduce((s, f) => s + f.monthBalance!, 0)
+  const alerts = farms.reduce((s, f) => s + f.tasks.length, 0)
+  return (
+    <section aria-labelledby="todas" className="mb-8">
+      <h2 id="todas" className="text-lg font-bold text-gray-900">Suas {farms.length} propriedades</h2>
+      <p className="mt-1 mb-4 text-sm text-gray-600">
+        {alive} animais cadastrados{lotHeads ? ` e ${lotHeads} cabeças em lotes` : ''}
+        {balances.length ? <> · saldo do mês somado: <strong className={balance >= 0 ? 'text-green-700' : 'text-red-600'}>{fmtBRL(balance)}</strong></> : null}
+        {` · ${alerts} aviso${alerts === 1 ? '' : 's'}`}
+      </p>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {farms.map(f => (
+          <article key={f.id} className={`rounded-xl border bg-white p-4 ${f.id === activeId ? 'border-green-400' : 'border-gray-200'}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="truncate font-bold text-gray-900">{f.name}</h3>
+                {f.segments.length > 0 && <p className="text-xs text-gray-500">{FARM_SEGMENTS.filter(s => f.segments.includes(s.key)).map(s => s.label).join(' · ')}</p>}
+              </div>
+              {f.id === activeId
+                ? <span className="shrink-0 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-800">Aberta</span>
+                : <OpenFarmButton farmId={f.id} className="shrink-0 rounded-lg border border-green-700 px-3 py-1.5 text-sm font-semibold text-green-800 hover:bg-green-50 disabled:opacity-60" />}
+            </div>
+            <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
+              <div><dt className="text-xs text-gray-500">{f.openLots ? 'Animais / em lotes' : 'Animais'}</dt><dd className="font-semibold text-gray-900">{f.alive}{f.openLots ? ` / ${f.lotHeads}` : ''}</dd></div>
+              {f.monthBalance !== null && <div><dt className="text-xs text-gray-500">Saldo do mês</dt><dd className={`font-semibold ${f.monthBalance >= 0 ? 'text-green-700' : 'text-red-600'}`}>{fmtBRL(f.monthBalance)}</dd></div>}
+            </dl>
+            {f.tasks.length === 0
+              ? <p className="mt-3 text-sm text-gray-500">Nenhum aviso hoje.</p>
+              : <ul className="mt-3 space-y-1 text-sm">
+                  {f.tasks.slice(0, 3).map(t => <li key={t.title} className={TASK_TONE[t.tone]}>{t.title}</li>)}
+                  {f.tasks.length > 3 && <li className="text-gray-500">e mais {f.tasks.length - 3}</li>}
+                </ul>}
+          </article>
+        ))}
+      </div>
+    </section>
   )
 }
 
