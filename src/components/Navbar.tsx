@@ -8,10 +8,14 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
 import { PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon, SetaDireitaIcon } from '@/components/ModuleIcons';import { SyncStatus } from '@/components/SyncStatus';
 import { TaskBell } from '@/components/TaskBell';
+import { FarmSwitcher } from '@/components/FarmSwitcher';
 import { useDialog } from '@/components/DialogProvider';
 import { countAllPendingOnDevice } from '@/lib/offlineStorage';
 
 type NavLink = { href: string; label: string; module: string | null; adminOnly?: boolean; Icon: (p: { className?: string }) => React.ReactNode };
+
+// Telas que só aparecem para quem faz aquele trabalho. Sem segmento informado, aparece tudo.
+const SEGMENT_PAGES: Record<string, string[]> = { '/milk-production': ['leite'], '/lite': ['leite'] };
 
 const groups: { label: string; links: NavLink[] }[] = [
   { label: 'Visão geral', links: [
@@ -69,9 +73,11 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
         { href: '/lite', label: 'Anotar', module: 'leite', Icon: LeiteIcon },
         { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },
         { href: '/vacinacao', label: 'Vacinas', module: 'vacinacao', Icon: VacinaIcon },
-      ].filter((tab) => !tab.module || canAccess(tab.module));
+      ].filter((tab) => (!tab.module || canAccess(tab.module)) && fitsSegment(tab.href));
+  const segments = user?.farmSegments ?? [];
+  const fitsSegment = (href: string) => !segments.length || !SEGMENT_PAGES[href] || SEGMENT_PAGES[href].some(s => segments.includes(s));
   const isTabActive = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/'));
-  const visibleGroups = (isVendor ? vendorGroups : groups).map(group => ({ ...group, links: group.links.filter(link => (!link.module || canAccess(link.module)) && (!link.adminOnly || user?.role === 'admin')) })).filter(group => group.links.length);
+  const visibleGroups = (isVendor ? vendorGroups : groups).map(group => ({ ...group, links: group.links.filter(link => (!link.module || canAccess(link.module)) && (!link.adminOnly || user?.role === 'admin') && fitsSegment(link.href)) })).filter(group => group.links.length);
   const activeLink = visibleGroups.flatMap(group => group.links).find(link => link.href === '/' ? pathname === '/' : pathname === link.href || pathname.startsWith(link.href + '/'));
   const role = user?.role === 'admin' ? 'Administrador' : user?.role === 'editor' ? 'Editor' : panelRole ? panelRole.label : 'Leitor';
 
@@ -162,7 +168,7 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
               <SetaDireitaIcon className="h-4 w-4 rotate-180" /><span className="hidden sm:inline">Painel</span>
             </Link>
           )}
-          <div className="min-w-0"><p className="truncate text-sm font-semibold text-gray-800">{activeLink?.label || 'Anota Aí Agro'}</p><p className="truncate text-xs text-gray-500">{panelRole ? panelRole.subtitle : user?.farmName || 'Gestão da propriedade'}</p></div>
+          <div className="min-w-0"><p className="truncate text-sm font-semibold text-gray-800">{activeLink?.label || 'Anota Aí Agro'}</p>{panelRole ? <p className="truncate text-xs text-gray-500">{panelRole.subtitle}</p> : <FarmSwitcher fallback="Gestão da propriedade" />}</div>
         </div>
         <div className="flex shrink-0 items-center gap-2"><div className="hidden sm:block"><SyncStatus /></div>{user?.farmId && <TaskBell />}</div>
       </div>

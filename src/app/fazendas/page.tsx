@@ -4,6 +4,8 @@ import { PermissionGuard } from '@/components/PermissionGuard'
 import { useEffect, useState } from 'react'
 import { useDialog } from '@/components/DialogProvider'
 import { useUser } from '@/contexts/UserContext'
+import { FARM_SEGMENTS } from '@/lib/farmSegments'
+import { PENDING_MESSAGE, hasPendingOnDevice, reloadInFarm, switchFarm } from '@/lib/farmSwitch'
 
 interface Farm {
   id: string
@@ -17,6 +19,7 @@ interface Farm {
   city?: string
   state?: string
   isActive?: boolean
+  segments?: string[]
 }
 
 const EMPTY = {
@@ -29,6 +32,7 @@ const EMPTY = {
   address: '',
   city: '',
   state: '',
+  segments: [] as string[],
 }
 
 const typeColor: Record<string, string> = {
@@ -58,8 +62,12 @@ export default function PropriedadesPage() {
 
   useEffect(() => { fetchFarms() }, [])
 
+  const isAdmin = user?.role === 'admin'
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // Propriedade nova já abre: com anotações pendentes no celular, elas iriam para a propriedade errada
+    if (!editingId && !isAdmin && hasPendingOnDevice()) { setError(PENDING_MESSAGE); return }
     setSaving(true)
     setError('')
 
@@ -73,6 +81,8 @@ export default function PropriedadesPage() {
 
     if (!res.ok) { setError(data.error || 'Erro ao salvar'); setSaving(false); return }
 
+    // O produtor que cadastra outra propriedade passa a usar a nova
+    if (!editingId && !isAdmin) return reloadInFarm()
     setSaving(false)
     setShowForm(false)
     setForm(EMPTY)
@@ -93,6 +103,11 @@ export default function PropriedadesPage() {
     setShowForm(true)
   }
 
+  async function openFarm(farmId: string) {
+    const failure = await switchFarm(farmId)
+    if (failure) await notify('Não foi possível abrir', failure)
+  }
+
   async function handleDelete(farmId: string) {
     if (!(await confirm({ title: 'Excluir esta propriedade?', message: 'Se ela já tiver registros, será apenas desativada e nada se perde.', confirmLabel: 'Excluir', danger: true }))) return
     setDeleting(farmId)
@@ -107,6 +122,9 @@ export default function PropriedadesPage() {
     }
     
     await notify(data.action === 'inactivated' ? 'Propriedade desativada' : 'Propriedade excluída')
+    // Se era a propriedade aberta, o servidor já abriu outra
+    if (!isAdmin && farmId === user?.farmId) return reloadInFarm()
+    refresh()
     fetchFarms()
   }
 
@@ -165,7 +183,19 @@ export default function PropriedadesPage() {
                 <p className="text-sm text-gray-500">{[f.city, f.state].filter(Boolean).join(' — ')}</p>
               )}
               {f.phone && <p className="text-sm text-gray-500 mt-1">{f.phone}</p>}
-              {canManage && <button type="button" onClick={() => handleEdit(f)} className="mt-4 text-sm font-medium text-green-700 hover:underline" aria-label={`Editar propriedade ${f.name}`}>Editar cadastro</button>}
+              {!!f.segments?.length && (
+                <p className="mt-2 flex flex-wrap gap-1.5">
+                  {FARM_SEGMENTS.filter((s) => f.segments!.includes(s.key)).map((s) => (
+                    <span key={s.key} className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-800">{s.label}</span>
+                  ))}
+                </p>
+              )}
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+                {!isAdmin && (f.id === user?.farmId
+                  ? <span className="text-sm font-semibold text-gray-500">Aberta agora</span>
+                  : <button type="button" onClick={() => void openFarm(f.id)} className="text-sm font-semibold text-green-700 hover:underline">Abrir esta propriedade</button>)}
+                {canManage && <button type="button" onClick={() => handleEdit(f)} className="text-sm font-medium text-green-700 hover:underline" aria-label={`Editar propriedade ${f.name}`}>Editar cadastro</button>}
+              </div>
             </div>
           ))}
         </div>
@@ -199,6 +229,22 @@ export default function PropriedadesPage() {
                     ))}
                   </div>
                 </div>
+
+                <fieldset>
+                  <legend className="text-xs font-medium text-gray-600">O que a propriedade faz? (pode marcar mais de um)</legend>
+                  <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {FARM_SEGMENTS.map((seg) => {
+                      const on = form.segments.includes(seg.key)
+                      return (
+                        <button key={seg.key} type="button" aria-pressed={on}
+                          onClick={() => setForm({ ...form, segments: on ? form.segments.filter((k) => k !== seg.key) : [...form.segments, seg.key] })}
+                          className={`py-2 rounded-lg text-sm font-medium border transition-colors ${on ? 'bg-green-700 border-green-700 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                          {seg.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </fieldset>
 
                 <div>
                   <label className="text-xs font-medium text-gray-600">Nome *</label>

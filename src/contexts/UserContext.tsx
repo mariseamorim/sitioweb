@@ -9,6 +9,10 @@ export interface UserData {
   role: string
   farmId: string | null       // null for admin with no farm selected
   farmName: string | null     // name of the active farm
+  /** O que a propriedade aberta faz (leite, cria, recria, engorda); vazio = não informado */
+  farmSegments?: string[]
+  /** Propriedades do produtor, para trocar pelo topo (vazio para admin) */
+  farms?: { id: string; name: string }[]
   permissions: string[] | null // null = admin (acesso total)
 }
 

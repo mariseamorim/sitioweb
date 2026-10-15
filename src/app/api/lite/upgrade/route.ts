@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireUser } from '@/lib/auth'
 import { MODULES } from '@/lib/modules'
+import { addFarmMember } from '@/lib/farms'
 
 // POST: produtor do Anota Aí Leite passa para a versão completa (Pro).
 // Cria a propriedade, transforma o histórico do lite em registros de leite dela e,
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
       where: { id: user.id },
       data: { role: 'editor', farmId: farm.id, permissions: MODULES.map((m) => m.key) },
     })
+    await addFarmMember(tx, user.id, farm.id)
     return { farmId: farm.id, imported: byDay.size }
   })
 

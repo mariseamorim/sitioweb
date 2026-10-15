@@ -46,7 +46,10 @@ function day(offset) {
 const exists = async (email) => !!(await prisma.user.findUnique({ where: { email }, select: { id: true } }))
 
 async function createUser(data) {
-  return prisma.user.create({ data: { ...data, password: await hashPassword(data.password ?? PASSWORD) } })
+  const user = await prisma.user.create({ data: { ...data, password: await hashPassword(data.password ?? PASSWORD) } })
+  // Quem tem propriedade também a tem na lista de propriedades (várias por conta)
+  if (data.farmId && data.role !== 'admin') await prisma.farmMember.create({ data: { userId: user.id, farmId: data.farmId } })
+  return user
 }
 
 // ── Admin ───────────────────────────────────────────────────────────────

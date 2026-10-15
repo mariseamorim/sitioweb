@@ -109,7 +109,7 @@ export async function syncPendingRecords(
 
 /**
  * Tudo o que está salvo no aparelho e ainda não foi enviado:
- * filas do app completo (pending_*) e do Anota Aí Leite (locais e anotações).
+ * filas do app completo (pending_*) e do Anota Aí Leite (locais, anotações e folhas do motorista).
  */
 export function countAllPendingOnDevice(): number {
   if (!isLocalStorageAvailable()) return 0
@@ -122,7 +122,7 @@ export function countAllPendingOnDevice(): number {
       if (key.startsWith('pending_')) {
         const list = JSON.parse(raw || '[]')
         if (Array.isArray(list)) total += list.length
-      } else if (key === 'lite_queue_v1' || key === 'lite_points_queue_v1') {
+      } else if (key === 'lite_queue_v1' || key === 'lite_points_queue_v1' || key === 'lite_sheets_queue_v1') {
         total += Object.keys(JSON.parse(raw || '{}')).length
       }
     }

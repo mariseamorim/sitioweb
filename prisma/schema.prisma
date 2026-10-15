@@ -15,7 +15,7 @@ model Farm {
   name           String
   propertyType   String?  @default("Fazenda")
   documentType   String?
-  documentNumber String?  @unique
+  documentNumber String? // o mesmo CPF/CNPJ pode ter várias propriedades
   owner          String?
   email          String?
   phone          String?
@@ -24,6 +24,8 @@ model Farm {
   state          String?
   isActive       Boolean  @default(true)
   milkPrice      Float? // valor do litro de leite (estimativa de quanto vai receber)
+  /// O que a propriedade faz: leite, cria, recria, engorda (pode ter mais de um; vazio = não informado)
+  segments       String[] @default([])
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -38,7 +40,9 @@ model Farm {
   supplyRequests  SupplyRequest[]
   orgMemberships  OrgMember[] // associações de que a propriedade participa
   milkSheets      MilkSheet[] // litros da folha do motorista, para conferir
+  members         FarmMember[] // quem tem acesso (o dono pode ter várias propriedades)
 
+  @@index([documentNumber])
   @@map("farms")
 }
 
@@ -66,6 +70,7 @@ model User {
   collectedEntries MilkEntry[]    @relation("EntryCollector")
   orgMemberships   OrgMember[] // associações do produtor do Anota Aí Leite (sem propriedade)
   milkSheets       MilkSheet[] // litros da folha do motorista, para conferir
+  farmMemberships  FarmMember[] // propriedades a que tem acesso; farmId é a que está aberta
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -383,6 +388,21 @@ model MilkEntry {
 
   @@unique([pointId, date])
   @@map("milk_entries")
+}
+
+/// Propriedades a que o usuário tem acesso. User.farmId é a que está aberta agora;
+/// trocar de propriedade é mudar o farmId para outra desta lista.
+model FarmMember {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farmId    String
+  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, farmId])
+  @@index([farmId])
+  @@map("farm_members")
 }
 
 /// Litros que a folha do motorista diz que ele levou, anotados pelo produtor para conferir com a própria anotação.
