@@ -66,6 +66,8 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   const vendorGroups: { label: string; links: NavLink[] }[] = panelRole
     ? [{ label: panelRole.label, links: [{ href: panelRole.href, label: 'Meu painel', module: null, Icon: panelRole.Icon }] }]
     : [];
+  const segments = user?.farmSegments ?? [];
+  const fitsSegment = (href: string) => !segments.length || !SEGMENT_PAGES[href] || SEGMENT_PAGES[href].some(s => segments.includes(s));
   // Celular: atalhos do dia a dia no rodapé, como num app; o resto fica em "Mais"
   const bottomTabs = panelRole
     ? [{ href: panelRole.href, label: 'Painel', Icon: panelRole.Icon }]
@@ -75,8 +77,6 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
         { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },
         { href: '/vacinacao', label: 'Vacinas', module: 'vacinacao', Icon: VacinaIcon },
       ].filter((tab) => (!tab.module || canAccess(tab.module)) && fitsSegment(tab.href));
-  const segments = user?.farmSegments ?? [];
-  const fitsSegment = (href: string) => !segments.length || !SEGMENT_PAGES[href] || SEGMENT_PAGES[href].some(s => segments.includes(s));
   const isTabActive = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/'));
   const visibleGroups = (isVendor ? vendorGroups : groups).map(group => ({ ...group, links: group.links.filter(link => (!link.module || canAccess(link.module)) && (!link.adminOnly || user?.role === 'admin') && fitsSegment(link.href)) })).filter(group => group.links.length);
   const activeLink = visibleGroups.flatMap(group => group.links).find(link => link.href === '/' ? pathname === '/' : pathname === link.href || pathname.startsWith(link.href + '/'));
