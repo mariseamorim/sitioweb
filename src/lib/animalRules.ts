@@ -1,6 +1,9 @@
 export const BOVINE_CATEGORIES = ['Vaca', 'Boi', 'Boi de engorda', 'Touro', 'Bezerro', 'Bezerra']
 export const isBovine = (species: string) => BOVINE_CATEGORIES.includes(species)
 
+/** Até quantos dias de vida a cria conta como "bezerro ao pé" da mãe (desmama por volta dos 8 meses) */
+export const CALF_AT_FOOT_DAYS = 240
+
 export function fixedAnimalGender(species: string): 'Fêmea' | 'Macho' | null {
   if (['Vaca', 'Bezerra'].includes(species)) return 'Fêmea'
   if (['Boi', 'Boi de engorda', 'Touro'].includes(species)) return 'Macho'

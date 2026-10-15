@@ -4,9 +4,10 @@ import { getSessionUser } from '@/lib/auth'
 import Link from 'next/link'
 import { FarmPicker } from '@/components/FarmPicker'
 import { AdminFarmBanner } from '@/components/AdminFarmBanner'
+import { BOVINE_CATEGORIES, CALF_AT_FOOT_DAYS, canAddCalf } from '@/lib/animalRules'
 import {
   AnimalIcon, CheckIcon, LeiteIcon, TratamentoIcon, VacinaIcon,
-  ReproducaoIcon, FinanceiroIcon, EstoqueIcon,
+  ReproducaoIcon, FinanceiroIcon, EstoqueIcon, BalancaIcon,
 } from '@/components/ModuleIcons'
 
 export default async function Home() {
@@ -32,8 +33,11 @@ export default async function Home() {
   // Load farm name for display
   const farm = await prisma.farm.findUnique({
     where: { id: effectiveFarmId! },
-    select: { name: true },
+    select: { name: true, segments: true },
   })
+  // Sem segmento informado, mostra tudo
+  const segments = farm?.segments ?? []
+  const does = (...keys: string[]) => !segments.length || keys.some(k => segments.includes(k))
 
   const now = new Date()
   const in7 = new Date(now); in7.setDate(in7.getDate() + 7)
@@ -41,7 +45,8 @@ export default async function Home() {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
-  const [totalAnimals, aliveAnimals, milkCount, vetCount, vaccinePending, upcomingBirths, monthTransactions, supplies] = await Promise.all([
+  const atFootSince = new Date(now); atFootSince.setDate(atFootSince.getDate() - CALF_AT_FOOT_DAYS)
+  const [totalAnimals, aliveAnimals, milkCount, vetCount, vaccinePending, upcomingBirths, monthTransactions, supplies, females] = await Promise.all([
     prisma.animal.count({ where: { farmId: effectiveFarmId! } }),
     prisma.animal.count({ where: { farmId: effectiveFarmId!, status: 'Vivo' } }),
     prisma.milkProduction.count({ where: { farmId: effectiveFarmId! } }),
@@ -71,7 +76,14 @@ export default async function Home() {
       where: { farmId: effectiveFarmId! },
       select: { currentQuantity: true, minimumQuantity: true },
     }),
+    // Cria: matrizes vivas e as crias ainda ao pé (vivas, mais novas que a idade de desmama)
+    prisma.animal.findMany({
+      where: { farmId: effectiveFarmId!, status: 'Vivo', gender: 'Fêmea', species: { in: BOVINE_CATEGORIES } },
+      select: { species: true, gender: true, birthDate: true, calves: { where: { status: 'Vivo', birthDate: { gte: atFootSince } }, select: { id: true } } },
+    }),
   ])
+  const matrices = females.filter(f => canAddCalf(f))
+  const withCalf = matrices.filter(m => m.calves.length > 0).length
 
   const monthBalance = monthTransactions.reduce(
     (sum, t) => sum + (t.type === 'Receita' ? t.amount : -t.amount),
@@ -83,7 +95,7 @@ export default async function Home() {
   const stats: { href: string; label: string; value: number | string; Icon: (p: { className?: string }) => React.ReactNode; tone: StatTone }[] = [
     { href: '/animais', label: 'Total de animais', value: totalAnimals, Icon: AnimalIcon, tone: 'neutral' },
     { href: '/animais', label: 'Animais vivos', value: aliveAnimals, Icon: CheckIcon, tone: 'neutral' },
-    { href: '/milk-production', label: 'Registros de leite', value: milkCount, Icon: LeiteIcon, tone: 'neutral' },
+    ...(does('leite') ? [{ href: '/milk-production', label: 'Registros de leite', value: milkCount, Icon: LeiteIcon, tone: 'neutral' as StatTone }] : []),
     { href: '/veterinary-treatment', label: 'Tratamentos', value: vetCount, Icon: TratamentoIcon, tone: 'neutral' },
     { href: '/vacinacao', label: 'Vacinas pendentes', value: vaccinePending, Icon: VacinaIcon, tone: vaccinePending > 0 ? 'warn' : 'muted' },
     { href: '/reproducao', label: 'Partos esperados', value: upcomingBirths, Icon: ReproducaoIcon, tone: upcomingBirths > 0 ? 'warn' : 'muted' },
@@ -93,7 +105,8 @@ export default async function Home() {
 
 
   const quickActions = [
-    { href: '/milk-production', module: 'leite', title: 'Anotar leite', detail: 'Total do dia ou quantidade por vaca', Icon: LeiteIcon },
+    ...(does('leite') ? [{ href: '/milk-production', module: 'leite', title: 'Anotar leite', detail: 'Total do dia ou quantidade por vaca', Icon: LeiteIcon }] : []),
+    ...(does('recria', 'engorda') && segments.length ? [{ href: '/engorda', module: 'animais', title: 'Pesar lote', detail: 'Pesagens e ganho por dia da engorda', Icon: BalancaIcon }] : []),
     { href: '/animais', module: 'animais', title: 'Cuidar do rebanho', detail: 'Consultar e cadastrar animais', Icon: AnimalIcon },
     { href: '/financeiro', module: 'financeiro', title: 'Anotar dinheiro', detail: 'Entradas e saídas da propriedade', Icon: FinanceiroIcon },
     { href: '/estoque', module: 'estoque', title: 'Conferir estoque', detail: 'Ração, sal e outros produtos', Icon: EstoqueIcon },
@@ -141,6 +154,25 @@ export default async function Home() {
           </Link>
         ))}
       </div>
+
+      {matrices.length > 0 && does('cria', 'leite') && (
+        <section aria-labelledby="cria" className="mt-8">
+          <h2 id="cria" className="text-lg font-bold text-gray-900">Matrizes</h2>
+          <p className="mt-1 mb-4 text-sm text-gray-600">Vacas a partir de 2 anos e meio. Com bezerro ao pé: cria viva de até 8 meses cadastrada como filha dela.</p>
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            {[
+              ['Matrizes', matrices.length, 'text-gray-900'],
+              ['Com bezerro ao pé', withCalf, 'text-green-700'],
+              ['Solteiras', matrices.length - withCalf, 'text-gray-900'],
+            ].map(([label, value, tone]) => (
+              <Link key={label} href="/animais" className="rounded-xl border border-gray-200 bg-white p-4 hover:border-gray-300 sm:p-5">
+                <p className="text-sm font-medium leading-tight text-gray-500">{label}</p>
+                <p className={`mt-3 text-3xl font-bold ${tone}`}>{value}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }
