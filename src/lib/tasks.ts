@@ -3,6 +3,8 @@ import { visibleOffersWhere } from '@/lib/vendors'
 import { BOVINE_CATEGORIES, canAddCalf } from '@/lib/animalRules'
 import { monthsLabel, pregnancyChecks } from '@/lib/calving'
 import { associationAlerts } from '@/lib/associacao'
+import { supplyDailyUse, withDailyUse } from '@/lib/lotUsage'
+import { STOCK_WARNING_DAYS } from '@/lib/lots'
 
 // Tarefas do dia mostradas no sino de notificações da barra do topo
 
@@ -48,7 +50,7 @@ export async function getTodayTasks(
           take: 5,
         })
       : [],
-    can('estoque') ? prisma.supply.findMany({ where: { farmId }, select: { name: true, category: true, currentQuantity: true, minimumQuantity: true, unit: true } }) : [],
+    can('estoque') ? prisma.supply.findMany({ where: { farmId }, select: { id: true, name: true, category: true, currentQuantity: true, minimumQuantity: true, unit: true, packageKg: true } }) : [],
     can('veterinario')
       ? prisma.veterinaryTreatment.findMany({
           where: { animal: { farmId }, startDate: { lte: today }, endDate: { gte: today } },
@@ -129,6 +131,16 @@ export async function getTodayTasks(
       href: matchingOffers ? '/ofertas' : '/estoque',
       tone: 'amber',
     })
+  }
+  // Suplemento dos lotes que acaba logo (ainda acima do mínimo; abaixo dele já entra em "Repor estoque")
+  if (supplies.length) {
+    const use = await supplyDailyUse(farmId)
+    const ending = supplies.filter((s) => s.currentQuantity > s.minimumQuantity).map((s) => withDailyUse(s, use))
+      .filter((s) => s.daysLeft !== null && s.daysLeft <= STOCK_WARNING_DAYS)
+      .sort((a, b) => a.daysLeft! - b.daysLeft!)
+    for (const s of ending.slice(0, 3)) {
+      tasks.push({ title: `${s.name} acaba em ${s.daysLeft} dia${s.daysLeft === 1 ? '' : 's'}`, detail: `Os lotes consomem ${s.dailyUseKg} kg por dia`, href: '/estoque', tone: 'amber' })
+    }
   }
   // Pedidos de orçamento respondidos e ainda não encerrados pelo produtor
   const answered = can('estoque')

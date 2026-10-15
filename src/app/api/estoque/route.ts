@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireFarmAccess } from '@/lib/auth'
+import { supplyDailyUse, withDailyUse } from '@/lib/lotUsage'
 
 export async function GET() {
   const auth = await requireFarmAccess('estoque', 'view')
@@ -8,13 +9,16 @@ export async function GET() {
   const farmId = auth.farmId
 
   try {
-    const supplies = await prisma.supply.findMany({
-      where: { farmId },
-      include: { movements: { orderBy: { date: 'desc' }, take: 10 } },
-      orderBy: { name: 'asc' },
-    })
-
-    return NextResponse.json(supplies)
+    const [supplies, use] = await Promise.all([
+      prisma.supply.findMany({
+        where: { farmId },
+        include: { movements: { orderBy: { date: 'desc' }, take: 10 } },
+        orderBy: { name: 'asc' },
+      }),
+      supplyDailyUse(farmId),
+    ])
+    // Consumo pelos lotes de recria/engorda: quanto sai por dia e em quantos dias acaba
+    return NextResponse.json(supplies.map((s) => withDailyUse(s, use)))
   } catch {
     return NextResponse.json({ error: 'Erro ao buscar estoque' }, { status: 500 })
   }

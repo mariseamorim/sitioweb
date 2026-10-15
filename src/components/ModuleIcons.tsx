@@ -144,6 +144,17 @@ export function AlertaIcon({ className = 'w-5 h-5' }: IconProps) {
   )
 }
 
+/** Balança: pesagens de recria e engorda */
+export function BalancaIcon({ className = 'w-5 h-5' }: IconProps) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <path d="M8 10a4 4 0 018 0" />
+      <path d="M12 10l1.5-2" />
+    </svg>
+  )
+}
+
 export function CheckIcon({ className = 'w-5 h-5' }: IconProps) {
   return (
     <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">

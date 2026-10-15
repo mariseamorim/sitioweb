@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
-import { PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon, SetaDireitaIcon } from '@/components/ModuleIcons';import { SyncStatus } from '@/components/SyncStatus';
+import { PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon, SetaDireitaIcon, BalancaIcon } from '@/components/ModuleIcons';import { SyncStatus } from '@/components/SyncStatus';
 import { TaskBell } from '@/components/TaskBell';
 import { FarmSwitcher } from '@/components/FarmSwitcher';
 import { useDialog } from '@/components/DialogProvider';
@@ -15,7 +15,7 @@ import { countAllPendingOnDevice } from '@/lib/offlineStorage';
 type NavLink = { href: string; label: string; module: string | null; adminOnly?: boolean; Icon: (p: { className?: string }) => React.ReactNode };
 
 // Telas que só aparecem para quem faz aquele trabalho. Sem segmento informado, aparece tudo.
-const SEGMENT_PAGES: Record<string, string[]> = { '/milk-production': ['leite'], '/lite': ['leite'] };
+const SEGMENT_PAGES: Record<string, string[]> = { '/milk-production': ['leite'], '/lite': ['leite'], '/engorda': ['recria', 'engorda'] };
 
 const groups: { label: string; links: NavLink[] }[] = [
   { label: 'Visão geral', links: [
@@ -24,6 +24,7 @@ const groups: { label: string; links: NavLink[] }[] = [
   ] },
   { label: 'Rebanho e produção', links: [
     { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },
+    { href: '/engorda', label: 'Recria e engorda', module: 'animais', Icon: BalancaIcon },
     { href: '/milk-production', label: 'Produção de leite', module: 'leite', Icon: LeiteIcon },
     { href: '/lite', label: 'Anota Aí Leite', module: null, Icon: LeiteIcon },
     { href: '/veterinary-treatment', label: 'Tratamentos', module: 'veterinario', Icon: TratamentoIcon },
