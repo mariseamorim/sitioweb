@@ -282,11 +282,71 @@ async function seedAssociacao() {
   await prisma.memberFee.createMany({ data: fees })
 }
 
+// ── Segmento, matrizes com bezerro ao pé e segunda propriedade de engorda (João) ──
+// Cada parte confere se já existe, para funcionar também num banco já populado.
+
+async function seedEngorda() {
+  const owner = await prisma.user.findUnique({ where: { email: 'produtor@demo.com' }, select: { id: true, farmId: true } })
+  if (!owner?.farmId) return
+  const boaVista = owner.farmId
+  await prisma.farm.update({ where: { id: boaVista }, data: { segments: ['leite', 'cria'] } })
+
+  // Crias ao pé: Estrela e Malhada pariram há pouco (Mimosa e Pintada ficam solteiras)
+  for (const [mother, name, species, gender, age] of [['Estrela', 'Pipoca', 'Bezerra', 'Fêmea', 45], ['Malhada', 'Trovãozinho', 'Bezerro', 'Macho', 120]]) {
+    const mom = await prisma.animal.findFirst({ where: { farmId: boaVista, name: mother }, select: { id: true } })
+    if (!mom || (await prisma.animal.findFirst({ where: { farmId: boaVista, name } }))) continue
+    const codes = (await prisma.animal.findMany({ where: { farmId: boaVista }, select: { code: true } })).map((a) => Number(a.code)).filter(Number.isFinite)
+    const code = String(Math.max(0, ...codes) + 1).padStart(2, '0')
+    await prisma.animal.create({ data: { farmId: boaVista, code, name, species, gender, birthDate: day(-age), status: 'Vivo', acquisitionType: 'nascimento', motherId: mom.id } })
+  }
+
+  // Segunda propriedade do João, só de engorda, com o mesmo dono
+  if (await prisma.farm.findFirst({ where: { name: 'Fazenda C2', members: { some: { userId: owner.id } } } })) return
+  const c2 = await prisma.farm.create({ data: { name: 'Fazenda C2', propertyType: 'Fazenda', owner: 'João Produtor', city: 'Lavras', state: 'MG', segments: ['engorda'] } })
+  await prisma.farmMember.create({ data: { userId: owner.id, farmId: c2.id } })
+
+  const proteinado = await prisma.supply.create({ data: { farmId: c2.id, name: 'Proteinado 01', category: 'Sal mineral', unit: 'sacos', currentQuantity: 18, minimumQuantity: 4, packageKg: 25 } })
+  await prisma.supply.create({ data: { farmId: c2.id, name: 'Sal mineral 03', category: 'Sal mineral', unit: 'sacos', currentQuantity: 30, minimumQuantity: 5, packageKg: 30 } })
+
+  // Novilhas: entraram com 300 kg há 150 dias, pesadas a cada ~50 dias, com proteinado a 0,1% do peso vivo
+  await prisma.lot.create({
+    data: {
+      farmId: c2.id, name: 'Novilhas de março', phase: 'engorda', startDate: day(-150), supplyId: proteinado.id, supplyPercent: 0.1,
+      weighings: { create: [[-150, 40, 300], [-100, 40, 317], [-50, 40, 331.5], [0, 39, 346.5]].map(([d, headCount, avgWeight]) => ({ date: day(d), headCount, avgWeight })) },
+    },
+  })
+  await prisma.lot.create({
+    data: { farmId: c2.id, name: 'Garrotes recria', phase: 'recria', startDate: day(-20), weighings: { create: { date: day(-20), headCount: 25, avgWeight: 210 } } },
+  })
+  await prisma.lot.create({
+    data: {
+      farmId: c2.id, name: 'Bois lote 1', phase: 'engorda', startDate: day(-320), endDate: day(-15),
+      weighings: { create: [[-320, 30, 360], [-160, 30, 455], [-15, 30, 540]].map(([d, headCount, avgWeight]) => ({ date: day(d), headCount, avgWeight })) },
+    },
+  })
+}
+
+// ── Folha do motorista para a aba Conferir (Dona Maria) ─────────────────
+
+async function seedFolhas() {
+  const lite = await prisma.user.findUnique({ where: { email: 'lite@demo.com' }, select: { id: true } })
+  if (!lite || (await prisma.milkSheet.count({ where: { userId: lite.id } }))) return
+  const entries = await prisma.milkEntry.findMany({ where: { point: { ownerId: lite.id } }, select: { date: true, liters: true } })
+  const noted = (from, to) => entries.filter((e) => e.date >= day(from) && e.date <= day(to)).reduce((s, e) => s + e.liters, 0)
+  // Coleta a cada 2 dias. A folha quase sempre bate; numa coleta vem 8% a menos (aparece em vermelho)
+  const sheets = [[-9, 1], [-7, 0.99], [-5, 1], [-3, 0.92], [-1, 0.98]].map(([d, factor], i, all) => ({
+    userId: lite.id, date: day(d), liters: Math.round((i === 0 ? 92 : noted(all[i - 1][0] + 1, d) * factor) * 10) / 10,
+  }))
+  await prisma.milkSheet.createMany({ data: sheets })
+}
+
 async function main() {
   await seedAdmin()
   await seedProdutor()
+  await seedEngorda()
   const rosaFarm = await seedRosa()
   await seedLite()
+  await seedFolhas()
   await seedMotorista(rosaFarm)
   await seedFornecedor()
   await seedLaticinio()
@@ -295,11 +355,12 @@ async function main() {
   console.log(`
 Dados de demonstração prontos. Senha de todos: ${process.env.SEED_PASSWORD ? '(a que você definiu em SEED_PASSWORD)' : 'demo1234 (admin: admin1234)'}
   admin@demo.com       Administrador (só com SEED_ADMIN=1)
-  produtor@demo.com    Versão completa (Sítio Boa Vista), cliente do fornecedor
+  produtor@demo.com    Versão completa com 2 propriedades: Sítio Boa Vista (leite e cria, matrizes com bezerro ao pé)
+                       e Fazenda C2 (engorda: lotes, pesagens, proteinado em sacos). Troque pelo nome no topo.
   gerente@demo.com     Equipe do Sítio Boa Vista (Usuários, Leite, Animais)
   leitor@demo.com      Só leitura no Sítio Boa Vista
   rosa@demo.com        Versão completa com coletas do motorista (Sítio Esperança)
-  lite@demo.com        Anota Aí Leite, produtora (Sítio Primavera)
+  lite@demo.com        Anota Aí Leite, produtora (Sítio Primavera), com folhas do motorista na aba Conferir
   motorista@demo.com   Anota Aí Leite, motorista com rota de 4 locais
   fornecedor@demo.com  Fornecedor aprovado, convite DEMO2026
   laticinio@demo.com   Laticínio Serra Verde: 3 pontos, Rota do Ipê, recebimento
