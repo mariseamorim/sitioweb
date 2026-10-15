@@ -11,6 +11,7 @@ import { SUPPLY_CATEGORIES } from '@/lib/supplies'
 import { RequestQuote } from '@/components/RequestQuote'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
+import { STOCK_WARNING_DAYS } from '@/lib/lots'
 
 interface SupplyMovement { id: string; type: string; quantity: number; date: string; description?: string | null }
 interface Supply {
@@ -21,6 +22,9 @@ interface Supply {
   currentQuantity: number
   minimumQuantity: number
   movements: SupplyMovement[]
+  /** Consumo dos lotes de recria/engorda (kg por dia) e em quantos dias acaba */
+  dailyUseKg?: number | null
+  daysLeft?: number | null
 }
 
 const CATEGORIES = SUPPLY_CATEGORIES
@@ -249,6 +253,7 @@ export default function EstoquePage() {
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{s.category}</td>
                   <td className={`px-4 py-3 text-right font-semibold ${isLow(s) ? 'text-red-600' : 'text-gray-800'}`}>
                     {s.currentQuantity} {s.unit}
+                    {s.daysLeft != null && <span className={`block text-xs font-medium ${s.daysLeft <= STOCK_WARNING_DAYS ? 'text-amber-700' : 'text-gray-500'}`}>acaba em {s.daysLeft} dia{s.daysLeft === 1 ? '' : 's'}</span>}
                   </td>
                   <td className="hidden sm:table-cell px-4 py-3 text-right text-gray-500">{s.minimumQuantity} {s.unit}</td>
                   <td className="px-4 py-3">
@@ -286,6 +291,15 @@ export default function EstoquePage() {
                   <p className="text-xl font-bold text-gray-700">{detail.minimumQuantity} {detail.unit}</p>
                 </div>
               </div>
+
+              {detail.dailyUseKg != null && (
+                <p className={`mb-4 rounded-lg p-3 text-sm ${detail.daysLeft != null && detail.daysLeft <= STOCK_WARNING_DAYS ? 'bg-amber-50 text-amber-900' : 'bg-gray-50 text-gray-700'}`}>
+                  Os lotes de recria e engorda consomem <strong>{detail.dailyUseKg} kg por dia</strong>.{' '}
+                  {detail.daysLeft != null
+                    ? <>No ritmo atual, o estoque acaba em <strong>{detail.daysLeft} dia{detail.daysLeft === 1 ? '' : 's'}</strong>.</>
+                    : detail.unit === 'sacos' ? 'Informe o peso do saco no lote para saber em quantos dias acaba.' : 'Cadastre o estoque em kg ou sacos para saber em quantos dias acaba.'}
+                </p>
+              )}
 
               <button onClick={() => setShowMov(true)} className="w-full bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg mb-2">
                 + Movimentação (Entrada / Saída)

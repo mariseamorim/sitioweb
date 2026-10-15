@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { canAccessModule, getSessionUser, grantablePermissions, hashPassword, requireUserManager } from '@/lib/auth'
 import { MODULES } from '@/lib/modules'
+import { addFarmMember } from '@/lib/farms'
 import { NextRequest, NextResponse } from 'next/server'
 
 const MODULE_KEYS = MODULES.map((m) => m.key)
@@ -14,7 +15,8 @@ export async function GET() {
   }
 
   const users = await prisma.user.findMany({
-    where: me.effectiveFarmId ? { farmId: me.effectiveFarmId } : { farmId: null },
+    // Equipe desta propriedade: quem está com ela aberta e quem tem acesso a ela (o dono pode estar em outra)
+    where: me.effectiveFarmId ? { OR: [{ farmId: me.effectiveFarmId }, { farmMemberships: { some: { farmId: me.effectiveFarmId } } }] } : { farmId: null },
     select: {
       id: true, name: true, email: true, role: true, permissions: true,
       farmId: true, farm: { select: { name: true } }, createdAt: true,
@@ -48,14 +50,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 })
   }
 
-  const user = await prisma.user.create({
-    data: {
-      name, email, password: await hashPassword(password),
-      role: role || 'viewer',
-      permissions: granted,
-      farmId,
-    },
-    select: { id: true, name: true, email: true, role: true, permissions: true, farmId: true },
+  const hashed = await hashPassword(password)
+  const user = await prisma.$transaction(async (tx) => {
+    const created = await tx.user.create({
+      data: {
+        name, email, password: hashed,
+        role: role || 'viewer',
+        permissions: granted,
+        farmId,
+      },
+      select: { id: true, name: true, email: true, role: true, permissions: true, farmId: true },
+    })
+    await addFarmMember(tx, created.id, farmId)
+    return created
   })
   return NextResponse.json(user, { status: 201 })
 }

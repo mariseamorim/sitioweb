@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { canEdit, getSessionUser } from '@/lib/auth';
+import { isFarmMember, memberFarms } from '@/lib/farms';
 
 export async function DELETE(
   req: NextRequest,
@@ -11,9 +12,18 @@ export async function DELETE(
 
     const me = await getSessionUser();
     if (!me) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
-    const ownsFarm = me.farmId === id && !!me.permissions?.includes('fazendas') && canEdit(me);
+    const ownsFarm = !!me.permissions?.includes('fazendas') && canEdit(me) && await isFarmMember(me.id, id);
     if (me.role !== 'admin' && !ownsFarm) {
       return NextResponse.json({ error: 'Você não tem permissão para esta ação' }, { status: 403 });
+    }
+    // O produtor precisa ficar com pelo menos uma propriedade. Antes de apagar, passa para outra:
+    // quem está com esta propriedade aberta é apagado junto com ela.
+    if (me.role !== 'admin') {
+      const other = (await memberFarms(me.id)).find((f) => f.id !== id);
+      if (!other) {
+        return NextResponse.json({ error: 'Esta é a sua única propriedade. Cadastre outra antes de excluir esta.' }, { status: 400 });
+      }
+      if (me.farmId === id) await prisma.user.update({ where: { id: me.id }, data: { farmId: other.id } });
     }
 
     // Verificar se farm existe

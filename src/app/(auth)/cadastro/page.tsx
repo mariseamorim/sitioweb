@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { BackLink } from '@/components/BackLink'
 import { GoogleLoginButton } from '@/components/GoogleLoginButton'
+import { FARM_SEGMENTS } from '@/lib/farmSegments'
 
 const EMPTY_FARM = { name: '', propertyType: 'Fazenda', documentType: 'CNPJ', documentNumber: '', owner: '', phone: '', address: '', city: '', state: '' }
 
@@ -11,6 +12,7 @@ export default function CadastroPage() {
   const [step, setStep] = useState(1)
   const [ready, setReady] = useState(false)
   const [farm, setFarm] = useState(EMPTY_FARM)
+  const [segments, setSegments] = useState<string[]>([])
   const [user, setUser] = useState({ name: '', email: '', password: '', confirm: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -36,7 +38,7 @@ export default function CadastroPage() {
       const inviteCode = new URLSearchParams(window.location.search).get('convite')
       const res = await fetch('/api/auth/register', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(step === 1 ? { user: { name: user.name, email: user.email, password: user.password } } : { farm, inviteCode }),
+        body: JSON.stringify(step === 1 ? { user: { name: user.name, email: user.email, password: user.password } } : { farm: { ...farm, segments }, inviteCode }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Não foi possível salvar')
@@ -63,6 +65,15 @@ export default function CadastroPage() {
               <label>Confirmar senha<input required type="password" minLength={6} autoComplete="new-password" className={input} value={user.confirm} onChange={e => setUser({ ...user, confirm: e.target.value })} /></label>
             </> : <>
               <label>Tipo de propriedade<select className={input} value={farm.propertyType} onChange={e => setFarm({ ...farm, propertyType: e.target.value })}><option>Fazenda</option><option>Sítio</option></select></label>
+              <fieldset><legend>O que a propriedade faz? (pode marcar mais de um)</legend>
+                <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {FARM_SEGMENTS.map(seg => {
+                    const on = segments.includes(seg.key)
+                    return <button key={seg.key} type="button" aria-pressed={on} onClick={() => setSegments(on ? segments.filter(k => k !== seg.key) : [...segments, seg.key])}
+                      className={`rounded-lg border py-2.5 text-sm font-semibold ${on ? 'border-green-700 bg-green-700 text-white' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}>{seg.label}</button>
+                  })}
+                </div>
+              </fieldset>
               {Object.entries({ name: 'Nome da propriedade', owner: 'Proprietário', documentNumber: 'CPF/CNPJ', phone: 'Telefone', address: 'Endereço', city: 'Cidade', state: 'Estado' }).map(([key, label]) => <label key={key}>{label}
                 <input required={key === 'name'} className={input} maxLength={key === 'state' ? 2 : undefined} value={farm[key as keyof typeof farm]} onChange={e => setFarm({ ...farm, [key]: e.target.value })} />
               </label>)}

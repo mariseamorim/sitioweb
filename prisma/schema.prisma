@@ -15,7 +15,7 @@ model Farm {
   name           String
   propertyType   String?  @default("Fazenda")
   documentType   String?
-  documentNumber String?  @unique
+  documentNumber String? // o mesmo CPF/CNPJ pode ter várias propriedades
   owner          String?
   email          String?
   phone          String?
@@ -24,6 +24,8 @@ model Farm {
   state          String?
   isActive       Boolean  @default(true)
   milkPrice      Float? // valor do litro de leite (estimativa de quanto vai receber)
+  /// O que a propriedade faz: leite, cria, recria, engorda (pode ter mais de um; vazio = não informado)
+  segments       String[] @default([])
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -38,7 +40,10 @@ model Farm {
   supplyRequests  SupplyRequest[]
   orgMemberships  OrgMember[] // associações de que a propriedade participa
   milkSheets      MilkSheet[] // litros da folha do motorista, para conferir
+  members         FarmMember[] // quem tem acesso (o dono pode ter várias propriedades)
+  lots            Lot[] // lotes de recria e engorda
 
+  @@index([documentNumber])
   @@map("farms")
 }
 
@@ -66,6 +71,7 @@ model User {
   collectedEntries MilkEntry[]    @relation("EntryCollector")
   orgMemberships   OrgMember[] // associações do produtor do Anota Aí Leite (sem propriedade)
   milkSheets       MilkSheet[] // litros da folha do motorista, para conferir
+  farmMemberships  FarmMember[] // propriedades a que tem acesso; farmId é a que está aberta
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -217,8 +223,11 @@ model Supply {
   unit            String
   currentQuantity Float            @default(0)
   minimumQuantity Float            @default(0)
+  /// Quantos kg tem cada unidade, quando o estoque é em sacos (para saber em quantos dias acaba)
+  packageKg       Float?
   farmId          String
   farm            Farm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  lots            Lot[] // lotes que recebem este suplemento
   movements       SupplyMovement[]
   requests        SupplyRequest[]
   createdAt       DateTime         @default(now())
@@ -383,6 +392,59 @@ model MilkEntry {
 
   @@unique([pointId, date])
   @@map("milk_entries")
+}
+
+/// Lote de recria ou engorda: acompanha o peso médio do lote ao longo do tempo (pesagens)
+/// e o suplemento dado, com consumo em % do peso vivo por dia.
+model Lot {
+  id            String        @id @default(cuid())
+  farmId        String
+  farm          Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  name          String
+  phase         String        @default("engorda") // recria | engorda
+  startDate     DateTime
+  /// Preenchido quando o lote sai (vendido, abatido ou passou de fase)
+  endDate       DateTime?
+  supplyId      String?
+  supply        Supply?       @relation(fields: [supplyId], references: [id], onDelete: SetNull)
+  /// Consumo do suplemento por dia, em % do peso vivo (ex.: 0,1 = 100 g por 100 kg)
+  supplyPercent Float?
+  notes         String?
+  weighings     LotWeighing[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([farmId])
+  @@map("lots")
+}
+
+/// Pesagem do lote: peso médio e quantas cabeças tinha no dia. A primeira é a entrada.
+model LotWeighing {
+  id        String   @id @default(cuid())
+  lotId     String
+  lot       Lot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  date      DateTime
+  headCount Int
+  avgWeight Float // kg por cabeça
+  createdAt DateTime @default(now())
+
+  @@index([lotId, date])
+  @@map("lot_weighings")
+}
+
+/// Propriedades a que o usuário tem acesso. User.farmId é a que está aberta agora;
+/// trocar de propriedade é mudar o farmId para outra desta lista.
+model FarmMember {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farmId    String
+  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, farmId])
+  @@index([farmId])
+  @@map("farm_members")
 }
 
 /// Litros que a folha do motorista diz que ele levou, anotados pelo produtor para conferir com a própria anotação.

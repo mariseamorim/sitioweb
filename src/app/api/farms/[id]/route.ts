@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { canAccessModule, canEdit, getSessionUser } from '@/lib/auth'
+import { isFarmMember, parseSegments } from '@/lib/farms'
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const me = await getSessionUser()
@@ -10,7 +11,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Você não tem permissão para esta ação' }, { status: 403 })
   }
   const { id } = await params
-  if (me.role !== 'admin' && me.farmId !== id) {
+  if (me.role !== 'admin' && !(await isFarmMember(me.id, id))) {
     return NextResponse.json({ error: 'Você não tem acesso a esta propriedade' }, { status: 403 })
   }
 
@@ -24,17 +25,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const fields = ['name', 'propertyType', 'documentType', 'documentNumber', 'owner', 'phone', 'address', 'city', 'state'] as const
-  const data: Record<string, string | null> = {}
+  const data: Record<string, string | string[] | null> = {}
   for (const field of fields) {
     if (!(field in body)) continue
     if (typeof body[field] !== 'string') return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 })
     data[field] = (body[field] as string).trim() || null
   }
+  if ('segments' in body) {
+    const segments = parseSegments(body.segments)
+    if (!segments) return NextResponse.json({ error: 'Segmento inválido' }, { status: 400 })
+    data.segments = segments
+  }
   if ('name' in data && !data.name) return NextResponse.json({ error: 'Nome é obrigatório' }, { status: 400 })
-  if ('propertyType' in data && !['Fazenda', 'Sítio'].includes(data.propertyType ?? '')) return NextResponse.json({ error: 'Tipo de propriedade inválido' }, { status: 400 })
-  if (data.documentType && !['CPF', 'CNPJ'].includes(data.documentType)) return NextResponse.json({ error: 'Tipo de documento inválido' }, { status: 400 })
+  if ('propertyType' in data && !['Fazenda', 'Sítio'].includes(String(data.propertyType ?? ''))) return NextResponse.json({ error: 'Tipo de propriedade inválido' }, { status: 400 })
+  if (data.documentType && !['CPF', 'CNPJ'].includes(String(data.documentType))) return NextResponse.json({ error: 'Tipo de documento inválido' }, { status: 400 })
   if (data.state) {
-    data.state = data.state.toUpperCase()
+    data.state = String(data.state).toUpperCase()
     if (!/^[A-Z]{2}$/.test(data.state)) return NextResponse.json({ error: 'Informe a sigla do estado com duas letras' }, { status: 400 })
   }
 

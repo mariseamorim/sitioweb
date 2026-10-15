@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { setSessionCookie } from '@/lib/auth'
 import { registrationIdentity } from '@/lib/registration'
 import { MODULES } from '@/lib/modules'
+import { addFarmMember, parseSegments } from '@/lib/farms'
 
 export async function POST(request: NextRequest) {
   let body
@@ -27,6 +28,8 @@ export async function POST(request: NextRequest) {
       if (farm[key] !== undefined && typeof farm[key] !== 'string') return NextResponse.json({ error: 'Dados da propriedade inválidos' }, { status: 400 })
       details[key] = farm[key]?.trim() || null
     }
+    const segments = farm.segments === undefined ? [] : parseSegments(farm.segments)
+    if (!segments) return NextResponse.json({ error: 'Segmento inválido' }, { status: 400 })
     if (farm.propertyType && !['Fazenda', 'Sítio'].includes(farm.propertyType)) return NextResponse.json({ error: 'Tipo de propriedade inválido' }, { status: 400 })
     if (details.state) {
       details.state = details.state.toUpperCase()
@@ -37,11 +40,12 @@ export async function POST(request: NextRequest) {
         const claimed = await tx.user.updateMany({ where: { id: identity.id, role: 'onboarding' }, data: { role: 'editor' } })
         if (claimed.count !== 1) throw new Error('ALREADY_REGISTERED')
       }
-      const property = await tx.farm.create({ data: { name: farm.name.trim(), propertyType: farm.propertyType || 'Fazenda', ...details } })
+      const property = await tx.farm.create({ data: { name: farm.name.trim(), propertyType: farm.propertyType || 'Fazenda', segments, ...details } })
       const data = { role: 'editor', permissions: MODULES.map(m => m.key), farmId: property.id }
       const account = identity.id
         ? await tx.user.update({ where: { id: identity.id }, data })
         : await tx.user.create({ data: { name: identity.name, email: identity.email, password: identity.password!, ...data } })
+      await addFarmMember(tx, account.id, property.id)
       if (body.inviteCode) {
         const vendor = await tx.vendor.findUnique({ where: { inviteCode: String(body.inviteCode).toUpperCase() } })
         if (vendor && vendor.status !== 'bloqueado') await tx.vendorClient.create({ data: { vendorId: vendor.id, farmId: property.id } })
@@ -52,7 +56,7 @@ export async function POST(request: NextRequest) {
     setSessionCookie(response, user.id)
     return response
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return NextResponse.json({ error: 'E-mail ou documento já cadastrado' }, { status: 409 })
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 })
     if (error instanceof Error && error.message === 'ALREADY_REGISTERED') return NextResponse.json({ error: 'Sua conta já foi cadastrada' }, { status: 409 })
     return NextResponse.json({ error: 'Não foi possível concluir o cadastro' }, { status: 500 })
   }
