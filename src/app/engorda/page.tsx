@@ -9,7 +9,7 @@ import { todayISO } from '@/lib/utils'
 import { LotDetail } from './LotDetail'
 import {
   AnimalPicker, HerdAnimal, Lot, Modal, ProductForm, ProductsEditor, Stat, SupplyRef, WeightList, averageOf, decimal, input, kg, label,
-  lastWeight, offlineMessage, parseKg, phaseLabel, productLines, productsPayload, send, tag,
+  offlineMessage, parseKg, phaseLabel, productLines, productsPayload, send,
 } from './shared'
 
 type Tab = 'todos' | 'recria' | 'engorda'
@@ -153,18 +153,6 @@ function LotCard({ lot, today, canEdit, onOpen }: { lot: Lot; today: string; can
           <Stat title="Peso médio" value={s.last ? kg(s.last.avgWeight) : '—'} />
           <Stat title="Ganho/dia" value={s.gmd !== null ? `${s.gmd >= 0 ? '+' : ''}${fmtNumber(s.gmd, 3)}` : '—'} tone="text-green-700" />
         </div>
-        {lot.animals.length > 0 && (
-          <div className="mt-3">
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">Animais no lote</p>
-            <ul className="flex flex-wrap gap-1.5">
-              {lot.animals.slice(0, 8).map((a) => {
-                const w = lastWeight(a)
-                return <li key={a.id} className="rounded-full border border-gray-200 px-2.5 py-0.5 text-xs text-gray-700">{tag(a)}{w !== null ? ` (${fmtNumber(w, 0)} kg)` : ''}</li>
-              })}
-              {lot.animals.length > 8 && <li className="px-1 py-0.5 text-xs text-gray-500">e mais {lot.animals.length - 8}</li>}
-            </ul>
-          </div>
-        )}
         {s.gainKg !== null && <p className="mt-3 text-sm text-gray-700">Ganhou <strong>{kg(s.gainKg)}</strong> por cabeça desde a entrada.</p>}
         {projection && <p className="mt-1 text-sm text-gray-700">Chega a {kg(lot.targetWeight!)} em <strong>{projection.days} dias</strong> ({fmtDate(projection.date)}).</p>}
         {females > 0 && lot.phase === 'recria' && <p className="mt-1 text-sm text-gray-700">{covered} de {females} novilha{females === 1 ? '' : 's'} coberta{covered === 1 ? '' : 's'}.</p>}

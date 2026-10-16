@@ -8,7 +8,7 @@ import {
 } from '@/lib/lots'
 import { fmtDate, fmtMoney, fmtNumber } from '@/lib/reports'
 import {
-  AnimalPicker, HerdAnimal, Lot, LotAnimal, Modal, ProductForm, ProductsEditor, SupplyRef, WeightList, averageOf, decimal, input, kg, label,
+  AnimalPicker, Coverage, HerdAnimal, Lot, LotAnimal, Modal, ProductForm, ProductsEditor, SupplyRef, WeightList, averageOf, decimal, input, kg, label,
   lastWeight, offlineMessage, parseKg, phaseLabel, productLines, productsFromLot, productsPayload, send, tag, toField,
 } from './shared'
 
@@ -538,7 +538,8 @@ function coverageText(c: LotAnimal['reproductions'][number] | undefined) {
 }
 
 function ReproductionSection({ females, today, canEdit, onSaved }: { females: LotAnimal[]; today: string; canEdit: boolean; onSaved: () => void }) {
-  const [open, setOpen] = useState<string | null>(null)
+  // Fêmea com o formulário aberto e, se for edição, a cobertura editada
+  const [open, setOpen] = useState<{ id: string; editing?: Coverage } | null>(null)
   return (
     <section className="mt-5">
       <h3 className="mb-1 text-sm font-semibold text-gray-700">Reprodução das novilhas</h3>
@@ -554,9 +555,14 @@ function ReproductionSection({ females, today, canEdit, onSaved }: { females: Lo
                   {f.reproductions[0]?.heatDate ? `Cio em ${fmtDate(f.reproductions[0].heatDate)} · ` : ''}{coverageText(f.reproductions[0])}
                 </span>
               </span>
-              {canEdit && open !== f.id && <button type="button" onClick={() => setOpen(f.id)} className="text-sm font-semibold text-green-700 hover:underline">Registrar cobertura</button>}
+              {canEdit && open?.id !== f.id && (
+                <span className="flex gap-3">
+                  {f.reproductions[0] && <button type="button" onClick={() => setOpen({ id: f.id, editing: f.reproductions[0] })} className="text-sm font-semibold text-gray-700 hover:underline">Editar</button>}
+                  <button type="button" onClick={() => setOpen({ id: f.id })} className="text-sm font-semibold text-green-700 hover:underline">{f.reproductions[0] ? 'Nova cobertura' : 'Registrar cobertura'}</button>
+                </span>
+              )}
             </div>
-            {open === f.id && <CoverageForm female={f} today={today} onCancel={() => setOpen(null)} onSaved={() => { setOpen(null); onSaved() }} />}
+            {open?.id === f.id && <CoverageForm female={f} today={today} editing={open.editing} onCancel={() => setOpen(null)} onSaved={() => { setOpen(null); onSaved() }} />}
           </li>
         ))}
       </ul>
@@ -564,8 +570,14 @@ function ReproductionSection({ females, today, canEdit, onSaved }: { females: Lo
   )
 }
 
-function CoverageForm({ female, today, onCancel, onSaved }: { female: LotAnimal; today: string; onCancel: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({ heatDate: '', method: 'ia', coverageDate: today, expectedBirthDate: plusDays(today, GESTATION_DAYS), semenBatch: '', maleName: '', bullRegistry: '' })
+function CoverageForm({ female, today, editing, onCancel, onSaved }: { female: LotAnimal; today: string; editing?: Coverage; onCancel: () => void; onSaved: () => void }) {
+  const [form, setForm] = useState(editing
+    ? {
+        heatDate: editing.heatDate ?? '', method: editing.method ?? 'ia', coverageDate: editing.coverageDate,
+        expectedBirthDate: editing.expectedBirthDate ?? plusDays(editing.coverageDate, GESTATION_DAYS),
+        semenBatch: editing.semenBatch ?? '', maleName: editing.maleName ?? '', bullRegistry: editing.bullRegistry ?? '',
+      }
+    : { heatDate: '', method: 'ia', coverageDate: today, expectedBirthDate: plusDays(today, GESTATION_DAYS), semenBatch: '', maleName: '', bullRegistry: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const young = months(female.birthDate, today) < 13
@@ -575,7 +587,8 @@ function CoverageForm({ female, today, onCancel, onSaved }: { female: LotAnimal;
     setSaving(true)
     setError('')
     try {
-      await send('/api/reproducao', 'POST', { femaleId: female.id, status: 'Coberta', ...form })
+      if (editing) await send(`/api/reproducao/${editing.id}`, 'PUT', form)
+      else await send('/api/reproducao', 'POST', { femaleId: female.id, status: 'Coberta', ...form })
       onSaved()
     } catch (err) {
       setError(offlineMessage(err))
@@ -616,11 +629,11 @@ function CoverageForm({ female, today, onCancel, onSaved }: { female: LotAnimal;
       <label className="text-sm font-medium text-gray-700">Registro do touro
         <input value={form.bullRegistry} onChange={(e) => setForm({ ...form, bullRegistry: e.target.value })} placeholder="Ex.: RGD 12345" className={input} />
       </label>
-      {young && <p className="text-xs text-amber-800 sm:col-span-2">A novilha tem menos de 13 meses: o app só aceita cobertura a partir dessa idade.</p>}
+      {young && !editing && <p className="text-xs text-amber-800 sm:col-span-2">A novilha tem menos de 13 meses: o app só aceita cobertura a partir dessa idade.</p>}
       {error && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700 sm:col-span-2">{error}</p>}
       <div className="flex gap-2 sm:col-span-2">
         <button type="button" onClick={onCancel} className="flex-1 rounded-xl border border-gray-300 py-2.5 font-semibold text-gray-700">Cancelar</button>
-        <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-pink-700 py-2.5 font-semibold text-white disabled:bg-gray-300">{saving ? 'Salvando...' : 'Salvar cobertura'}</button>
+        <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-pink-700 py-2.5 font-semibold text-white disabled:bg-gray-300">{saving ? 'Salvando...' : editing ? 'Salvar alteração' : 'Salvar cobertura'}</button>
       </div>
     </form>
   )

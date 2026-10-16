@@ -13,7 +13,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useDialog } from '@/components/DialogProvider'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
 import { fmtNumber, fmtMoney } from '@/lib/reports'
-import { currentMonthRange, inDayRange } from '@/lib/utils'
+import { inDayRange, lastDaysRange } from '@/lib/utils'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 
@@ -53,8 +53,9 @@ export default function MilkProductionPage() {
   const [allAnimals, setAllAnimals] = useState<Animal[]>([])
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
-  const [from, setFrom] = useState(() => currentMonthRange().from)
-  const [to, setTo] = useState(() => currentMonthRange().to)
+  // Abre nos últimos 7 dias (D-7); o período pode ser mudado nos campos De/Até
+  const [from, setFrom] = useState(() => lastDaysRange(7).from)
+  const [to, setTo] = useState(() => lastDaysRange(7).to)
   const [view, setView] = useState<'dia' | 'vaca'>('dia')
   const [detailDay, setDetailDay] = useState<string | null>(null)
   const [detailAnimalId, setDetailAnimalId] = useState<string | null>(null)

@@ -36,6 +36,15 @@ export function todayISO(): string {
 }
 
 /** Primeiro e último dia do mês atual (aaaa-mm-dd, no horário do aparelho) */
+/** Últimos `days` dias, contando hoje (ex.: 7 = de 6 dias atrás até hoje) */
+export function lastDaysRange(days: number): { from: string; to: string } {
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(from.getDate() - (days - 1));
+  return { from: iso(from), to: iso(to) };
+}
+
 export function currentMonthRange(): { from: string; to: string } {
   const d = new Date();
   const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;

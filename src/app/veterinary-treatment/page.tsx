@@ -226,7 +226,7 @@ export default function VeterinaryTreatmentPage() {
   }
 
   function fmt(date: string) {
-    return new Date(date).toLocaleDateString('pt-BR')
+    return new Date(date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
   }
 
   return (

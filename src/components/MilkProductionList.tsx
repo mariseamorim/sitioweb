@@ -50,7 +50,7 @@ export function MilkProductionList({ animalId }: MilkProductionListProps) {
         <tbody className="divide-y divide-gray-100">
           {productions.map((prod) => (
             <tr key={prod.id} className="hover:bg-gray-50">
-              <td className="px-4 py-3 text-gray-700">{new Date(prod.date).toLocaleDateString('pt-BR')}</td>
+              <td className="px-4 py-3 text-gray-700">{new Date(prod.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
               <td className="px-4 py-3 font-medium text-gray-800">{prod.quantity.toFixed(1)}</td>
               <td className="px-4 py-3 text-gray-500">{prod.observations || '—'}</td>
             </tr>

@@ -11,6 +11,7 @@ import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon } from '@/components/ModuleIcons'
+import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 
 interface Animal { id: string; name: string; code: string }
 
@@ -50,6 +51,7 @@ export default function VacinacaoPage() {
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
   const [filter, setFilter] = useState<VaccStatus>('Todas')
+  const [quick, setQuick] = useQuickFilter(['pendentes'] as const)
   const [detail, setDetail] = useState<Vaccination | null>(null)
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -123,8 +125,10 @@ export default function VacinacaoPage() {
 
   const filtered = useMemo(() => {
     const term = animalSearch.trim().toLowerCase()
-    return vaccinations.filter(v => (filter === 'Todas' || getStatus(v) === filter) && animalSearchText(v.animal).includes(term))
-  }, [vaccinations, filter, animalSearch])
+    const in7 = new Date(); in7.setDate(in7.getDate() + 7)
+    const dueSoon = (v: Vaccination) => !v.appliedDate && new Date(v.scheduledDate) <= in7
+    return vaccinations.filter(v => (quick ? dueSoon(v) : filter === 'Todas' || getStatus(v) === filter) && animalSearchText(v.animal).includes(term))
+  }, [vaccinations, filter, animalSearch, quick])
   const { rows: sortedVaccinations, sort } = useSort(filtered, {
     animal: v => v.animal.name, vaccine: v => v.vaccineName, scheduled: v => new Date(v.scheduledDate),
     applied: v => (v.appliedDate ? new Date(v.appliedDate) : null), status: v => getStatus(v),
@@ -207,7 +211,8 @@ export default function VacinacaoPage() {
     loadData(farmId)
   }
 
-  const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR')
+  // Datas gravadas à meia-noite UTC: mostrar em UTC para não cair no dia anterior no horário de Brasília
+  const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
 
   return (
     <PermissionGuard module="vacinacao">
@@ -247,9 +252,10 @@ export default function VacinacaoPage() {
         </div>
       )}
 
+      {quick && <QuickFilterChip label="vacinas para aplicar (vencidas e nos próximos 7 dias)" count={filtered.length} onClear={() => setQuick(null)} />}
       <div className="flex gap-2 mb-4">
         {(['Todas', 'Pendente', 'Aplicada', 'Vencida'] as VaccStatus[]).map(s => (
-          <button key={s} onClick={() => setFilter(s)}
+          <button key={s} onClick={() => { setQuick(null); setFilter(s) }}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === s ? 'bg-green-700 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             {s}
           </button>

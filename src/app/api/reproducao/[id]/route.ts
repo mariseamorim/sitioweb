@@ -24,12 +24,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json()
     const { maleName, coverageDate, status, actualBirthDate, calfId, observations } = body
 
-    const data: Record<string, unknown> = {
-      status: status || undefined,
-      actualBirthDate: actualBirthDate ? new Date(actualBirthDate) : null,
-      calfId: calfId || null,
-      observations: observations || null,
-    }
+    const data: Record<string, unknown> = { status: status || undefined }
+    if ('actualBirthDate' in body) data.actualBirthDate = actualBirthDate ? new Date(actualBirthDate) : null
+    if ('calfId' in body) data.calfId = calfId || null
+    if ('observations' in body) data.observations = observations || null
 
     if (maleName !== undefined) data.maleName = maleName || null
     if (['method', 'heatDate', 'semenBatch', 'bullRegistry'].some((k) => k in body)) Object.assign(data, coverageDetails(body))

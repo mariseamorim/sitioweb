@@ -13,6 +13,7 @@ import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 import { STOCK_WARNING_DAYS } from '@/lib/lots'
 import { fmtMoney } from '@/lib/reports'
+import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 
 interface SupplyMovement { id: string; type: string; quantity: number; date: string; description?: string | null }
 interface Supply {
@@ -41,6 +42,7 @@ export default function EstoquePage() {
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
   const [detail, setDetail] = useState<Supply | null>(null)
+  const [quick, setQuick] = useQuickFilter(['alerta'] as const)
   const [quoteFor, setQuoteFor] = useState<Supply | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [showMov, setShowMov] = useState(false)
@@ -110,7 +112,8 @@ export default function EstoquePage() {
   }
 
   const alertCount = supplies.filter(s => s.currentQuantity <= s.minimumQuantity).length
-  const { rows: sortedSupplies, sort } = useSort(supplies, {
+  const shown = quick ? supplies.filter(s => s.currentQuantity <= s.minimumQuantity) : supplies
+  const { rows: sortedSupplies, sort } = useSort(shown, {
     name: s => s.name, category: s => s.category, current: s => s.currentQuantity, minimum: s => s.minimumQuantity,
     status: s => (s.currentQuantity <= s.minimumQuantity ? 0 : 1),
   })
@@ -189,7 +192,8 @@ export default function EstoquePage() {
     }
   }
 
-  const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR')
+  // Datas gravadas à meia-noite UTC: mostrar em UTC para não cair no dia anterior no horário de Brasília
+  const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
 
   const isLow = (s: Supply) => s.currentQuantity <= s.minimumQuantity
 
@@ -232,6 +236,8 @@ export default function EstoquePage() {
           <span><strong>{alertCount}</strong> insumo{alertCount > 1 ? 's' : ''} abaixo do estoque mínimo</span>
         </div>
       )}
+
+      {quick && <QuickFilterChip label="itens abaixo do estoque mínimo" count={shown.length} onClear={() => setQuick(null)} />}
 
       {loading ? <p className="text-gray-400 text-sm">Carregando...</p> : supplies.length === 0 ? (
         <div className="text-center py-16 text-gray-400">

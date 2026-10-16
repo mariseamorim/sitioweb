@@ -161,7 +161,8 @@ export default function FinanceiroPage() {
   }
 
   const cats = form.type === 'Receita' ? CATEGORIES_RECEITA : CATEGORIES_DESPESA
-  const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR')
+  // Datas gravadas à meia-noite UTC: mostrar em UTC para não cair no dia anterior no horário de Brasília
+  const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
   const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
   return (
@@ -240,7 +241,7 @@ export default function FinanceiroPage() {
                 <div className="flex-1 bg-gray-100 rounded-full h-2">
                   <div className="bg-green-500 h-2 rounded-full" style={{ width: `${(val / maxCat) * 100}%` }} />
                 </div>
-                <span className="text-xs font-medium text-gray-700 w-16 sm:w-20 text-right shrink-0 truncate">{fmtBRL(val)}</span>
+                <span className="text-xs font-medium text-gray-700 text-right shrink-0 whitespace-nowrap tabular-nums">{fmtBRL(val)}</span>
               </div>
             ))}
           </div>

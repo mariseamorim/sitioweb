@@ -51,12 +51,12 @@ export function VeterinaryTreatmentList({ animalId }: VeterinaryTreatmentListPro
             </div>
             <div>
               <p className="text-sm text-gray-600">Data Início</p>
-              <p className="font-semibold">{new Date(treatment.startDate).toLocaleDateString('pt-BR')}</p>
+              <p className="font-semibold">{new Date(treatment.startDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>
             </div>
             {treatment.endDate && (
               <div>
                 <p className="text-sm text-gray-600">Data Fim</p>
-                <p className="font-semibold">{new Date(treatment.endDate).toLocaleDateString('pt-BR')}</p>
+                <p className="font-semibold">{new Date(treatment.endDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</p>
               </div>
             )}
             {treatment.manufacturer && (

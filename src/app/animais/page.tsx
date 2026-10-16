@@ -9,10 +9,11 @@ import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/
 import { useDialog } from '@/components/DialogProvider'
 import { SemSinalIcon, SincronizarIcon, AnimalIcon, FecharIcon } from '@/components/ModuleIcons'
 import { CalfSection } from '@/components/CalfSection'
-import { animalCategory, animalRuleError, animalToday, canAddCalf, fixedAnimalGender, isBovine } from '@/lib/animalRules'
+import { CALF_AT_FOOT_DAYS, animalCategory, animalRuleError, animalToday, canAddCalf, fixedAnimalGender, isBovine } from '@/lib/animalRules'
 import { animalCodes, animalSearchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
+import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 
 interface Animal {
   id: string
@@ -30,6 +31,10 @@ interface Animal {
   imageUrl?: string
   motherId?: string | null
 }
+
+const HERD_FILTERS = ['vivos', 'matrizes', 'com-cria', 'solteiras'] as const
+type HerdFilter = (typeof HERD_FILTERS)[number]
+const HERD_FILTER_LABEL: Record<HerdFilter, string> = { vivos: 'animais vivos', matrizes: 'matrizes', 'com-cria': 'matrizes com bezerro ao pé', solteiras: 'matrizes solteiras' }
 
 // Rebanho guardado no aparelho, para abrir a ficha (e anotar cria) sem internet
 const cacheKey = (fid: string) => `animais_cache_${fid}`
@@ -69,6 +74,7 @@ export default function AnimaisPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [quick, setQuick] = useQuickFilter(HERD_FILTERS)
   const [isOnline, setIsOnline] = useState(true)
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
@@ -288,7 +294,17 @@ export default function AnimaisPage() {
 
   // Busca por nome, código, outro código (brinco...) ou espécie; o id interno não entra
   const term = search.trim().toLocaleLowerCase('pt-BR')
-  const filtered = animals.filter((a) => `${animalSearchText(a)} ${a.species.toLocaleLowerCase('pt-BR')}`.includes(term))
+  // Filtro do Painel: matrizes são fêmeas bovinas vivas com 2 anos e meio; "ao pé" é cria viva de até 8 meses filha dela
+  const atFootSince = new Date(animalToday()); atFootSince.setUTCDate(atFootSince.getUTCDate() - CALF_AT_FOOT_DAYS)
+  const withCalf = new Set(animals.filter((c) => c.motherId && c.status === 'Vivo' && new Date(c.birthDate) >= atFootSince).map((c) => c.motherId!))
+  const isMatrix = (a: Animal) => a.status === 'Vivo' && canAddCalf(a)
+  const quickTest: Record<HerdFilter, (a: Animal) => boolean> = {
+    vivos: (a) => a.status === 'Vivo',
+    matrizes: isMatrix,
+    'com-cria': (a) => isMatrix(a) && withCalf.has(a.id),
+    solteiras: (a) => isMatrix(a) && !withCalf.has(a.id),
+  }
+  const filtered = animals.filter((a) => (!quick || quickTest[quick](a)) && `${animalSearchText(a)} ${a.species.toLocaleLowerCase('pt-BR')}`.includes(term))
   const { rows: sortedAnimals, sort } = useSort(filtered, {
     code: (a) => a.code, name: (a) => a.name, species: (a) => a.species, gender: (a) => a.gender, status: (a) => a.status,
   })
@@ -348,6 +364,7 @@ export default function AnimaisPage() {
         </div>
       )}
 
+      {quick && <QuickFilterChip label={HERD_FILTER_LABEL[quick]} count={filtered.length} onClear={() => setQuick(null)} />}
       <div className="mb-4">
       <input
         type="text"
@@ -487,7 +504,7 @@ export default function AnimaisPage() {
                 <div className="min-w-0">
                   <p className="text-xs text-gray-500">Data de Nascimento</p>
                   <p className="font-medium text-gray-800 text-xs sm:text-sm">
-                    {new Date(selectedAnimal.birthDate).toLocaleDateString('pt-BR')}
+                    {new Date(selectedAnimal.birthDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
                   </p>
                 </div>
                 <div className="min-w-0">
