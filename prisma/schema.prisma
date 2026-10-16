@@ -101,6 +101,10 @@ model Animal {
   motherId     String?
   mother       Animal?   @relation("Crias", fields: [motherId], references: [id], onDelete: SetNull)
   calves       Animal[]  @relation("Crias")
+  /// Lote de recria/engorda em que o animal está (um por vez)
+  lotId        String?
+  lot          Lot?      @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  weighings    AnimalWeighing[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -113,6 +117,7 @@ model Animal {
   @@unique([farmId, code])
   @@unique([farmId, customCode])
   @@index([motherId])
+  @@index([lotId])
   @@map("animals")
 }
 
@@ -409,8 +414,11 @@ model Lot {
   supply        Supply?       @relation(fields: [supplyId], references: [id], onDelete: SetNull)
   /// Consumo do suplemento por dia, em % do peso vivo (ex.: 0,1 = 100 g por 100 kg)
   supplyPercent Float?
+  /// Peso de saída desejado por cabeça (kg), para prever quando o lote chega lá
+  targetWeight  Float?
   notes         String?
   weighings     LotWeighing[]
+  animals       Animal[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -426,10 +434,28 @@ model LotWeighing {
   date      DateTime
   headCount Int
   avgWeight Float // kg por cabeça
+  /// Pesos de cada animal, quando o lote tem animais cadastrados (a média vem deles)
+  animalWeighings AnimalWeighing[]
   createdAt DateTime @default(now())
 
   @@index([lotId, date])
   @@map("lot_weighings")
+}
+
+/// Peso de um animal numa pesagem (individual ou do lote)
+model AnimalWeighing {
+  id            String       @id @default(cuid())
+  animalId      String
+  animal        Animal       @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  date          DateTime
+  weight        Float // kg
+  lotWeighingId String?
+  lotWeighing   LotWeighing? @relation(fields: [lotWeighingId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+
+  @@index([animalId, date])
+  @@index([lotWeighingId])
+  @@map("animal_weighings")
 }
 
 /// Propriedades a que o usuário tem acesso. User.farmId é a que está aberta agora;

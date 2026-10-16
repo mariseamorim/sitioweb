@@ -326,6 +326,28 @@ async function seedEngorda() {
   })
 }
 
+// ── Lote com animais cadastrados e peso de cada um (Fazenda C2) ─────────
+
+async function seedLoteAnimais() {
+  const c2 = await prisma.farm.findFirst({ where: { name: 'Fazenda C2', members: { some: { user: { email: 'produtor@demo.com' } } } }, select: { id: true } })
+  if (!c2 || (await prisma.lot.findFirst({ where: { farmId: c2.id, name: 'Garrotes de julho' } }))) return
+  await prisma.lot.updateMany({ where: { farmId: c2.id, name: 'Novilhas de março' }, data: { targetWeight: 420 } })
+
+  // 6 garrotes pesados na entrada e a cada ~30 dias, cada um no seu ritmo
+  const animals = []
+  for (const [i, [code, name, entry, daily]] of [['3232', 'Boi 3232', 250, 0.95], ['3233', 'Boi 3233', 262, 1.1], ['3234', 'Boi 3234', 241, 0.8], ['3235', 'Boi 3235', 270, 1.05], ['3236', 'Boi 3236', 255, 0.9], ['3237', 'Boi 3237', 248, 1.0]].entries()) {
+    animals.push({ ...(await prisma.animal.create({ data: { farmId: c2.id, code, name, species: 'Boi de engorda', gender: 'Macho', isCastrated: true, birthDate: day(-540 - i * 10), status: 'Vivo', acquisitionType: 'compra' } })), entry, daily })
+  }
+  const lot = await prisma.lot.create({ data: { farmId: c2.id, name: 'Garrotes de julho', phase: 'recria', startDate: day(-90), targetWeight: 450 } })
+  await prisma.animal.updateMany({ where: { id: { in: animals.map((a) => a.id) } }, data: { lotId: lot.id } })
+  for (const d of [-90, -60, -30, 0]) {
+    const weights = animals.map((a) => ({ animalId: a.id, weight: Math.round((a.entry + a.daily * (d + 90)) * 10) / 10 }))
+    const avgWeight = Math.round((weights.reduce((s, w) => s + w.weight, 0) / weights.length) * 10) / 10
+    const lw = await prisma.lotWeighing.create({ data: { lotId: lot.id, date: day(d), headCount: animals.length, avgWeight } })
+    await prisma.animalWeighing.createMany({ data: weights.map((w) => ({ ...w, date: day(d), lotWeighingId: lw.id })) })
+  }
+}
+
 // ── Folha do motorista para a aba Conferir (Dona Maria) ─────────────────
 
 async function seedFolhas() {
@@ -344,6 +366,7 @@ async function main() {
   await seedAdmin()
   await seedProdutor()
   await seedEngorda()
+  await seedLoteAnimais()
   const rosaFarm = await seedRosa()
   await seedLite()
   await seedFolhas()

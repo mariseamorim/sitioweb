@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireFarmAccess } from '@/lib/auth'
 import { isLotPhase } from '@/lib/lots'
-import { LOT_SELECT, findLot, linkSupply, parseDay, parsePercent, serializeLot } from '../shared'
+import { LOT_SELECT, farmAnimals, findLot, linkSupply, parseDay, parsePercent, parseTarget, serializeLot } from '../shared'
 
-// PATCH: altera o lote, encerra (endDate) ou reabre (endDate null)
+// PATCH: altera o lote, encerra (endDate) ou reabre (endDate null), põe (addAnimalIds) ou tira (removeAnimalIds) animais
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireFarmAccess('animais', 'edit')
   if (auth.error) return auth.error
@@ -32,6 +32,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (supplyId === 'invalid') return NextResponse.json({ error: 'Suplemento ou peso do saco inválido' }, { status: 400 })
     data.supplyId = supplyId
   }
+  if ('targetWeight' in body) {
+    const target = parseTarget(body.targetWeight)
+    if (target === 'invalid') return NextResponse.json({ error: 'Peso-alvo inválido' }, { status: 400 })
+    data.targetWeight = target
+  }
+  const add = body.addAnimalIds === undefined ? [] : await farmAnimals(auth.farmId, body.addAnimalIds)
+  if (!add) return NextResponse.json({ error: 'Escolha animais vivos desta propriedade' }, { status: 400 })
+  const remove = Array.isArray(body.removeAnimalIds) ? body.removeAnimalIds.filter((x: unknown) => typeof x === 'string') as string[] : []
   if ('notes' in body) data.notes = typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim().slice(0, 500) : null
   if ('endDate' in body) {
     if (body.endDate === null) data.endDate = null
@@ -42,7 +50,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
   }
 
-  const lot = await prisma.lot.update({ where: { id }, data, select: LOT_SELECT })
+  const lot = await prisma.$transaction(async (tx) => {
+    if (add.length) await tx.animal.updateMany({ where: { id: { in: add } }, data: { lotId: id } })
+    if (remove.length) await tx.animal.updateMany({ where: { id: { in: remove }, lotId: id }, data: { lotId: null } })
+    return tx.lot.update({ where: { id }, data, select: LOT_SELECT })
+  })
   return NextResponse.json(serializeLot(lot))
 }
 

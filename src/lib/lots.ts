@@ -64,3 +64,42 @@ export function daysOfStock(stock: number | null, perDay: number | null): number
 
 /** Dias de estoque a partir dos quais o aviso aparece */
 export const STOCK_WARNING_DAYS = 10
+
+/** Quilos de peso vivo por arroba produzida: 15 kg de carcaça com rendimento de 50% */
+export const LIVE_KG_PER_ARROBA = 30
+
+/** Arrobas produzidas pelo lote: ganho por cabeça × cabeças ÷ 30 (estimativa pelo peso vivo) */
+export function arrobasProduced(summary: LotSummary): number | null {
+  if (summary.gainKg === null || !summary.last || summary.gainKg <= 0) return null
+  return Math.round((summary.gainKg * summary.last.headCount / LIVE_KG_PER_ARROBA) * 10) / 10
+}
+
+export interface Projection {
+  /** kg que faltam por cabeça */
+  remainingKg: number
+  days: number
+  /** yyyy-mm-dd */
+  date: string
+}
+
+/** Quando o lote chega ao peso-alvo, no ritmo de ganho atual. null se não dá para prever (sem ganho ou já chegou). */
+export function projectTarget(summary: LotSummary, target: number | null | undefined): Projection | null {
+  if (!target || !summary.last || !summary.gmd || summary.gmd <= 0) return null
+  const remainingKg = Math.round((target - summary.last.avgWeight) * 10) / 10
+  if (remainingKg <= 0) return null
+  const days = Math.ceil(remainingKg / summary.gmd)
+  const date = new Date(`${summary.last.date}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return { remainingKg, days, date: date.toISOString().slice(0, 10) }
+}
+
+/** Ganho de um animal pelas pesagens dele (a primeira é a entrada) */
+export function animalGain(weighings: { date: string; weight: number }[]) {
+  const sorted = [...weighings].sort((a, b) => a.date.localeCompare(b.date))
+  const entry = sorted[0] ?? null
+  const last = sorted[sorted.length - 1] ?? null
+  if (!entry || !last || entry === last) return { entry, last, gainKg: null, gmd: null }
+  const gainKg = Math.round((last.weight - entry.weight) * 10) / 10
+  const days = daysBetween(entry.date, last.date)
+  return { entry, last, gainKg, gmd: days > 0 ? Math.round((gainKg / days) * 1000) / 1000 : null }
+}

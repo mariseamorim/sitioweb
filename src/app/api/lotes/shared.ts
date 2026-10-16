@@ -4,20 +4,57 @@ import { todayUTC } from '@/lib/utils'
 // Partes comuns das rotas de lotes (recria e engorda)
 
 export const LOT_SELECT = {
-  id: true, name: true, phase: true, startDate: true, endDate: true, supplyPercent: true, notes: true,
+  id: true, name: true, phase: true, startDate: true, endDate: true, supplyPercent: true, targetWeight: true, notes: true,
   supply: { select: { id: true, name: true, unit: true, currentQuantity: true, packageKg: true } },
   weighings: { select: { id: true, date: true, headCount: true, avgWeight: true }, orderBy: { date: 'asc' as const } },
+  animals: {
+    select: { id: true, code: true, customCode: true, name: true, weighings: { select: { date: true, weight: true }, orderBy: { date: 'asc' as const } } },
+    orderBy: { code: 'asc' as const },
+  },
 }
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 
-export function serializeLot<T extends { startDate: Date; endDate: Date | null; weighings: { date: Date }[] }>(lot: T) {
+export function serializeLot<T extends { startDate: Date; endDate: Date | null; weighings: { date: Date }[]; animals: { weighings: { date: Date; weight: number }[] }[] }>(lot: T) {
   return {
     ...lot,
     startDate: isoDay(lot.startDate),
     endDate: lot.endDate ? isoDay(lot.endDate) : null,
     weighings: lot.weighings.map((w) => ({ ...w, date: isoDay(w.date) })),
+    animals: lot.animals.map((a) => ({ ...a, weighings: a.weighings.map((w) => ({ ...w, date: isoDay(w.date) })) })),
   }
+}
+
+/** Animais vivos desta propriedade; null se algum não for */
+export async function farmAnimals(farmId: string, ids: unknown): Promise<string[] | null> {
+  if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string')) return null
+  const unique = [...new Set(ids as string[])]
+  if (!unique.length) return []
+  const found = await prisma.animal.count({ where: { id: { in: unique }, farmId, status: 'Vivo' } })
+  return found === unique.length ? unique : null
+}
+
+/** Pesos por animal { animalId: kg } só dos animais informados; null se algum peso for inválido */
+export function parseAnimalWeights(value: unknown, animalIds: string[]): Map<string, number> | null {
+  const weights = new Map<string, number>()
+  if (value === undefined || value === null) return weights
+  if (typeof value !== 'object' || Array.isArray(value)) return null
+  for (const [id, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (raw === '' || raw === null || raw === undefined) continue
+    const kg = Number(String(raw).replace(',', '.'))
+    if (!animalIds.includes(id) || !Number.isFinite(kg) || kg <= 0 || kg > 2000) return null
+    weights.set(id, Math.round(kg * 10) / 10)
+  }
+  return weights
+}
+
+export const average = (values: number[]) => Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 10) / 10
+
+/** Peso-alvo por cabeça: vazio = sem previsão */
+export function parseTarget(value: unknown): number | null | 'invalid' {
+  if (value === null || value === undefined || value === '') return null
+  const n = Number(String(value).replace(',', '.'))
+  return Number.isFinite(n) && n > 0 && n <= 2000 ? Math.round(n * 10) / 10 : 'invalid'
 }
 
 /** Data yyyy-mm-dd até hoje; null se inválida */
