@@ -2,6 +2,14 @@ import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
 
+/** Campos da cobertura: cio, inseminação ou monta natural, sêmen e touro (todos opcionais) */
+function coverageDetails(body: Record<string, unknown>) {
+  const text = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null)
+  const method = body.method === 'ia' || body.method === 'natural' ? body.method : null
+  const heat = typeof body.heatDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.heatDate) ? new Date(body.heatDate) : null
+  return { method, heatDate: heat, semenBatch: method === 'natural' ? null : text(body.semenBatch, 60), bullRegistry: text(body.bullRegistry, 60) }
+}
+
 async function findOwned(id: string, farmId: string) {
   return prisma.reproduction.findFirst({ where: { id, farmId }, select: { id: true } })
 }
@@ -24,6 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     if (maleName !== undefined) data.maleName = maleName || null
+    if (['method', 'heatDate', 'semenBatch', 'bullRegistry'].some((k) => k in body)) Object.assign(data, coverageDetails(body))
     if (coverageDate) {
       const coverage = new Date(coverageDate)
       data.coverageDate = coverage
@@ -31,6 +40,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       expected.setDate(expected.getDate() + 280)
       data.expectedBirthDate = expected
     }
+    if (typeof body.expectedBirthDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.expectedBirthDate)) data.expectedBirthDate = new Date(body.expectedBirthDate)
     // Confirmada vazia ou perdida: deixa de ter parto previsto (não gera aviso de parto)
     if (status === 'Vazia' || status === 'Perdida') data.expectedBirthDate = null
 

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireFarmAccess } from '@/lib/auth'
 import { isLotPhase } from '@/lib/lots'
-import { LOT_SELECT, average, farmAnimals, linkSupply, parseAnimalWeights, parseDay, parsePercent, parseTarget, parseWeighing, serializeLot } from './shared'
+import { LOT_SELECT, average, farmAnimals, parseAnimalWeights, parseDay, parseLotSupplies, parseTarget, parseWeighing, serializeLot, setLotSupplies } from './shared'
 
 // Lotes de recria e engorda da propriedade (permissão do módulo Animais)
 export async function GET() {
@@ -36,20 +36,19 @@ export async function POST(request: NextRequest) {
   if (typeof weighing === 'string') return NextResponse.json({ error: weighing }, { status: 400 })
   const targetWeight = parseTarget(body.targetWeight)
   if (targetWeight === 'invalid') return NextResponse.json({ error: 'Peso-alvo inválido' }, { status: 400 })
-  const supplyPercent = parsePercent(body.supplyPercent)
-  if (supplyPercent === 'invalid') return NextResponse.json({ error: 'O consumo deve ser uma % do peso vivo, por exemplo 0,1' }, { status: 400 })
-  const supplyId = await linkSupply(farmId, body.supplyId, body.packageKg, body.unitPrice)
-  if (supplyId === 'invalid') return NextResponse.json({ error: 'Suplemento ou peso do saco inválido' }, { status: 400 })
+  const supplies = await parseLotSupplies(farmId, body.supplies ?? [])
+  if (typeof supplies === 'string') return NextResponse.json({ error: supplies }, { status: 400 })
 
   const created = await prisma.$transaction(async (tx) => {
     const lot = await tx.lot.create({
       data: {
-        farmId, name, phase, startDate, supplyId, supplyPercent, targetWeight,
+        farmId, name, phase, startDate, targetWeight,
         notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim().slice(0, 500) : null,
         weighings: { create: { date: startDate, ...weighing } },
       },
       select: { id: true, weighings: { select: { id: true } } },
     })
+    await setLotSupplies(tx, lot.id, supplies)
     // Os animais saem do lote em que estavam e entram neste, com o peso de entrada de cada um
     if (animalIds.length) {
       await tx.animal.updateMany({ where: { id: { in: animalIds } }, data: { lotId: lot.id } })

@@ -59,11 +59,13 @@ export function animalCategory(animal: ClassifiedAnimal, today = animalToday()):
 
 /** Idade mínima para cobertura (Reprodução): 2 anos */
 export const BREEDING_AGE_MONTHS = 24
+/** Novilha num lote de recria pode ser coberta mais cedo (inseminação precoce) */
+export const HEIFER_BREEDING_AGE_MONTHS = 13
 
 /** Fêmea que pode aparecer na Reprodução: bovina a partir de 2 anos (outras espécies, qualquer idade), viva */
-export function canBreed(animal: ClassifiedAnimal & { status?: string }, today = animalToday()) {
+export function canBreed(animal: ClassifiedAnimal & { status?: string }, today = animalToday(), { inRearingLot = false } = {}) {
   if (animal.gender !== 'Fêmea' || animal.status === 'Morto' || animal.status === 'Vendido') return false
-  return !isBovine(animal.species) || hasAnimalAge(animal.birthDate, BREEDING_AGE_MONTHS, today)
+  return !isBovine(animal.species) || hasAnimalAge(animal.birthDate, inRearingLot ? HEIFER_BREEDING_AGE_MONTHS : BREEDING_AGE_MONTHS, today)
 }
 
 export function canAddCalf(animal: ClassifiedAnimal, today = animalToday()) {

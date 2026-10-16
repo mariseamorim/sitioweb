@@ -311,7 +311,7 @@ async function seedEngorda() {
   // Novilhas: entraram com 300 kg há 150 dias, pesadas a cada ~50 dias, com proteinado a 0,1% do peso vivo
   await prisma.lot.create({
     data: {
-      farmId: c2.id, name: 'Novilhas de março', phase: 'engorda', startDate: day(-150), supplyId: proteinado.id, supplyPercent: 0.1,
+      farmId: c2.id, name: 'Novilhas de março', phase: 'engorda', startDate: day(-150), supplies: { create: { supplyId: proteinado.id, percent: 0.1 } },
       weighings: { create: [[-150, 40, 300], [-100, 40, 317], [-50, 40, 331.5], [0, 39, 346.5]].map(([d, headCount, avgWeight]) => ({ date: day(d), headCount, avgWeight })) },
     },
   })
@@ -348,6 +348,36 @@ async function seedLoteAnimais() {
   }
 }
 
+// ── Recria de novilhas com cio e inseminação (Fazenda C2) ───────────────
+
+async function seedRecriaNovilhas() {
+  const c2 = await prisma.farm.findFirst({ where: { name: 'Fazenda C2', members: { some: { user: { email: 'produtor@demo.com' } } } }, select: { id: true } })
+  if (!c2 || (await prisma.lot.findFirst({ where: { farmId: c2.id, name: 'Novilhas de reposição' } }))) return
+  const sal = await prisma.supply.findFirst({ where: { farmId: c2.id, name: 'Sal mineral 03' }, select: { id: true } })
+  const proteinado = await prisma.supply.findFirst({ where: { farmId: c2.id, name: 'Proteinado 01' }, select: { id: true } })
+  const lot = await prisma.lot.create({
+    data: {
+      farmId: c2.id, name: 'Novilhas de reposição', phase: 'recria', startDate: day(-120), targetWeight: 330,
+      supplies: { create: [sal && { supplyId: sal.id, percent: 0.05 }, proteinado && { supplyId: proteinado.id, percent: 0.1 }].filter(Boolean) },
+    },
+  })
+  const heifers = []
+  for (const [code, name, months, entry, daily] of [['N01', 'Estrelinha', 18, 260, 0.6], ['N02', 'Pintadinha', 16, 245, 0.55], ['N03', 'Mimosinha', 15, 238, 0.65], ['N04', 'Florzinha', 14, 230, 0.5]]) {
+    heifers.push({ ...(await prisma.animal.create({ data: { farmId: c2.id, code, name, species: 'Bezerra', gender: 'Fêmea', birthDate: day(-Math.round(months * 30.44)), status: 'Vivo', acquisitionType: 'compra', lotId: lot.id } })), entry, daily })
+  }
+  for (const d of [-120, -60, 0]) {
+    const weights = heifers.map((h) => ({ animalId: h.id, weight: Math.round((h.entry + h.daily * (d + 120)) * 10) / 10 }))
+    const lw = await prisma.lotWeighing.create({ data: { lotId: lot.id, date: day(d), headCount: heifers.length, avgWeight: Math.round((weights.reduce((s, w) => s + w.weight, 0) / weights.length) * 10) / 10 } })
+    await prisma.animalWeighing.createMany({ data: weights.map((w) => ({ ...w, date: day(d), lotWeighingId: lw.id })) })
+  }
+  // A mais velha já foi inseminada depois do cio
+  const coverage = day(-20)
+  const expected = new Date(coverage); expected.setUTCDate(expected.getUTCDate() + 280)
+  await prisma.reproduction.create({
+    data: { farmId: c2.id, femaleId: heifers[0].id, heatDate: day(-21), method: 'ia', coverageDate: coverage, expectedBirthDate: expected, semenBatch: '2412-A', maleName: 'Imperador', bullRegistry: 'RGD 88231', status: 'Coberta' },
+  })
+}
+
 // ── Folha do motorista para a aba Conferir (Dona Maria) ─────────────────
 
 async function seedFolhas() {
@@ -367,6 +397,7 @@ async function main() {
   await seedProdutor()
   await seedEngorda()
   await seedLoteAnimais()
+  await seedRecriaNovilhas()
   const rosaFarm = await seedRosa()
   await seedLite()
   await seedFolhas()

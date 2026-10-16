@@ -4,26 +4,41 @@ import { todayUTC } from '@/lib/utils'
 // Partes comuns das rotas de lotes (recria e engorda)
 
 export const LOT_SELECT = {
-  id: true, name: true, phase: true, startDate: true, endDate: true, supplyPercent: true, targetWeight: true, notes: true,
-  supply: { select: { id: true, name: true, unit: true, currentQuantity: true, packageKg: true, unitPrice: true } },
-  feedings: { select: { id: true, date: true, kg: true, suggestedKg: true, cost: true }, orderBy: { date: 'asc' as const } },
+  id: true, name: true, phase: true, startDate: true, endDate: true, targetWeight: true, notes: true,
+  supplies: { select: { id: true, percent: true, supply: { select: { id: true, name: true, unit: true, currentQuantity: true, packageKg: true, unitPrice: true } } }, orderBy: { supply: { name: 'asc' as const } } },
+  feedings: { select: { id: true, date: true, kg: true, suggestedKg: true, cost: true, supplyId: true }, orderBy: { date: 'asc' as const } },
   weighings: { select: { id: true, date: true, headCount: true, avgWeight: true }, orderBy: { date: 'asc' as const } },
   animals: {
-    select: { id: true, code: true, customCode: true, name: true, weighings: { select: { date: true, weight: true }, orderBy: { date: 'asc' as const } } },
+    select: {
+      id: true, code: true, customCode: true, name: true, gender: true, birthDate: true,
+      weighings: { select: { date: true, weight: true }, orderBy: { date: 'asc' as const } },
+      reproductions: {
+        select: { id: true, heatDate: true, method: true, coverageDate: true, expectedBirthDate: true, semenBatch: true, bullRegistry: true, maleName: true, status: true },
+        orderBy: { coverageDate: 'desc' as const }, take: 1,
+      },
+    },
     orderBy: { code: 'asc' as const },
   },
 }
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 
-export function serializeLot<T extends { startDate: Date; endDate: Date | null; weighings: { date: Date }[]; feedings: { date: Date }[]; animals: { weighings: { date: Date; weight: number }[] }[] }>(lot: T) {
+type DayOrNull = Date | null
+export function serializeLot<T extends { startDate: Date; endDate: Date | null; weighings: { date: Date }[]; feedings: { date: Date }[]; animals: { birthDate: Date; weighings: { date: Date; weight: number }[]; reproductions: { heatDate: DayOrNull; coverageDate: Date; expectedBirthDate: DayOrNull }[] }[] }>(lot: T) {
   return {
     ...lot,
     startDate: isoDay(lot.startDate),
     endDate: lot.endDate ? isoDay(lot.endDate) : null,
     weighings: lot.weighings.map((w) => ({ ...w, date: isoDay(w.date) })),
     feedings: lot.feedings.map((f) => ({ ...f, date: isoDay(f.date) })),
-    animals: lot.animals.map((a) => ({ ...a, weighings: a.weighings.map((w) => ({ ...w, date: isoDay(w.date) })) })),
+    animals: lot.animals.map((a) => ({
+      ...a,
+      birthDate: isoDay(a.birthDate),
+      weighings: a.weighings.map((w) => ({ ...w, date: isoDay(w.date) })),
+      reproductions: a.reproductions.map((r) => ({
+        ...r, heatDate: r.heatDate ? isoDay(r.heatDate) : null, coverageDate: isoDay(r.coverageDate), expectedBirthDate: r.expectedBirthDate ? isoDay(r.expectedBirthDate) : null,
+      })),
+    })),
   }
 }
 
@@ -89,18 +104,42 @@ export function optionalPositive(value: unknown, max: number): number | undefine
   return Number.isFinite(n) && n > 0 && n <= max ? Math.round(n * 100) / 100 : null
 }
 
-/** Suplemento do estoque desta propriedade; guarda o peso do saco (dias de estoque) e o preço (custo), se vierem */
-export async function linkSupply(farmId: string, supplyId: unknown, packageKg: unknown, unitPrice?: unknown): Promise<string | null | 'invalid'> {
-  if (supplyId === null || supplyId === undefined || supplyId === '') return null
-  const supply = await prisma.supply.findFirst({ where: { id: String(supplyId), farmId }, select: { id: true } })
-  if (!supply) return 'invalid'
-  const kg = optionalPositive(packageKg, 1000)
-  const price = optionalPositive(unitPrice, 100000)
-  if (kg === null || price === null) return 'invalid'
-  if (kg !== undefined || price !== undefined) {
-    await prisma.supply.update({ where: { id: supply.id }, data: { ...(kg !== undefined && { packageKg: kg }), ...(price !== undefined && { unitPrice: price }) } })
+export interface LotSupplyInput { supplyId: string; percent: number | null; packageKg?: number; unitPrice?: number }
+
+/** Produtos do lote: [{ supplyId, percent, packageKg?, unitPrice? }] do estoque desta propriedade; string com o erro se inválido */
+export async function parseLotSupplies(farmId: string, value: unknown): Promise<LotSupplyInput[] | string> {
+  if (!Array.isArray(value)) return 'Produtos do lote inválidos'
+  const items: LotSupplyInput[] = []
+  for (const raw of value as Record<string, unknown>[]) {
+    if (!raw || typeof raw !== 'object' || !raw.supplyId) continue
+    const percent = parsePercent(raw.percent)
+    if (percent === 'invalid') return 'O consumo deve ser uma % do peso vivo, por exemplo 0,1'
+    const packageKg = optionalPositive(raw.packageKg, 1000)
+    const unitPrice = optionalPositive(raw.unitPrice, 100000)
+    if (packageKg === null) return 'Peso do saco inválido'
+    if (unitPrice === null) return 'Preço inválido'
+    if (items.some((i) => i.supplyId === String(raw.supplyId))) return 'O mesmo produto aparece duas vezes'
+    items.push({ supplyId: String(raw.supplyId), percent, packageKg, unitPrice })
   }
-  return supply.id
+  const found = await prisma.supply.count({ where: { id: { in: items.map((i) => i.supplyId) }, farmId } })
+  return found === items.length ? items : 'Produto do estoque não encontrado'
+}
+
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
+/** Troca a lista de produtos do lote e guarda o peso do saco e o preço que vieram junto */
+export async function setLotSupplies(tx: Tx, lotId: string, items: LotSupplyInput[]) {
+  await tx.lotSupply.deleteMany({ where: { lotId, supplyId: { notIn: items.map((i) => i.supplyId) } } })
+  for (const item of items) {
+    await tx.lotSupply.upsert({
+      where: { lotId_supplyId: { lotId, supplyId: item.supplyId } },
+      create: { lotId, supplyId: item.supplyId, percent: item.percent },
+      update: { percent: item.percent },
+    })
+    if (item.packageKg !== undefined || item.unitPrice !== undefined) {
+      await tx.supply.update({ where: { id: item.supplyId }, data: { ...(item.packageKg !== undefined && { packageKg: item.packageKg }), ...(item.unitPrice !== undefined && { unitPrice: item.unitPrice }) } })
+    }
+  }
 }
 
 export async function findLot(id: string, farmId: string) {

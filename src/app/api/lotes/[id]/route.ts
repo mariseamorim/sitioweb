@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireFarmAccess } from '@/lib/auth'
 import { isLotPhase } from '@/lib/lots'
-import { LOT_SELECT, farmAnimals, findLot, linkSupply, parseDay, parsePercent, parseTarget, serializeLot } from '../shared'
+import { LOT_SELECT, farmAnimals, findLot, parseDay, parseLotSupplies, parseTarget, serializeLot, setLotSupplies } from '../shared'
 
 // PATCH: altera o lote, encerra (endDate) ou reabre (endDate null), põe (addAnimalIds) ou tira (removeAnimalIds) animais
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -22,15 +22,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!isLotPhase(body.phase)) return NextResponse.json({ error: 'Fase inválida' }, { status: 400 })
     data.phase = body.phase
   }
-  if ('supplyPercent' in body) {
-    const percent = parsePercent(body.supplyPercent)
-    if (percent === 'invalid') return NextResponse.json({ error: 'O consumo deve ser uma % do peso vivo, por exemplo 0,1' }, { status: 400 })
-    data.supplyPercent = percent
-  }
-  if ('supplyId' in body) {
-    const supplyId = await linkSupply(auth.farmId, body.supplyId, body.packageKg, body.unitPrice)
-    if (supplyId === 'invalid') return NextResponse.json({ error: 'Suplemento ou peso do saco inválido' }, { status: 400 })
-    data.supplyId = supplyId
+  const supplies = 'supplies' in body ? await parseLotSupplies(auth.farmId, body.supplies) : null
+  if (typeof supplies === 'string') return NextResponse.json({ error: supplies }, { status: 400 })
+  // Data de entrada: a pesagem de entrada acompanha
+  let startDate: Date | null = null
+  if ('startDate' in body) {
+    startDate = parseDay(body.startDate)
+    if (!startDate) return NextResponse.json({ error: 'Informe a data de entrada' }, { status: 400 })
+    data.startDate = startDate
   }
   if ('targetWeight' in body) {
     const target = parseTarget(body.targetWeight)
@@ -51,6 +50,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const lot = await prisma.$transaction(async (tx) => {
+    if (supplies) await setLotSupplies(tx, id, supplies)
+    if (startDate) {
+      const entry = await tx.lotWeighing.findFirst({ where: { lotId: id }, orderBy: { date: 'asc' }, select: { id: true } })
+      if (entry) {
+        await tx.lotWeighing.update({ where: { id: entry.id }, data: { date: startDate } })
+        await tx.animalWeighing.updateMany({ where: { lotWeighingId: entry.id }, data: { date: startDate } })
+      }
+    }
     if (add.length) await tx.animal.updateMany({ where: { id: { in: add } }, data: { lotId: id } })
     if (remove.length) await tx.animal.updateMany({ where: { id: { in: remove }, lotId: id }, data: { lotId: null } })
     return tx.lot.update({ where: { id }, data, select: LOT_SELECT })

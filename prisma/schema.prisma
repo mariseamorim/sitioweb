@@ -194,6 +194,14 @@ model Reproduction {
   femaleId          String
   female            Animal    @relation("ReproductionFemale", fields: [femaleId], references: [id], onDelete: Cascade)
   maleName          String?
+  /// Inseminação ("ia") ou monta natural ("natural")
+  method            String?
+  /// Quando a fêmea entrou no cio
+  heatDate          DateTime?
+  /// Lote/partida do sêmen (inseminação)
+  semenBatch        String?
+  /// Registro do touro (do sêmen ou da monta)
+  bullRegistry      String?
   coverageDate      DateTime
   expectedBirthDate DateTime?
   actualBirthDate   DateTime?
@@ -238,7 +246,7 @@ model Supply {
   unitPrice       Float?
   farmId          String
   farm            Farm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  lots            Lot[] // lotes que recebem este suplemento
+  lotSupplies     LotSupply[] // lotes que recebem este produto
   feedings        LotFeeding[]
   movements       SupplyMovement[]
   requests        SupplyRequest[]
@@ -419,10 +427,8 @@ model Lot {
   startDate     DateTime
   /// Preenchido quando o lote sai (vendido, abatido ou passou de fase)
   endDate       DateTime?
-  supplyId      String?
-  supply        Supply?       @relation(fields: [supplyId], references: [id], onDelete: SetNull)
-  /// Consumo do suplemento por dia, em % do peso vivo (ex.: 0,1 = 100 g por 100 kg)
-  supplyPercent Float?
+  /// Produtos dados ao lote (suplementos, sal, ração), cada um com seu consumo em % do peso vivo
+  supplies      LotSupply[]
   /// Peso de saída desejado por cabeça (kg), para prever quando o lote chega lá
   targetWeight  Float?
   notes         String?
@@ -450,6 +456,19 @@ model LotWeighing {
 
   @@index([lotId, date])
   @@map("lot_weighings")
+}
+
+/// Produto dado a um lote, com o consumo por dia em % do peso vivo (ex.: 0,1 = 100 g por 100 kg)
+model LotSupply {
+  id       String @id @default(cuid())
+  lotId    String
+  lot      Lot    @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  supplyId String
+  supply   Supply @relation(fields: [supplyId], references: [id], onDelete: Cascade)
+  percent  Float?
+
+  @@unique([lotId, supplyId])
+  @@map("lot_supplies")
 }
 
 /// Trato no cocho: quanto suplemento o lote recebeu num dia (sai do estoque)
