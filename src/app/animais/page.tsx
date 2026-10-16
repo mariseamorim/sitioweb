@@ -70,6 +70,15 @@ export default function AnimaisPage() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Animal | null>(null)
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null)
+  const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null)
+
+  // Esc fecha a foto ampliada
+  useEffect(() => {
+    if (!expandedImage) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setExpandedImage(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [expandedImage])
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -407,7 +416,13 @@ export default function AnimaisPage() {
                 >
                   <td className="px-2 sm:px-4 py-2">
                     {a.imageUrl ? (
-                      <img src={a.imageUrl} alt={a.name} className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg object-cover" />
+                      <img
+                        src={a.imageUrl}
+                        alt={a.name}
+                        title="Ampliar foto"
+                        onClick={(e) => { e.stopPropagation(); setExpandedImage({ src: a.imageUrl!, alt: a.name }) }}
+                        className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg object-cover cursor-zoom-in hover:ring-2 hover:ring-green-500"
+                      />
                     ) : (
                       <div className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400"><AnimalIcon className="w-5 h-5 sm:w-6 sm:h-6" /></div>
                     )}
@@ -462,6 +477,24 @@ export default function AnimaisPage() {
         </div>
       )}
 
+      {expandedImage && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4 cursor-zoom-out"
+          onClick={() => setExpandedImage(null)}
+          role="dialog"
+          aria-label={`Foto de ${expandedImage.alt}`}
+        >
+          <img src={expandedImage.src} alt={expandedImage.alt} className="max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl" />
+          <button
+            aria-label="Fechar foto"
+            onClick={() => setExpandedImage(null)}
+            className="absolute top-3 right-3 w-10 h-10 rounded-full bg-white/90 text-gray-800 text-2xl leading-none flex items-center justify-center hover:bg-white"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {selectedAnimal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-2 sm:p-4">
           <div
@@ -472,7 +505,13 @@ export default function AnimaisPage() {
               <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
                 <div className="flex items-start gap-3">
                   {selectedAnimal.imageUrl ? (
-                    <img src={selectedAnimal.imageUrl} alt={selectedAnimal.name} className="w-12 sm:w-16 h-12 sm:h-16 rounded-xl object-cover flex-shrink-0" />
+                    <img
+                      src={selectedAnimal.imageUrl}
+                      alt={selectedAnimal.name}
+                      title="Ampliar foto"
+                      onClick={() => setExpandedImage({ src: selectedAnimal.imageUrl!, alt: selectedAnimal.name })}
+                      className="w-12 sm:w-16 h-12 sm:h-16 rounded-xl object-cover flex-shrink-0 cursor-zoom-in"
+                    />
                   ) : (
                     <div className="w-12 sm:w-16 h-12 sm:h-16 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 flex-shrink-0"><AnimalIcon className="w-7 h-7 sm:w-8 sm:h-8" /></div>
                   )}
