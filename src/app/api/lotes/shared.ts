@@ -5,7 +5,8 @@ import { todayUTC } from '@/lib/utils'
 
 export const LOT_SELECT = {
   id: true, name: true, phase: true, startDate: true, endDate: true, supplyPercent: true, targetWeight: true, notes: true,
-  supply: { select: { id: true, name: true, unit: true, currentQuantity: true, packageKg: true } },
+  supply: { select: { id: true, name: true, unit: true, currentQuantity: true, packageKg: true, unitPrice: true } },
+  feedings: { select: { id: true, date: true, kg: true, suggestedKg: true, cost: true }, orderBy: { date: 'asc' as const } },
   weighings: { select: { id: true, date: true, headCount: true, avgWeight: true }, orderBy: { date: 'asc' as const } },
   animals: {
     select: { id: true, code: true, customCode: true, name: true, weighings: { select: { date: true, weight: true }, orderBy: { date: 'asc' as const } } },
@@ -15,12 +16,13 @@ export const LOT_SELECT = {
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 
-export function serializeLot<T extends { startDate: Date; endDate: Date | null; weighings: { date: Date }[]; animals: { weighings: { date: Date; weight: number }[] }[] }>(lot: T) {
+export function serializeLot<T extends { startDate: Date; endDate: Date | null; weighings: { date: Date }[]; feedings: { date: Date }[]; animals: { weighings: { date: Date; weight: number }[] }[] }>(lot: T) {
   return {
     ...lot,
     startDate: isoDay(lot.startDate),
     endDate: lot.endDate ? isoDay(lot.endDate) : null,
     weighings: lot.weighings.map((w) => ({ ...w, date: isoDay(w.date) })),
+    feedings: lot.feedings.map((f) => ({ ...f, date: isoDay(f.date) })),
     animals: lot.animals.map((a) => ({ ...a, weighings: a.weighings.map((w) => ({ ...w, date: isoDay(w.date) })) })),
   }
 }
@@ -80,15 +82,23 @@ export function parsePercent(value: unknown): number | null | 'invalid' {
   return Number.isFinite(n) && n > 0 && n <= 5 ? n : 'invalid'
 }
 
-/** Suplemento do estoque desta propriedade; com sacos, guarda o peso do saco para o cálculo de dias */
-export async function linkSupply(farmId: string, supplyId: unknown, packageKg: unknown): Promise<string | null | 'invalid'> {
+/** Número positivo opcional (vírgula ou ponto); undefined se vazio, null se inválido */
+export function optionalPositive(value: unknown, max: number): number | undefined | null {
+  if (value === undefined || value === null || value === '') return undefined
+  const n = Number(String(value).replace(',', '.'))
+  return Number.isFinite(n) && n > 0 && n <= max ? Math.round(n * 100) / 100 : null
+}
+
+/** Suplemento do estoque desta propriedade; guarda o peso do saco (dias de estoque) e o preço (custo), se vierem */
+export async function linkSupply(farmId: string, supplyId: unknown, packageKg: unknown, unitPrice?: unknown): Promise<string | null | 'invalid'> {
   if (supplyId === null || supplyId === undefined || supplyId === '') return null
   const supply = await prisma.supply.findFirst({ where: { id: String(supplyId), farmId }, select: { id: true } })
   if (!supply) return 'invalid'
-  if (packageKg !== undefined && packageKg !== null && packageKg !== '') {
-    const kg = Number(String(packageKg).replace(',', '.'))
-    if (!Number.isFinite(kg) || kg <= 0 || kg > 1000) return 'invalid'
-    await prisma.supply.update({ where: { id: supply.id }, data: { packageKg: kg } })
+  const kg = optionalPositive(packageKg, 1000)
+  const price = optionalPositive(unitPrice, 100000)
+  if (kg === null || price === null) return 'invalid'
+  if (kg !== undefined || price !== undefined) {
+    await prisma.supply.update({ where: { id: supply.id }, data: { ...(kg !== undefined && { packageKg: kg }), ...(price !== undefined && { unitPrice: price }) } })
   }
   return supply.id
 }

@@ -2,6 +2,14 @@ import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
 
+// Preço por unidade e peso do saco: opcionais (vazio apaga)
+function optionalNumber(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined
+  if (value === null || value === '') return null
+  const n = Number(String(value).replace(',', '.'))
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : undefined
+}
+
 async function findOwned(id: string, farmId: string) {
   return prisma.supply.findFirst({ where: { id, farmId }, select: { id: true } })
 }
@@ -14,7 +22,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params
     if (!(await findOwned(id, auth.farmId))) return notFound('Insumo não encontrado')
     const body = await request.json()
-    const { name, category, unit, minimumQuantity } = body
+    const { name, category, unit, minimumQuantity, unitPrice, packageKg } = body
 
     const supply = await prisma.supply.update({
       where: { id },
@@ -23,6 +31,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         category,
         unit,
         minimumQuantity: minimumQuantity !== undefined ? parseFloat(minimumQuantity) : undefined,
+        unitPrice: optionalNumber(unitPrice),
+        packageKg: optionalNumber(packageKg),
       },
       include: { movements: { orderBy: { date: 'desc' }, take: 10 } },
     })

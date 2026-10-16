@@ -6,13 +6,13 @@ import { useDialog } from '@/components/DialogProvider'
 import { useUser } from '@/contexts/UserContext'
 import { FecharIcon } from '@/components/ModuleIcons'
 import {
-  LOT_PHASES, LIVE_KG_PER_ARROBA, STOCK_WARNING_DAYS, Weighing, animalGain, arrobasProduced, dailySupplyKg, daysBetween, daysOfStock,
-  lotSummary, projectTarget, stockKg,
+  Feeding, LOT_PHASES, LIVE_KG_PER_ARROBA, STOCK_WARNING_DAYS, Weighing, animalGain, arrobasProduced, dailySupplyKg, daysBetween, daysOfStock,
+  feedingSummary, kgInStockUnit, lotSummary, pricePerKg, projectTarget, stockKg,
 } from '@/lib/lots'
-import { fmtDate, fmtNumber } from '@/lib/reports'
+import { fmtDate, fmtMoney, fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
 
-interface SupplyRef { id: string; name: string; unit: string; currentQuantity: number; packageKg: number | null }
+interface SupplyRef { id: string; name: string; unit: string; currentQuantity: number; packageKg: number | null; unitPrice?: number | null }
 interface LotAnimal { id: string; code: string; customCode: string | null; name: string; weighings: { date: string; weight: number }[] }
 interface Lot {
   id: string
@@ -25,6 +25,7 @@ interface Lot {
   notes: string | null
   supply: SupplyRef | null
   weighings: (Weighing & { id: string })[]
+  feedings: (Feeding & { id: string })[]
   animals: LotAnimal[]
 }
 /** Animal do rebanho, para escolher quem entra no lote */
@@ -311,10 +312,13 @@ const averageOf = (weights: Record<string, string>) => {
 
 // ── Novo lote ───────────────────────────────────────────────────────────
 
+type SupplyForm = { supplyId: string; supplyPercent: string; packageKg: string; unitPrice: string }
+const EMPTY_SUPPLY: SupplyForm = { supplyId: '', supplyPercent: '', packageKg: '', unitPrice: '' }
+
 function SupplyFields({ supplies, value, onChange }: {
   supplies: SupplyRef[]
-  value: { supplyId: string; supplyPercent: string; packageKg: string }
-  onChange: (v: { supplyId: string; supplyPercent: string; packageKg: string }) => void
+  value: SupplyForm
+  onChange: (v: SupplyForm) => void
 }) {
   const chosen = supplies.find((s) => s.id === value.supplyId)
   return (
@@ -325,7 +329,7 @@ function SupplyFields({ supplies, value, onChange }: {
       ) : (
         <>
           <label className={label}>Produto do estoque
-            <select value={value.supplyId} onChange={(e) => onChange({ ...value, supplyId: e.target.value, packageKg: '' })} className={`${input} bg-white`}>
+            <select value={value.supplyId} onChange={(e) => onChange({ ...value, supplyId: e.target.value, packageKg: '', unitPrice: '' })} className={`${input} bg-white`}>
               <option value="">Nenhum</option>
               {supplies.map((s) => <option key={s.id} value={s.id}>{s.name} ({fmtNumber(s.currentQuantity, 0)} {s.unit})</option>)}
             </select>
@@ -340,9 +344,12 @@ function SupplyFields({ supplies, value, onChange }: {
                   <input inputMode="decimal" value={value.packageKg} onChange={(e) => onChange({ ...value, packageKg: decimal(e.target.value) })} placeholder={chosen.packageKg ? fmtNumber(chosen.packageKg, 0) : 'Ex.: 25'} className={input} />
                 </label>
               )}
+              <label className={label}>Preço por {chosen?.unit === 'sacos' ? 'saco' : chosen?.unit ?? 'unidade'} (R$, opcional)
+                <input inputMode="decimal" value={value.unitPrice} onChange={(e) => onChange({ ...value, unitPrice: decimal(e.target.value) })} placeholder={chosen?.unitPrice ? fmtNumber(chosen.unitPrice, 2) : 'Ex.: 85,00'} className={input} />
+              </label>
             </div>
           )}
-          {value.supplyId && <p className="mt-2 text-xs text-gray-500">Exemplo: a 0,1% do peso vivo, um animal de 300 kg come 300 g por dia.</p>}
+          {value.supplyId && <p className="mt-2 text-xs text-gray-500">Exemplo: a 0,1% do peso vivo, um animal de 300 kg come 300 g por dia. O preço serve para mostrar o custo do trato por animal.</p>}
         </>
       )}
     </fieldset>
@@ -360,7 +367,7 @@ function LotForm({ supplies, herd, lotNames, onClose, onSaved }: {
   const [form, setForm] = useState({ name: '', phase: 'engorda', startDate: todayISO(), headCount: '', avgWeight: '', targetWeight: '' })
   const [animalIds, setAnimalIds] = useState<string[]>([])
   const [weights, setWeights] = useState<Record<string, string>>({})
-  const [supply, setSupply] = useState({ supplyId: '', supplyPercent: '', packageKg: '' })
+  const [supply, setSupply] = useState<SupplyForm>(EMPTY_SUPPLY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const chosen = herd.filter((a) => animalIds.includes(a.id))
@@ -512,7 +519,7 @@ function LotDetail({ lot, supplies, herd, lotNames, canEdit, today, focus, onClo
   const [weights, setWeights] = useState<Record<string, string>>({})
   const [adding, setAdding] = useState<string[] | null>(focus === 'animais' ? [] : null)
   const [editingSupply, setEditingSupply] = useState(false)
-  const [supplyForm, setSupplyForm] = useState({ supplyId: lot.supply?.id ?? '', supplyPercent: lot.supplyPercent ? String(lot.supplyPercent).replace('.', ',') : '', packageKg: '' })
+  const [supplyForm, setSupplyForm] = useState<SupplyForm>({ ...EMPTY_SUPPLY, supplyId: lot.supply?.id ?? '', supplyPercent: lot.supplyPercent ? String(lot.supplyPercent).replace('.', ',') : '' })
   const [target, setTarget] = useState(lot.targetWeight ? String(lot.targetWeight).replace('.', ',') : '')
   const [endDate, setEndDate] = useState(today)
   const [busy, setBusy] = useState(false)
@@ -726,6 +733,9 @@ function LotDetail({ lot, supplies, herd, lotNames, canEdit, today, focus, onClo
         )}
       </section>
 
+      {/* Trato no cocho */}
+      {lot.supply && <FeedingSection lot={lot} canEdit={canEdit} today={today} busy={busy} run={run} />}
+
       {/* Histórico de pesagens */}
       <section className="mt-5">
         <h3 className="mb-2 text-sm font-semibold text-gray-700">Pesagens</h3>
@@ -784,5 +794,95 @@ function Modal({ title, subtitle, onClose, children }: { title: string; subtitle
         {children}
       </div>
     </div>
+  )
+}
+
+// ── Trato no cocho: lançar o que foi dado, baixa no estoque e custo ─────
+
+function FeedingSection({ lot, canEdit, today, busy, run }: {
+  lot: Lot
+  canEdit: boolean
+  today: string
+  busy: boolean
+  run: (action: () => Promise<Lot | null>) => Promise<void>
+}) {
+  const { confirm } = useDialog()
+  const s = lotSummary(lot.weighings, today, lot.endDate)
+  const suggestion = dailySupplyKg(s.last, lot.supplyPercent)
+  const heads = lot.animals.length || s.last?.headCount || 0
+  const summary = feedingSummary(lot.feedings, heads)
+  const supply = lot.supply!
+  const [form, setForm] = useState({ date: today, kg: suggestion ? String(suggestion).replace('.', ',') : '' })
+  const kgValue = parseKg(form.kg)
+  const inStock = kgValue !== null ? kgInStockUnit(supply, kgValue) : null
+  const perKg = pricePerKg(supply)
+  const recent = [...lot.feedings].reverse().slice(0, 7)
+
+  const save = (e: React.FormEvent) => {
+    e.preventDefault()
+    void run(async () => send(`/api/lotes/${lot.id}/tratos`, 'POST', form))
+  }
+  const remove = async (id: string) => {
+    if (!(await confirm({ title: 'Apagar este trato?', message: 'A quantidade volta para o estoque.', confirmLabel: 'Apagar', danger: true }))) return
+    void run(() => send(`/api/lotes/${lot.id}/tratos`, 'DELETE', { feedingId: id }))
+  }
+
+  return (
+    <section className="mt-5">
+      <h3 className="mb-2 text-sm font-semibold text-gray-700">Trato no cocho</h3>
+      {lot.feedings.length > 0 && (
+        <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            ['Dado no total', kg(summary.kg)],
+            ['Previsto x dado', summary.percent !== null ? `${fmtNumber(summary.percent, 0)}%` : '—'],
+            ['Custo total', summary.cost !== null ? fmtMoney(summary.cost) : '—'],
+            ['Custo por cabeça', summary.costPerHead !== null ? fmtMoney(summary.costPerHead) : '—'],
+          ].map(([title, value]) => (
+            <div key={title} className="rounded-lg border border-gray-100 bg-gray-50 p-3"><p className="text-xs text-gray-500">{title}</p><p className="text-base font-bold text-gray-800">{value}</p></div>
+          ))}
+        </div>
+      )}
+      {lot.feedings.length > 0 && (
+        <p className="mb-2 text-xs text-gray-500">
+          {summary.days} dia{summary.days === 1 ? '' : 's'} de trato
+          {summary.costPerHeadDay !== null ? ` · ${fmtMoney(summary.costPerHeadDay)} por cabeça por dia` : ''}
+          {summary.cost === null ? ' · informe o preço do produto no Estoque ou no suplemento do lote para ver o custo' : ''}
+          {summary.partialCost ? ' · alguns tratos foram lançados antes do preço e ficaram sem custo' : ''}
+        </p>
+      )}
+      {canEdit && !lot.endDate && (
+        <form onSubmit={save} className="rounded-xl bg-amber-50 p-3">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-sm font-medium text-gray-700">Data
+              <input type="date" required max={today} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={input} />
+            </label>
+            <label className="text-sm font-medium text-gray-700">Quanto foi dado (kg)
+              <input required inputMode="decimal" value={form.kg} onChange={(e) => setForm({ ...form, kg: decimal(e.target.value) })} className={input} />
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-gray-700">
+            {suggestion ? `Sugestão pelo % do peso vivo: ${kg(suggestion)} por dia. ` : ''}
+            {kgValue !== null && inStock !== null && supply.unit === 'sacos' ? `Sai do estoque: ${fmtNumber(inStock, 2)} saco${inStock === 1 ? '' : 's'}. ` : ''}
+            {kgValue !== null && perKg !== null ? `Custo: ${fmtMoney(kgValue * perKg)}.` : ''}
+            {supply.unit === 'sacos' && !supply.packageKg ? 'Informe o peso do saco no suplemento do lote para dar baixa no estoque.' : ''}
+          </p>
+          <button type="submit" disabled={busy || kgValue === null} className="mt-2 w-full rounded-xl bg-amber-600 py-3 font-semibold text-white disabled:bg-gray-300">Lançar trato e dar baixa no estoque</button>
+        </form>
+      )}
+      {recent.length > 0 && (
+        <ul className="mt-3 divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm">
+          {recent.map((f) => (
+            <li key={f.id} className="flex items-center justify-between gap-2 px-3 py-2">
+              <span className="text-gray-700">{fmtDate(f.date)}</span>
+              <span className="flex items-center gap-3">
+                <span className="font-semibold text-gray-800">{kg(f.kg)}</span>
+                {f.cost !== null && <span className="text-gray-500">{fmtMoney(f.cost)}</span>}
+                {canEdit && <button type="button" onClick={() => void remove(f.id)} className="text-xs font-semibold text-red-700 hover:underline">Apagar</button>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }

@@ -103,3 +103,44 @@ export function animalGain(weighings: { date: string; weight: number }[]) {
   const days = daysBetween(entry.date, last.date)
   return { entry, last, gainKg, gmd: days > 0 ? Math.round((gainKg / days) * 1000) / 1000 : null }
 }
+
+type StockUnit = { unit: string; packageKg?: number | null; unitPrice?: number | null }
+
+/** kg do trato na unidade do estoque (kg, ou sacos pelo peso do saco); null se não dá para converter */
+export function kgInStockUnit(supply: StockUnit, kg: number): number | null {
+  if (supply.unit === 'kg') return kg
+  if (supply.unit === 'sacos' && supply.packageKg) return Math.round((kg / supply.packageKg) * 1000) / 1000
+  return null
+}
+
+/** Preço por kg pelo preço da unidade do estoque; null sem preço */
+export function pricePerKg(supply: StockUnit): number | null {
+  if (!supply.unitPrice) return null
+  if (supply.unit === 'kg') return supply.unitPrice
+  if (supply.unit === 'sacos' && supply.packageKg) return supply.unitPrice / supply.packageKg
+  return null
+}
+
+export interface Feeding { date: string; kg: number; suggestedKg: number | null; cost: number | null }
+
+/** Trato do lote: total dado, previsto pelo % do peso vivo, custo total e por cabeça */
+export function feedingSummary(feedings: Feeding[], heads: number) {
+  const kg = feedings.reduce((s, f) => s + f.kg, 0)
+  const withSuggestion = feedings.filter((f) => f.suggestedKg)
+  const suggested = withSuggestion.reduce((s, f) => s + f.suggestedKg!, 0)
+  const priced = feedings.filter((f) => f.cost !== null)
+  const cost = priced.length ? priced.reduce((s, f) => s + f.cost!, 0) : null
+  const days = new Set(feedings.map((f) => f.date)).size
+  return {
+    kg: Math.round(kg * 10) / 10,
+    suggested: Math.round(suggested * 10) / 10,
+    /** dado ÷ previsto, só nos dias com sugestão */
+    percent: suggested ? Math.round((withSuggestion.reduce((s, f) => s + f.kg, 0) / suggested) * 1000) / 10 : null,
+    cost,
+    costPerHead: cost !== null && heads ? cost / heads : null,
+    costPerHeadDay: cost !== null && heads && days ? cost / heads / days : null,
+    /** custo sem preço em todos os tratos */
+    partialCost: priced.length > 0 && priced.length < feedings.length,
+    days,
+  }
+}

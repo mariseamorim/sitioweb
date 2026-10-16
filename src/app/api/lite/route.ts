@@ -4,6 +4,7 @@ import { canAccessModule, canEdit, renewSession, requireUser } from '@/lib/auth'
 import { FARM_POINT_ID, LITE_HISTORY_DAYS, LiteChange, LiteData, isDriverRole, parseLiters, usesFarmMode } from '@/lib/lite'
 import { driverRoutePointIds, todayWeekday } from '@/lib/laticinio'
 import { todayUTC } from '@/lib/utils'
+import { activeWithdrawals } from '@/lib/withdrawal'
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 
@@ -56,6 +57,7 @@ export async function GET() {
       })),
       milkPrice: farm?.milkPrice ?? null,
       sheets: sheets.map((s) => ({ date: isoDay(s.date), liters: s.liters })),
+      milkWithdrawals: (await activeWithdrawals(farmId, todayUTC())).flatMap((w) => (w.milkUntil ? [{ animalName: w.animalName, medicine: w.medicine, until: w.milkUntil }] : [])),
     }
     return renewSession(NextResponse.json(data))
   }

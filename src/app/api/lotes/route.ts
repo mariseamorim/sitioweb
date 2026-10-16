@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   if (targetWeight === 'invalid') return NextResponse.json({ error: 'Peso-alvo inválido' }, { status: 400 })
   const supplyPercent = parsePercent(body.supplyPercent)
   if (supplyPercent === 'invalid') return NextResponse.json({ error: 'O consumo deve ser uma % do peso vivo, por exemplo 0,1' }, { status: 400 })
-  const supplyId = await linkSupply(farmId, body.supplyId, body.packageKg)
+  const supplyId = await linkSupply(farmId, body.supplyId, body.packageKg, body.unitPrice)
   if (supplyId === 'invalid') return NextResponse.json({ error: 'Suplemento ou peso do saco inválido' }, { status: 400 })
 
   const created = await prisma.$transaction(async (tx) => {

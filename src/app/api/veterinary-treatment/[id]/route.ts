@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
+import { parseWithdrawalDays } from '@/lib/withdrawal'
 
 async function findOwned(id: string, farmId: string) {
   return prisma.veterinaryTreatment.findFirst({
@@ -29,6 +30,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const body = await request.json()
     const { startDate, endDate, medicine, batch, manufacturer, description, observations } = body
+    const milkWithdrawalDays = parseWithdrawalDays(body.milkWithdrawalDays)
+    const meatWithdrawalDays = parseWithdrawalDays(body.meatWithdrawalDays)
+    if (milkWithdrawalDays === 'invalid' || meatWithdrawalDays === 'invalid') {
+      return NextResponse.json({ error: 'A carência deve ser em dias, de 0 a 365' }, { status: 400 })
+    }
 
     const treatment = await prisma.veterinaryTreatment.update({
       where: { id },
@@ -36,6 +42,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         startDate: startDate ? new Date(startDate) : undefined,
         endDate: endDate ? new Date(endDate) : null,
         medicine,
+        ...('milkWithdrawalDays' in body && { milkWithdrawalDays }),
+        ...('meatWithdrawalDays' in body && { meatWithdrawalDays }),
         batch,
         manufacturer,
         description,

@@ -369,6 +369,15 @@ export default function LitePage() {
               )}
               {canWrite && <OfflineVoiceSetup online={online} />}
 
+              {(data.milkWithdrawals ?? []).length > 0 && (
+                <section role="alert" className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4">
+                  <h2 className="text-sm font-semibold text-red-900">Leite em carência: não vai para o tanque</h2>
+                  <ul className="mt-1 space-y-0.5 text-sm text-red-900">
+                    {data.milkWithdrawals!.map((w) => <li key={`${w.animalName}|${w.until}`}><strong>{w.animalName}</strong> até {fmtDay(w.until)} ({w.medicine})</li>)}
+                  </ul>
+                </section>
+              )}
+
               {dayCollections.length > 0 && (
                 <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
                   <h2 className="text-sm font-semibold text-blue-900">Coletado pelo motorista neste dia</h2>

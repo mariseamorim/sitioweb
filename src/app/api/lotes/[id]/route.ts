@@ -28,7 +28,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     data.supplyPercent = percent
   }
   if ('supplyId' in body) {
-    const supplyId = await linkSupply(auth.farmId, body.supplyId, body.packageKg)
+    const supplyId = await linkSupply(auth.farmId, body.supplyId, body.packageKg, body.unitPrice)
     if (supplyId === 'invalid') return NextResponse.json({ error: 'Suplemento ou peso do saco inválido' }, { status: 400 })
     data.supplyId = supplyId
   }

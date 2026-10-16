@@ -24,6 +24,9 @@ interface Treatment {
   startDate: string
   endDate?: string | null
   medicine: string
+  /** Carência em dias depois do fim do tratamento */
+  milkWithdrawalDays?: number | null
+  meatWithdrawalDays?: number | null
   batch?: string | null
   manufacturer?: string | null
   description?: string | null
@@ -47,7 +50,7 @@ export default function VeterinaryTreatmentPage() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     animalId: '', startDate: todayISO(), endDate: '',
-    medicine: '', batch: '', manufacturer: '', description: '', observations: '',
+    medicine: '', milkWithdrawalDays: '', meatWithdrawalDays: '', batch: '', manufacturer: '', description: '', observations: '',
   })
   const [isOnline, setIsOnline] = useState(true)
   const [pendingCount, setPendingCount] = useState(0)
@@ -87,6 +90,8 @@ export default function VeterinaryTreatmentPage() {
           startDate: r.startDate,
           endDate: r.endDate ?? null,
           medicine: r.medicine,
+          milkWithdrawalDays: r.milkWithdrawalDays ? Number(r.milkWithdrawalDays) : null,
+          meatWithdrawalDays: r.meatWithdrawalDays ? Number(r.meatWithdrawalDays) : null,
           batch: r.batch ?? null,
           manufacturer: r.manufacturer ?? null,
           description: r.description ?? null,
@@ -196,7 +201,7 @@ export default function VeterinaryTreatmentPage() {
       setShowRegister(false)
       setForm({
         animalId: '', startDate: todayISO(), endDate: '',
-        medicine: '', batch: '', manufacturer: '', description: '', observations: '',
+        medicine: '', milkWithdrawalDays: '', meatWithdrawalDays: '', batch: '', manufacturer: '', description: '', observations: '',
       })
       return
     }
@@ -216,7 +221,7 @@ export default function VeterinaryTreatmentPage() {
     })
     setSaving(false)
     setShowRegister(false)
-    setForm({ animalId: '', startDate: todayISO(), endDate: '', medicine: '', batch: '', manufacturer: '', description: '', observations: '' })
+    setForm({ animalId: '', startDate: todayISO(), endDate: '', medicine: '', milkWithdrawalDays: '', meatWithdrawalDays: '', batch: '', manufacturer: '', description: '', observations: '' })
     loadData(farmId)
   }
 
@@ -385,6 +390,12 @@ export default function VeterinaryTreatmentPage() {
                             {fmt(t.startDate)}{t.endDate ? ` → ${fmt(t.endDate)}` : ''}
                           </p>
                         </div>
+                        {withdrawalText(t) && (
+                          <div className="col-span-2">
+                            <p className="text-xs text-gray-500">Carência</p>
+                            <p className={`font-medium ${withdrawalText(t)!.active ? 'text-red-700' : 'text-gray-700'}`}>{withdrawalText(t)!.text}</p>
+                          </div>
+                        )}
                         {t.manufacturer && (
                           <div>
                             <p className="text-xs text-gray-500">Fabricante</p>
@@ -452,6 +463,20 @@ export default function VeterinaryTreatmentPage() {
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
 
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">Carência do leite (dias)</label>
+                    <input inputMode="numeric" value={form.milkWithdrawalDays} onChange={(e) => setForm({ ...form, milkWithdrawalDays: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                      placeholder="Ex.: 4" className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">Carência da carne (dias)</label>
+                    <input inputMode="numeric" value={form.meatWithdrawalDays} onChange={(e) => setForm({ ...form, meatWithdrawalDays: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                      placeholder="Ex.: 30" className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                  </div>
+                </div>
+                <p className="-mt-1 text-xs text-gray-500">Está na bula. Conta a partir do fim do tratamento. O app avisa até quando o leite não pode ir para o tanque e o animal não pode ir para o abate.</p>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600">Fabricante</label>
@@ -498,4 +523,27 @@ export default function VeterinaryTreatmentPage() {
       </div>
     </PermissionGuard>
   )
+}
+
+/** Até quando vale a carência do leite e da carne (a partir do fim do tratamento, ou do início sem fim) */
+function withdrawalText(t: Treatment): { text: string; active: boolean } | null {
+  const base = t.endDate ?? t.startDate
+  const until = (days?: number | null) => {
+    if (!days) return null
+    const d = new Date(base)
+    d.setUTCDate(d.getUTCDate() + days)
+    return d
+  }
+  const milk = until(t.milkWithdrawalDays)
+  const meat = until(t.meatWithdrawalDays)
+  if (!milk && !meat) return null
+  const today = new Date(todayISO())
+  const fmtDay = (d: Date) => d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+  const parts = [
+    milk && `leite fora do tanque até ${fmtDay(milk)}`,
+    meat && `abate liberado depois de ${fmtDay(meat)}`,
+  ].filter(Boolean) as string[]
+  const active = (!!milk && milk >= today) || (!!meat && meat >= today)
+  const text = parts.join(' · ')
+  return { text: (active ? '' : 'Encerrada: ') + text.charAt(0).toUpperCase() + text.slice(1), active }
 }
