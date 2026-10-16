@@ -12,6 +12,8 @@ import { RequestQuote } from '@/components/RequestQuote'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 import { STOCK_WARNING_DAYS } from '@/lib/lots'
+import { fmtMoney } from '@/lib/reports'
+import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 
 interface SupplyMovement { id: string; type: string; quantity: number; date: string; description?: string | null }
 interface Supply {
@@ -25,6 +27,9 @@ interface Supply {
   /** Consumo dos lotes de recria/engorda (kg por dia) e em quantos dias acaba */
   dailyUseKg?: number | null
   daysLeft?: number | null
+  /** Preço por unidade (opcional) e peso do saco */
+  unitPrice?: number | null
+  packageKg?: number | null
 }
 
 const CATEGORIES = SUPPLY_CATEGORIES
@@ -37,11 +42,12 @@ export default function EstoquePage() {
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
   const [detail, setDetail] = useState<Supply | null>(null)
+  const [quick, setQuick] = useQuickFilter(['alerta'] as const)
   const [quoteFor, setQuoteFor] = useState<Supply | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [showMov, setShowMov] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '' })
+  const [form, setForm] = useState({ name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '' })
   const [mov, setMov] = useState({ type: 'Entrada', quantity: '', date: todayISO(), description: '' })
   const [isOnline, setIsOnline] = useState(true)
   const [pendingCount, setPendingCount] = useState(0)
@@ -106,7 +112,8 @@ export default function EstoquePage() {
   }
 
   const alertCount = supplies.filter(s => s.currentQuantity <= s.minimumQuantity).length
-  const { rows: sortedSupplies, sort } = useSort(supplies, {
+  const shown = quick ? supplies.filter(s => s.currentQuantity <= s.minimumQuantity) : supplies
+  const { rows: sortedSupplies, sort } = useSort(shown, {
     name: s => s.name, category: s => s.category, current: s => s.currentQuantity, minimum: s => s.minimumQuantity,
     status: s => (s.currentQuantity <= s.minimumQuantity ? 0 : 1),
   })
@@ -150,7 +157,7 @@ export default function EstoquePage() {
       setPendingCount(getPendingRecords('estoque').length)
       setSaving(false)
       setShowNew(false)
-      setForm({ name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '' })
+      setForm({ name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '' })
       return
     }
 
@@ -162,7 +169,7 @@ export default function EstoquePage() {
     })
     setSaving(false)
     setShowNew(false)
-    setForm({ name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '' })
+    setForm({ name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '' })
     loadData(farmId)
   }
 
@@ -185,7 +192,8 @@ export default function EstoquePage() {
     }
   }
 
-  const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR')
+  // Datas gravadas à meia-noite UTC: mostrar em UTC para não cair no dia anterior no horário de Brasília
+  const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
 
   const isLow = (s: Supply) => s.currentQuantity <= s.minimumQuantity
 
@@ -228,6 +236,8 @@ export default function EstoquePage() {
           <span><strong>{alertCount}</strong> insumo{alertCount > 1 ? 's' : ''} abaixo do estoque mínimo</span>
         </div>
       )}
+
+      {quick && <QuickFilterChip label="itens abaixo do estoque mínimo" count={shown.length} onClear={() => setQuick(null)} />}
 
       {loading ? <p className="text-gray-400 text-sm">Carregando...</p> : supplies.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
@@ -300,6 +310,8 @@ export default function EstoquePage() {
                     : detail.unit === 'sacos' ? 'Informe o peso do saco no lote para saber em quantos dias acaba.' : 'Cadastre o estoque em kg ou sacos para saber em quantos dias acaba.'}
                 </p>
               )}
+
+              <PriceLine supply={detail} canEdit={canEdit && isOnline} onSaved={(updated) => { setDetail({ ...detail, ...updated }); loadData(farmId) }} />
 
               <button onClick={() => setShowMov(true)} className="w-full bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg mb-2">
                 + Movimentação (Entrada / Saída)
@@ -437,6 +449,21 @@ export default function EstoquePage() {
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">Preço por {form.unit === 'sacos' ? 'saco' : form.unit} (R$, opcional)</label>
+                    <input inputMode="decimal" value={form.unitPrice} onChange={e => setForm({ ...form, unitPrice: e.target.value.replace(/[^\d.,]/g, '') })} placeholder="Ex.: 85,00"
+                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                  </div>
+                  {form.unit === 'sacos' && (
+                    <div>
+                      <label className="text-xs font-medium text-gray-600">Peso do saco (kg, opcional)</label>
+                      <input inputMode="decimal" value={form.packageKg} onChange={e => setForm({ ...form, packageKg: e.target.value.replace(/[^\d.,]/g, '') })} placeholder="Ex.: 25"
+                        className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500">Com o preço, o trato dos lotes mostra o custo por animal. Pode deixar em branco.</p>
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setShowNew(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
                   <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
@@ -449,5 +476,56 @@ export default function EstoquePage() {
       {quoteFor && <RequestQuote item={quoteFor} onClose={() => setQuoteFor(null)} />}
     </div>
     </PermissionGuard>
+  )
+}
+
+/** Preço por unidade e peso do saco (opcionais): com eles o trato dos lotes mostra o custo */
+function PriceLine({ supply, canEdit, onSaved }: { supply: Supply; canEdit: boolean; onSaved: (s: Partial<Supply>) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [price, setPrice] = useState(supply.unitPrice ? String(supply.unitPrice).replace('.', ',') : '')
+  const [bag, setBag] = useState(supply.packageKg ? String(supply.packageKg).replace('.', ',') : '')
+  const [error, setError] = useState('')
+  const unitName = supply.unit === 'sacos' ? 'saco' : supply.unit
+
+  async function save() {
+    setError('')
+    const res = await fetch(`/api/estoque/${supply.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ unitPrice: price, ...(supply.unit === 'sacos' && { packageKg: bag }) }),
+    }).catch(() => null)
+    if (!res?.ok) return setError('Não foi possível salvar')
+    const body = await res.json()
+    onSaved({ unitPrice: body.unitPrice, packageKg: body.packageKg })
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="mb-4 rounded-lg border border-gray-100 p-3">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-xs font-medium text-gray-600">Preço por {unitName} (R$)
+            <input inputMode="decimal" value={price} onChange={e => setPrice(e.target.value.replace(/[^\d.,]/g, ''))} placeholder="Ex.: 85,00" className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          </label>
+          {supply.unit === 'sacos' && (
+            <label className="text-xs font-medium text-gray-600">Peso do saco (kg)
+              <input inputMode="decimal" value={bag} onChange={e => setBag(e.target.value.replace(/[^\d.,]/g, ''))} placeholder="Ex.: 25" className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            </label>
+          )}
+        </div>
+        <p className="mt-1 text-xs text-gray-500">Opcional. Deixe em branco para não usar.</p>
+        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        <div className="mt-2 flex gap-2">
+          <button type="button" onClick={() => setEditing(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg">Cancelar</button>
+          <button type="button" onClick={() => void save()} className="flex-1 bg-green-700 text-white text-sm font-medium py-2 rounded-lg">Salvar</button>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <p className="mb-4 text-sm text-gray-600">
+      {supply.unitPrice ? <>Preço: <strong className="text-gray-800">{fmtMoney(supply.unitPrice)}</strong> por {unitName}</> : 'Sem preço informado'}
+      {supply.unit === 'sacos' && supply.packageKg ? ` · saco de ${supply.packageKg} kg` : ''}
+      {canEdit && <button type="button" onClick={() => setEditing(true)} className="ml-2 font-semibold text-green-700 underline">{supply.unitPrice ? 'Alterar' : 'Informar preço'}</button>}
+    </p>
   )
 }

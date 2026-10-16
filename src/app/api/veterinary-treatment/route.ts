@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
+import { parseWithdrawalDays } from '@/lib/withdrawal'
 
 export async function GET(request: NextRequest) {
   const auth = await requireFarmAccess('veterinario', 'view')
@@ -35,6 +36,11 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { animalId, startDate, endDate, medicine, batch, manufacturer, description, observations } = body
+    const milkWithdrawalDays = parseWithdrawalDays(body.milkWithdrawalDays)
+    const meatWithdrawalDays = parseWithdrawalDays(body.meatWithdrawalDays)
+    if (milkWithdrawalDays === 'invalid' || meatWithdrawalDays === 'invalid') {
+      return NextResponse.json({ error: 'A carência deve ser em dias, de 0 a 365' }, { status: 400 })
+    }
 
     if (!animalId || !startDate || !medicine) {
       return NextResponse.json({ error: 'Animal, data de início e medicamento são obrigatórios' }, { status: 400 })
@@ -48,6 +54,8 @@ export async function POST(request: NextRequest) {
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         medicine,
+        milkWithdrawalDays,
+        meatWithdrawalDays,
         batch,
         manufacturer,
         description,

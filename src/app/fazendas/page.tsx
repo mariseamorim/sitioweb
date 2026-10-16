@@ -6,6 +6,7 @@ import { useDialog } from '@/components/DialogProvider'
 import { useUser } from '@/contexts/UserContext'
 import { FARM_SEGMENTS } from '@/lib/farmSegments'
 import { PENDING_MESSAGE, hasPendingOnDevice, reloadInFarm, switchFarm } from '@/lib/farmSwitch'
+import { DOCUMENT_PLACEHOLDER, maskDocument, maskPhone } from '@/lib/masks'
 
 interface Farm {
   id: string
@@ -272,7 +273,7 @@ export default function PropriedadesPage() {
                     <label className="text-xs font-medium text-gray-600">Doc. Tipo</label>
                     <select
                       value={form.documentType}
-                      onChange={(e) => setForm({ ...form, documentType: e.target.value })}
+                      onChange={(e) => setForm({ ...form, documentType: e.target.value, documentNumber: maskDocument(form.documentNumber, e.target.value) })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                     >
                       <option value="CNPJ">CNPJ</option>
@@ -283,8 +284,9 @@ export default function PropriedadesPage() {
                     <label className="text-xs font-medium text-gray-600">Documento (CPF/CNPJ)</label>
                     <input
                       value={form.documentNumber}
-                      onChange={(e) => setForm({ ...form, documentNumber: e.target.value })}
-                      placeholder="000.000.000-00"
+                      onChange={(e) => setForm({ ...form, documentNumber: maskDocument(e.target.value, form.documentType) })}
+                      inputMode="numeric"
+                      placeholder={DOCUMENT_PLACEHOLDER[form.documentType] ?? DOCUMENT_PLACEHOLDER.CPF}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>
@@ -295,7 +297,9 @@ export default function PropriedadesPage() {
                     <label className="text-xs font-medium text-gray-600">Telefone</label>
                     <input
                       value={form.phone}
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })}
+                      inputMode="tel"
+                      placeholder="(35) 99999-0000"
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </div>

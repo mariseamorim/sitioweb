@@ -158,21 +158,35 @@ export default function MinhaAssociacaoPage() {
 }
 
 function PurchaseItem({ purchase: p, canOrder, onSaved }: { purchase: Purchase; canOrder: boolean; onSaved: () => void }) {
+  const { confirm } = useDialog()
   const [quantity, setQuantity] = useState(p.myQuantity ? String(p.myQuantity).replace('.', ',') : '')
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState('')
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null)
   const open = p.status === 'aberta'
+  const wanted = Number(quantity.replace(',', '.'))
+  const removing = !quantity.trim() || wanted === 0
 
   async function save() {
+    // Confirmação antes de mandar o pedido para a associação
+    const ok = removing
+      ? await confirm({ title: `Retirar seu pedido de ${p.title}?`, message: 'A associação deixa de contar a sua parte nesta compra.', confirmLabel: 'Retirar pedido', danger: true })
+      : await confirm({
+          title: 'Confirmar pedido?',
+          message: `${qtyWithUnit(wanted, p.unit)} de ${p.title}.${p.deadline ? ` Você pode alterar até ${fmtDay(p.deadline)}.` : ' Você pode alterar enquanto a compra estiver aberta.'}`,
+          confirmLabel: 'Confirmar pedido',
+        })
+    if (!ok) return
     setSaving(true)
-    setMessage('')
+    setResult(null)
     try {
       const res = await fetch('/api/minhas-associacoes/pedidos', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ purchaseId: p.id, quantity }) })
       const body = await res.json().catch(() => ({}))
-      setMessage(res.ok ? (body.quantity === null ? 'Pedido retirado.' : 'Pedido salvo.') : body.error || 'Não foi possível salvar')
+      setResult(res.ok
+        ? { ok: true, text: body.quantity === null ? 'Pedido retirado.' : `Pedido confirmado: ${qtyWithUnit(body.quantity, p.unit)}. A associação já recebeu.` }
+        : { ok: false, text: body.error || 'Não foi possível salvar' })
       if (res.ok) onSaved()
     } catch {
-      setMessage('Sem conexão. Tente de novo.')
+      setResult({ ok: false, text: 'Sem conexão. O pedido não foi enviado; tente de novo.' })
     } finally {
       setSaving(false)
     }
@@ -188,19 +202,26 @@ function PurchaseItem({ purchase: p, canOrder, onSaved }: { purchase: Purchase; 
         </div>
         {!open && <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">Fechada</span>}
       </div>
+      {open && canOrder && p.myQuantity ? (
+        <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-900">
+          <span aria-hidden="true">✓</span> Seu pedido confirmado: {qtyWithUnit(p.myQuantity, p.unit)}
+        </p>
+      ) : null}
       {open && canOrder ? (
         <div className="mt-2 flex items-center gap-2">
           <input value={quantity} onChange={(e) => setQuantity(e.target.value.replace(/[^\d.,]/g, ''))} inputMode="decimal" placeholder="0"
             aria-label={`Quantidade de ${p.title}`} className="w-28 rounded-lg border border-gray-300 px-3 py-2 text-right text-lg font-semibold" />
           <span className="text-gray-600">{p.unit}</span>
           <button type="button" onClick={save} disabled={saving} className="ml-auto rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-gray-300">
-            {saving ? 'Salvando...' : 'Salvar pedido'}
+            {saving ? 'Enviando...' : p.myQuantity ? 'Alterar pedido' : 'Fazer pedido'}
           </button>
         </div>
       ) : p.myQuantity ? (
         <p className="mt-2 text-sm font-semibold text-gray-800">Seu pedido: {qtyWithUnit(p.myQuantity, p.unit)}</p>
       ) : null}
-      {message && <p role="status" className="mt-1 text-sm text-green-800">{message}</p>}
+      {result && (
+        <p role="status" className={`mt-2 rounded-lg px-3 py-2 text-sm font-medium ${result.ok ? 'bg-green-50 text-green-900' : 'bg-red-50 text-red-700'}`}>{result.text}</p>
+      )}
     </li>
   )
 }

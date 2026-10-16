@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { type Point, field, send } from './types'
+import { maskPhone } from '@/lib/masks'
 
 const EMPTY = { name: '', kind: 'sitio', contactName: '', phone: '', address: '', tankLiters: '', accessNotes: '' }
 
@@ -62,7 +63,7 @@ export function PointsSection({ points, onChanged }: { points: Point[]; onChange
             <input value={form.contactName} onChange={set('contactName')} className={`${field} bg-white`} />
           </label>
           <label className="text-sm font-medium text-gray-700">Telefone
-            <input value={form.phone} onChange={set('phone')} inputMode="tel" placeholder="(35) 99999-0000" className={`${field} bg-white`} />
+            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })} inputMode="tel" placeholder="(35) 99999-0000" className={`${field} bg-white`} />
           </label>
           <label className="text-sm font-medium text-gray-700 sm:col-span-2">Localização / como chegar
             <input value={form.address} onChange={set('address')} placeholder="Ex.: estrada do Córrego Fundo, km 4" className={`${field} bg-white`} />

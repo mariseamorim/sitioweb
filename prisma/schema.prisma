@@ -101,6 +101,10 @@ model Animal {
   motherId     String?
   mother       Animal?   @relation("Crias", fields: [motherId], references: [id], onDelete: SetNull)
   calves       Animal[]  @relation("Crias")
+  /// Lote de recria/engorda em que o animal está (um por vez)
+  lotId        String?
+  lot          Lot?      @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  weighings    AnimalWeighing[]
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -113,6 +117,7 @@ model Animal {
   @@unique([farmId, code])
   @@unique([farmId, customCode])
   @@index([motherId])
+  @@index([lotId])
   @@map("animals")
 }
 
@@ -154,6 +159,10 @@ model VeterinaryTreatment {
   startDate    DateTime
   endDate      DateTime?
   medicine     String
+  /// Carência do medicamento, contada a partir do fim do tratamento (ou do início, sem fim):
+  /// leite que não pode ir para o tanque e animal que não pode ir para o abate
+  milkWithdrawalDays Int?
+  meatWithdrawalDays Int?
   batch        String?
   manufacturer String?
   description  String?
@@ -185,6 +194,14 @@ model Reproduction {
   femaleId          String
   female            Animal    @relation("ReproductionFemale", fields: [femaleId], references: [id], onDelete: Cascade)
   maleName          String?
+  /// Inseminação ("ia") ou monta natural ("natural")
+  method            String?
+  /// Quando a fêmea entrou no cio
+  heatDate          DateTime?
+  /// Lote/partida do sêmen (inseminação)
+  semenBatch        String?
+  /// Registro do touro (do sêmen ou da monta)
+  bullRegistry      String?
   coverageDate      DateTime
   expectedBirthDate DateTime?
   actualBirthDate   DateTime?
@@ -225,9 +242,12 @@ model Supply {
   minimumQuantity Float            @default(0)
   /// Quantos kg tem cada unidade, quando o estoque é em sacos (para saber em quantos dias acaba)
   packageKg       Float?
+  /// Preço por unidade do estoque (por saco, por kg...), opcional: com ele o trato mostra o custo
+  unitPrice       Float?
   farmId          String
   farm            Farm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  lots            Lot[] // lotes que recebem este suplemento
+  lotSupplies     LotSupply[] // lotes que recebem este produto
+  feedings        LotFeeding[]
   movements       SupplyMovement[]
   requests        SupplyRequest[]
   createdAt       DateTime         @default(now())
@@ -244,6 +264,8 @@ model SupplyMovement {
   quantity    Float
   date        DateTime
   description String?
+  /// Saída gerada por um trato de lote (apagar o trato devolve ao estoque)
+  feeding     LotFeeding?
   createdAt   DateTime @default(now())
 
   @@map("supply_movements")
@@ -405,12 +427,14 @@ model Lot {
   startDate     DateTime
   /// Preenchido quando o lote sai (vendido, abatido ou passou de fase)
   endDate       DateTime?
-  supplyId      String?
-  supply        Supply?       @relation(fields: [supplyId], references: [id], onDelete: SetNull)
-  /// Consumo do suplemento por dia, em % do peso vivo (ex.: 0,1 = 100 g por 100 kg)
-  supplyPercent Float?
+  /// Produtos dados ao lote (suplementos, sal, ração), cada um com seu consumo em % do peso vivo
+  supplies      LotSupply[]
+  /// Peso de saída desejado por cabeça (kg), para prever quando o lote chega lá
+  targetWeight  Float?
   notes         String?
   weighings     LotWeighing[]
+  animals       Animal[]
+  feedings      LotFeeding[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -426,10 +450,62 @@ model LotWeighing {
   date      DateTime
   headCount Int
   avgWeight Float // kg por cabeça
+  /// Pesos de cada animal, quando o lote tem animais cadastrados (a média vem deles)
+  animalWeighings AnimalWeighing[]
   createdAt DateTime @default(now())
 
   @@index([lotId, date])
   @@map("lot_weighings")
+}
+
+/// Produto dado a um lote, com o consumo por dia em % do peso vivo (ex.: 0,1 = 100 g por 100 kg)
+model LotSupply {
+  id       String @id @default(cuid())
+  lotId    String
+  lot      Lot    @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  supplyId String
+  supply   Supply @relation(fields: [supplyId], references: [id], onDelete: Cascade)
+  percent  Float?
+
+  @@unique([lotId, supplyId])
+  @@map("lot_supplies")
+}
+
+/// Trato no cocho: quanto suplemento o lote recebeu num dia (sai do estoque)
+model LotFeeding {
+  id          String          @id @default(cuid())
+  lotId       String
+  lot         Lot             @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  supplyId    String?
+  supply      Supply?         @relation(fields: [supplyId], references: [id], onDelete: SetNull)
+  date        DateTime
+  kg          Float
+  /// Quanto o % do peso vivo sugeria no dia (para previsto x dado)
+  suggestedKg Float?
+  /// Custo no dia, pelo preço do estoque (vazio sem preço)
+  cost        Float?
+  movementId  String?         @unique
+  movement    SupplyMovement? @relation(fields: [movementId], references: [id], onDelete: SetNull)
+  createdAt   DateTime        @default(now())
+
+  @@index([lotId, date])
+  @@map("lot_feedings")
+}
+
+/// Peso de um animal numa pesagem (individual ou do lote)
+model AnimalWeighing {
+  id            String       @id @default(cuid())
+  animalId      String
+  animal        Animal       @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  date          DateTime
+  weight        Float // kg
+  lotWeighingId String?
+  lotWeighing   LotWeighing? @relation(fields: [lotWeighingId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+
+  @@index([animalId, date])
+  @@index([lotWeighingId])
+  @@map("animal_weighings")
 }
 
 /// Propriedades a que o usuário tem acesso. User.farmId é a que está aberta agora;

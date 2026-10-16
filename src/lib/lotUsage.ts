@@ -5,14 +5,16 @@ import { dailySupplyKg, daysOfStock, stockKg } from '@/lib/lots'
 
 export async function supplyDailyUse(farmId: string): Promise<Map<string, number>> {
   const lots = await prisma.lot.findMany({
-    where: { farmId, endDate: null, supplyId: { not: null }, supplyPercent: { not: null } },
-    select: { supplyId: true, supplyPercent: true, weighings: { select: { headCount: true, avgWeight: true, date: true }, orderBy: { date: 'desc' }, take: 1 } },
+    where: { farmId, endDate: null, supplies: { some: { percent: { not: null } } } },
+    select: { supplies: { select: { supplyId: true, percent: true } }, weighings: { select: { headCount: true, avgWeight: true, date: true }, orderBy: { date: 'desc' }, take: 1 } },
   })
   const use = new Map<string, number>()
   for (const lot of lots) {
     const last = lot.weighings[0]
-    const kg = dailySupplyKg(last ? { ...last, date: '' } : null, lot.supplyPercent)
-    if (kg) use.set(lot.supplyId!, Math.round(((use.get(lot.supplyId!) ?? 0) + kg) * 10) / 10)
+    for (const item of lot.supplies) {
+      const kg = dailySupplyKg(last ? { ...last, date: '' } : null, item.percent)
+      if (kg) use.set(item.supplyId, Math.round(((use.get(item.supplyId) ?? 0) + kg) * 10) / 10)
+    }
   }
   return use
 }

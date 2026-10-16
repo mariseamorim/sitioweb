@@ -3,6 +3,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireFarmAccess } from '@/lib/auth'
 import { supplyDailyUse, withDailyUse } from '@/lib/lotUsage'
 
+// Preço por unidade e peso do saco: opcionais (vazio apaga)
+function optionalNumber(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined
+  if (value === null || value === '') return null
+  const n = Number(String(value).replace(',', '.'))
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : undefined
+}
+
 export async function GET() {
   const auth = await requireFarmAccess('estoque', 'view')
   if (auth.error) return auth.error
@@ -31,7 +39,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { name, category, unit, currentQuantity, minimumQuantity } = body
+    const { name, category, unit, currentQuantity, minimumQuantity, unitPrice, packageKg } = body
 
     if (!name || !category || !unit) {
       return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
@@ -45,6 +53,8 @@ export async function POST(request: NextRequest) {
         unit,
         currentQuantity: parseFloat(currentQuantity) || 0,
         minimumQuantity: parseFloat(minimumQuantity) || 0,
+        unitPrice: optionalNumber(unitPrice) ?? null,
+        packageKg: optionalNumber(packageKg) ?? null,
       },
       include: { movements: true },
     })

@@ -109,13 +109,13 @@ export default async function Home() {
 
   const stats: { href: string; label: string; value: number | string; Icon: (p: { className?: string }) => React.ReactNode; tone: StatTone }[] = [
     { href: '/animais', label: 'Total de animais', value: totalAnimals, Icon: AnimalIcon, tone: 'neutral' },
-    { href: '/animais', label: 'Animais vivos', value: aliveAnimals, Icon: CheckIcon, tone: 'neutral' },
+    { href: '/animais?filtro=vivos', label: 'Animais vivos', value: aliveAnimals, Icon: CheckIcon, tone: 'neutral' },
     ...(does('leite') ? [{ href: '/milk-production', label: 'Registros de leite', value: milkCount, Icon: LeiteIcon, tone: 'neutral' as StatTone }] : []),
     { href: '/veterinary-treatment', label: 'Tratamentos', value: vetCount, Icon: TratamentoIcon, tone: 'neutral' },
-    { href: '/vacinacao', label: 'Vacinas pendentes', value: vaccinePending, Icon: VacinaIcon, tone: vaccinePending > 0 ? 'warn' : 'muted' },
-    { href: '/reproducao', label: 'Partos esperados', value: upcomingBirths, Icon: ReproducaoIcon, tone: upcomingBirths > 0 ? 'warn' : 'muted' },
+    { href: '/vacinacao?filtro=pendentes', label: 'Vacinas pendentes', value: vaccinePending, Icon: VacinaIcon, tone: vaccinePending > 0 ? 'warn' : 'muted' },
+    { href: '/reproducao?filtro=partos', label: 'Partos esperados', value: upcomingBirths, Icon: ReproducaoIcon, tone: upcomingBirths > 0 ? 'warn' : 'muted' },
     { href: '/financeiro', label: 'Saldo do mês', value: fmtBRL(monthBalance), Icon: FinanceiroIcon, tone: monthBalance >= 0 ? 'good' : 'bad' },
-    { href: '/estoque', label: 'Itens em alerta', value: lowStockCount, Icon: EstoqueIcon, tone: lowStockCount > 0 ? 'warn' : 'muted' },
+    { href: '/estoque?filtro=alerta', label: 'Itens em alerta', value: lowStockCount, Icon: EstoqueIcon, tone: lowStockCount > 0 ? 'warn' : 'muted' },
   ]
 
 
@@ -178,11 +178,11 @@ export default async function Home() {
           <p className="mt-1 mb-4 text-sm text-gray-600">Vacas a partir de 2 anos e meio. Com bezerro ao pé: cria viva de até 8 meses cadastrada como filha dela.</p>
           <div className="grid grid-cols-3 gap-3 sm:gap-4">
             {[
-              ['Matrizes', matrices.length, 'text-gray-900'],
-              ['Com bezerro ao pé', withCalf, 'text-green-700'],
-              ['Solteiras', matrices.length - withCalf, 'text-gray-900'],
-            ].map(([label, value, tone]) => (
-              <Link key={label} href="/animais" className="rounded-xl border border-gray-200 bg-white p-4 hover:border-gray-300 sm:p-5">
+              ['Matrizes', matrices.length, 'text-gray-900', 'matrizes'],
+              ['Com bezerro ao pé', withCalf, 'text-green-700', 'com-cria'],
+              ['Solteiras', matrices.length - withCalf, 'text-gray-900', 'solteiras'],
+            ].map(([label, value, tone, filter]) => (
+              <Link key={label} href={`/animais?filtro=${filter}`} className="rounded-xl border border-gray-200 bg-white p-4 hover:border-gray-300 sm:p-5">
                 <p className="text-sm font-medium leading-tight text-gray-500">{label}</p>
                 <p className={`mt-3 text-3xl font-bold ${tone}`}>{value}</p>
               </Link>

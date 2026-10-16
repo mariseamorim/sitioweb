@@ -57,6 +57,8 @@ export interface LiteData {
   collections: LiteCollection[]
   /** Valor do litro informado (opcional), para estimar quanto vai receber */
   milkPrice: number | null
+  /** Versão completa: animais com leite em carência de medicamento (não vai para o tanque) */
+  milkWithdrawals?: { animalName: string; medicine: string; until: string }[]
   /** Produtor: litros da folha do motorista em cada coleta, para conferir (o motorista não usa) */
   sheets?: LiteSheet[]
   /** Motorista de laticínio: dia da semana de hoje (0 = domingo), para mostrar as rotas do dia */

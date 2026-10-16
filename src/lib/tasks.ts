@@ -5,6 +5,7 @@ import { monthsLabel, pregnancyChecks } from '@/lib/calving'
 import { associationAlerts } from '@/lib/associacao'
 import { supplyDailyUse, withDailyUse } from '@/lib/lotUsage'
 import { STOCK_WARNING_DAYS } from '@/lib/lots'
+import { activeWithdrawals } from '@/lib/withdrawal'
 
 // Tarefas do dia mostradas no sino de notificações da barra do topo
 
@@ -131,6 +132,18 @@ export async function getTodayTasks(
       href: matchingOffers ? '/ofertas' : '/estoque',
       tone: 'amber',
     })
+  }
+  // Carência de medicamento: leite fora do tanque (vermelho) e animal fora do abate
+  if (can('leite') || can('veterinario') || can('animais')) {
+    for (const w of await activeWithdrawals(farmId, today)) {
+      const until = (iso: string) => fmtDay(new Date(iso))
+      if (w.milkUntil && (can('leite') || can('veterinario'))) {
+        tasks.push({ title: `Leite de ${w.animalName} fora do tanque até ${until(w.milkUntil)}`, detail: `Carência de ${w.medicine}`, href: '/veterinary-treatment', tone: 'red' })
+      }
+      if (w.meatUntil && (can('animais') || can('veterinario'))) {
+        tasks.push({ title: `${w.animalName} não pode ir para o abate até ${until(w.meatUntil)}`, detail: `Carência de ${w.medicine}`, href: '/veterinary-treatment', tone: 'amber' })
+      }
+    }
   }
   // Suplemento dos lotes que acaba logo (ainda acima do mínimo; abaixo dele já entra em "Repor estoque")
   if (supplies.length) {

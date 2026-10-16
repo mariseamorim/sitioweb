@@ -15,6 +15,7 @@ import { HerdCalvingPanel, PregnancyCheckPanel } from '@/components/HerdCalvingP
 import { canBreed } from '@/lib/animalRules'
 import { pregnancyChecks, type PregnancyCheck } from '@/lib/calving'
 import { AddCalfForm } from '@/components/CalfSection'
+import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 
 interface Animal { id: string; name: string; code: string; species: string; gender: string; status: string; birthDate: string; motherId?: string | null }
 
@@ -29,6 +30,11 @@ interface Reproduction {
   status: string
   calfId?: string | null
   observations?: string | null
+  /** Cobertura: cio, inseminação ("ia") ou monta ("natural"), sêmen e registro do touro */
+  method?: string | null
+  heatDate?: string | null
+  semenBatch?: string | null
+  bullRegistry?: string | null
 }
 
 const STATUS_LIST = ['Coberta', 'Prenha', 'Parida', 'Vazia', 'Perdida']
@@ -52,7 +58,9 @@ export default function ReproducaoPage() {
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
   const [filterStatus, setFilterStatus] = useState('Todas')
+  const [quick, setQuick] = useQuickFilter(['partos'] as const)
   const [detail, setDetail] = useState<Reproduction | null>(null)
+  const [editingRecord, setEditingRecord] = useState(false)
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ femaleId: '', maleName: '', coverageDate: todayISO(), status: 'Coberta', observations: '' })
@@ -130,8 +138,10 @@ export default function ReproducaoPage() {
 
   const filtered = useMemo(() => {
     const term = animalSearch.trim().toLowerCase()
-    return reproductions.filter(r => (filterStatus === 'Todas' || r.status === filterStatus) && animalSearchText(r.female).includes(term))
-  }, [reproductions, filterStatus, animalSearch])
+    const in30 = new Date(); in30.setDate(in30.getDate() + 30)
+    const birthSoon = (r: Reproduction) => (r.status === 'Coberta' || r.status === 'Prenha') && !!r.expectedBirthDate && !r.actualBirthDate && new Date(r.expectedBirthDate) <= in30
+    return reproductions.filter(r => (quick ? birthSoon(r) : filterStatus === 'Todas' || r.status === filterStatus) && animalSearchText(r.female).includes(term))
+  }, [reproductions, filterStatus, animalSearch, quick])
   const { rows: sortedReproductions, sort } = useSort(filtered, {
     female: r => r.female.name, male: r => r.maleName ?? '', coverage: r => new Date(r.coverageDate),
     expected: r => (r.expectedBirthDate ? new Date(r.expectedBirthDate) : null), status: r => r.status,
@@ -237,7 +247,8 @@ export default function ReproducaoPage() {
     loadData(farmId)
   }
 
-  const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR')
+  // Datas gravadas à meia-noite UTC: mostrar em UTC para não cair no dia anterior no horário de Brasília
+  const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
   // Cobertura em aberto: dá para registrar o parto anotando a cria
   const birthMother = detail && canEdit && !detail.actualBirthDate && !detail.id.startsWith('pending_') && (detail.status === 'Coberta' || detail.status === 'Prenha')
     ? herd.find((a) => a.id === detail.femaleId)
@@ -289,9 +300,10 @@ export default function ReproducaoPage() {
         </div>
       )}
 
+      {quick && <QuickFilterChip label="partos esperados nos próximos 30 dias" count={filtered.length} onClear={() => setQuick(null)} />}
       <div className="flex flex-wrap gap-2 mb-4">
         {(['Todas', ...STATUS_LIST]).map(s => (
-          <button key={s} onClick={() => setFilterStatus(s)}
+          <button key={s} onClick={() => { setQuick(null); setFilterStatus(s) }}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterStatus === s ? 'bg-green-700 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
             {s}
           </button>
@@ -320,7 +332,7 @@ export default function ReproducaoPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {sortedReproductions.map(r => (
-                <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetail(r); setRegisteringBirth(false); setEditStatus(r.status); setEditBirthDate(r.actualBirthDate?.slice(0, 10) || '') }}>
+                <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetail(r); setEditingRecord(false); setRegisteringBirth(false); setEditStatus(r.status); setEditBirthDate(r.actualBirthDate?.slice(0, 10) || '') }}>
                   <td className="px-4 py-3 font-medium text-gray-800">{r.female.name}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{r.maleName || '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{fmt(r.coverageDate)}</td>
@@ -349,7 +361,9 @@ export default function ReproducaoPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
-                <div><p className="text-xs text-gray-500">Reprodutor</p><p className="font-medium text-gray-800">{detail.maleName || '—'}</p></div>
+                <div><p className="text-xs text-gray-500">Reprodutor</p><p className="font-medium text-gray-800">{detail.maleName || '—'}{detail.bullRegistry ? ` · ${detail.bullRegistry}` : ''}</p></div>
+                {detail.method && <div><p className="text-xs text-gray-500">Tipo</p><p className="font-medium text-gray-800">{detail.method === 'ia' ? 'Inseminação' : 'Monta natural'}{detail.semenBatch ? ` · sêmen ${detail.semenBatch}` : ''}</p></div>}
+                {detail.heatDate && <div><p className="text-xs text-gray-500">Cio</p><p className="font-medium text-gray-800">{fmt(detail.heatDate)}</p></div>}
                 <div><p className="text-xs text-gray-500">Parto Esperado</p><p className="font-medium text-gray-800">{detail.expectedBirthDate ? fmt(detail.expectedBirthDate) : '—'}</p></div>
                 {detail.actualBirthDate && <div><p className="text-xs text-gray-500">Parto Real</p><p className="font-medium text-green-700">{fmt(detail.actualBirthDate)}</p></div>}
                 {detail.observations && <div className="sm:col-span-2"><p className="text-xs text-gray-500">Observações</p><p className="text-gray-700">{detail.observations}</p></div>}
@@ -370,6 +384,10 @@ export default function ReproducaoPage() {
                   </button>
                 )
               )}
+
+              {canEdit && !detail.id.startsWith('pending_') && (editingRecord
+                ? <RecordEditor record={detail} onCancel={() => setEditingRecord(false)} onSaved={() => { setEditingRecord(false); setDetail(null); loadData(farmId) }} />
+                : <button type="button" onClick={() => setEditingRecord(true)} className="mb-4 w-full border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-lg hover:bg-gray-50">Editar registro</button>)}
 
               <div className="border-t border-gray-100 pt-4 mb-4">
                 <p className="text-xs font-semibold text-gray-600 mb-2">Atualizar status</p>
@@ -443,5 +461,77 @@ export default function ReproducaoPage() {
         </div>
       )}
     </PermissionGuard>
+  )
+}
+
+/** Corrigir a cobertura: datas, reprodutor, inseminação ou monta, sêmen, registro do touro e observações */
+function RecordEditor({ record, onCancel, onSaved }: { record: Reproduction; onCancel: () => void; onSaved: () => void }) {
+  const day = (v?: string | null) => (v ? v.slice(0, 10) : '')
+  const [form, setForm] = useState({
+    coverageDate: day(record.coverageDate), expectedBirthDate: day(record.expectedBirthDate), heatDate: day(record.heatDate),
+    method: record.method ?? '', maleName: record.maleName ?? '', bullRegistry: record.bullRegistry ?? '', semenBatch: record.semenBatch ?? '',
+    observations: record.observations ?? '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const field = 'mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600'
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      // A data da cobertura recalcula o parto previsto; a previsão digitada vale por cima
+      const res = await fetch(`/api/reproducao/${record.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, method: form.method || null, status: record.status }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Não foi possível salvar')
+      onSaved()
+    } catch (err) {
+      setError(navigator.onLine ? (err as Error).message : 'Sem internet. Tente de novo quando houver sinal.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-gray-200 p-3 sm:grid-cols-2">
+      <label className="text-xs font-medium text-gray-600">Data da cobertura
+        <input type="date" required value={form.coverageDate} onChange={e => setForm({ ...form, coverageDate: e.target.value })} className={field} />
+      </label>
+      <label className="text-xs font-medium text-gray-600">Parto estimado
+        <input type="date" value={form.expectedBirthDate} onChange={e => setForm({ ...form, expectedBirthDate: e.target.value })} className={field} />
+      </label>
+      <label className="text-xs font-medium text-gray-600">Data do cio
+        <input type="date" value={form.heatDate} onChange={e => setForm({ ...form, heatDate: e.target.value })} className={field} />
+      </label>
+      <label className="text-xs font-medium text-gray-600">Tipo
+        <select value={form.method} onChange={e => setForm({ ...form, method: e.target.value })} className={field}>
+          <option value="">Não informado</option>
+          <option value="ia">Inseminação</option>
+          <option value="natural">Monta natural</option>
+        </select>
+      </label>
+      <label className="text-xs font-medium text-gray-600">Reprodutor (nome)
+        <input value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} className={field} />
+      </label>
+      <label className="text-xs font-medium text-gray-600">Registro do touro
+        <input value={form.bullRegistry} onChange={e => setForm({ ...form, bullRegistry: e.target.value })} className={field} />
+      </label>
+      {form.method !== 'natural' && (
+        <label className="text-xs font-medium text-gray-600">Lote do sêmen
+          <input value={form.semenBatch} onChange={e => setForm({ ...form, semenBatch: e.target.value })} className={field} />
+        </label>
+      )}
+      <label className="text-xs font-medium text-gray-600 sm:col-span-2">Observações
+        <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2} className={field} />
+      </label>
+      {error && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{error}</p>}
+      <div className="flex gap-2 sm:col-span-2">
+        <button type="button" onClick={onCancel} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg">Cancelar</button>
+        <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar alteração'}</button>
+      </div>
+    </form>
   )
 }

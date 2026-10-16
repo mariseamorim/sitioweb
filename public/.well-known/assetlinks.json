@@ -3,8 +3,8 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "app.vercel.sitioweb_alpha.twa",
-      "sha256_cert_fingerprints": ["20:1F:6F:09:5B:F8:8B:EC:48:3F:4E:0B:02:29:75:51:BA:A1:5D:4F:0C:0B:8C:14:BD:8A:31:C0:CB:09:7F:7B"]
+      "package_name": "br.com.anotaaiagro.www.twa",
+      "sha256_cert_fingerprints": ["C1:24:55:1A:C4:57:8A:5D:73:93:AB:39:BB:41:C0:10:FA:57:82:58:03:74:E1:84:F1:3E:9C:41:2C:02:EA:8F"]
     }
   }
 ]
