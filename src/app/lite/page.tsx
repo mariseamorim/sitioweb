@@ -13,6 +13,7 @@ import { PointOp, applyChanges, applyPointOps, applySheets, applySplits, enqueue
 import { exportCSV } from '@/lib/reportExport'
 import { fmtMoney, fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
+import { logoutKeepingDevice } from '@/lib/offlineUnlock'
 
 type Tab = 'anotar' | 'historico' | 'locais' | 'conferir' | 'nomes'
 
@@ -240,8 +241,9 @@ export default function LitePage() {
       await notify('Ainda há anotações não enviadas', 'Conecte-se à internet para enviá-las antes de sair, senão elas se perdem.')
       return
     }
-    if (!(await confirm({ title: 'Sair do Anota Aí Leite?', confirmLabel: 'Sair' }))) return
-    try { localStorage.clear() } catch {}
+    if (!(await confirm({ title: 'Sair do Anota Aí Leite?', message: 'Suas anotações ficam neste aparelho para você entrar sem internet com a mesma senha. Para apagar tudo, use "Sair e apagar" em Meu cadastro.', confirmLabel: 'Sair' }))) return
+    // Sai, mas deixa os dados e a credencial no aparelho (entrar sem internet)
+    logoutKeepingDevice()
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
     window.location.href = '/login?next=/lite'
   }

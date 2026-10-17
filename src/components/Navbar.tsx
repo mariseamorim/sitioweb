@@ -11,6 +11,7 @@ import { TaskBell } from '@/components/TaskBell';
 import { FarmSwitcher } from '@/components/FarmSwitcher';
 import { useDialog } from '@/components/DialogProvider';
 import { countAllPendingOnDevice } from '@/lib/offlineStorage';
+import { logoutKeepingDevice } from '@/lib/offlineUnlock';
 
 type NavLink = { href: string; label: string; module: string | null; adminOnly?: boolean; Icon: (p: { className?: string }) => React.ReactNode };
 
@@ -122,16 +123,13 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
       );
       return;
     }
-    // Sem internet não dá para entrar de novo: a senha é conferida no servidor
-    if (!navigator.onLine && !(await confirm({
-      title: 'Você está sem internet',
-      message: 'Se sair agora, só vai conseguir entrar de novo quando tiver sinal. Sair mesmo assim?',
+    if (!(await confirm({
+      title: 'Sair?',
+      message: 'Seus dados ficam neste aparelho para você entrar sem internet com a mesma senha. Para apagar tudo do aparelho, use "Sair e apagar" em Meu cadastro.',
       confirmLabel: 'Sair',
-      danger: true,
     }))) return;
-    localStorage.clear();
-    sessionStorage.clear();
-    if ('caches' in window) void caches.keys().then(names => Promise.all(names.map(name => caches.delete(name))));
+    // Sai, mas deixa os dados e a credencial no aparelho (entrar sem internet)
+    logoutKeepingDevice();
     try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
     setOpenPath(null);
     router.push('/login');

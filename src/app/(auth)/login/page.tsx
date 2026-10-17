@@ -7,7 +7,8 @@ import Image from 'next/image'
 import Link from 'next/link';
 import { BackLink } from '@/components/BackLink'
 import { forgetWarmedPages, warmOfflinePages } from '@/components/PwaRegistration'
-import { readCachedUser, type UserData } from '@/contexts/UserContext'
+import { readCachedUser, writeCachedUser, type UserData } from '@/contexts/UserContext'
+import { canUnlockOffline, offlineCredentialFor, saveOfflineCredential, unlockOffline } from '@/lib/offlineUnlock'
 import { homeForRole } from '@/lib/organizations'
 
 export default function LoginPage() {
@@ -33,12 +34,29 @@ export default function LoginPage() {
     window.location.href = homeForRole(cached?.role)
   }
 
+  // Sem internet: confere a senha com o que ficou guardado da última entrada neste aparelho
+  async function enterOffline() {
+    const user = await unlockOffline(login, password).catch(() => null);
+    if (user) {
+      writeCachedUser(user);
+      window.location.href = homeForRole(user.role);
+      return true;
+    }
+    setOffline(true);
+    setCached(readCachedUser());
+    setError(offlineCredentialFor(login)
+      ? 'Senha incorreta.'
+      : 'Sem internet. Para entrar sem sinal, entre uma vez com internet neste aparelho com este telefone ou e-mail.');
+    return false;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
+      if (!navigator.onLine) { await enterOffline(); return; }
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,13 +73,18 @@ export default function LoginPage() {
       // As telas guardadas eram de quem entrou antes: refaz para esta pessoa
       forgetWarmedPages();
       await warmOfflinePages(true);
+      // Guarda a senha como hash para poder entrar sem internet da próxima vez
+      try {
+        const me = await fetch('/api/auth/me').then((r) => (r.ok ? r.json() : null));
+        if (me) await saveOfflineCredential(me as UserData, password);
+      } catch {}
       // Volta para onde a pessoa estava (ex.: link de convite de fornecedor)
       const next = new URLSearchParams(window.location.search).get('next');
       window.location.href = safeNext(next);
     } catch {
-      setOffline(true);
-      setCached(readCachedUser());
-      setError(navigator.onLine ? 'Não foi possível falar com o servidor. Tente de novo em instantes.' : '');
+      // Servidor fora de alcance: tenta sem internet
+      if (await enterOffline()) return;
+      if (navigator.onLine) setError('Não foi possível falar com o servidor. Tente de novo em instantes.');
     } finally {
       setLoading(false);
     }
@@ -86,7 +109,7 @@ export default function LoginPage() {
           {offline && (
             <div role="status" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <p className="font-semibold">Você está sem internet</p>
-              <p className="mt-1">Para entrar é preciso sinal. Depois de entrar uma vez, o app abre sem internet.</p>
+              <p className="mt-1">{canUnlockOffline() ? 'Se você já entrou uma vez com internet neste aparelho, pode entrar agora com o mesmo telefone ou e-mail e senha.' : 'Para entrar é preciso sinal. Depois de entrar uma vez, o app abre sem internet.'}</p>
               {cached && (
                 <button type="button" onClick={continueOffline} className="mt-3 w-full rounded-lg bg-green-700 py-2.5 font-semibold text-white hover:bg-green-600">
                   Continuar sem internet como {cached.name}
@@ -132,10 +155,10 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading || offline}
+              disabled={loading || (offline && !canUnlockOffline())}
               className="w-full bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white font-medium py-2 rounded-lg text-sm transition-colors mt-2"
             >
-              {loading ? 'Entrando...' : offline ? 'Sem internet para entrar' : 'Entrar'}
+              {loading ? 'Entrando...' : offline ? (canUnlockOffline() ? 'Entrar sem internet' : 'Sem internet para entrar') : 'Entrar'}
             </button>
           </form>
 
