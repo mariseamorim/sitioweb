@@ -8,13 +8,13 @@ import { OfflineVoiceSetup, VoiceButton } from '@/components/VoiceButton'
 import { RouteStopInfo } from '@/components/RouteStopInfo'
 import { useDialog } from '@/components/DialogProvider'
 import { SetaDireitaIcon, SemSinalIcon, SincronizarIcon, CheckIcon } from '@/components/ModuleIcons'
-import { KIND_LABEL, LiteChange, LiteData, LitePoint, LiteSheetChange, PointKind, SHEET_ALERT_PERCENT, checkSheets, isDriverRole, isLiteOnlyRole, parseLiters } from '@/lib/lite'
-import { PointOp, applyChanges, applyPointOps, applySheets, enqueue, enqueuePoint, enqueueSheet, newPointId, pendingChanges, pendingCount, pendingPointOps, pendingSheets, readCache, syncLite, writeCache } from '@/lib/liteStore'
+import { KIND_LABEL, LiteChange, LiteData, LitePayee, LitePoint, LiteSheetChange, LiteSplitChange, PointKind, SHEET_ALERT_PERCENT, checkSheets, isDriverRole, isLiteOnlyRole, lastSplit, litersSinceLastSplit, parseLiters, suggestSplit, totalsByPayee } from '@/lib/lite'
+import { PointOp, applyChanges, applyPointOps, applySheets, applySplits, enqueue, enqueuePoint, enqueueSheet, enqueueSplits, newPointId, pendingChanges, pendingCount, pendingPointOps, pendingSheets, pendingSplits, readCache, syncLite, writeCache } from '@/lib/liteStore'
 import { exportCSV } from '@/lib/reportExport'
 import { fmtMoney, fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
 
-type Tab = 'anotar' | 'historico' | 'locais' | 'conferir'
+type Tab = 'anotar' | 'historico' | 'locais' | 'conferir' | 'nomes'
 
 function shiftDay(iso: string, days: number) {
   const d = new Date(iso)
@@ -58,7 +58,7 @@ export default function LitePage() {
     // (Lido após a montagem para o HTML do servidor e o do navegador serem iguais.)
     void Promise.resolve().then(() => {
       const cached = readCache()
-      if (cached) setData(applySheets(applyChanges(applyPointOps(cached, pendingPointOps()), pendingChanges()), pendingSheets()))
+      if (cached) setData(applySplits(applySheets(applyChanges(applyPointOps(cached, pendingPointOps()), pendingChanges()), pendingSheets()), pendingSplits()))
       setPending(pendingCount())
       setOnline(navigator.onLine)
       return sync()
@@ -88,7 +88,7 @@ export default function LitePage() {
   const dayCollections = (data?.collections ?? []).filter((c) => c.date === date)
   const tabs = driver
     ? ([['anotar', 'Anotar'], ['historico', 'Histórico'], ['locais', 'Rota']] as const)
-    : ([['anotar', 'Anotar'], ['historico', 'Histórico'], ['conferir', 'Conferir']] as const)
+    : ([['anotar', 'Anotar'], ['historico', 'Histórico'], ['conferir', 'Conferir'], ['nomes', 'Nomes']] as const)
   const saved = useMemo(() => {
     const map = new Map<string, number>()
     for (const e of data?.entries ?? []) if (e.date === date) map.set(e.pointId, e.liters)
@@ -213,6 +213,21 @@ export default function LitePage() {
     if (navigator.onLine) void sync()
   }
 
+  // Divisão da nota no dia da coleta: guarda no celular e envia quando houver internet
+  function saveSplits(changes: LiteSplitChange[]) {
+    enqueueSplits(changes)
+    setData((d) => (d ? applySplits(d, changes) : d))
+    setPending(pendingCount())
+    setMessage(navigator.onLine ? 'Divisão salva.' : 'Divisão salva no celular. Será enviada quando houver internet.')
+    setTimeout(() => setMessage(''), 4000)
+    if (navigator.onLine) void sync()
+  }
+
+  // Nomes da nota alterados (cadastro com internet): atualiza a cópia do aparelho
+  function payeesChanged(payees: LitePayee[]) {
+    setData((d) => { if (!d) return d; const next = { ...d, payees }; writeCache(next); return next })
+  }
+
   function pointOp(op: PointOp) {
     enqueuePoint(op)
     setData((d) => (d ? applyPointOps(d, [op]) : d))
@@ -262,7 +277,7 @@ export default function LitePage() {
             </Link>
           )}
         </div>
-        <nav className={`mx-auto max-w-xl px-4 pb-2 grid gap-1 ${tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`} aria-label="Seções">
+        <nav className={`mx-auto max-w-xl px-4 pb-2 grid gap-1 ${tabs.length === 4 ? 'grid-cols-4' : tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`} aria-label="Seções">
           {tabs.map(([t, label]) => (
             <button key={t} type="button" onClick={() => setTab(t)} aria-current={tab === t ? 'page' : undefined}
               className={`py-2.5 rounded-lg text-sm font-semibold ${tab === t ? 'bg-green-700 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
@@ -367,6 +382,9 @@ export default function LitePage() {
                 ))}
               </div>
               )}
+              {!driver && activePoints.map((p) => (
+                <SplitCard key={`${p.id}|${date}`} data={data} point={p} date={date} canWrite={canWrite} showName={!single} onSave={saveSplits} />
+              ))}
               {canWrite && <OfflineVoiceSetup online={online} />}
 
               {(data.milkWithdrawals ?? []).length > 0 && (
@@ -399,6 +417,8 @@ export default function LitePage() {
             onPriceSaved={(milkPrice) => { const d = { ...data, milkPrice }; setData(d); writeCache(d) }} />
         ) : tab === 'conferir' && !driver ? (
           <Conferir data={data} online={online} canWrite={canWrite} onSave={saveSheet} />
+        ) : tab === 'nomes' && !driver ? (
+          <Nomes data={data} online={online} canWrite={canWrite} onChanged={payeesChanged} />
         ) : driver ? (
           <Points data={data} online={online} onPointOp={pointOp} onChanged={(d) => { setData(d); writeCache(d) }} />
         ) : null}
@@ -618,6 +638,14 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
   const periodCollections = (data.collections ?? []).filter((c) => c.date >= from && c.date <= today)
   const collected = periodCollections.reduce((s, c) => s + c.liters, 0)
   const best = dayList.reduce<[string, number] | null>((b, [day, d]) => (!b || d.total > b[1] ? [day, d.total] : b), null)
+  // Nota com mais de um nome: quanto cada nome recebe no período (soma das divisões das coletas)
+  const payeesInScope = (data.payees ?? []).filter((p) => !pointId || p.pointId === pointId)
+  const payeeIds = new Set(payeesInScope.map((p) => p.id))
+  const splitsInScope = (data.splits ?? []).filter((s) => payeeIds.has(s.payeeId))
+  const payeeLiters = totalsByPayee(splitsInScope, from, today)
+  const payeeTotals = payeesInScope.filter((p) => payeeLiters.has(p.id)).map((p) => ({ payee: p, liters: payeeLiters.get(p.id)! }))
+  const payeeSum = payeeTotals.reduce((t, x) => t + x.liters, 0)
+  const splitDays = new Set(splitsInScope.filter((x) => x.date >= from && x.date <= today).map((x) => x.date))
   // Gráfico: um traço por dia em 7 e 30 dias; em 90 dias, um por semana para caber na tela
   const step = days > 30 ? 7 : 1
   const bars: { label: string; title: string; liters: number }[] = []
@@ -713,6 +741,24 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
         </div>
       </div>
 
+      {payeeTotals.length > 0 && (
+        <section className="mt-3 rounded-2xl border border-gray-200 bg-white p-4" aria-label="Por nome da nota">
+          <div className="flex justify-between">
+            <h2 className="text-sm font-semibold text-gray-700">Por nome da nota</h2>
+            <span className="text-sm font-bold text-gray-900">{fmtNumber(payeeSum)} L</span>
+          </div>
+          <ul className="mt-2 space-y-1">
+            {payeeTotals.map(({ payee, liters }) => (
+              <li key={payee.id} className="flex items-center justify-between gap-3 text-sm">
+                <span className="min-w-0 truncate text-gray-800">{payee.producerCode ? <span className="font-mono text-xs text-gray-500">{payee.producerCode} </span> : null}{payee.name}</span>
+                <span className="shrink-0 font-semibold text-gray-900">{fmtNumber(liters)} L <span className="text-xs font-normal text-gray-500">{payeeSum ? Math.round((liters / payeeSum) * 100) : 0}%</span></span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-gray-500">É o que cada nome recebe do laticínio nas coletas do período. Compare com o depósito.</p>
+        </section>
+      )}
+
       {total > 0 && (
         <section className="mt-3 rounded-2xl border border-gray-200 bg-white p-4" aria-label="Litros por dia">
           <h2 className="text-sm font-semibold text-gray-700">{step === 1 ? 'Litros por dia' : 'Litros por semana'}</h2>
@@ -782,7 +828,7 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
             {dayList.map(([day, d]) => (
               <li key={day} className="px-4 py-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-700">{fmtDay(day)} <span className="text-xs text-gray-400">{fmtDay(day, { weekday: 'short' })}</span></span>
+                  <span className="text-gray-700">{fmtDay(day)} <span className="text-xs text-gray-400">{fmtDay(day, { weekday: 'short' })}</span>{splitDays.has(day) && <span className="ml-1.5 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-800">coleta</span>}</span>
                   <span className="flex items-center gap-3">
                     <span className="font-semibold text-gray-900">{fmtNumber(d.total)} L</span>
                     {canWrite && <button type="button" onClick={() => onOpenDay(day)} className="text-sm font-semibold text-green-700">Alterar</button>}
@@ -803,6 +849,270 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
         className="mt-5 w-full border-2 border-green-700 text-green-800 font-semibold py-3 rounded-xl disabled:border-gray-300 disabled:text-gray-400">
         Baixar planilha{selected ? ` de ${selected.name}` : ''}
       </button>
+    </div>
+  )
+}
+
+// ── Nota do laticínio com mais de um nome ───────────────────────────────
+
+const fmtInput = (n: number) => String(n).replace('.', ',')
+
+/** No dia da coleta: quanto do leite desde a última coleta vai para cada nome da nota.
+ *  Montado com key por local e dia, para o rascunho zerar ao trocar de dia. */
+function SplitCard({ data, point, date, canWrite, showName, onSave }: {
+  data: LiteData
+  point: LitePoint
+  date: string
+  canWrite: boolean
+  showName: boolean
+  onSave: (changes: LiteSplitChange[]) => void
+}) {
+  const { confirm } = useDialog()
+  const allPayees = data.payees ?? []
+  const splits = data.splits ?? []
+  const payees = allPayees.filter((p) => p.pointId === point.id && p.active)
+  const savedMap = new Map(splits.filter((s) => s.date === date && payees.some((p) => p.id === s.payeeId)).map((s) => [s.payeeId, s.liters]))
+  const hasSplit = savedMap.size > 0
+  const [open, setOpen] = useState(false)
+  const [totalDraft, setTotalDraft] = useState<string | null>(null)
+  const [values, setValues] = useState<Record<string, string>>({})
+  const [chip, setChip] = useState<'last' | 'equal' | 'first' | null>(null)
+
+  if (payees.length === 0 || (!canWrite && !hasSplit)) return null
+
+  const since = litersSinceLastSplit(data.entries, splits, allPayees, point.id, date)
+  const previous = lastSplit(splits, allPayees, point.id, date)
+  const savedTotal = [...savedMap.values()].reduce((t, l) => t + l, 0)
+  const totalText = totalDraft ?? fmtInput(hasSplit ? Math.round(savedTotal * 10) / 10 : since.liters)
+  const total = parseLiters(totalText) ?? 0
+  const valueOf = (id: string) => values[id] ?? (savedMap.has(id) ? fmtInput(savedMap.get(id)!) : '')
+  const sum = Math.round(payees.reduce((t, p) => t + (parseLiters(valueOf(p.id)) ?? 0), 0) * 10) / 10
+  const filled = payees.every((p) => valueOf(p.id) !== '')
+  const matches = Math.abs(sum - total) < 0.05
+  const changed = payees.some((p) => (parseLiters(valueOf(p.id)) ?? null) !== (savedMap.get(p.id) ?? null))
+
+  function applySuggestion(kind: 'last' | 'equal' | 'first') {
+    const map = kind === 'last' ? suggestSplit(total, payees, previous) : kind === 'equal' ? suggestSplit(total, payees) : suggestSplit(total, payees, [{ payeeId: payees[0].id, liters: 1 }])
+    setValues(Object.fromEntries(payees.map((p) => [p.id, fmtInput(map[p.id] ?? 0)])))
+    setChip(kind)
+  }
+  // Com dois nomes, digitar um lado completa o outro
+  function change(id: string, text: string) {
+    const clean = text.replace(/[^\d.,]/g, '')
+    const next = { ...values, [id]: clean }
+    if (payees.length === 2) {
+      const other = payees.find((p) => p.id !== id)!
+      const liters = parseLiters(clean)
+      if (liters !== null && total >= liters) next[other.id] = fmtInput(Math.round((total - liters) * 10) / 10)
+    }
+    setValues(next)
+    setChip(null)
+  }
+  async function remove() {
+    if (!(await confirm({ title: `Apagar a divisão de ${fmtDay(date)}?`, message: 'Os litros do dia continuam anotados. Só a divisão entre os nomes é apagada.', confirmLabel: 'Apagar', danger: true }))) return
+    onSave(payees.map((p) => ({ payeeId: p.id, date, liters: null })))
+    setValues({}); setTotalDraft(null); setOpen(false)
+  }
+
+  if (!open && !hasSplit) {
+    return (
+      <button type="button" onClick={() => { setOpen(true); applySuggestion(previous.length ? 'last' : 'equal') }}
+        className="mt-4 flex w-full items-center gap-3 rounded-2xl border-2 border-dashed border-green-300 bg-white px-4 py-3 text-left hover:bg-green-50">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-lg font-bold text-green-800" aria-hidden="true">÷</span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold text-gray-900">Coleta hoje? Dividir a nota{showName ? ` de ${point.name}` : ''}</span>
+          <span className="block text-sm text-gray-600">{fmtNumber(since.liters)} L desde {since.from === date ? 'hoje' : fmtDay(since.from)} entre {payees.map((p) => p.name.split(' ')[0]).join(' e ')}</span>
+        </span>
+      </button>
+    )
+  }
+
+  return (
+    <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4" aria-label={`Divisão da nota${showName ? ` de ${point.name}` : ''}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h2 className="font-semibold text-blue-950">Nota de {fmtDay(date)}{showName ? ` · ${point.name}` : ''}</h2>
+          <p className="text-xs text-blue-900">{since.from === date ? 'Só o leite de hoje' : `Leite de ${fmtDay(since.from)} a ${fmtDay(date)}`}. Corrija o total se a coleta levou outro valor.</p>
+        </div>
+        {hasSplit && <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-blue-900">salva</span>}
+      </div>
+
+      <label className="mt-3 flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-blue-950">Total da coleta</span>
+        <span className="flex items-center gap-2">
+          <MilkDecimalInput type="text" inputMode="decimal" value={totalText} readOnly={!canWrite}
+            onChange={(e) => { setTotalDraft(e.target.value.replace(/[^\d.,]/g, '')); setChip(null) }}
+            aria-label="Total da coleta" className="w-28 rounded-xl border border-blue-200 bg-white px-3 py-2 text-right !text-xl font-bold focus:outline-none focus:ring-2 focus:ring-green-600" />
+          <span className="text-blue-900">L</span>
+        </span>
+      </label>
+
+      {canWrite && (
+        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Sugestão de divisão">
+          {previous.length > 0 && <button type="button" aria-pressed={chip === 'last'} onClick={() => applySuggestion('last')} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${chip === 'last' ? 'bg-green-700 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}>Como da última</button>}
+          <button type="button" aria-pressed={chip === 'equal'} onClick={() => applySuggestion('equal')} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${chip === 'equal' ? 'bg-green-700 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}>Igual para todos</button>
+          <button type="button" aria-pressed={chip === 'first'} onClick={() => applySuggestion('first')} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${chip === 'first' ? 'bg-green-700 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}>Tudo em {payees[0].name.split(' ')[0]}</button>
+        </div>
+      )}
+
+      <ul className="mt-3 space-y-2">
+        {payees.map((p) => (
+          <li key={p.id} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-semibold text-gray-900">{p.name}</span>
+              {(p.producerCode || p.sequence) && <span className="block text-xs text-gray-500">{[p.producerCode && `produtor ${p.producerCode}`, p.sequence && `seq. ${p.sequence}`].filter(Boolean).join(' · ')}</span>}
+            </span>
+            <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={valueOf(p.id)} readOnly={!canWrite}
+              onChange={(e) => change(p.id, e.target.value)} aria-label={`Litros de ${p.name}`}
+              className="w-24 rounded-xl border border-gray-300 px-3 py-2 text-right !text-xl font-bold focus:outline-none focus:ring-2 focus:ring-green-600" />
+            <span className="text-gray-500">L</span>
+            {canWrite && <VoiceButton size="sm" label={`os litros de ${p.name}`} onNumber={(v) => change(p.id, fmtInput(v))} />}
+          </li>
+        ))}
+      </ul>
+
+      <p className={`mt-2 text-sm font-medium ${!filled ? 'text-gray-600' : matches ? 'text-green-800' : 'text-red-700'}`} role="status">
+        {!filled ? 'Preencha os litros de cada nome.' : matches ? `Soma ${fmtNumber(sum)} L, igual ao total.` : `Soma ${fmtNumber(sum)} L. ${sum < total ? `Faltam ${fmtNumber(Math.round((total - sum) * 10) / 10)} L` : `Passou ${fmtNumber(Math.round((sum - total) * 10) / 10)} L`} para bater com o total.`}
+      </p>
+
+      {canWrite && (
+        <div className="mt-3 flex items-center gap-3">
+          <button type="button" disabled={!filled || !matches || total <= 0 || (!changed && hasSplit)} onClick={() => onSave(payees.map((p) => ({ payeeId: p.id, date, liters: parseLiters(valueOf(p.id)) })))}
+            className="flex-1 rounded-xl bg-green-700 py-3 font-bold text-white hover:bg-green-600 disabled:bg-gray-300">
+            {hasSplit && !changed ? 'Divisão salva' : 'Salvar divisão'}
+          </button>
+          {hasSplit
+            ? <button type="button" onClick={() => void remove()} className="text-sm font-semibold text-red-700 underline">Apagar</button>
+            : <button type="button" onClick={() => { setOpen(false); setValues({}); setTotalDraft(null) }} className="text-sm font-semibold text-gray-600 underline">Hoje não</button>}
+        </div>
+      )}
+    </section>
+  )
+}
+
+/** Cadastro dos nomes da nota (quem recebe uma parte do leite). Precisa de internet. */
+function Nomes({ data, online, canWrite, onChanged }: {
+  data: LiteData
+  online: boolean
+  canWrite: boolean
+  onChanged: (payees: LitePayee[]) => void
+}) {
+  const { confirm, notify } = useDialog()
+  const points = data.points.filter((p) => p.active)
+  const [pointId, setPointId] = useState(points[0]?.id ?? '')
+  const all = data.payees ?? []
+  const payees = all.filter((p) => p.pointId === pointId)
+  const [editing, setEditing] = useState<LitePayee | 'new' | null>(null)
+  const [form, setForm] = useState({ name: '', producerCode: '', sequence: '' })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  function startNew() { setForm({ name: '', producerCode: '', sequence: '' }); setError(''); setEditing('new') }
+  function startEdit(p: LitePayee) { setForm({ name: p.name, producerCode: p.producerCode ?? '', sequence: p.sequence ?? '' }); setError(''); setEditing(p) }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editing) return
+    setBusy(true); setError('')
+    try {
+      const res = await fetch(editing === 'new' ? '/api/lite/nomes' : `/api/lite/nomes/${editing.id}`, {
+        method: editing === 'new' ? 'POST' : 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, ...(editing === 'new' ? { pointId } : {}) }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) { setError(body.error || 'Não foi possível salvar'); return }
+      const saved = body as LitePayee
+      onChanged(editing === 'new' ? [...all, saved] : all.map((p) => (p.id === saved.id ? saved : p)))
+      setEditing(null)
+    } catch {
+      setError('Sem internet. Cadastrar nomes precisa de sinal; a divisão da coleta funciona sem.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function toggle(p: LitePayee) {
+    if (p.active && !(await confirm({ title: `Tirar ${p.name} da nota?`, message: 'Sai das próximas coletas. As divisões já feitas ficam no histórico. Dá para reativar depois.', confirmLabel: 'Tirar', danger: true }))) return
+    try {
+      const res = await fetch(`/api/lite/nomes/${p.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: !p.active }) })
+      if (!res.ok) { await notify('Não foi possível alterar'); return }
+      const saved = (await res.json()) as LitePayee
+      onChanged(all.map((x) => (x.id === saved.id ? saved : x)))
+    } catch {
+      await notify('Sem internet', 'Cadastrar ou alterar nomes precisa de sinal.')
+    }
+  }
+
+  const formView = editing && (
+    <form onSubmit={submit} className="mt-3 rounded-2xl border border-gray-200 bg-white p-4">
+      <h3 className="font-semibold text-gray-900">{editing === 'new' ? `Nome ${payees.length + 1}` : 'Alterar nome'}</h3>
+      <label className="mt-3 block">
+        <span className="text-sm font-medium text-gray-700">Nome como está na folha</span>
+        <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required autoFocus className={`mt-1 ${input}`} />
+      </label>
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">Código de produtor</span>
+          <input value={form.producerCode} onChange={(e) => setForm({ ...form, producerCode: e.target.value })} inputMode="numeric" placeholder="ex.: 005712" className={`mt-1 ${input}`} />
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">Seq. na folha</span>
+          <input value={form.sequence} onChange={(e) => setForm({ ...form, sequence: e.target.value })} inputMode="numeric" placeholder="ex.: 030" className={`mt-1 ${input}`} />
+        </label>
+      </div>
+      <p className="mt-2 text-xs text-gray-500">O código de produtor é o número que o laticínio dá a cada pessoa. É ele que define para quem vai o pagamento.</p>
+      {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <div className="mt-3 flex gap-2">
+        <button type="button" onClick={() => setEditing(null)} className="flex-1 rounded-xl border border-gray-300 py-3 font-semibold text-gray-700">Cancelar</button>
+        <button type="submit" disabled={busy} className="flex-1 rounded-xl bg-green-700 py-3 font-semibold text-white disabled:bg-gray-300">{busy ? 'Salvando...' : 'Salvar'}</button>
+      </div>
+    </form>
+  )
+
+  return (
+    <div>
+      {points.length > 1 && (
+        <label className="block mb-3">
+          <span className="text-sm font-medium text-gray-700">Local</span>
+          <select value={pointId} onChange={(e) => { setPointId(e.target.value); setEditing(null) }} className={`mt-1 ${input} bg-white font-semibold`}>
+            {points.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
+      )}
+      {!online && <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Sem internet. Cadastrar nomes precisa de sinal; a divisão da coleta funciona sem.</p>}
+
+      {payees.length === 0 && editing !== 'new' ? (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 text-center">
+          <span className="text-4xl" aria-hidden="true">📄</span>
+          <h2 className="mt-2 text-lg font-bold text-gray-900">A nota do laticínio tem mais de um nome?</h2>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-gray-600">Cadastre quem divide o leite do tanque. Depois, a cada coleta, você só diz quanto vai para cada um, na tela Anotar.</p>
+          {canWrite && <button type="button" onClick={startNew} disabled={!online} className="mt-4 w-full rounded-xl bg-green-700 py-3 font-bold text-white disabled:bg-gray-300">Cadastrar os nomes</button>}
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {payees.map((p) => (
+            <li key={p.id} className={`rounded-2xl border border-gray-200 bg-white p-4 ${p.active ? '' : 'opacity-60'}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-gray-900">{p.name}</p>
+                  <p className="text-xs text-gray-500">{[p.producerCode && `produtor ${p.producerCode}`, p.sequence && `seq. ${p.sequence}`].filter(Boolean).join(' · ') || 'sem código'}{p.active ? '' : ' · fora da nota'}</p>
+                </div>
+                {canWrite && (
+                  <div className="flex shrink-0 gap-3 text-sm font-semibold">
+                    <button type="button" onClick={() => startEdit(p)} className="text-green-700">Alterar</button>
+                    <button type="button" onClick={() => void toggle(p)} className={p.active ? 'text-gray-500' : 'text-green-700'}>{p.active ? 'Tirar' : 'Reativar'}</button>
+                  </div>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {formView}
+      {canWrite && payees.length > 0 && !editing && (
+        <button type="button" onClick={startNew} disabled={!online} className="mt-3 w-full rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800 disabled:border-gray-300 disabled:text-gray-400">+ Adicionar outro nome</button>
+      )}
+      {payees.length > 0 && <p className="mt-4 text-center text-sm text-gray-500">Laticínio, rota e tanque vêm do laticínio. Você só cadastra os nomes.</p>}
     </div>
   )
 }

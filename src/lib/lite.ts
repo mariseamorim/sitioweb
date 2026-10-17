@@ -63,6 +63,9 @@ export interface LiteData {
   sheets?: LiteSheet[]
   /** Motorista de laticínio: dia da semana de hoje (0 = domingo), para mostrar as rotas do dia */
   todayWeekday?: number
+  /** Nomes da nota do laticínio (quem recebe uma parte do leite) e a divisão de cada coleta */
+  payees?: LitePayee[]
+  splits?: LiteSplit[]
 }
 
 /** Uma anotação a enviar: liters null apaga o valor daquele local no dia. */
@@ -129,6 +132,86 @@ export function checkSheets(sheets: LiteSheet[], entries: { date: string; liters
     const alert = noted > 0 && Math.abs(diff / noted) * 100 > SHEET_ALERT_PERCENT
     return { date: s.date, from, sheet: s.liters, noted, diff, percent, alert }
   }).reverse()
+}
+
+// ── Nota do laticínio com mais de um nome ───────────────────────────────
+// O mesmo tanque pode gerar mais de uma nota (dois produtores cadastrados no laticínio).
+// O produtor anota o total do dia como sempre; no dia da coleta diz quanto vai para cada nome.
+
+export interface LitePayee {
+  id: string
+  /** Local do Anota Aí Leite; no modo fazenda é FARM_POINT_ID */
+  pointId: string
+  name: string
+  /** Código do produtor no laticínio */
+  producerCode: string | null
+  /** Sequência na folha de coleta */
+  sequence: string | null
+  active: boolean
+  position: number
+}
+
+/** Litros de um nome numa coleta */
+export interface LiteSplit {
+  payeeId: string
+  /** yyyy-mm-dd, dia da coleta */
+  date: string
+  liters: number
+}
+
+/** Divisão a enviar: liters null apaga a parte daquele nome no dia. */
+export interface LiteSplitChange {
+  payeeId: string
+  date: string
+  liters: number | null
+}
+
+/** Dias em que houve divisão da nota num local */
+export function splitDates(splits: LiteSplit[], payees: LitePayee[], pointId: string): string[] {
+  const ids = new Set(payees.filter((p) => p.pointId === pointId).map((p) => p.id))
+  return [...new Set(splits.filter((s) => ids.has(s.payeeId)).map((s) => s.date))].sort()
+}
+
+/** Litros anotados no local desde a coleta anterior (dia seguinte a ela) até o dia da coleta.
+ *  Sem coleta anterior anotada, conta só o dia. O produtor pode corrigir o total na tela. */
+export function litersSinceLastSplit(entries: { pointId: string; date: string; liters: number }[], splits: LiteSplit[], payees: LitePayee[], pointId: string, date: string): { liters: number; from: string } {
+  const previous = splitDates(splits, payees, pointId).filter((d) => d < date).pop()
+  const from = previous ? nextDay(previous) : date
+  let liters = 0
+  for (const e of entries) if (e.pointId === pointId && e.date >= from && e.date <= date) liters += e.liters
+  return { liters: Math.round(liters * 10) / 10, from }
+}
+
+/** Divisão da coleta anterior do local (para sugerir a mesma proporção) */
+export function lastSplit(splits: LiteSplit[], payees: LitePayee[], pointId: string, before: string): LiteSplit[] {
+  const previous = splitDates(splits, payees, pointId).filter((d) => d < before).pop()
+  if (!previous) return []
+  const ids = new Set(payees.filter((p) => p.pointId === pointId).map((p) => p.id))
+  return splits.filter((s) => s.date === previous && ids.has(s.payeeId))
+}
+
+/** Reparte o total entre os nomes. Com proporções (da última coleta) usa-as; sem, divide igual.
+ *  Arredonda a 0,1 L e deixa a diferença no último nome, para a soma bater sempre com o total. */
+export function suggestSplit(total: number, payees: LitePayee[], proportions: { payeeId: string; liters: number }[] = []): Record<string, number> {
+  const result: Record<string, number> = {}
+  if (!payees.length) return result
+  const base = proportions.filter((p) => payees.some((x) => x.id === p.payeeId))
+  const baseTotal = base.reduce((s, p) => s + p.liters, 0)
+  let given = 0
+  payees.forEach((p, i) => {
+    const share = baseTotal > 0 ? (base.find((b) => b.payeeId === p.id)?.liters ?? 0) / baseTotal : 1 / payees.length
+    const liters = i === payees.length - 1 ? Math.round((total - given) * 10) / 10 : Math.round(total * share * 10) / 10
+    result[p.id] = Math.max(0, liters)
+    given += result[p.id]
+  })
+  return result
+}
+
+/** Total de cada nome num período (o que cada um vai receber do laticínio) */
+export function totalsByPayee(splits: LiteSplit[], from: string, to: string): Map<string, number> {
+  const totals = new Map<string, number>()
+  for (const s of splits) if (s.date >= from && s.date <= to) totals.set(s.payeeId, Math.round(((totals.get(s.payeeId) ?? 0) + s.liters) * 10) / 10)
+  return totals
 }
 
 export const KIND_LABEL: Record<PointKind, string> = { sitio: 'Sítio', tanque: 'Tanque comunitário' }

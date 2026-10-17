@@ -40,6 +40,7 @@ model Farm {
   supplyRequests  SupplyRequest[]
   orgMemberships  OrgMember[] // associações de que a propriedade participa
   milkSheets      MilkSheet[] // litros da folha do motorista, para conferir
+  milkPayees      MilkPayee[] // nomes da nota do laticínio (versão completa)
   members         FarmMember[] // quem tem acesso (o dono pode ter várias propriedades)
   lots            Lot[] // lotes de recria e engorda
 
@@ -387,6 +388,7 @@ model MilkPoint {
   updatedAt DateTime @updatedAt
 
   entries MilkEntry[]
+  payees  MilkPayee[] // nomes da nota do laticínio deste local
   stops   RouteStop[]
 
   @@index([ownerId])
@@ -525,6 +527,45 @@ model FarmMember {
 
 /// Litros que a folha do motorista diz que ele levou, anotados pelo produtor para conferir com a própria anotação.
 /// Do produtor do Anota Aí Leite (userId) ou da propriedade (farmId); um registro por dia de coleta.
+/// Nome da nota do laticínio: quem recebe uma parte do leite do local (Anota Aí Leite) ou da propriedade (versão completa).
+/// O mesmo tanque pode gerar mais de uma nota, e a divisão muda a cada coleta.
+model MilkPayee {
+  id           String     @id @default(cuid())
+  pointId      String?
+  point        MilkPoint? @relation(fields: [pointId], references: [id], onDelete: Cascade)
+  farmId       String?
+  farm         Farm?      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  name         String
+  /// Código do produtor no laticínio (define para quem vai o pagamento)
+  producerCode String?
+  /// Sequência na folha de coleta
+  sequence     String?
+  active       Boolean    @default(true)
+  position     Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  splits MilkSplit[]
+
+  @@index([pointId])
+  @@index([farmId])
+  @@map("milk_payees")
+}
+
+/// Divisão da nota numa coleta: litros de cada nome no dia da coleta
+model MilkSplit {
+  id        String    @id @default(cuid())
+  payeeId   String
+  payee     MilkPayee @relation(fields: [payeeId], references: [id], onDelete: Cascade)
+  date      DateTime
+  liters    Float
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([payeeId, date])
+  @@map("milk_splits")
+}
+
 model MilkSheet {
   id        String   @id @default(cuid())
   userId    String?
