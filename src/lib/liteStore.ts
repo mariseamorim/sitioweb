@@ -1,11 +1,12 @@
 // Dados do Anota Aí Leite guardados no aparelho e fila de envio.
 // A tela sempre lê daqui; o servidor só recebe e devolve a cópia oficial.
-import type { LiteChange, LiteData, LiteEntry, LiteSheet, LiteSheetChange, PointKind } from '@/lib/lite'
+import type { LiteChange, LiteData, LiteEntry, LiteSheet, LiteSheetChange, LiteSplit, LiteSplitChange, PointKind } from '@/lib/lite'
 
 const CACHE_KEY = 'lite_cache_v1'
 const QUEUE_KEY = 'lite_queue_v1'
 const POINTS_KEY = 'lite_points_queue_v1'
 const SHEETS_KEY = 'lite_sheets_queue_v1'
+const SPLITS_KEY = 'lite_splits_queue_v1'
 
 type Queue = Record<string, LiteChange>
 
@@ -114,9 +115,9 @@ export function pendingPointOps(): PointOp[] {
   return Object.values(read<PointQueue>(POINTS_KEY, {}))
 }
 
-/** Quantos itens aguardam envio (locais, anotações e folhas do motorista) */
+/** Quantos itens aguardam envio (locais, anotações, folhas do motorista e divisões da nota) */
 export function pendingCount(): number {
-  return pendingPointOps().length + pendingChanges().length + pendingSheets().length
+  return pendingPointOps().length + pendingChanges().length + pendingSheets().length + pendingSplits().length
 }
 
 export function applyPointOps(data: LiteData, ops: PointOp[]): LiteData {
@@ -217,6 +218,54 @@ async function flushSheets(): Promise<SyncResult> {
   return 'ok'
 }
 
+// ── Divisão da nota (litros de cada nome na coleta) ─────────────────────
+
+type SplitQueue = Record<string, LiteSplitChange>
+const splitKey = (c: { payeeId: string; date: string }) => `${c.payeeId}|${c.date}`
+
+export function pendingSplits(): LiteSplitChange[] {
+  return Object.values(read<SplitQueue>(SPLITS_KEY, {}))
+}
+
+export function applySplits(data: LiteData, changes: LiteSplitChange[]): LiteData {
+  const map = new Map<string, LiteSplit>((data.splits ?? []).map((s) => [splitKey(s), s]))
+  for (const c of changes) {
+    if (c.liters === null) map.delete(splitKey(c))
+    else map.set(splitKey(c), { payeeId: c.payeeId, date: c.date, liters: c.liters })
+  }
+  return { ...data, splits: [...map.values()] }
+}
+
+/** Guarda a divisão na fila. Para o mesmo nome e dia, vale a última. */
+export function enqueueSplits(changes: LiteSplitChange[]) {
+  const queue = read<SplitQueue>(SPLITS_KEY, {})
+  for (const c of changes) queue[splitKey(c)] = c
+  write(SPLITS_KEY, queue)
+  const cache = readCache()
+  if (cache) writeCache(applySplits(cache, changes))
+}
+
+async function flushSplits(): Promise<SyncResult> {
+  const sent = pendingSplits()
+  if (sent.length === 0) return 'ok'
+  let res: Response
+  try {
+    res = await fetch('/api/lite/divisao', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ changes: sent }),
+    })
+  } catch {
+    return 'offline'
+  }
+  if (res.status === 401) return 'auth'
+  if (!res.ok) return 'error'
+  const queue = read<SplitQueue>(SPLITS_KEY, {})
+  for (const c of sent) if (queue[splitKey(c)]?.liters === c.liters) delete queue[splitKey(c)]
+  write(SPLITS_KEY, queue)
+  return 'ok'
+}
+
 /** Envia o que estiver pendente e busca a cópia oficial. Sem internet, devolve o que há no aparelho. */
 export async function syncLite(): Promise<{ data: LiteData | null; result: SyncResult }> {
   // Locais primeiro: as anotações podem ser de um local criado sem internet
@@ -224,10 +273,12 @@ export async function syncLite(): Promise<{ data: LiteData | null; result: SyncR
   if (points === 'auth') return { data: readCache(), result: 'auth' }
   const queued = points === 'ok' ? await flushQueue() : points
   if (queued === 'auth') return { data: readCache(), result: 'auth' }
-  // A folha não depende das anotações: vai mesmo se elas tiverem conflito
+  // A folha e a divisão não dependem das anotações: vão mesmo se elas tiverem conflito
   const sheets = points === 'ok' ? await flushSheets() : 'ok'
   if (sheets === 'auth') return { data: readCache(), result: 'auth' }
-  const flushed = queued !== 'ok' ? queued : sheets
+  const splits = points === 'ok' ? await flushSplits() : 'ok'
+  if (splits === 'auth') return { data: readCache(), result: 'auth' }
+  const flushed = queued !== 'ok' ? queued : sheets !== 'ok' ? sheets : splits
 
   try {
     const res = await fetch('/api/lite', { cache: 'no-store' })
@@ -242,5 +293,5 @@ export async function syncLite(): Promise<{ data: LiteData | null; result: SyncR
 }
 
 function withPending(data: LiteData | null): LiteData | null {
-  return data ? applySheets(applyChanges(applyPointOps(data, pendingPointOps()), pendingChanges()), pendingSheets()) : null
+  return data ? applySplits(applySheets(applyChanges(applyPointOps(data, pendingPointOps()), pendingChanges()), pendingSheets()), pendingSplits()) : null
 }

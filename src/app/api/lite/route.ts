@@ -5,6 +5,7 @@ import { FARM_POINT_ID, LITE_HISTORY_DAYS, LiteChange, LiteData, isDriverRole, p
 import { driverRoutePointIds, todayWeekday } from '@/lib/laticinio'
 import { todayUTC } from '@/lib/utils'
 import { activeWithdrawals } from '@/lib/withdrawal'
+import { loadPayees } from '@/lib/payees'
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 
@@ -58,6 +59,7 @@ export async function GET() {
       milkPrice: farm?.milkPrice ?? null,
       sheets: sheets.map((s) => ({ date: isoDay(s.date), liters: s.liters })),
       milkWithdrawals: (await activeWithdrawals(farmId, todayUTC())).flatMap((w) => (w.milkUntil ? [{ animalName: w.animalName, medicine: w.medicine, until: w.milkUntil }] : [])),
+      ...(await loadPayees(user, since)),
     }
     return renewSession(NextResponse.json(data))
   }
@@ -99,6 +101,7 @@ export async function GET() {
     milkPrice: owner?.milkPrice ?? null,
     sheets: sheets.map((s) => ({ date: isoDay(s.date), liters: s.liters })),
     todayWeekday: todayWeekday(),
+    ...(await loadPayees(user, since)),
   }
   return renewSession(NextResponse.json(data))
 }
