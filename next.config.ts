@@ -8,6 +8,10 @@ const withPWA = (require("next-pwa") as any)({
   disable: false,
   register: false,
   skipWaiting: true,
+  // Sem rota especial para "/": ela entra na regra "telas" abaixo (espera curta e 90 dias), como as outras páginas.
+  // A rota padrão do next-pwa para o endereço inicial não tinha limite de espera e falhava sem internet.
+  cacheStartUrl: false,
+  dynamicStartUrl: false,
   // Toda regra precisa de `options` (mesmo vazio): com `fallbacks`, o next-pwa lê options.precacheFallback de cada uma
   runtimeCaching: [
     { urlPattern: /\/api\/(?:auth(?:\/|$)|perfil(?:\/|$))/, handler: 'NetworkOnly', method: 'GET', options: {} },
