@@ -9,6 +9,8 @@ import { OpenFarmButton } from '@/components/OpenFarmButton'
 import Link from 'next/link'
 import { FarmPicker } from '@/components/FarmPicker'
 import { AdminFarmBanner } from '@/components/AdminFarmBanner'
+import { HomeRedirect } from '@/components/HomeRedirect'
+import { homeForRole } from '@/lib/organizations'
 import { SetupHelpCard } from '@/components/SetupHelpCard'
 import { BOVINE_CATEGORIES, CALF_AT_FOOT_DAYS, canAddCalf } from '@/lib/animalRules'
 import {
@@ -18,12 +20,12 @@ import {
 
 export default async function Home() {
   const user = await getSessionUser()
-  if (!user) redirect('/inicio')
+  // Quem não usa o Painel recebe uma página que segue para a tela certa, em vez de um redirecionamento do servidor:
+  // assim "/" fica guardada no aparelho e o app instalado abre sem internet (o service worker não guarda redirecionamentos).
+  if (!user) return <HomeRedirect href="/inicio" />
   if (user.role === 'onboarding') redirect('/criar-conta')
-  if (user.role === 'fornecedor') redirect('/fornecedor')
-  if (user.role === 'laticinio') redirect('/laticinio')
-  if (user.role === 'associacao') redirect('/associacao')
-  if (user.role === 'lite' || user.role === 'motorista') redirect('/lite')
+  const home = homeForRole(user.role)
+  if (home !== '/') return <HomeRedirect href={home} />
 
   const effectiveFarmId = user.effectiveFarmId
 
