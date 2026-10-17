@@ -14,6 +14,8 @@ export interface UserData {
   /** Propriedades do produtor, para trocar pelo topo (vazio para admin) */
   farms?: { id: string; name: string }[]
   permissions: string[] | null // null = admin (acesso total)
+  /** Suporte pelo WhatsApp disponível (número configurado no servidor) */
+  support?: boolean
 }
 
 interface UserContextType {

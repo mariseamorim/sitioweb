@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getSessionUser, renewSession } from '@/lib/auth'
 import { memberFarms } from '@/lib/farms'
+import { hasSupport } from '@/lib/support'
 
 export async function GET() {
   const user = await getSessionUser()
@@ -23,5 +24,7 @@ export async function GET() {
     farmSegments: farm?.segments ?? [],
     farms: farms.map((f) => ({ id: f.id, name: f.name })),
     permissions: user.permissions,
+    // Há suporte pelo WhatsApp configurado no servidor (o número em si não sai daqui)
+    support: hasSupport(),
   }))
 }

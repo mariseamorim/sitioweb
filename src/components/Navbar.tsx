@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
-import { PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon, SetaDireitaIcon, BalancaIcon } from '@/components/ModuleIcons';import { SyncStatus } from '@/components/SyncStatus';
+import { PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon, SetaDireitaIcon, BalancaIcon, AjudaIcon } from '@/components/ModuleIcons';import { SyncStatus } from '@/components/SyncStatus';
 import { TaskBell } from '@/components/TaskBell';
 import { FarmSwitcher } from '@/components/FarmSwitcher';
 import { useDialog } from '@/components/DialogProvider';
@@ -41,6 +41,9 @@ const groups: { label: string; links: NavLink[] }[] = [
     { href: '/admin/fornecedores', label: 'Aprovar fornecedores', module: null, adminOnly: true, Icon: LojaIcon },
     { href: '/admin/organizacoes', label: 'Aprovar laticínios e associações', module: null, adminOnly: true, Icon: UsuariosIcon },
   ] },
+  { label: 'Ajuda', links: [
+    { href: '/ajuda', label: 'Ajuda e suporte', module: null, Icon: AjudaIcon },
+  ] },
 ];
 
 // Fornecedor, laticínio e associação têm uma interface própria, sem os módulos da propriedade
@@ -63,7 +66,7 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   const isVendor = !!panelRole;
   const homeHref = panelRole?.href ?? '/';
   const vendorGroups: { label: string; links: NavLink[] }[] = panelRole
-    ? [{ label: panelRole.label, links: [{ href: panelRole.href, label: 'Meu painel', module: null, Icon: panelRole.Icon }] }]
+    ? [{ label: panelRole.label, links: [{ href: panelRole.href, label: 'Meu painel', module: null, Icon: panelRole.Icon }] }, { label: 'Ajuda', links: [{ href: '/ajuda', label: 'Ajuda e suporte', module: null, Icon: AjudaIcon }] }]
     : [];
   const segments = user?.farmSegments ?? [];
   const fitsSegment = (href: string) => !segments.length || !SEGMENT_PAGES[href] || SEGMENT_PAGES[href].some(s => segments.includes(s));
