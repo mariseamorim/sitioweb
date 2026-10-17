@@ -7,18 +7,20 @@ import { useUser } from '@/contexts/UserContext'
 import { FARM_SEGMENTS } from '@/lib/farmSegments'
 import { PENDING_MESSAGE, hasPendingOnDevice, reloadInFarm, switchFarm } from '@/lib/farmSwitch'
 import { DOCUMENT_PLACEHOLDER, maskDocument, maskPhone } from '@/lib/masks'
+import { OwnerGroups } from '@/components/OwnerGroups'
+import type { AdminFarmSummary } from '@/lib/ownerGroups'
 
 interface Farm {
   id: string
   name: string
-  propertyType?: string
-  documentType?: string
-  documentNumber?: string
-  owner?: string
-  phone?: string
-  address?: string
-  city?: string
-  state?: string
+  propertyType?: string | null
+  documentType?: string | null
+  documentNumber?: string | null
+  owner?: string | null
+  phone?: string | null
+  address?: string | null
+  city?: string | null
+  state?: string | null
   isActive?: boolean
   segments?: string[]
 }
@@ -53,17 +55,29 @@ export default function PropriedadesPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [opening, setOpening] = useState<string | null>(null)
+  // Administrador: todas as propriedades com resumo, agrupadas por proprietário
+  const [summaries, setSummaries] = useState<AdminFarmSummary[]>([])
+
+  const isAdmin = user?.role === 'admin'
 
   function fetchFarms() {
     setLoading(true)
+    if (isAdmin) {
+      fetch('/api/admin/propriedades')
+        .then((r) => (r.ok ? r.json() : []))
+        .then((data: AdminFarmSummary[]) => { setSummaries(data); setFarms(data); setLoading(false) })
+        .catch(() => { setSummaries([]); setFarms([]); setLoading(false) })
+      return
+    }
     fetch('/api/farms')
       .then((r) => r.json())
       .then((data) => { setFarms(data); setLoading(false) })
   }
 
-  useEffect(() => { fetchFarms() }, [])
-
-  const isAdmin = user?.role === 'admin'
+  // Só busca depois de saber quem é: o administrador usa outra lista
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (user) fetchFarms() }, [user?.id, user?.role])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -105,7 +119,9 @@ export default function PropriedadesPage() {
   }
 
   async function openFarm(farmId: string) {
+    setOpening(farmId)
     const failure = await switchFarm(farmId)
+    setOpening(null)
     if (failure) await notify('Não foi possível abrir', failure)
   }
 
@@ -145,6 +161,9 @@ export default function PropriedadesPage() {
 
       {loading ? (
         <p className="text-gray-400 text-sm">Carregando...</p>
+      ) : isAdmin && summaries.length > 0 ? (
+        <OwnerGroups farms={summaries} activeFarmId={user?.farmId} onOpen={(f) => void openFarm(f.id)} openingId={opening}
+          onEdit={(f) => handleEdit(f)} onDelete={(f) => void handleDelete(f.id)} deletingId={deleting} />
       ) : farms.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-lg">Nenhuma propriedade cadastrada</p>
