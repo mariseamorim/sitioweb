@@ -26,6 +26,16 @@ interface UserContextType {
 
 const USER_CACHE_KEY = 'cached_user'
 
+/** Quem entrou por último neste aparelho (guardado a cada acesso com internet); null se ninguém ou se saiu */
+export function readCachedUser(): UserData | null {
+  try {
+    const cached = localStorage.getItem(USER_CACHE_KEY)
+    return cached ? (JSON.parse(cached) as UserData) : null
+  } catch {
+    return null
+  }
+}
+
 const UserContext = createContext<UserContextType>({
   user: null,
   loading: true,
@@ -56,13 +66,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setLoading(false)
       })
       .catch(() => {
-        // Network error (offline): fall back to cached user data
-        try {
-          const cached = localStorage.getItem(USER_CACHE_KEY)
-          setUser(cached ? JSON.parse(cached) : null)
-        } catch {
-          setUser(null)
-        }
+        // Sem internet: usa quem entrou por último neste aparelho
+        setUser(readCachedUser())
         setLoading(false)
       })
   }, [tick])
