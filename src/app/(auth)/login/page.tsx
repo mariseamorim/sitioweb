@@ -11,7 +11,7 @@ import { readCachedUser, type UserData } from '@/contexts/UserContext'
 import { homeForRole } from '@/lib/organizations'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,7 +42,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ login, password }),
       });
 
       const data = await res.json();
@@ -97,15 +97,18 @@ export default function LoginPage() {
           <div className="mb-4"><GoogleLoginButton /></div>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="login">Telefone ou e-mail</label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="login"
+                type="text"
+                inputMode="email"
+                autoComplete="username"
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
                 required
                 autoFocus
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
-                placeholder="seu@email.com"
+                placeholder="(35) 99999-0000 ou seu@email.com"
               />
             </div>
 

@@ -45,7 +45,7 @@ export function DriversSection({ drivers, routes, onChanged }: { drivers: Driver
     onChanged()
   }
 
-  const accessText = created && `Olá, ${created.name}! Seu acesso ao Anota Aí Leite para as coletas: entre em ${typeof window !== 'undefined' ? window.location.origin : ''}/login com o e-mail ${created.email} e a senha ${created.password}.`
+  const accessText = created && `Olá, ${created.name}! Seu acesso ao Anota Aí Leite para as coletas: entre em ${typeof window !== 'undefined' ? window.location.origin : ''}/login com ${created.email ? `o e-mail ${created.email}` : `o telefone ${created.phone}`} e a senha ${created.password}.`
 
   return (
     <div>
@@ -57,7 +57,7 @@ export function DriversSection({ drivers, routes, onChanged }: { drivers: Driver
       {created && (
         <div role="status" className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4">
           <p className="font-semibold text-green-900">Acesso criado para {created.name}.</p>
-          <p className="mt-1 text-sm text-green-900">Passe o e-mail e a senha para ele. Ele entra pelo login normal e já vê as rotas.</p>
+          <p className="mt-1 text-sm text-green-900">Passe o telefone (ou e-mail) e a senha para ele. Ele entra pelo login normal e já vê as rotas.</p>
           {created.phone && accessText && (
             <a href={whatsappLink(created.phone, accessText)} target="_blank" rel="noopener noreferrer"
               className="mt-3 inline-flex bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">Mandar o acesso pelo WhatsApp</a>
@@ -79,8 +79,8 @@ export function DriversSection({ drivers, routes, onChanged }: { drivers: Driver
           </label>
           {editing === 'new' && (
             <>
-              <label className="text-sm font-medium text-gray-700">E-mail para entrar *
-                <input type="email" value={form.email} onChange={set('email')} required className={`${field} bg-white`} />
+              <label className="text-sm font-medium text-gray-700">E-mail <span className="font-normal text-gray-400">(opcional, se tiver telefone)</span>
+                <input type="email" value={form.email} onChange={set('email')} className={`${field} bg-white`} />
               </label>
               <label className="text-sm font-medium text-gray-700">Senha *
                 <input value={form.password} onChange={set('password')} required minLength={6} placeholder="Pelo menos 6 caracteres" className={`${field} bg-white`} />

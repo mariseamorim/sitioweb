@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   const identity = auth.identity!
   try {
     if (!body.farm) {
-      const user = identity.id ? identity : await prisma.user.create({ data: { name: identity.name, email: identity.email, password: identity.password!, role: 'onboarding', permissions: [] } })
+      const user = identity.id ? identity : await prisma.user.create({ data: { name: identity.name, email: identity.email, phone: identity.phone, password: identity.password!, role: 'onboarding', permissions: [] } })
       const response = NextResponse.json({ id: user.id, name: user.name }, { status: 201 })
       setSessionCookie(response, user.id!)
       return response
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       const data = { role: 'editor', permissions: MODULES.map(m => m.key), farmId: property.id }
       const account = identity.id
         ? await tx.user.update({ where: { id: identity.id }, data })
-        : await tx.user.create({ data: { name: identity.name, email: identity.email, password: identity.password!, ...data } })
+        : await tx.user.create({ data: { name: identity.name, email: identity.email, phone: identity.phone, password: identity.password!, ...data } })
       await addFarmMember(tx, account.id, property.id)
       if (body.inviteCode) {
         const vendor = await tx.vendor.findUnique({ where: { inviteCode: String(body.inviteCode).toUpperCase() } })
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     setSessionCookie(response, user.id)
     return response
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 })
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return NextResponse.json({ error: 'E-mail ou telefone já cadastrado' }, { status: 409 })
     if (error instanceof Error && error.message === 'ALREADY_REGISTERED') return NextResponse.json({ error: 'Sua conta já foi cadastrada' }, { status: 409 })
     return NextResponse.json({ error: 'Não foi possível concluir o cadastro' }, { status: 500 })
   }

@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         },
       })
       const data = { name: o.contactName, role: org.type, organizationId: o.id, permissions: [] }
-      return identity.id ? tx.user.update({ where: { id: identity.id }, data }) : tx.user.create({ data: { ...data, email: identity.email, password: identity.password! } })
+      return identity.id ? tx.user.update({ where: { id: identity.id }, data }) : tx.user.create({ data: { ...data, email: identity.email, phone: identity.phone, password: identity.password! } })
     })
 
     const response = NextResponse.json({ id: created.id }, { status: 201 })

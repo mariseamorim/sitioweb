@@ -5,7 +5,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 export interface UserData {
   id: string
   name: string
-  email: string
+  email: string | null
+  phone?: string | null
   role: string
   farmId: string | null       // null for admin with no farm selected
   farmName: string | null     // name of the active farm

@@ -7,7 +7,8 @@ import { newInviteCode } from '@/lib/vendors'
 // POST: cadastro público de fornecedor. Fica "pendente" até o admin aprovar.
 export async function POST(request: NextRequest) {
   const { vendor, user } = await request.json()
-  const auth = await registrationIdentity({ ...user, name: vendor?.contactName })
+  // Sem telefone próprio na conta, o telefone da empresa serve para entrar
+  const auth = await registrationIdentity({ ...user, name: vendor?.contactName, phone: user?.phone || vendor?.phone })
   if (auth.error) return auth.error
   const identity = auth.identity!
 
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
         },
       })
       const data = { name: vendor.contactName, role: 'fornecedor', vendorId: v.id }
-      return identity.id ? tx.user.update({ where: { id: identity.id }, data }) : tx.user.create({ data: { ...data, email: identity.email, password: identity.password! } })
+      return identity.id ? tx.user.update({ where: { id: identity.id }, data }) : tx.user.create({ data: { ...data, email: identity.email, phone: identity.phone, password: identity.password! } })
     })
 
     const response = NextResponse.json({ id: created.id }, { status: 201 })

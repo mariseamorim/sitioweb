@@ -18,6 +18,7 @@ export async function GET() {
     id: user.id,
     name: user.name,
     email: user.email,
+    phone: user.phone,
     role: user.role,
     farmId: user.effectiveFarmId,
     farmName: farm?.name ?? null,

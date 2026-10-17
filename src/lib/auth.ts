@@ -110,7 +110,9 @@ export function clearSessionCookies(response: NextResponse) {
 export interface SessionUser {
   id: string
   name: string
-  email: string
+  /** E-mail ou telefone: pelo menos um existe */
+  email: string | null
+  phone: string | null
   role: string
   permissions: string[] | null
   farmId: string | null
@@ -129,7 +131,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, role: true, permissions: true, farmId: true, vendorId: true, organizationId: true },
+    select: { id: true, name: true, email: true, phone: true, role: true, permissions: true, farmId: true, vendorId: true, organizationId: true },
   })
   if (!user) return null
 

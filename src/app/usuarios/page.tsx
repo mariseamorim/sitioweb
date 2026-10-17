@@ -8,11 +8,14 @@ import { useDialog } from '@/components/DialogProvider'
 import { FecharIcon } from '@/components/ModuleIcons'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
+import { contactLabel } from '@/lib/identity'
+import { maskPhone } from '@/lib/masks'
 
 interface User {
   id: string
   name: string
-  email: string
+  email: string | null
+  phone?: string | null
   role: string
   permissions: string[] | null
   farm: { name: string }
@@ -30,7 +33,7 @@ const roleColor: Record<string, string> = {
   viewer: 'bg-gray-100 text-gray-600',
 }
 
-const EMPTY_FORM = { name: '', email: '', password: '', role: 'viewer', permissions: [] as string[] }
+const EMPTY_FORM = { name: '', email: '', phone: '', password: '', role: 'viewer', permissions: [] as string[] }
 
 function PermissionsGrid({ value, onChange, disabled, allowed }: {
   value: string[]
@@ -75,7 +78,7 @@ export default function UsuariosPage() {
   const canTouch = (u: User) => canManage && u.role !== 'admin'
   const [users, setUsers] = useState<User[]>([])
   const { rows: sortedUsers, sort } = useSort(users, {
-    name: u => u.name, email: u => u.email, role: u => ROLE_LABEL[u.role] || u.role,
+    name: u => u.name, email: u => contactLabel(u), role: u => ROLE_LABEL[u.role] || u.role,
     modules: u => (u.role === 'admin' ? 999 : u.permissions?.length ?? 0),
   })
   const [loading, setLoading] = useState(true)
@@ -176,7 +179,7 @@ export default function UsuariosPage() {
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                 <tr>
                   <SortTh label="Nome" sortKey="name" sort={sort} className="px-4 py-3 text-left" />
-                  <SortTh label="E-mail" sortKey="email" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                  <SortTh label="Contato" sortKey="email" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
                   <SortTh label="Perfil" sortKey="role" sort={sort} className="px-4 py-3 text-left" />
                   <SortTh label="Módulos" sortKey="modules" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
                   <th className="px-4 py-3"></th>
@@ -187,9 +190,9 @@ export default function UsuariosPage() {
                   <tr key={u.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <p className="font-medium text-gray-800">{u.name}</p>
-                      <p className="sm:hidden text-xs text-gray-400 mt-0.5">{u.email}</p>
+                      <p className="sm:hidden text-xs text-gray-400 mt-0.5">{contactLabel(u)}</p>
                     </td>
-                    <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{u.email}</td>
+                    <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{contactLabel(u)}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleColor[u.role] || 'bg-gray-100'}`}>
                         {ROLE_LABEL[u.role] || u.role}
@@ -253,9 +256,15 @@ export default function UsuariosPage() {
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">E-mail *</label>
-                    <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required
+                    <label className="text-xs font-medium text-gray-600">Telefone</label>
+                    <input type="tel" inputMode="tel" placeholder="(35) 99999-0000" value={form.phone} onChange={e => setForm({ ...form, phone: maskPhone(e.target.value) })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">E-mail (opcional)</label>
+                    <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
+                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                    <p className="mt-1 text-xs text-gray-500">A pessoa entra com o telefone ou com o e-mail. Informe pelo menos um.</p>
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-600">Senha *</label>
@@ -293,7 +302,7 @@ export default function UsuariosPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <h2 className="text-lg font-bold text-gray-800">Editar Usuário</h2>
-                    <p className="text-xs text-gray-500">{editUser.email}</p>
+                    <p className="text-xs text-gray-500">{contactLabel(editUser)}</p>
                   </div>
                   <button onClick={() => setEditUser(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
                 </div>

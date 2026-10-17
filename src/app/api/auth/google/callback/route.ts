@@ -31,10 +31,12 @@ export async function GET(request: NextRequest) {
     if (flow.userId) {
       const me = await getSessionUser()
       if (!me || me.id !== flow.userId) return redirect('/login?googleError=state')
-      if (me.email.toLowerCase() !== info.email || (user && user.id !== me.id)) return redirect('/perfil?googleError=mismatch')
+      if ((me.email && me.email.toLowerCase() !== info.email) || (user && user.id !== me.id)) return redirect('/perfil?googleError=mismatch')
       const existing = await prisma.user.findUniqueOrThrow({ where: { id: me.id } })
       if (existing.googleId && existing.googleId !== info.sub) return redirect('/perfil?googleError=mismatch')
-      await prisma.user.update({ where: { id: me.id }, data: { googleId: info.sub } })
+      // Conta só com telefone: guarda também o e-mail do Google, se ainda estiver livre
+      const emailFree = me.email ? false : !(await prisma.user.findFirst({ where: { email: { equals: info.email, mode: 'insensitive' } }, select: { id: true } }))
+      await prisma.user.update({ where: { id: me.id }, data: { googleId: info.sub, ...(emailFree ? { email: info.email } : {}) } })
       return redirect(`${safeNext(flow.next)}?googleLinked=1`)
     }
     if (!user) {

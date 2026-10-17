@@ -6,8 +6,8 @@ import { registrationIdentity } from '@/lib/registration'
 // POST: cadastro do Anota Aí Leite.
 // profile "produtor" anota a própria produção (um sítio); "motorista" anota a rota (vários sítios e tanques).
 export async function POST(request: NextRequest) {
-  const { name, email, password, pointName, pointKind, profile } = await request.json()
-  const auth = await registrationIdentity({ name, email, password })
+  const { name, email, phone, password, pointName, pointKind, profile } = await request.json()
+  const auth = await registrationIdentity({ name, email, phone, password })
   if (auth.error) return auth.error
   const identity = auth.identity!
   const isDriver = profile === 'motorista'
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       if (claimed.count !== 1) throw new Error('ALREADY_REGISTERED')
       return tx.user.update({ where: { id: identity.id }, data })
     }
-    return tx.user.create({ data: { ...data, name: identity.name, email: identity.email, password: identity.password! } })
+    return tx.user.create({ data: { ...data, name: identity.name, email: identity.email, phone: identity.phone, password: identity.password! } })
   })
 
   const response = NextResponse.json({ id: user.id }, { status: 201 })

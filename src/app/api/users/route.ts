@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import { canAccessModule, getSessionUser, grantablePermissions, hashPassword, requireUserManager } from '@/lib/auth'
 import { MODULES } from '@/lib/modules'
 import { addFarmMember } from '@/lib/farms'
+import { validateContact } from '@/lib/identity'
+import { contactInUse } from '@/lib/registration'
 import { NextRequest, NextResponse } from 'next/server'
 
 const MODULE_KEYS = MODULES.map((m) => m.key)
@@ -18,7 +20,7 @@ export async function GET() {
     // Equipe desta propriedade: quem está com ela aberta e quem tem acesso a ela (o dono pode estar em outra)
     where: me.effectiveFarmId ? { OR: [{ farmId: me.effectiveFarmId }, { farmMemberships: { some: { farmId: me.effectiveFarmId } } }] } : { farmId: null },
     select: {
-      id: true, name: true, email: true, role: true, permissions: true,
+      id: true, name: true, email: true, phone: true, role: true, permissions: true,
       farmId: true, farm: { select: { name: true } }, createdAt: true,
     },
     orderBy: { name: 'asc' },
@@ -32,10 +34,10 @@ export async function POST(request: NextRequest) {
   if ('error' in auth) return auth.error
   const { me, farmId } = auth
 
-  const { name, email, password, role, permissions } = await request.json()
-
-  if (!name || !email || !password) {
-    return NextResponse.json({ error: 'Nome, e-mail e senha são obrigatórios' }, { status: 400 })
+  const body = await request.json()
+  const { name, password, role, permissions } = body
+  if (!name || !password) {
+    return NextResponse.json({ error: 'Nome, senha e um telefone ou e-mail são obrigatórios' }, { status: 400 })
   }
   if (String(password).length < 6) {
     return NextResponse.json({ error: 'A senha deve ter pelo menos 6 caracteres' }, { status: 400 })
@@ -46,20 +48,23 @@ export async function POST(request: NextRequest) {
   const granted = grantablePermissions(me, permissions, MODULE_KEYS)
   if ('error' in granted) return NextResponse.json({ error: granted.error }, { status: 403 })
 
-  if (await prisma.user.findUnique({ where: { email } })) {
-    return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 })
-  }
+  // A pessoa entra com o telefone ou com o e-mail; pelo menos um
+  const contact = validateContact({ email: body.email, phone: body.phone })
+  if ('error' in contact) return NextResponse.json({ error: contact.error }, { status: 400 })
+  const { email, phone } = contact
+  const inUse = await contactInUse(email, phone)
+  if (inUse) return NextResponse.json({ error: inUse.replace(' Entre para continuar seu cadastro.', '') }, { status: 409 })
 
   const hashed = await hashPassword(password)
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
       data: {
-        name, email, password: hashed,
+        name, email, phone, password: hashed,
         role: role || 'viewer',
         permissions: granted,
         farmId,
       },
-      select: { id: true, name: true, email: true, role: true, permissions: true, farmId: true },
+      select: { id: true, name: true, email: true, phone: true, role: true, permissions: true, farmId: true },
     })
     await addFarmMember(tx, created.id, farmId)
     return created
