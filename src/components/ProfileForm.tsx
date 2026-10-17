@@ -6,6 +6,8 @@ import { useUser } from '@/contexts/UserContext'
 import { GoogleLoginButton, GOOGLE_ERRORS } from '@/components/GoogleLoginButton'
 import { homeForRole } from '@/lib/organizations'
 import { maskPhone } from '@/lib/masks'
+import { useDialog } from '@/components/DialogProvider'
+import { wipeDevice } from '@/lib/offlineUnlock'
 
 interface Profile {
   name: string
@@ -20,6 +22,7 @@ interface Profile {
 
 export function ProfileForm() {
   const { refresh } = useUser()
+  const { confirm } = useDialog()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [password, setPassword] = useState('')
   const [currentPassword, setCurrentPassword] = useState('')
@@ -54,6 +57,14 @@ export function ProfileForm() {
       setSuccess(true)
     } catch (e) { setError(e instanceof Error ? e.message : 'Verifique sua conexão e tente novamente') }
     finally { setSaving(false) }
+  }
+
+  // Aparelho emprestado ou de uso comum: sai e apaga tudo (dados, filas e a senha guardada para entrar sem internet)
+  async function wipeAndLogout() {
+    if (!(await confirm({ title: 'Sair e apagar os dados deste aparelho?', message: 'Apaga as anotações guardadas, o que ainda não foi enviado e a senha guardada para entrar sem internet. Só faça isso com internet e com tudo enviado.', confirmLabel: 'Sair e apagar', danger: true }))) return
+    await wipeDevice()
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
+    window.location.href = '/login'
   }
 
   const home = homeForRole(profile?.role)
@@ -95,5 +106,10 @@ export function ProfileForm() {
         </fieldset>
         {success && <p role="status" className="mt-4 text-green-700">Cadastro atualizado com sucesso.</p>}
       </form>}
+    {profile && <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+      <h2 className="font-semibold">Este aparelho</h2>
+      <p className="mt-1 text-sm text-gray-600">Depois de entrar uma vez com internet, você entra sem sinal com a mesma senha, e o que anotar fica guardado até o sinal voltar. &ldquo;Sair&rdquo; no menu mantém isso. Num aparelho emprestado, apague tudo.</p>
+      <button type="button" onClick={() => void wipeAndLogout()} className="mt-3 rounded-lg border border-red-300 px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50">Sair e apagar os dados deste aparelho</button>
+    </section>}
   </div>
 }

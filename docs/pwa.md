@@ -11,7 +11,8 @@ Entrar exige internet: a senha é conferida no servidor e a sessão é um cookie
 - As telas do site (Início, Login, Painel, Anotar, offline) ficam guardadas por 90 dias na regra "telas" do service worker, em next.config.ts, com espera de 3 segundos pela rede antes de usar a cópia. A regra padrão do next-pwa guardava por um dia e quem ficava mais tempo sem sinal caía na tela offline.
 - PwaRegistration guarda essas telas de antemão no primeiro acesso com internet e a cada 6 horas; o login refaz esse cache para a pessoa que entrou.
 - A tela de login sem internet avisa, desativa o botão Entrar e, se alguém já entrou neste aparelho, oferece "Continuar sem internet", que abre o app guardado.
-- Sair sem internet pede confirmação, porque apaga tudo e só dá para entrar de novo com sinal.
+- Entrar sem internet: ao entrar com internet, a senha fica guardada no aparelho como hash PBKDF2 com sal (src/lib/offlineUnlock.ts), nunca a senha. Sem sinal, o login confere a senha no aparelho e abre o app com os dados guardados, sem criar sessão no servidor; quando o sinal volta, a pessoa entra de novo com internet para enviar a fila. Só vale para a última pessoa que entrou neste aparelho.
+- "Sair" deixa dados, filas e a credencial no aparelho. "Sair e apagar os dados deste aparelho", em Meu cadastro, limpa tudo (para aparelho emprestado).
 - O endereço inicial "/" é uma página normal para quem não usa o Painel (Anota Aí Leite, fornecedor, laticínio, associação e visitante): ela segue para a tela certa. Antes era um redirecionamento do servidor, que o service worker não consegue guardar, e o app instalado não abria sem internet. A rota especial do next-pwa para o endereço inicial foi desligada (cacheStartUrl e dynamicStartUrl false), e "/" entra na regra "telas".
 
 ## Validação

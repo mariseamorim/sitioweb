@@ -29,6 +29,11 @@ interface UserContextType {
 
 const USER_CACHE_KEY = 'cached_user'
 
+/** Entrou sem internet: guarda quem é para as telas abrirem com os dados do aparelho */
+export function writeCachedUser(user: UserData) {
+  try { localStorage.setItem(USER_CACHE_KEY, JSON.stringify(user)) } catch {}
+}
+
 /** Quem entrou por último neste aparelho (guardado a cada acesso com internet); null se ninguém ou se saiu */
 export function readCachedUser(): UserData | null {
   try {

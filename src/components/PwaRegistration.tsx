@@ -17,7 +17,9 @@ export async function warmOfflinePages(force = false) {
     if (!force && Date.now() - last < WARM_EVERY) return
   } catch {}
   try {
-    await navigator.serviceWorker.ready
+    // Sem service worker registrado (modo anônimo, http na rede local), "ready" nunca resolve: espera no máximo 3 s
+    const ready = await Promise.race([navigator.serviceWorker.ready, new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))])
+    if (!ready) return
     // No primeiro acesso a página ainda não é controlada pelo service worker, e os pedidos passariam direto, sem guardar
     if (!navigator.serviceWorker.controller) {
       await new Promise<void>((resolve) => {
