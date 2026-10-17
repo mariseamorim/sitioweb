@@ -8,6 +8,7 @@ async function main() {
     const page = await context.newPage()
     await page.route('**/api/auth/me', route => route.fulfill({ json: { id: 'test', name: 'Pessoa Teste', role: 'admin', email: 'test@example.com', farmId: null, farmName: 'Propriedade com um nome bastante comprido', permissions: null } }))
     await page.route('**/api/farms', route => route.fulfill({ json: [] }))
+    await page.route('**/api/admin/propriedades', route => route.fulfill({ json: [] }))
     for (const width of (process.env.TEST_ONLY_PWA === '1' ? [] : [320, 375, 768, 1024, 1440])) {
       await page.setViewportSize({ width, height: 900 })
       for (const path of ['/inicio', '/cadastro', '/fazendas', '/estoque']) {

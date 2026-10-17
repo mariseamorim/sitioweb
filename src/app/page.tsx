@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { canAccessModule, getSessionUser } from '@/lib/auth'
 import { memberFarms } from '@/lib/farms'
 import { farmsOverview } from '@/lib/farmOverview'
+import { adminFarmSummaries } from '@/lib/adminFarms'
 import { FARM_SEGMENTS } from '@/lib/farmSegments'
 import { OpenFarmButton } from '@/components/OpenFarmButton'
 import Link from 'next/link'
@@ -25,13 +26,9 @@ export default async function Home() {
 
   const effectiveFarmId = user.effectiveFarmId
 
-  // Admin with no farm selected → show farm picker
+  // Admin sem propriedade aberta: escolhe uma, agrupadas por proprietário
   if (user.role === 'admin' && !effectiveFarmId) {
-    const farms = await prisma.farm.findMany({
-      orderBy: { name: 'asc' },
-      select: { id: true, name: true, propertyType: true, owner: true, city: true, state: true },
-    })
-    return <FarmPicker farms={farms} />
+    return <FarmPicker farms={await adminFarmSummaries()} />
   }
 
   // Load farm name for display
