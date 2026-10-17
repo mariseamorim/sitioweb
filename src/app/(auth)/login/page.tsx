@@ -142,6 +142,9 @@ export default function LoginPage() {
               Criar conta
             </Link>
           </p>
+          <p className="text-center text-sm text-gray-500 mt-3">
+            Não consegue entrar? <Link href="/ajuda" className="text-green-700 font-medium hover:underline">Peça ajuda</Link>
+          </p>
         </div>
       </div>
     </div>

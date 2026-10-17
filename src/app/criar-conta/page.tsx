@@ -73,6 +73,9 @@ export default function CriarContaPage() {
         <p className="mt-6 text-center text-sm text-gray-600">
           Já tem conta? <Link href="/login" className="font-semibold text-green-700 hover:underline">Entrar</Link>
         </p>
+        <p className="mt-3 text-center text-sm text-gray-600">
+          Prefere que a gente configure com você? <Link href="/ajuda" className="font-semibold text-green-700 hover:underline">Peça ajuda</Link>
+        </p>
       </div>
     </div>
   )
