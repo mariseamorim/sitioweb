@@ -8,6 +8,7 @@ import { OpenFarmButton } from '@/components/OpenFarmButton'
 import Link from 'next/link'
 import { FarmPicker } from '@/components/FarmPicker'
 import { AdminFarmBanner } from '@/components/AdminFarmBanner'
+import { SetupHelpCard } from '@/components/SetupHelpCard'
 import { BOVINE_CATEGORIES, CALF_AT_FOOT_DAYS, canAddCalf } from '@/lib/animalRules'
 import {
   AnimalIcon, CheckIcon, LeiteIcon, TratamentoIcon, VacinaIcon,
@@ -146,6 +147,8 @@ export default async function Home() {
       </div>
 
       {overview.length > 0 && <FarmsOverview farms={overview} activeId={effectiveFarmId!} fmtBRL={fmtBRL} />}
+
+      {totalAnimals === 0 && user.role !== 'admin' && <SetupHelpCard farmId={effectiveFarmId!} />}
 
       {quickActions.length > 0 && <section aria-labelledby="daily-actions" className="mb-8">
         <h2 id="daily-actions" className="text-lg font-bold text-gray-900">O que você quer fazer?</h2>
