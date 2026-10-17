@@ -50,7 +50,8 @@ model Farm {
 
 model User {
   id           String      @id @default(cuid())
-  email        String      @unique
+  /// E-mail ou telefone: pelo menos um, os dois servem para entrar
+  email        String?     @unique
   name         String
   password     String?
   googleId     String?     @unique
@@ -66,7 +67,8 @@ model User {
   /// Laticínio/associação: quem administra (role laticinio/associacao) ou motorista do laticínio
   organizationId String?
   organization   Organization? @relation("OrgUsers", fields: [organizationId], references: [id], onDelete: SetNull)
-  phone          String? // contato (motorista do laticínio)
+  /// Telefone só com números (DDD + número): serve para entrar e não repete entre contas
+  phone          String?       @unique
   vehicle        String? // veículo do motorista do laticínio
   driverRoutes     Route[]        @relation("RouteDriver")
   collectedEntries MilkEntry[]    @relation("EntryCollector")
@@ -281,7 +283,7 @@ model Vendor {
   contactName String
   phone       String
   whatsapp    String?
-  email       String
+  email       String?
   city        String?
   state       String?
   description String?
@@ -593,7 +595,7 @@ model Organization {
   document    String?
   contactName String
   phone       String
-  email       String
+  email       String?
   city        String?
   state       String?
   status      String   @default("pendente") // pendente | aprovado | bloqueado

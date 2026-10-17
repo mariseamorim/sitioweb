@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getSessionUser, hashPassword, verifyPassword } from '@/lib/auth'
+import { validateContact } from '@/lib/identity'
+import { contactInUse } from '@/lib/registration'
 
 export async function GET() {
   const me = await getSessionUser()
   if (!me) return NextResponse.json({ error: 'Faça login para continuar' }, { status: 401 })
   const user = await prisma.user.findUniqueOrThrow({ where: { id: me.id }, select: {
-    name: true, email: true, role: true, password: true, googleId: true,
+    name: true, email: true, phone: true, role: true, password: true, googleId: true,
     vendor: { select: { companyName: true, document: true, phone: true, whatsapp: true, city: true, state: true, description: true } },
     milkPoints: { where: { active: true }, select: { id: true, name: true, kind: true }, orderBy: { createdAt: 'asc' } },
   } })
@@ -21,15 +23,19 @@ export async function PATCH(request: NextRequest) {
   let body
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 }) }
   const fail = (error: string) => NextResponse.json({ error }, { status: 400 })
-  if (!body || typeof body.name !== 'string' || !body.name.trim() || typeof body.email !== 'string') return fail('Informe nome e e-mail')
+  if (!body || typeof body.name !== 'string' || !body.name.trim()) return fail('Informe o nome')
   const name = body.name.trim()
-  const email = body.email.trim()
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('E-mail inválido')
+  const contact = validateContact({ email: body.email, phone: body.phone })
+  if ('error' in contact) return fail(contact.error)
+  const { email, phone } = contact
+  const inUse = await contactInUse(email, phone, me.id)
+  if (inUse) return NextResponse.json({ error: inUse.replace(' Entre para continuar seu cadastro.', '') }, { status: 409 })
   if (body.password !== undefined && typeof body.password !== 'string') return fail('Senha inválida')
   const user = await prisma.user.findUniqueOrThrow({ where: { id: me.id } })
-  if (!user.password && email !== user.email) return fail('Crie uma senha antes de alterar o e-mail')
-  if (user.password && (email !== user.email || body.password)) {
-    if (typeof body.currentPassword !== 'string' || !await verifyPassword(body.currentPassword, user.password)) return fail('Informe sua senha atual corretamente para alterar o e-mail ou a senha')
+  const contactChanged = email !== user.email || phone !== user.phone
+  if (!user.password && contactChanged) return fail('Crie uma senha antes de alterar o e-mail ou o telefone')
+  if (user.password && (contactChanged || body.password)) {
+    if (typeof body.currentPassword !== 'string' || !await verifyPassword(body.currentPassword, user.password)) return fail('Informe sua senha atual corretamente para alterar o e-mail, o telefone ou a senha')
   }
   if (body.password && body.password.length < 6) return fail('A nova senha deve ter pelo menos 6 caracteres')
   const vendorData: Record<string, string | null> = {}
@@ -61,7 +67,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const password = body.password ? await hashPassword(body.password) : undefined
     await prisma.$transaction(async tx => {
-      await tx.user.update({ where: { id: me.id }, data: { name, email, ...(password ? { password } : {}) } })
+      await tx.user.update({ where: { id: me.id }, data: { name, email, phone, ...(password ? { password } : {}) } })
       if (user.role === 'fornecedor' && user.vendorId) {
         await tx.vendor.update({ where: { id: user.vendorId }, data: { ...vendorData, contactName: name, email } as Prisma.VendorUpdateInput })
       }
@@ -69,7 +75,7 @@ export async function PATCH(request: NextRequest) {
     })
     return NextResponse.json({ success: true })
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 })
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return NextResponse.json({ error: 'E-mail ou telefone já cadastrado' }, { status: 409 })
     return NextResponse.json({ error: 'Não foi possível salvar o cadastro' }, { status: 500 })
   }
 }

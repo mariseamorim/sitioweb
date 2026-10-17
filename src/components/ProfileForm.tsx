@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { useUser } from '@/contexts/UserContext'
 import { GoogleLoginButton, GOOGLE_ERRORS } from '@/components/GoogleLoginButton'
 import { homeForRole } from '@/lib/organizations'
+import { maskPhone } from '@/lib/masks'
 
 interface Profile {
   name: string
-  email: string
+  email: string | null
+  phone: string | null
   role: string
   hasPassword: boolean
   googleConnected: boolean
@@ -65,7 +67,9 @@ export function ProfileForm() {
         <fieldset disabled={saving} className="flex flex-col gap-4 disabled:opacity-70">
           <legend className="mb-3 font-semibold">Dados da conta</legend>
           <label>Nome<input required autoComplete="name" className={input} value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} /></label>
-          <label>E-mail<input required type="email" autoComplete="email" className={input} value={profile.email} onChange={e => setProfile({ ...profile, email: e.target.value })} /></label>
+          <label>Telefone<input type="tel" inputMode="tel" autoComplete="tel" placeholder="(35) 99999-0000" className={input} value={profile.phone ? maskPhone(profile.phone) : ''} onChange={e => setProfile({ ...profile, phone: e.target.value.replace(/\D/g, '') || null })} /></label>
+          <label>E-mail <span className="text-gray-400">(opcional)</span><input type="email" autoComplete="email" className={input} value={profile.email ?? ''} onChange={e => setProfile({ ...profile, email: e.target.value || null })} /></label>
+          <p className="-mt-2 text-xs text-gray-500">Você entra com o telefone ou com o e-mail. Informe pelo menos um.</p>
           {profile.vendor && <fieldset className="flex flex-col gap-4">
             <legend className="mb-3 font-semibold">Dados da empresa</legend>
             {Object.entries({ companyName: 'Nome da empresa', document: 'CPF/CNPJ', phone: 'Telefone', whatsapp: 'WhatsApp', city: 'Cidade', state: 'Estado', description: 'O que você vende' }).map(([key, label]) => <label key={key}>{label}

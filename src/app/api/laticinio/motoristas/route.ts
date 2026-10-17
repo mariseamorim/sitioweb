@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hashPassword, requireOrganization } from '@/lib/auth'
 import { COLLECTION_ORGS, cleanText } from '@/lib/laticinio'
+import { validateContact } from '@/lib/identity'
+import { contactInUse } from '@/lib/registration'
 
 // POST: o laticínio cria o acesso do motorista (ele entra no Anota Aí Leite e vê as rotas atribuídas)
 export async function POST(request: NextRequest) {
@@ -10,18 +12,20 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json()
   const name = cleanText(body.name, 80)
-  const email = cleanText(body.email, 120)?.toLowerCase()
   const password = typeof body.password === 'string' ? body.password : ''
-  if (!name || !email || !/^\S+@\S+\.\S+$/.test(email)) return NextResponse.json({ error: 'Informe nome e e-mail válidos' }, { status: 400 })
+  if (!name) return NextResponse.json({ error: 'Informe o nome do motorista' }, { status: 400 })
+  // O motorista entra com o telefone (ou e-mail, se preferir) e a senha
+  const contact = validateContact({ email: body.email, phone: body.phone })
+  if ('error' in contact) return NextResponse.json({ error: contact.error }, { status: 400 })
+  const { email, phone } = contact
   if (password.length < 6) return NextResponse.json({ error: 'A senha deve ter pelo menos 6 caracteres' }, { status: 400 })
-  if (await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true } })) {
-    return NextResponse.json({ error: 'Já existe uma conta com esse e-mail' }, { status: 409 })
-  }
+  const inUse = await contactInUse(email, phone)
+  if (inUse) return NextResponse.json({ error: inUse.replace(' Entre para continuar seu cadastro.', '') }, { status: 409 })
 
   const driver = await prisma.user.create({
     data: {
       name, email, password: await hashPassword(password), role: 'motorista', permissions: [],
-      organizationId: auth.organization.id, phone: cleanText(body.phone, 30), vehicle: cleanText(body.vehicle, 60),
+      organizationId: auth.organization.id, phone, vehicle: cleanText(body.vehicle, 60),
     },
     select: { id: true, name: true, email: true, phone: true, vehicle: true },
   })

@@ -7,6 +7,7 @@ import { KIND_LABEL, PointKind } from '@/lib/lite'
 import { BackLink } from '@/components/BackLink'
 import { GoogleLoginButton } from '@/components/GoogleLoginButton'
 import { useRegistrationAccount } from '@/lib/useRegistrationAccount'
+import { maskPhone } from '@/lib/masks'
 
 type Profile = 'produtor' | 'motorista'
 
@@ -20,7 +21,7 @@ const input = 'mt-1 w-full border border-gray-300 rounded-xl px-3 py-3 text-base
 export default function LiteCadastroPage() {
   const { account, ready, error: accountError } = useRegistrationAccount()
   const [profile, setProfile] = useState<Profile>('produtor')
-  const [form, setForm] = useState({ name: '', email: '', password: '', pointName: '' })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', pointName: '' })
   const [kind, setKind] = useState<PointKind>('sitio')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -63,7 +64,7 @@ export default function LiteCadastroPage() {
         <h1 className="mt-5 text-2xl font-bold text-gray-900 text-center">Anota Aí Leite</h1>
         <p className="mt-1 text-center text-gray-600">Anote o leite no celular, mesmo sem internet.</p>
 
-        {account ? <p className="mt-4 text-sm text-green-700">Conta criada para {account.email}. Complete seu perfil abaixo.</p> : <div className="mt-4"><GoogleLoginButton next={driver ? '/lite/cadastro?perfil=motorista' : '/lite/cadastro'} /></div>}
+        {account ? <p className="mt-4 text-sm text-green-700">Conta criada para {account.label}. Complete seu perfil abaixo.</p> : <div className="mt-4"><GoogleLoginButton next={driver ? '/lite/cadastro?perfil=motorista' : '/lite/cadastro'} /></div>}
         {accountError && <p role="alert" className="mt-3 text-red-700">{accountError}</p>}
         <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
           <fieldset>
@@ -82,8 +83,12 @@ export default function LiteCadastroPage() {
           {!account && <><label className="text-sm font-medium text-gray-700">Seu nome
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={input} />
           </label>
-          <label className="text-sm font-medium text-gray-700">E-mail
-            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required className={input} />
+          <label className="text-sm font-medium text-gray-700">Telefone
+            <input type="tel" inputMode="tel" autoComplete="tel" placeholder="(35) 99999-0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })} className={input} />
+          </label>
+          <label className="text-sm font-medium text-gray-700">E-mail <span className="font-normal text-gray-400">(opcional)</span>
+            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={input} />
+            <span className="mt-1 block text-xs font-normal text-gray-500">Você entra com o telefone ou com o e-mail. Informe pelo menos um.</span>
           </label>
           <label className="text-sm font-medium text-gray-700">Senha
             <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required className={input} />

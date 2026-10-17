@@ -32,7 +32,7 @@ export function OrgSignupForm({ type }: { type: OrgType }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           organization: { type, name, document, contactName: contactName || account?.name, phone, city, state },
-          user: { email, password },
+          user: { email, phone, password },
         }),
       })
       const data = await res.json()
@@ -54,7 +54,7 @@ export function OrgSignupForm({ type }: { type: OrgType }) {
           <p className="mt-1 text-gray-500">{info.intro} O cadastro passa por aprovação.</p>
 
           {account
-            ? <p className="mt-4 text-sm text-green-700">Conta criada para {account.email}. Complete os dados.</p>
+            ? <p className="mt-4 text-sm text-green-700">Conta criada para {account.label}. Complete os dados.</p>
             : <div className="mt-4"><GoogleLoginButton next={`/organizacao/cadastro?tipo=${type}`} /></div>}
           {accountError && <p role="alert" className="mt-3 text-red-700">{accountError}</p>}
 
@@ -92,7 +92,7 @@ export function OrgSignupForm({ type }: { type: OrgType }) {
               <fieldset className="flex flex-col gap-3">
                 <legend className="text-sm font-semibold text-gray-900 mb-2">Acesso</legend>
                 <label className="text-sm font-medium text-gray-700">E-mail *
-                  <input type="email" value={form.email} onChange={set('email')} required className={`mt-1 ${input}`} />
+                  <input type="email" value={form.email} onChange={set('email')} className={`mt-1 ${input}`} />
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="text-sm font-medium text-gray-700">Senha *

@@ -1,21 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, isLegacyPassword, setSessionCookie, verifyPassword } from '@/lib/auth';
+import { parseLogin } from '@/lib/identity';
 
+// POST { login, password }: entra com e-mail ou telefone (DDD + número) e senha. `email` ainda é aceito no lugar de `login`.
 export async function POST(request: NextRequest) {
-  const { email, password } = await request.json();
+  const body = await request.json();
+  const { password } = body;
+  const login = parseLogin(body.login ?? body.email);
 
-  if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
-    return NextResponse.json({ error: 'E-mail e senha são obrigatórios' }, { status: 400 });
+  if (!login || typeof password !== 'string' || !password) {
+    return NextResponse.json({ error: 'Informe o e-mail ou o telefone e a senha' }, { status: 400 });
   }
 
   const user = await prisma.user.findFirst({
-    where: { email: { equals: email.trim(), mode: 'insensitive' } },
+    where: 'email' in login ? { email: { equals: login.email, mode: 'insensitive' } } : { phone: login.phone },
     include: { farm: true },
   });
 
   if (!user || !(await verifyPassword(password, user.password))) {
-    return NextResponse.json({ error: 'E-mail ou senha incorretos' }, { status: 401 });
+    return NextResponse.json({ error: 'email' in login ? 'E-mail ou senha incorretos' : 'Telefone ou senha incorretos' }, { status: 401 });
   }
 
   // Senhas antigas em texto puro são convertidas para hash no primeiro login
@@ -27,6 +31,7 @@ export async function POST(request: NextRequest) {
     id: user.id,
     name: user.name,
     email: user.email,
+    phone: user.phone,
     role: user.role,
     farmId: user.farmId,
     farmName: user.farm?.name ?? null,

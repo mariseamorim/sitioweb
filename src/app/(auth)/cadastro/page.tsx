@@ -6,6 +6,7 @@ import { BackLink } from '@/components/BackLink'
 import { GoogleLoginButton } from '@/components/GoogleLoginButton'
 import { FARM_SEGMENTS } from '@/lib/farmSegments'
 import { DOCUMENT_PLACEHOLDER, maskDocument, maskPhone } from '@/lib/masks'
+import { contactLabel } from '@/lib/identity'
 
 const EMPTY_FARM = { name: '', propertyType: 'Fazenda', documentType: 'CNPJ', documentNumber: '', owner: '', phone: '', address: '', city: '', state: '' }
 
@@ -14,7 +15,7 @@ export default function CadastroPage() {
   const [ready, setReady] = useState(false)
   const [farm, setFarm] = useState(EMPTY_FARM)
   const [segments, setSegments] = useState<string[]>([])
-  const [user, setUser] = useState({ name: '', email: '', password: '', confirm: '' })
+  const [user, setUser] = useState({ name: '', email: '', phone: '', password: '', confirm: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleNext, setGoogleNext] = useState('/cadastro')
@@ -25,7 +26,7 @@ export default function CadastroPage() {
       if (!r.ok) throw new Error('Não foi possível verificar a conta')
       const account = await r.json()
       if (account.role !== 'onboarding') { window.location.href = '/'; return }
-      setUser(u => ({ ...u, name: account.name, email: account.email }))
+      setUser(u => ({ ...u, name: account.name, email: account.email ?? '', phone: account.phone ?? '' }))
       setFarm(f => ({ ...f, owner: account.name }))
       setStep(2)
     }).catch(() => setError('Verifique sua conexão para continuar o cadastro.')).finally(() => setReady(true))
@@ -34,12 +35,13 @@ export default function CadastroPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setError('')
     if (step === 1 && user.password !== user.confirm) { setError('As senhas não coincidem'); return }
+    if (step === 1 && !user.phone.trim() && !user.email.trim()) { setError('Informe um telefone ou um e-mail para entrar'); return }
     setLoading(true)
     try {
       const inviteCode = new URLSearchParams(window.location.search).get('convite')
       const res = await fetch('/api/auth/register', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(step === 1 ? { user: { name: user.name, email: user.email, password: user.password } } : { farm: { ...farm, segments }, inviteCode }),
+        body: JSON.stringify(step === 1 ? { user: { name: user.name, email: user.email, phone: user.phone, password: user.password } } : { farm: { ...farm, segments }, inviteCode }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Não foi possível salvar')
@@ -56,12 +58,14 @@ export default function CadastroPage() {
       <ol className="my-5 flex gap-4 text-sm font-semibold"><li className={step === 1 ? 'text-green-700' : 'text-gray-500'}>1. Usuário</li><li className={step === 2 ? 'text-green-700' : 'text-gray-500'}>2. Propriedade</li></ol>
       {!ready ? <p>Carregando...</p> : <>
         {step === 1 && <GoogleLoginButton next={googleNext} />}
-        {step === 2 && <p className="mb-4 text-sm text-gray-600">Conta criada para {user.email}. Agora informe os dados da fazenda ou sítio.</p>}
+        {step === 2 && <p className="mb-4 text-sm text-gray-600">Conta criada para {contactLabel(user)}. Agora informe os dados da fazenda ou sítio.</p>}
         <form onSubmit={submit} className="mt-4">
           <fieldset disabled={loading} className="flex flex-col gap-4">
             {step === 1 ? <>
               <label>Seu nome<input required autoComplete="name" className={input} value={user.name} onChange={e => setUser({ ...user, name: e.target.value })} /></label>
-              <label>E-mail<input required type="email" autoComplete="email" className={input} value={user.email} onChange={e => setUser({ ...user, email: e.target.value })} /></label>
+              <label>Telefone<input type="tel" inputMode="tel" autoComplete="tel" placeholder="(35) 99999-0000" className={input} value={user.phone} onChange={e => setUser({ ...user, phone: maskPhone(e.target.value) })} /></label>
+              <label>E-mail <span className="text-gray-400">(opcional)</span><input type="email" autoComplete="email" className={input} value={user.email} onChange={e => setUser({ ...user, email: e.target.value })} /></label>
+              <p className="-mt-2 text-xs text-gray-500">Você entra com o telefone ou com o e-mail. Informe pelo menos um.</p>
               <label>Senha<input required type="password" minLength={6} autoComplete="new-password" className={input} value={user.password} onChange={e => setUser({ ...user, password: e.target.value })} /></label>
               <label>Confirmar senha<input required type="password" minLength={6} autoComplete="new-password" className={input} value={user.confirm} onChange={e => setUser({ ...user, confirm: e.target.value })} /></label>
             </> : <>
