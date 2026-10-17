@@ -6,11 +6,13 @@ import { useUser } from '@/contexts/UserContext'
 import { screenLabel, supportHref, type SupportKind } from '@/lib/support'
 
 // Botão "Fale com o suporte pelo WhatsApp". Aponta para /api/suporte, que monta a mensagem no servidor (quem é, de onde,
-// em que tela) e redireciona para o WhatsApp. Só aparece para quem está logado e quando há número configurado.
+// em que tela; genérica sem login) e redireciona para o WhatsApp. Só aparece quando há número configurado.
 // Sem internet, fica desativado com o motivo.
 
 interface Props {
   kind?: SupportKind
+  /** Há suporte configurado (vem do servidor nas telas sem login; com login, lê da sessão) */
+  enabled?: boolean
   /** button: botão verde; link: texto; menu: item do menu lateral */
   variant?: 'button' | 'link' | 'menu'
   label?: string
@@ -45,11 +47,11 @@ export function useOnline() {
   return online
 }
 
-export function SupportWhatsApp({ kind = 'ajuda', variant = 'link', label = 'Fale com o suporte pelo WhatsApp', className = '', onClick }: Props) {
+export function SupportWhatsApp({ kind = 'ajuda', enabled, variant = 'link', label = 'Fale com o suporte pelo WhatsApp', className = '', onClick }: Props) {
   const pathname = usePathname()
   const { user } = useUser()
   const online = useOnline()
-  if (!user?.support) return null
+  if (!(enabled ?? user?.support)) return null
 
   const icon = <span aria-hidden="true" className={variant === 'menu' ? 'text-gray-400' : ''}><WhatsAppIcon className={variant === 'link' ? 'h-4 w-4' : 'h-5 w-5'} /></span>
   const classes = `${STYLE[variant]} ${className}`.trim()

@@ -47,6 +47,6 @@ export default function LandingPage() {
       <ContactForm />
     </section>
     <section id="comecar" className="landing-cta"><div className="landing-container"><div><p className="landing-eyebrow">Pronto para simplificar?</p><h2>Sua propriedade merece uma gestão à altura.</h2></div><Link href="/criar-conta" className="landing-button button-dark">Criar minha conta <SetaDireitaIcon /></Link></div></section>
-    <footer className="landing-footer landing-container"><a href="#inicio" className="landing-brand"><Image src="/anota-ai-agro-logo.png" width={1632} height={473} alt="Anota Aí Agro" className="landing-brand-logo" /></a><p>Gestão rural simples, de verdade.</p><div><Link href="/login">Entrar no sistema</Link><a href="#contato">Fale conosco</a><a href="mailto:anotaaiagro@gmail.com">anotaaiagro@gmail.com</a><span>© {new Date().getFullYear()} Anota Aí Agro</span></div></footer>
+    <footer className="landing-footer landing-container"><a href="#inicio" className="landing-brand"><Image src="/anota-ai-agro-logo.png" width={1632} height={473} alt="Anota Aí Agro" className="landing-brand-logo" /></a><p>Gestão rural simples, de verdade.</p><div><Link href="/login">Entrar no sistema</Link><Link href="/ajuda">Ajuda e suporte</Link><a href="#contato">Fale conosco</a><a href="mailto:anotaaiagro@gmail.com">anotaaiagro@gmail.com</a><span>© {new Date().getFullYear()} Anota Aí Agro</span></div></footer>
   </main>
 }
