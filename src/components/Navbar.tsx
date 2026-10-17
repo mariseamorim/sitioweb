@@ -57,7 +57,7 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   const pathname = usePathname();
   const router = useRouter();
   const { canAccess, user } = useUser();
-  const { notify } = useDialog();
+  const { notify, confirm } = useDialog();
   const [openPath, setOpenPath] = useState<string | null>(null);
   const drawerOpen = openPath === pathname;
   const drawer = useRef<HTMLDivElement>(null);
@@ -122,10 +122,17 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
       );
       return;
     }
+    // Sem internet não dá para entrar de novo: a senha é conferida no servidor
+    if (!navigator.onLine && !(await confirm({
+      title: 'Você está sem internet',
+      message: 'Se sair agora, só vai conseguir entrar de novo quando tiver sinal. Sair mesmo assim?',
+      confirmLabel: 'Sair',
+      danger: true,
+    }))) return;
     localStorage.clear();
     sessionStorage.clear();
     if ('caches' in window) void caches.keys().then(names => Promise.all(names.map(name => caches.delete(name))));
-    await fetch('/api/auth/logout', { method: 'POST' });
+    try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
     setOpenPath(null);
     router.push('/login');
   }
