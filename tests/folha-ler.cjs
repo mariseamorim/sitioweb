@@ -47,9 +47,20 @@ const word = (t, confidence, brk) => ({ confidence, symbols: [...t.slice(0, -1)]
   assert.equal((await api.POST(req({ photo: 'data:image/png;base64,xx' }))).status, 400)
   // o serviço falhou
   visionReply = new Response('erro', { status: 500 })
-  assert.equal((await api.POST(req({ photo }))).status, 502)
+  res = await api.POST(req({ photo }))
+  assert.equal(res.status, 502)
+  assert.equal((await res.json()).detail, 'erro', 'texto da resposta vira o detalhe')
+  // o Google recusa com motivo (API desligada, faturamento, chave restrita): o motivo vai para a tela
+  visionReply = Response.json({ error: { code: 403, message: 'This API method requires billing to be enabled.', status: 'PERMISSION_DENIED' } }, { status: 403 })
+  res = await api.POST(req({ photo }))
+  assert.equal(res.status, 502)
+  body = await res.json()
+  assert.equal(body.detail, 'This API method requires billing to be enabled.')
+  assert.equal(body.status, 403)
   visionReply = Response.json({ responses: [{ error: { message: 'bad' } }] })
-  assert.equal((await api.POST(req({ photo }))).status, 502)
+  res = await api.POST(req({ photo }))
+  assert.equal(res.status, 502)
+  assert.equal((await res.json()).detail, 'bad')
   // sem chave: 503, e o app usa o leitor do aparelho
   env = {}
   const semChave = load('src/app/api/lite/folha/ler/route.ts')

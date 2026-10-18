@@ -6,11 +6,17 @@ import type { OcrWord } from '@/lib/folhaOcr'
 
 export type OcrEngine = 'nuvem' | 'aparelho'
 
+/** Por que a leitura na nuvem não aconteceu, para a tela dizer o que fazer */
+export type CloudErrorReason = 'sem-chave' | 'recusada' | 'rede' | 'login' | 'foto'
+export interface CloudError { reason: CloudErrorReason; detail: string | null }
+
 export interface OcrResult {
   text: string
   words: OcrWord[]
   confidence: number
   engine: OcrEngine
+  /** Preenchido quando a leitura caiu para o aparelho por falha da nuvem (com internet) */
+  cloudError: CloudError | null
   /** Foto reduzida (JPEG) para guardar junto da coleta, como prova */
   photo: string
 }
@@ -78,24 +84,46 @@ function prepareLocal(bitmap: ImageBitmap): HTMLCanvasElement {
   return canvas
 }
 
-async function readCloud(photo: string): Promise<{ text: string; words: OcrWord[] } | null> {
+/** O que a rota de leitura respondeu, traduzido para a tela */
+export function cloudErrorFrom(status: number, data: { error?: string; detail?: string | null }): CloudError {
+  const reason: CloudErrorReason = status === 503 ? 'sem-chave' : status === 401 ? 'login' : status === 400 ? 'foto' : status === 504 ? 'rede' : 'recusada'
+  return { reason, detail: data.detail ?? null }
+}
+
+/** Mensagem para quem está na tela quando a leitura caiu para o aparelho */
+export function cloudErrorMessage(err: CloudError | null, online: boolean): string {
+  const aparelho = 'O aparelho lê o impresso, mas quase nunca os números escritos à mão.'
+  if (!online) return `Sem internet: o aparelho lê o impresso, mas quase nunca os números escritos à mão. Com sinal, a leitura é feita na nuvem e acerta a letra à mão.`
+  switch (err?.reason) {
+    case 'sem-chave': return `A leitura na nuvem não está configurada neste sistema (falta a chave GOOGLE_VISION_API_KEY no servidor). ${aparelho}`
+    case 'recusada': return `O Google recusou a leitura na nuvem${err.detail ? `: "${err.detail}"` : ''}. Confira no Google Cloud se a Cloud Vision API está ativada, se o faturamento do projeto está ligado e se a chave não tem restrição de site. ${aparelho}`
+    case 'rede': return `A leitura na nuvem não respondeu (sinal fraco ou tempo esgotado). Tente de novo. ${aparelho}`
+    case 'login': return `Entre de novo no app para usar a leitura na nuvem. ${aparelho}`
+    case 'foto': return `A foto não serviu para a leitura na nuvem${err.detail ? ` (${err.detail})` : ''}. Tire outra, mais de perto. ${aparelho}`
+    default: return `A leitura foi feita no aparelho. ${aparelho}`
+  }
+}
+
+async function readCloud(photo: string): Promise<{ text: string; words: OcrWord[] } | CloudError> {
   try {
     const res = await fetch('/api/lite/folha/ler', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo }) })
-    if (!res.ok) return null
-    const data = (await res.json()) as { text?: string; words?: OcrWord[] }
-    return typeof data.text === 'string' ? { text: data.text, words: data.words ?? [] } : null
+    const data = (await res.json().catch(() => ({}))) as { text?: string; words?: OcrWord[]; error?: string; detail?: string | null }
+    if (!res.ok) return cloudErrorFrom(res.status, data)
+    return typeof data.text === 'string' ? { text: data.text, words: data.words ?? [] } : { reason: 'recusada', detail: 'resposta sem texto' }
   } catch {
-    return null
+    return { reason: 'rede', detail: null }
   }
 }
 
 /** Lê a foto da folha. onProgress recebe 0 a 1 e o que está fazendo. Tenta a nuvem com internet; senão, o aparelho. */
 export async function readFolha(file: Blob, onProgress: (fraction: number, status: string) => void, { cloud = true } = {}): Promise<OcrResult> {
   const { photo, bitmap } = await preparePhoto(file)
+  let cloudError: CloudError | null = null
   if (cloud && navigator.onLine) {
     onProgress(0.3, 'nuvem')
     const result = await readCloud(photo)
-    if (result) { bitmap.close(); return { ...result, confidence: 0, engine: 'nuvem', photo } }
+    if ('text' in result) { bitmap.close(); return { ...result, confidence: 0, engine: 'nuvem', cloudError: null, photo } }
+    cloudError = result
   }
   const canvas = prepareLocal(bitmap)
   bitmap.close()
@@ -104,7 +132,7 @@ export async function readFolha(file: Blob, onProgress: (fraction: number, statu
   const { data } = await worker.recognize(canvas, {}, { blocks: true })
   const words: OcrWord[] = []
   for (const b of data.blocks ?? []) for (const p of b.paragraphs) for (const l of p.lines) for (const w of l.words) words.push({ text: w.text, confidence: w.confidence })
-  return { text: data.text, words, confidence: data.confidence, engine: 'aparelho', photo }
+  return { text: data.text, words, confidence: data.confidence, engine: 'aparelho', cloudError, photo }
 }
 
 export const canReadFolha = () => typeof window !== 'undefined' && typeof createImageBitmap === 'function' && typeof Worker !== 'undefined'
