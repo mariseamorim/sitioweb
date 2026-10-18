@@ -78,17 +78,29 @@ export interface LiteChange {
   note?: string | null
 }
 
-/** Litros que a folha do motorista diz que ele levou numa coleta */
+/** Litros que a folha do motorista diz que ele levou numa coleta, e o que mais foi lido dela */
 export interface LiteSheet {
   /** yyyy-mm-dd */
   date: string
   liters: number
+  temperature?: number | null
+  sampleNumber?: string | null
+  rulerValue?: number | null
+  /** Há foto guardada (ela vem à parte, por GET /api/lite/folha?data=) */
+  hasPhoto?: boolean
 }
 
-/** Folha a enviar: liters null apaga a coleta daquele dia. */
+/** Folha a enviar: liters null apaga a coleta daquele dia. Campos ausentes não mudam o que já está salvo. */
 export interface LiteSheetChange {
   date: string
   liters: number | null
+  temperature?: number | null
+  sampleNumber?: string | null
+  rulerValue?: number | null
+  /** Foto reduzida (data URL JPEG) */
+  photo?: string | null
+  /** Litros de cada nome da nota na folha: viram a divisão desta coleta */
+  payeeLiters?: Record<string, number> | null
 }
 
 /** Diferença entre a folha e a anotação, em %, a partir da qual a conferência chama atenção.

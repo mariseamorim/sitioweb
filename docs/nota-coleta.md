@@ -10,9 +10,19 @@ O mesmo tanque pode gerar mais de uma nota no laticínio: dois produtores cadast
 
 Na versão completa os nomes ficam na propriedade e a divisão usa o total do dia da Produção de leite.
 
+## Folha do carreteiro pela foto (OCR)
+
+A aba Conferir virou **Folha**. O produtor fotografa a folha preenchida pelo carreteiro e o app lê, no próprio aparelho, o dia, os litros de cada nome, o total, a temperatura, o nº da amostra e a régua. Cada número aparece para conferir (com a confiança da leitura nos litros por nome) antes de salvar. Também dá para digitar a folha. A foto reduzida (JPEG de até 600 KB) fica guardada junto da coleta, como prova, e abre em "Foto".
+
+- Leitor: Tesseract.js com o idioma português. O worker e os núcleos (12 MB) são copiados do node_modules para public/ocr no postinstall (scripts/copy-ocr.mjs) e não ficam no git; o idioma por.traineddata.gz (1 MB) fica. O service worker guarda esses arquivos por um ano depois da primeira leitura, que precisa de internet; depois lê sem sinal.
+- O impresso (cabeçalho, códigos, nomes) lê bem; os números escritos à mão são sugestão. A regra está em src/lib/folhaOcr.ts (pura, testada em tests/folha-ocr.cjs) e aceita trocas comuns do OCR (O por 0, l por 1).
+- Os litros por nome lidos da folha viram a divisão daquela coleta (milk_splits), e o total vai para a folha (milk_sheets, com temperatura, amostra, régua e foto: migration 9_v_folha_foto). A comparação com o anotado continua a mesma (diferença acima de 5% em vermelho).
+- Na aba Nomes, "Fotografar a folha do laticínio" lê as linhas dos produtores e cadastra os nomes com código e sequência de uma vez.
+- Histórico, em "Por nome da nota", lista coleta a coleta o que foi para cada nome e o que a folha disse.
+
 ## Fora desta entrega
 
-Coleta do carreteiro com régua, temperatura e amostra; folha do mês em PDF; conferência da folha pela foto (OCR). O motorista não tem nomes nem divisão.
+Coleta do carreteiro com régua, temperatura e amostra pelo app do motorista; folha do mês em PDF. O motorista não tem nomes nem divisão.
 
 ## Banco
 

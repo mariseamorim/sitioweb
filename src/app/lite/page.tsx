@@ -8,14 +8,16 @@ import { OfflineVoiceSetup, VoiceButton } from '@/components/VoiceButton'
 import { RouteStopInfo } from '@/components/RouteStopInfo'
 import { useDialog } from '@/components/DialogProvider'
 import { SetaDireitaIcon, SemSinalIcon, SincronizarIcon, CheckIcon } from '@/components/ModuleIcons'
-import { KIND_LABEL, LiteChange, LiteData, LitePayee, LitePoint, LiteSheetChange, LiteSplitChange, PointKind, SHEET_ALERT_PERCENT, checkSheets, isDriverRole, isLiteOnlyRole, lastSplit, litersSinceLastSplit, parseLiters, suggestSplit, totalsByPayee } from '@/lib/lite'
+import { KIND_LABEL, LiteChange, LiteData, LitePayee, LitePoint, LiteSheet, LiteSheetChange, LiteSplitChange, PointKind, SHEET_ALERT_PERCENT, checkSheets, isDriverRole, isLiteOnlyRole, lastSplit, litersSinceLastSplit, parseLiters, suggestSplit, totalsByPayee } from '@/lib/lite'
 import { PointOp, applyChanges, applyPointOps, applySheets, applySplits, enqueue, enqueuePoint, enqueueSheet, enqueueSplits, newPointId, pendingChanges, pendingCount, pendingPointOps, pendingSheets, pendingSplits, readCache, syncLite, writeCache } from '@/lib/liteStore'
 import { exportCSV } from '@/lib/reportExport'
 import { fmtMoney, fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
+import { parseFolha, type FolhaParsed } from '@/lib/folhaOcr'
+import { canReadFolha, readFolha } from '@/lib/ocr'
 import { logoutKeepingDevice } from '@/lib/offlineUnlock'
 
-type Tab = 'anotar' | 'historico' | 'locais' | 'conferir' | 'nomes'
+type Tab = 'anotar' | 'historico' | 'locais' | 'folha' | 'nomes'
 
 function shiftDay(iso: string, days: number) {
   const d = new Date(iso)
@@ -89,7 +91,7 @@ export default function LitePage() {
   const dayCollections = (data?.collections ?? []).filter((c) => c.date === date)
   const tabs = driver
     ? ([['anotar', 'Anotar'], ['historico', 'Histórico'], ['locais', 'Rota']] as const)
-    : ([['anotar', 'Anotar'], ['historico', 'Histórico'], ['conferir', 'Conferir'], ['nomes', 'Nomes']] as const)
+    : ([['anotar', 'Anotar'], ['historico', 'Histórico'], ['folha', 'Folha'], ['nomes', 'Nomes']] as const)
   const saved = useMemo(() => {
     const map = new Map<string, number>()
     for (const e of data?.entries ?? []) if (e.date === date) map.set(e.pointId, e.liters)
@@ -417,8 +419,8 @@ export default function LitePage() {
         ) : tab === 'historico' ? (
           <History data={data} online={online} canWrite={canWrite} onOpenDay={(day) => { goToDay(day); setTab('anotar'); window.scrollTo(0, 0) }}
             onPriceSaved={(milkPrice) => { const d = { ...data, milkPrice }; setData(d); writeCache(d) }} />
-        ) : tab === 'conferir' && !driver ? (
-          <Conferir data={data} online={online} canWrite={canWrite} onSave={saveSheet} />
+        ) : tab === 'folha' && !driver ? (
+          <Folha data={data} online={online} canWrite={canWrite} onSave={saveSheet} onSaveSplits={saveSplits} />
         ) : tab === 'nomes' && !driver ? (
           <Nomes data={data} online={online} canWrite={canWrite} onChanged={payeesChanged} />
         ) : driver ? (
@@ -758,6 +760,20 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
             ))}
           </ul>
           <p className="mt-2 text-xs text-gray-500">É o que cada nome recebe do laticínio nas coletas do período. Compare com o depósito.</p>
+          <ul className="mt-3 divide-y divide-gray-100 border-t border-gray-100">
+            {[...new Set(splitsInScope.filter((x) => x.date >= from && x.date <= today).map((x) => x.date))].sort().reverse().map((day) => {
+              const parts = payeesInScope.map((p) => ({ p, liters: splitsInScope.find((x) => x.date === day && x.payeeId === p.id)?.liters ?? null })).filter((x) => x.liters !== null)
+              const sheet = (data.sheets ?? []).find((sh) => sh.date === day)
+              const sum = parts.reduce((t, x) => t + (x.liters ?? 0), 0)
+              return (
+                <li key={day} className="py-2 text-sm">
+                  <div className="flex justify-between gap-3"><span className="font-semibold text-gray-900">{fmtDay(day)}</span><span className="font-semibold text-gray-900">{fmtNumber(sum)} L</span></div>
+                  <p className="text-xs text-gray-600">{parts.map((x) => `${x.p.name.split(' ')[0]} ${fmtNumber(x.liters!)}`).join(' · ')}</p>
+                  {sheet && <p className="text-xs text-gray-500">Folha: {fmtNumber(sheet.liters)} L{sheet.rulerValue != null ? ` · régua ${fmtNumber(sheet.rulerValue)}` : ''}{sheet.temperature != null ? ` · ${fmtNumber(sheet.temperature, 0)} °C` : ''}{Math.abs(sheet.liters - sum) > 0.05 ? ` · ${fmtSigned(Math.round((sheet.liters - sum) * 10) / 10)} L` : ' · bate'}</p>}
+                </li>
+              )
+            })}
+          </ul>
         </section>
       )}
 
@@ -1045,6 +1061,66 @@ function Nomes({ data, online, canWrite, onChanged }: {
     }
   }
 
+  // Foto da folha: lê os nomes impressos (sequência, código e nome) para cadastrar de uma vez
+  const [reading, setReading] = useState<{ fraction: number; status: string } | null>(null)
+  const [found, setFound] = useState<{ sequence: string | null; producerCode: string | null; name: string; chosen: boolean }[] | null>(null)
+  async function readNames(file: File) {
+    setError(''); setFound(null); setReading({ fraction: 0, status: 'carregando' })
+    try {
+      const result = await readFolha(file, (fraction, status) => setReading({ fraction, status }))
+      const rows = parseFolha(result.text, result.words).rows
+      if (!rows.length) { setError('Não achei as linhas dos produtores na foto. Tente com mais luz e a folha inteira, ou digite os nomes.'); return }
+      setFound(rows.map((r) => ({ sequence: r.sequence, producerCode: r.producerCode, name: titleCase(r.name), chosen: !all.some((p) => p.producerCode && p.producerCode === r.producerCode) })))
+    } catch {
+      setError('Não consegui ler a foto. A primeira leitura precisa de internet para baixar o leitor (12 MB).')
+    } finally {
+      setReading(null)
+    }
+  }
+  async function saveFound() {
+    if (!found) return
+    setBusy(true); setError('')
+    try {
+      let list = all
+      for (const r of found.filter((x) => x.chosen)) {
+        const res = await fetch('/api/lite/nomes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pointId, name: r.name, producerCode: r.producerCode, sequence: r.sequence }) })
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) { setError(body.error || 'Não foi possível salvar'); break }
+        list = [...list, body as LitePayee]
+      }
+      onChanged(list)
+      setFound(null)
+    } catch {
+      setError('Sem internet. Cadastrar nomes precisa de sinal.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  const photoView = (reading || found) && (
+    <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-4">
+      {reading && <>
+        <p className="font-semibold text-gray-900">{reading.status.includes('core') || reading.status.includes('load') ? 'Preparando o leitor…' : 'Lendo a folha…'}</p>
+        <div className="mt-2 h-2 overflow-hidden rounded bg-gray-100"><div className="h-full bg-green-600 transition-all" style={{ width: `${Math.round(reading.fraction * 100)}%` }} /></div>
+      </>}
+      {found && <>
+        <p className="font-semibold text-gray-900">Nomes lidos da folha</p>
+        <ul className="mt-2 space-y-2">
+          {found.map((r, i) => (
+            <li key={i} className="flex items-center gap-3">
+              <input type="checkbox" checked={r.chosen} onChange={(e) => setFound(found.map((x, j) => (j === i ? { ...x, chosen: e.target.checked } : x)))} className="h-5 w-5" aria-label={`Cadastrar ${r.name}`} />
+              <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-gray-900">{r.name}</span><span className="block text-xs text-gray-500">{[r.producerCode && `produtor ${r.producerCode}`, r.sequence && `seq. ${r.sequence}`].filter(Boolean).join(' · ')}</span></span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 text-xs text-gray-500">Confira os códigos antes de salvar. Dá para alterar depois.</p>
+        <div className="mt-3 flex gap-2">
+          <button type="button" onClick={() => setFound(null)} className="flex-1 rounded-xl border border-gray-300 py-3 font-semibold text-gray-700">Cancelar</button>
+          <button type="button" disabled={busy || !found.some((x) => x.chosen)} onClick={() => void saveFound()} className="flex-1 rounded-xl bg-green-700 py-3 font-semibold text-white disabled:bg-gray-300">{busy ? 'Salvando...' : `Cadastrar ${found.filter((x) => x.chosen).length}`}</button>
+        </div>
+      </>}
+    </div>
+  )
+
   const formView = editing && (
     <form onSubmit={submit} className="mt-3 rounded-2xl border border-gray-200 bg-white p-4">
       <h3 className="font-semibold text-gray-900">{editing === 'new' ? `Nome ${payees.length + 1}` : 'Alterar nome'}</h3>
@@ -1088,7 +1164,12 @@ function Nomes({ data, online, canWrite, onChanged }: {
           <span className="text-4xl" aria-hidden="true">📄</span>
           <h2 className="mt-2 text-lg font-bold text-gray-900">A nota do laticínio tem mais de um nome?</h2>
           <p className="mx-auto mt-1 max-w-xs text-sm text-gray-600">Cadastre quem divide o leite do tanque. Depois, a cada coleta, você só diz quanto vai para cada um, na tela Anotar.</p>
-          {canWrite && <button type="button" onClick={startNew} disabled={!online} className="mt-4 w-full rounded-xl bg-green-700 py-3 font-bold text-white disabled:bg-gray-300">Cadastrar os nomes</button>}
+          {canWrite && canReadFolha() && <label className={`mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-700 py-3 font-bold text-white ${online ? '' : 'opacity-50'}`}>
+            📷 Fotografar a folha do laticínio
+            <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={!online} onChange={(e) => { const f = e.target.files?.[0]; if (f) void readNames(f); e.target.value = '' }} />
+          </label>}
+          {canWrite && <button type="button" onClick={startNew} disabled={!online} className="mt-2 w-full rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800 disabled:border-gray-300 disabled:text-gray-400">Digitar os nomes</button>}
+          {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-left text-sm text-red-700">{error}</p>}
         </div>
       ) : (
         <ul className="space-y-2">
@@ -1110,6 +1191,7 @@ function Nomes({ data, online, canWrite, onChanged }: {
           ))}
         </ul>
       )}
+      {photoView}
       {formView}
       {canWrite && payees.length > 0 && !editing && (
         <button type="button" onClick={startNew} disabled={!online} className="mt-3 w-full rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800 disabled:border-gray-300 disabled:text-gray-400">+ Adicionar outro nome</button>
@@ -1119,93 +1201,226 @@ function Nomes({ data, online, canWrite, onChanged }: {
   )
 }
 
-// ── Conferir a folha do motorista ───────────────────────────────────────
+// ── Folha do carreteiro: pela foto (leitura no aparelho) ou digitada ─────
 
 const fmtSigned = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${fmtNumber(Math.abs(n))}`
+const titleCase = (s: string) => s.toLowerCase().replace(/(^|\s)([a-zà-ú])/g, (m) => m.toUpperCase()).replace(/\b(De|Da|Do|Dos|Das|E)\b/g, (m) => m.toLowerCase())
+const fmtInputNum = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n).replace('.', ','))
 
-function Conferir({ data, online, canWrite, onSave }: {
+interface SheetDraft {
+  date: string
+  rows: { payee: LitePayee; liters: string; confidence: number | null }[]
+  total: string
+  temperature: string
+  sample: string
+  ruler: string
+  photo: string | null
+  /** O que a leitura encontrou, para a tela dizer */
+  read: FolhaParsed | null
+}
+
+function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
   data: LiteData
   online: boolean
   canWrite: boolean
   onSave: (change: LiteSheetChange) => void
+  onSaveSplits: (changes: LiteSplitChange[]) => void
 }) {
-  const { confirm } = useDialog()
+  const { confirm, notify } = useDialog()
   const today = todayISO()
-  const [date, setDate] = useState(today)
-  const [draft, setDraft] = useState<{ date: string; value: string } | null>(null)
-  const [message, setMessage] = useState('')
-  const formRef = useRef<HTMLDivElement>(null)
+  const points = data.points.filter((p) => p.active)
+  const [pointId, setPointId] = useState(points[0]?.id ?? '')
+  const payees = (data.payees ?? []).filter((p) => p.pointId === pointId && p.active)
   const sheets = useMemo(() => data.sheets ?? [], [data.sheets])
-  const existing = sheets.find((s) => s.date === date)
-  // O campo mostra o que foi digitado para este dia ou, se nada, o que já está salvo
-  const value = draft?.date === date ? draft.value : existing ? String(existing.liters).replace('.', ',') : ''
-  const liters = parseLiters(value)
   const checks = useMemo(() => checkSheets(sheets, data.entries), [sheets, data.entries])
+  const [draft, setDraft] = useState<SheetDraft | null>(null)
+  const [reading, setReading] = useState<{ fraction: number; status: string } | null>(null)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [photoOf, setPhotoOf] = useState<{ date: string; photo: string } | null>(null)
+  const formRef = useRef<HTMLDivElement>(null)
 
-  // Resumo do mês: total da folha, total anotado e quanto deve receber pela folha
-  const months = [0, 1, 2].map((back) => {
-    const d = new Date(`${today.slice(0, 7)}-01T00:00:00Z`)
-    d.setUTCMonth(d.getUTCMonth() - back)
-    return d.toISOString().slice(0, 7)
-  })
-  const [month, setMonth] = useState(months[0])
-  const monthSheets = sheets.filter((s) => s.date.startsWith(month))
-  const sheetTotal = monthSheets.reduce((sum, s) => sum + s.liters, 0)
-  // Comparação do mês só com as coletas conferidas, para folha e anotação cobrirem os mesmos dias
-  const compared = checks.filter((c) => c.date.startsWith(month) && c.noted)
-  const comparedSheet = compared.reduce((sum, c) => sum + c.sheet, 0)
-  const comparedNoted = compared.reduce((sum, c) => sum + (c.noted ?? 0), 0)
-  const price = data.milkPrice
-  const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('pt-BR', { timeZone: 'UTC', month: 'long' })
+  function emptyDraft(date: string, sheet?: LiteSheet): SheetDraft {
+    const splits = data.splits ?? []
+    return {
+      date,
+      rows: payees.map((p) => ({ payee: p, liters: fmtInputNum(splits.find((x) => x.payeeId === p.id && x.date === date)?.liters ?? null), confidence: null })),
+      total: fmtInputNum(sheet?.liters ?? null), temperature: fmtInputNum(sheet?.temperature ?? null), sample: sheet?.sampleNumber ?? '', ruler: fmtInputNum(sheet?.rulerValue ?? null),
+      photo: null, read: null,
+    }
+  }
+
+  async function readPhoto(file: File) {
+    setError(''); setReading({ fraction: 0, status: 'carregando' })
+    try {
+      const result = await readFolha(file, (fraction, status) => setReading({ fraction, status }))
+      const read = parseFolha(result.text, result.words)
+      const date = read.date && read.date <= today ? read.date : today
+      const base = emptyDraft(date, sheets.find((x) => x.date === date))
+      // Linha da folha de cada nome: pelo código do produtor, ou pelo primeiro nome
+      const rows = base.rows.map((r) => {
+        const row = read.rows.find((x) => (r.payee.producerCode && x.producerCode === r.payee.producerCode) || x.name.toLowerCase().startsWith(r.payee.name.split(' ')[0].toLowerCase()))
+        return row && row.liters !== null ? { ...r, liters: fmtInputNum(row.liters), confidence: row.confidence } : r
+      })
+      const rowSum = rows.reduce((t, r) => t + (parseLiters(r.liters) ?? 0), 0)
+      setDraft({
+        ...base, rows, read, photo: result.photo,
+        total: fmtInputNum(read.total ?? (rowSum > 0 ? Math.round(rowSum * 10) / 10 : null)) || base.total,
+        temperature: fmtInputNum(read.temperature) || base.temperature, sample: read.sample ?? base.sample, ruler: fmtInputNum(read.ruler) || base.ruler,
+      })
+      setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50)
+    } catch {
+      setError('Não consegui ler a foto. A primeira leitura precisa de internet para baixar o leitor (12 MB). Você pode digitar a folha.')
+    } finally {
+      setReading(null)
+    }
+  }
 
   function save() {
-    if (!liters) return
-    onSave({ date, liters })
-    setDraft(null)
+    if (!draft) return
+    const liters = parseLiters(draft.total)
+    if (!liters) { setError('Informe o total da folha'); return }
+    const payeeLiters: Record<string, number> = {}
+    for (const r of draft.rows) { const v = parseLiters(r.liters); if (v !== null && r.liters !== '') payeeLiters[r.payee.id] = v }
+    const partsSum = Object.values(payeeLiters).reduce((t, v) => t + v, 0)
+    if (Object.keys(payeeLiters).length && Math.abs(partsSum - liters) > 0.05) { setError(`Os litros por nome somam ${fmtNumber(partsSum)} L e o total é ${fmtNumber(liters)} L. Acerte um dos dois.`); return }
+    onSave({
+      date: draft.date, liters,
+      temperature: parseLiters(draft.temperature), sampleNumber: draft.sample.trim() || null, rulerValue: parseLiters(draft.ruler),
+      ...(draft.photo ? { photo: draft.photo } : {}), ...(Object.keys(payeeLiters).length ? { payeeLiters } : {}),
+    })
+    if (Object.keys(payeeLiters).length) onSaveSplits(Object.entries(payeeLiters).map(([payeeId, l]) => ({ payeeId, date: draft.date, liters: l })))
+    setDraft(null); setError('')
     setMessage(online ? 'Folha salva.' : 'Salva no celular. Será enviada quando houver internet.')
     setTimeout(() => setMessage(''), 4000)
   }
 
-  async function remove() {
-    if (!(await confirm({ title: `Apagar a coleta de ${fmtDay(date)}?`, confirmLabel: 'Apagar' }))) return
+  async function remove(date: string) {
+    if (!(await confirm({ title: `Apagar a folha de ${fmtDay(date)}?`, message: 'A divisão entre os nomes continua; só a folha e a foto são apagadas.', confirmLabel: 'Apagar', danger: true }))) return
     onSave({ date, liters: null })
-    setDraft(null)
+    if (draft?.date === date) setDraft(null)
   }
 
-  function edit(day: string) {
-    setDate(day)
-    setDraft(null)
-    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  async function showPhoto(date: string) {
+    try {
+      const res = await fetch(`/api/lite/folha?data=${date}`)
+      if (!res.ok) { await notify('Sem foto', 'A foto desta coleta não está disponível agora.'); return }
+      setPhotoOf({ date, photo: (await res.json()).photo })
+    } catch {
+      await notify('Sem internet', 'A foto fica no servidor; abre quando houver sinal.')
+    }
   }
+
+  // Compara com o anotado desde a folha anterior (como em Cada coleta); sem folha anterior, desde a última divisão ou só o dia
+  const noted = useMemo(() => {
+    if (!draft) return null
+    const prevSheet = sheets.map((x) => x.date).filter((d) => d < draft.date).sort().pop()
+    if (!prevSheet) return litersSinceLastSplit(data.entries, data.splits ?? [], data.payees ?? [], pointId, draft.date)
+    const from = shiftDay(prevSheet, 1)
+    let liters = 0
+    for (const e of data.entries) if (e.pointId === pointId && e.date >= from && e.date <= draft.date) liters += e.liters
+    return { liters: Math.round(liters * 10) / 10, from }
+  }, [draft, sheets, data.entries, data.splits, data.payees, pointId])
+  const draftTotal = draft ? parseLiters(draft.total) : null
+  const diff = draftTotal !== null && noted && noted.liters > 0 ? Math.round((draftTotal - noted.liters) * 10) / 10 : null
+  const diffPct = diff !== null && noted ? Math.abs(diff) / noted.liters * 100 : null
+  const months = [0, 1, 2].map((back) => { const d = new Date(`${today.slice(0, 7)}-01T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() - back); return d.toISOString().slice(0, 7) })
+  const [month, setMonth] = useState(months[0])
+  const monthSheets = sheets.filter((x) => x.date.startsWith(month))
+  const sheetTotal = monthSheets.reduce((sum, x) => sum + x.liters, 0)
+  const price = data.milkPrice
+  const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('pt-BR', { timeZone: 'UTC', month: 'long' })
+  const field = 'w-full rounded-xl border border-gray-300 px-3 py-2 text-right text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-green-600'
 
   return (
     <div>
-      {canWrite && (
-        <div ref={formRef} className="scroll-mt-48 rounded-2xl border border-gray-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-gray-900">O motorista levou</h2>
-          <p className="mt-1 text-sm text-gray-600">Quando o caminhão passar, digite os litros que estão na folha do motorista.</p>
-          <label className="mt-4 block text-sm font-medium text-gray-700">Dia da coleta
-            <input type="date" value={date} max={today} onChange={(e) => e.target.value && setDate(e.target.value)} className={`mt-1 ${input} font-semibold`} />
-          </label>
-          <div className="mt-3 flex items-center gap-2">
-            <label className="flex flex-1 items-center gap-2">
-              <span className="sr-only">Litros da folha</span>
-              <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={value}
-                onChange={(e) => setDraft({ date, value: e.target.value.replace(/[^\d.,]/g, '') })}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); save() } }}
-                className="w-full border border-gray-300 rounded-xl px-3 py-3 !text-3xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-green-600" />
-              <span className="text-xl text-gray-500">L</span>
-            </label>
-            <VoiceButton size="sm" label="os litros da folha" onNumber={(v) => setDraft({ date, value: String(v).replace('.', ',') })} />
-          </div>
-          <div className="mt-3 flex gap-2">
-            {existing && <button type="button" onClick={remove} className="border border-gray-300 text-red-700 font-semibold px-4 py-3 rounded-xl">Apagar</button>}
-            <button type="button" onClick={save} disabled={!liters || liters === existing?.liters}
-              className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl">
-              {existing ? (liters === existing.liters ? 'Salvo' : 'Salvar alteração') : 'Salvar folha'}
-            </button>
-          </div>
+      {points.length > 1 && (
+        <label className="block mb-3">
+          <span className="text-sm font-medium text-gray-700">Local</span>
+          <select value={pointId} onChange={(e) => { setPointId(e.target.value); setDraft(null) }} className={`mt-1 ${input} bg-white font-semibold`}>
+            {points.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
+      )}
+
+      {canWrite && !draft && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5">
+          <h2 className="text-lg font-semibold text-gray-900">Folha do carreteiro</h2>
+          <p className="mt-1 text-sm text-gray-600">Fotografe a folha preenchida. O app lê os litros de cada nome, a temperatura, a amostra e a régua, e você confere antes de salvar. A foto fica guardada junto da coleta.</p>
+          {reading ? (
+            <div className="mt-4">
+              <p className="font-semibold text-gray-900">{/load|core|init/.test(reading.status) ? 'Preparando o leitor…' : 'Lendo a folha…'}</p>
+              <div className="mt-2 h-2 overflow-hidden rounded bg-gray-100"><div className="h-full bg-green-600 transition-all" style={{ width: `${Math.round(reading.fraction * 100)}%` }} /></div>
+              <p className="mt-1 text-xs text-gray-500">Na primeira vez baixa o leitor (12 MB). Depois funciona sem internet.</p>
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-col gap-2">
+              {canReadFolha() && <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-700 py-3 font-bold text-white hover:bg-green-600">
+                📷 Fotografar a folha
+                <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void readPhoto(f); e.target.value = '' }} />
+              </label>}
+              <button type="button" onClick={() => { setError(''); setDraft(emptyDraft(today, sheets.find((x) => x.date === today))) }} className="w-full rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800">Digitar a folha</button>
+            </div>
+          )}
+          {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
           {message && <p role="status" className="mt-2 text-center text-sm font-medium text-green-800">{message}</p>}
+        </div>
+      )}
+
+      {draft && (
+        <div ref={formRef} className="scroll-mt-48 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+          {draft.photo && <img src={draft.photo} alt="Foto da folha" className="mb-3 max-h-56 w-full rounded-xl object-contain bg-white" />}
+          {draft.read && (
+            <p className="mb-3 text-sm text-blue-900">
+              {draft.read.found >= 4 ? `Li ${draft.read.found} de ${draft.read.expected} campos.` : `Li só ${draft.read.found} de ${draft.read.expected} campos.`} Confira cada número antes de salvar.
+              {draft.read.tank && draft.read.dairy ? ` Folha de ${titleCase(draft.read.dairy)}, tanque ${draft.read.tank}.` : ''}
+            </p>
+          )}
+          <label className="block text-sm font-medium text-blue-950">Dia da coleta
+            <input type="date" value={draft.date} max={today} onChange={(e) => e.target.value && setDraft({ ...draft, date: e.target.value })} className={`mt-1 ${input} bg-white font-semibold`} />
+          </label>
+          {draft.rows.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {draft.rows.map((r, i) => (
+                <li key={r.payee.id} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2">
+                  <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-gray-900">{r.payee.name}</span>{r.payee.producerCode && <span className="block text-xs text-gray-500">produtor {r.payee.producerCode}</span>}</span>
+                  {r.confidence !== null && <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${r.confidence >= 80 ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-800'}`}>{r.confidence}%</span>}
+                  <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={r.liters} aria-label={`Litros de ${r.payee.name} na folha`}
+                    onChange={(e) => setDraft({ ...draft, rows: draft.rows.map((x, j) => (j === i ? { ...x, liters: e.target.value.replace(/[^\d.,]/g, ''), confidence: null } : x)) })}
+                    className="w-24 rounded-xl border border-gray-300 px-3 py-2 text-right !text-xl font-bold focus:outline-none focus:ring-2 focus:ring-green-600" />
+                  <span className="text-gray-500">L</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <label className="text-sm font-medium text-blue-950">Total da folha
+              <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={draft.total} aria-label="Total da folha" onChange={(e) => setDraft({ ...draft, total: e.target.value.replace(/[^\d.,]/g, '') })} className={`mt-1 ${field}`} />
+            </label>
+            <label className="text-sm font-medium text-blue-950">Valor da régua
+              <MilkDecimalInput type="text" inputMode="decimal" placeholder="—" value={draft.ruler} aria-label="Valor da régua" onChange={(e) => setDraft({ ...draft, ruler: e.target.value.replace(/[^\d.,]/g, '') })} className={`mt-1 ${field}`} />
+            </label>
+            <label className="text-sm font-medium text-blue-950">Temperatura °C
+              <MilkDecimalInput type="text" inputMode="decimal" placeholder="—" value={draft.temperature} aria-label="Temperatura" onChange={(e) => setDraft({ ...draft, temperature: e.target.value.replace(/[^\d.,]/g, '') })} className={`mt-1 ${field}`} />
+            </label>
+            <label className="text-sm font-medium text-blue-950">Nº da amostra
+              <input inputMode="numeric" placeholder="—" value={draft.sample} aria-label="Número da amostra" onChange={(e) => setDraft({ ...draft, sample: e.target.value })} className={`mt-1 ${field}`} />
+            </label>
+          </div>
+          {parseLiters(draft.temperature) !== null && parseLiters(draft.temperature)! > 4 && <p className="mt-2 text-sm font-semibold text-red-700">Temperatura acima de 4 °C. O laticínio pode recusar; vale conferir o tanque.</p>}
+          {noted && draftTotal !== null && (
+            <p className={`mt-2 text-sm ${diffPct !== null && diffPct > SHEET_ALERT_PERCENT ? 'font-semibold text-red-700' : 'text-blue-900'}`}>
+              {noted.liters > 0
+                ? `Você anotou ${fmtNumber(noted.liters)} L${noted.from < draft.date ? ` de ${fmtDay(noted.from, { day: 'numeric', month: 'numeric' })} a ${fmtDay(draft.date, { day: 'numeric', month: 'numeric' })}` : ' no dia'}. ${diff === 0 ? 'A folha bate.' : `Folha com ${fmtSigned(diff!)} L (${fmtSigned(Math.round((diff! / noted.liters) * 1000) / 10)}%).`}`
+                : 'Sem anotação sua nesses dias para comparar.'}
+            </p>
+          )}
+          {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          <div className="mt-3 flex items-center gap-3">
+            <button type="button" onClick={save} className="flex-1 rounded-xl bg-green-700 py-3 font-bold text-white hover:bg-green-600">Salvar folha</button>
+            <button type="button" onClick={() => { setDraft(null); setError('') }} className="text-sm font-semibold text-gray-600 underline">Cancelar</button>
+          </div>
+          {draft.rows.length > 0 && <p className="mt-2 text-xs text-blue-900">Os litros por nome da folha passam a ser a divisão desta coleta, que aparece no Histórico.</p>}
         </div>
       )}
 
@@ -1218,78 +1433,58 @@ function Conferir({ data, online, canWrite, onSave }: {
             </button>
           ))}
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="rounded-2xl border border-gray-200 bg-white p-3">
-            <p className="text-xs text-gray-500">Pela folha do motorista</p>
-            <p className="text-2xl font-bold text-gray-900">{fmtNumber(sheetTotal)} L</p>
-            <p className="text-xs text-gray-500">{monthSheets.length} coleta{monthSheets.length === 1 ? '' : 's'}</p>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-3">
-            <p className="text-xs text-gray-500">Diferença nas coletas conferidas</p>
-            <p className={`text-2xl font-bold ${compared.length && Math.abs(comparedSheet - comparedNoted) / comparedNoted * 100 > SHEET_ALERT_PERCENT ? 'text-red-700' : 'text-gray-900'}`}>
-              {compared.length ? `${fmtSigned(Math.round((comparedSheet - comparedNoted) * 10) / 10)} L` : '—'}
-            </p>
-            <p className="text-xs text-gray-500">
-              {compared.length ? `Folha ${fmtNumber(comparedSheet)} L · você ${fmtNumber(comparedNoted)} L` : 'Precisa de duas coletas'}
-            </p>
-          </div>
+        <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-3">
+          <p className="text-xs text-gray-500">Pela folha do carreteiro</p>
+          <p className="text-2xl font-bold text-gray-900">{fmtNumber(sheetTotal)} L <span className="text-sm font-normal text-gray-500">{monthSheets.length} coleta{monthSheets.length === 1 ? '' : 's'}</span></p>
+          {price && sheetTotal > 0 && <p className="mt-1 text-sm text-green-800">Pela folha, deve receber <strong>{fmtMoney(sheetTotal * price)}</strong> em {monthLabel(month)} (litro a {fmtMoney(price)}).</p>}
         </div>
-        {price && sheetTotal > 0 ? (
-          <div className="mt-2 rounded-2xl border-2 border-green-300 bg-green-50 p-4">
-            <p className="text-sm font-medium text-green-900">Pela folha, você deve receber em {monthLabel(month)}</p>
-            <p className="mt-1 text-3xl font-bold text-green-800">{fmtMoney(sheetTotal * price)}</p>
-            <p className="mt-1 text-sm text-gray-600">Litro a {fmtMoney(price)}. Confira com o pagamento do laticínio.</p>
-          </div>
-        ) : sheetTotal > 0 && (
-          <p className="mt-2 text-sm text-gray-600">Informe o valor do litro na aba Histórico para ver quanto deve receber.</p>
-        )}
       </section>
 
       <section className="mt-5">
         <h2 className="mb-2 text-sm font-semibold text-gray-500">Cada coleta</h2>
         {checks.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-gray-300 bg-white p-5 text-center text-gray-600">
-            Nenhuma coleta anotada ainda. Anote a próxima vez que o motorista passar.
-          </p>
+          <p className="rounded-2xl border border-dashed border-gray-300 bg-white p-5 text-center text-gray-600">Nenhuma folha guardada ainda. Fotografe a próxima quando o carreteiro passar.</p>
         ) : (
           <ul className="space-y-2">
-            {checks.map((c) => (
-              <li key={c.date} className={`rounded-2xl border bg-white p-4 ${c.alert ? 'border-red-300' : 'border-gray-200'}`}>
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="font-semibold text-gray-900">{fmtDay(c.date)} <span className="text-xs font-normal text-gray-400">{fmtDay(c.date, { weekday: 'short' })}</span></span>
-                  {canWrite && <button type="button" onClick={() => edit(c.date)} className="text-sm font-semibold text-green-700">Alterar</button>}
-                </div>
-                <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                  <div><dt className="text-gray-500">Folha do motorista</dt><dd className="text-lg font-bold text-gray-900">{fmtNumber(c.sheet)} L</dd></div>
-                  {c.noted !== null && (
-                    <div>
-                      <dt className="text-gray-500">Você anotou{c.from && c.from < c.date ? ` de ${fmtDay(c.from, { day: 'numeric', month: 'numeric' })} a ${fmtDay(c.date, { day: 'numeric', month: 'numeric' })}` : ''}</dt>
-                      <dd className="text-lg font-bold text-green-800">{fmtNumber(c.noted)} L</dd>
-                    </div>
+            {checks.map((c) => {
+              const sheet = sheets.find((x) => x.date === c.date)
+              return (
+                <li key={c.date} className={`rounded-2xl border bg-white p-4 ${c.alert ? 'border-red-300' : 'border-gray-200'}`}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-semibold text-gray-900">{fmtDay(c.date)} <span className="text-xs font-normal text-gray-400">{fmtDay(c.date, { weekday: 'short' })}</span></span>
+                    <span className="flex gap-3 text-sm font-semibold">
+                      {sheet?.hasPhoto && <button type="button" onClick={() => void showPhoto(c.date)} className="text-green-700">Foto</button>}
+                      {canWrite && <button type="button" onClick={() => { setError(''); setDraft(emptyDraft(c.date, sheet)); setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }} className="text-green-700">Alterar</button>}
+                      {canWrite && <button type="button" onClick={() => void remove(c.date)} className="text-red-700">Apagar</button>}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-lg font-bold text-gray-900">{fmtNumber(c.sheet)} L <span className="text-sm font-normal text-gray-500">{[sheet?.rulerValue != null && `régua ${fmtNumber(sheet.rulerValue)}`, sheet?.temperature != null && `${fmtNumber(sheet.temperature, 0)} °C`, sheet?.sampleNumber && `amostra ${sheet.sampleNumber}`].filter(Boolean).join(' · ')}</span></p>
+                  {c.noted === null ? (
+                    <p className="mt-1 text-sm text-gray-500">Primeira folha guardada. A conferência começa na próxima.</p>
+                  ) : c.noted === 0 ? (
+                    <p className="mt-1 text-sm text-gray-500">Você não anotou o leite desses dias, então não dá para conferir.</p>
+                  ) : c.diff === 0 ? (
+                    <p className="mt-1 text-sm font-semibold text-green-800">Bate com o que você anotou ({fmtNumber(c.noted)} L).</p>
+                  ) : (
+                    <p className={`mt-1 text-sm ${c.alert ? 'font-semibold text-red-700' : 'text-gray-600'}`}>
+                      Você anotou {fmtNumber(c.noted)} L: {fmtSigned(c.diff!)} L na folha ({fmtSigned(c.percent ?? 0)}%).{' '}
+                      {c.alert ? (c.diff! < 0 ? 'Bem menos do que você anotou. Vale conversar com o carreteiro.' : 'Bem mais do que você anotou. Confira a sua anotação.') : 'Diferença pequena, normal entre a régua e a ordenha.'}
+                    </p>
                   )}
-                </dl>
-                {c.noted === null ? (
-                  <p className="mt-2 text-sm text-gray-500">Primeira coleta anotada. A conferência começa na próxima.</p>
-                ) : c.noted === 0 ? (
-                  <p className="mt-2 text-sm text-gray-500">Você não anotou o leite desses dias, então não dá para conferir.</p>
-                ) : c.diff === 0 ? (
-                  <p className="mt-2 text-sm font-semibold text-green-800">A folha bate com a sua anotação.</p>
-                ) : (
-                  <p className={`mt-2 text-sm ${c.alert ? 'font-semibold text-red-700' : 'text-gray-600'}`}>
-                    {fmtSigned(c.diff!)} L na folha ({fmtSigned(c.percent ?? 0)}%).{' '}
-                    {c.alert
-                      ? c.diff! < 0 ? 'A folha tem bem menos do que você anotou. Vale conversar com o motorista.' : 'A folha tem bem mais do que você anotou. Confira a sua anotação.'
-                      : 'Diferença pequena, normal entre a régua do tanque e a ordenha.'}
-                  </p>
-                )}
-              </li>
-            ))}
+                </li>
+              )
+            })}
           </ul>
         )}
-        <p className="mt-3 text-xs text-gray-500">
-          A folha é comparada com o leite que você anotou desde o dia seguinte à coleta anterior até o dia da coleta. Diferença acima de {SHEET_ALERT_PERCENT}% aparece em vermelho.
-        </p>
+        <p className="mt-3 text-xs text-gray-500">A folha é comparada com o leite anotado desde o dia seguinte à coleta anterior até o dia dela. Diferença acima de {SHEET_ALERT_PERCENT}% aparece em vermelho.</p>
       </section>
+
+      {photoOf && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setPhotoOf(null)} role="dialog" aria-label={`Foto da folha de ${fmtDay(photoOf.date)}`}>
+          <img src={photoOf.photo} alt={`Folha de ${fmtDay(photoOf.date)}`} className="max-h-full max-w-full rounded-lg" />
+          <button type="button" onClick={() => setPhotoOf(null)} className="absolute right-4 top-4 rounded-full bg-white px-4 py-2 font-semibold">Fechar</button>
+        </div>
+      )}
     </div>
   )
 }

@@ -31,3 +31,5 @@ public/workbox-*.js
 public/workbox-*.js.map
 public/fallback-*.js
 public/fallback-*.js.map
+# Núcleos do OCR copiados do node_modules no postinstall (scripts/copy-ocr.mjs); só o idioma fica versionado
+public/ocr/*.js

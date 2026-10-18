@@ -31,10 +31,13 @@ const withPWA = (require("next-pwa") as any)({
     },
     // A voz guarda os próprios arquivos no celular; sem isso o PWA faria outra cópia de 32 MB
     { urlPattern: /\/voz\//, handler: 'NetworkOnly', method: 'GET', options: {} },
+    // Leitura da folha pela foto: worker, núcleo e idioma do OCR ficam guardados um ano depois da primeira leitura
+    { urlPattern: /\/ocr\//, handler: 'CacheFirst', method: 'GET', options: { cacheName: 'ocr', expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 365 } } },
     ...runtimeCaching,
   ],
   // A voz sem internet (~38 MB) é baixada só por quem pedir, no Anota Aí Leite
-  publicExcludes: ["!noprecache/**/*", "!voz/**/*"],
+  // O OCR (12 MB) também: baixado na primeira leitura e guardado pela regra abaixo
+  publicExcludes: ["!noprecache/**/*", "!voz/**/*", "!ocr/**/*"],
   fallbacks: {
     document: "/offline",
   },
