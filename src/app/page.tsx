@@ -12,6 +12,8 @@ import { AdminFarmBanner } from '@/components/AdminFarmBanner'
 import { HomeRedirect } from '@/components/HomeRedirect'
 import { homeForRole } from '@/lib/organizations'
 import { SetupHelpCard } from '@/components/SetupHelpCard'
+import { PeriodSummary } from '@/components/PeriodSummary'
+import { loadPeriodSummary } from '@/lib/periodSummaryData'
 import { BOVINE_CATEGORIES, CALF_AT_FOOT_DAYS, canAddCalf } from '@/lib/animalRules'
 import {
   AnimalIcon, CheckIcon, LeiteIcon, TratamentoIcon, VacinaIcon,
@@ -88,6 +90,9 @@ export default async function Home() {
   ])
   const matrices = females.filter(f => canAddCalf(f))
   const withCalf = matrices.filter(m => m.calves.length > 0).length
+  // Visão mensal e anual: leite, dinheiro e nascimentos do mês e do ano, mês a mês
+  const period = await loadPeriodSummary(effectiveFarmId!, (m) => canAccessModule(user, m), segments, now)
+  const showPeriod = period.show.milk || period.show.money || period.show.births
 
   // Quem tem mais de uma propriedade vê o resumo de todas no topo
   const myFarms = user.role === 'admin' ? [] : await memberFarms(user.id)
@@ -157,6 +162,7 @@ export default async function Home() {
           <span><span className="block text-base font-semibold text-green-900">{title}</span><span className="mt-1 block text-sm text-gray-600">{detail}</span></span>
         </Link>)}</div>
       </section>}
+      {showPeriod && <PeriodSummary summary={period.summary} show={period.show} />}
       <h2 className="mb-4 text-lg font-bold text-gray-900">Resumo da propriedade</h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map(({ href, label, value, Icon, tone }) => (

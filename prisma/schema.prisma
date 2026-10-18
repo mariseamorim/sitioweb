@@ -43,6 +43,7 @@ model Farm {
   milkPayees      MilkPayee[] // nomes da nota do laticínio (versão completa)
   members         FarmMember[] // quem tem acesso (o dono pode ter várias propriedades)
   lots            Lot[] // lotes de recria e engorda
+  offerContacts   OfferContact[] // contatos e compras em ofertas de fornecedores
 
   @@index([documentNumber])
   @@map("farms")
@@ -359,9 +360,33 @@ model Promotion {
   whatsappClicks Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  contacts       OfferContact[]
 
   @@index([vendorId])
   @@map("promotions")
+}
+
+/// Contato de um produtor com uma oferta (clique no WhatsApp) e o que virou: venda ou não.
+/// O fornecedor também registra vendas à mão (source manual), com ou sem cliente do app.
+model OfferContact {
+  id          String    @id @default(cuid())
+  promotionId String
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  farmId      String?
+  farm        Farm?     @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  buyerName   String? // comprador fora do app
+  status      String    @default("contato") // contato | venda | perdido
+  source      String    @default("clique") // clique (WhatsApp) | manual (registrada pelo fornecedor)
+  saleValue   Float?
+  quantity    Float?
+  note        String?
+  soldAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([promotionId, status])
+  @@index([farmId])
+  @@map("offer_contacts")
 }
 
 // ── Anota Aí Leite (versão lite) ──────────────────────────────────────
