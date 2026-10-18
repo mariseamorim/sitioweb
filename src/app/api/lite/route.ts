@@ -7,6 +7,11 @@ import { todayUTC } from '@/lib/utils'
 import { activeWithdrawals } from '@/lib/withdrawal'
 import { loadPayees } from '@/lib/payees'
 
+// Folha do carreteiro: a foto não vem na carga (é grande); a tela pede quando quer ver
+const SHEET_SELECT = { date: true, liters: true, temperature: true, sampleNumber: true, rulerValue: true, photo: true } as const
+const toLiteSheet = (s: { date: Date; liters: number; temperature: number | null; sampleNumber: string | null; rulerValue: number | null; photo: string | null }) =>
+  ({ date: isoDay(s.date), liters: s.liters, temperature: s.temperature, sampleNumber: s.sampleNumber, rulerValue: s.rulerValue, hasPhoto: !!s.photo })
+
 const isoDay = (d: Date) => d.toISOString().slice(0, 10)
 
 function historyStart() {
@@ -39,7 +44,7 @@ export async function GET() {
         select: { date: true, liters: true, pointId: true, point: { select: { name: true, owner: { select: { name: true } } } } },
         orderBy: { date: 'desc' },
       }),
-      prisma.milkSheet.findMany({ where: { farmId, date: { gte: since } }, select: { date: true, liters: true } }),
+      prisma.milkSheet.findMany({ where: { farmId, date: { gte: since } }, select: SHEET_SELECT }),
     ])
     const data: LiteData = {
       userName: user.name,
@@ -57,7 +62,7 @@ export async function GET() {
         date: isoDay(c.date), liters: c.liters, pointId: c.pointId, pointName: c.point.name, driverName: c.point.owner.name,
       })),
       milkPrice: farm?.milkPrice ?? null,
-      sheets: sheets.map((s) => ({ date: isoDay(s.date), liters: s.liters })),
+      sheets: sheets.map(toLiteSheet),
       milkWithdrawals: (await activeWithdrawals(farmId, todayUTC())).flatMap((w) => (w.milkUntil ? [{ animalName: w.animalName, medicine: w.medicine, until: w.milkUntil }] : [])),
       ...(await loadPayees(user, since)),
     }
@@ -78,7 +83,7 @@ export async function GET() {
   })
   const owner = await prisma.user.findUnique({ where: { id: user.id }, select: { milkPrice: true } })
   // Folha do motorista: só o produtor confere (o motorista é quem faz a folha)
-  const sheets = isDriverRole(user.role) ? [] : await prisma.milkSheet.findMany({ where: { userId: user.id, date: { gte: since } }, select: { date: true, liters: true } })
+  const sheets = isDriverRole(user.role) ? [] : await prisma.milkSheet.findMany({ where: { userId: user.id, date: { gte: since } }, select: SHEET_SELECT })
   const entries = await prisma.milkEntry.findMany({
     where: { pointId: { in: points.map((p) => p.id) }, date: { gte: since } },
     select: { pointId: true, date: true, liters: true, skipReason: true, note: true },
@@ -99,7 +104,7 @@ export async function GET() {
     entries: entries.map((e) => ({ pointId: e.pointId, date: isoDay(e.date), liters: e.liters, skipReason: e.skipReason, note: e.note })),
     collections: [],
     milkPrice: owner?.milkPrice ?? null,
-    sheets: sheets.map((s) => ({ date: isoDay(s.date), liters: s.liters })),
+    sheets: sheets.map(toLiteSheet),
     todayWeekday: todayWeekday(),
     ...(await loadPayees(user, since)),
   }

@@ -576,6 +576,12 @@ model MilkSheet {
   farm      Farm?    @relation(fields: [farmId], references: [id], onDelete: Cascade)
   date      DateTime
   liters    Float
+  /// Lidos da folha do carreteiro (pela foto ou digitados): temperatura, nº da amostra, valor da régua
+  temperature  Float?
+  sampleNumber String?
+  rulerValue   Float?
+  /// Foto da folha, reduzida (data URL), como prova
+  photo        String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

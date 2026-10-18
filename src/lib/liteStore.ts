@@ -183,7 +183,7 @@ export function applySheets(data: LiteData, changes: LiteSheetChange[]): LiteDat
   const map = new Map<string, LiteSheet>((data.sheets ?? []).map((s) => [s.date, s]))
   for (const c of changes) {
     if (c.liters === null) map.delete(c.date)
-    else map.set(c.date, { date: c.date, liters: c.liters })
+    else map.set(c.date, { ...map.get(c.date), date: c.date, liters: c.liters, ...(c.temperature !== undefined && { temperature: c.temperature }), ...(c.sampleNumber !== undefined && { sampleNumber: c.sampleNumber }), ...(c.rulerValue !== undefined && { rulerValue: c.rulerValue }), ...(c.photo ? { hasPhoto: true } : {}) })
   }
   return { ...data, sheets: [...map.values()] }
 }
