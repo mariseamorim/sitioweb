@@ -12,7 +12,7 @@ Na versão completa os nomes ficam na propriedade e a divisão usa o total do di
 
 ## Folha do carreteiro pela foto (OCR)
 
-A aba Conferir virou **Folha**. O produtor fotografa a folha preenchida pelo carreteiro e o app lê, no próprio aparelho, o dia, os litros de cada nome, o total, a temperatura, o nº da amostra e a régua. Cada número aparece para conferir (com a confiança da leitura nos litros por nome) antes de salvar. Também dá para digitar a folha. A foto reduzida (JPEG de até 600 KB) fica guardada junto da coleta, como prova, e abre em "Foto".
+A aba Conferir virou **Folha**. O produtor tira a foto da folha preenchida pelo carreteiro, ou escolhe uma foto da galeria, e o app lê, no próprio aparelho, o dia, os litros de cada nome, o total, a temperatura, o nº da amostra e a régua. Cada número aparece para conferir (com a confiança da leitura nos litros por nome) antes de salvar. Também dá para digitar a folha. A foto reduzida (JPEG de até 600 KB) fica guardada junto da coleta, como prova, e abre em "Foto".
 
 - Leitor: Tesseract.js com o idioma português. O worker e os núcleos (12 MB) são copiados do node_modules para public/ocr no postinstall (scripts/copy-ocr.mjs) e não ficam no git; o idioma por.traineddata.gz (1 MB) fica. O service worker guarda esses arquivos por um ano depois da primeira leitura, que precisa de internet; depois lê sem sinal.
 - O impresso (cabeçalho, códigos, nomes) lê bem; os números escritos à mão são sugestão. A regra está em src/lib/folhaOcr.ts (pura, testada em tests/folha-ocr.cjs) e aceita trocas comuns do OCR (O por 0, l por 1).
