@@ -14,7 +14,7 @@ import { exportCSV } from '@/lib/reportExport'
 import { fmtMoney, fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
 import { parseFolha, type FolhaParsed } from '@/lib/folhaOcr'
-import { canReadFolha, readFolha, type OcrEngine } from '@/lib/ocr'
+import { canReadFolha, cloudErrorMessage, readFolha, type CloudError, type OcrEngine } from '@/lib/ocr'
 import { logoutKeepingDevice } from '@/lib/offlineUnlock'
 
 type Tab = 'anotar' | 'historico' | 'locais' | 'folha' | 'nomes'
@@ -1228,6 +1228,8 @@ interface SheetDraft {
   /** O que a leitura encontrou, para a tela dizer */
   read: FolhaParsed | null
   engine: OcrEngine | null
+  /** Por que a nuvem não leu, quando caiu para o aparelho */
+  cloudError: CloudError | null
 }
 
 function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
@@ -1257,7 +1259,7 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
       date,
       rows: payees.map((p) => ({ payee: p, liters: fmtInputNum(splits.find((x) => x.payeeId === p.id && x.date === date)?.liters ?? null), confidence: null })),
       total: fmtInputNum(sheet?.liters ?? null), temperature: fmtInputNum(sheet?.temperature ?? null), sample: sheet?.sampleNumber ?? '', ruler: fmtInputNum(sheet?.rulerValue ?? null),
-      photo: null, read: null, engine: null,
+      photo: null, read: null, engine: null, cloudError: null,
     }
   }
 
@@ -1275,7 +1277,7 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
       })
       const rowSum = rows.reduce((t, r) => t + (parseLiters(r.liters) ?? 0), 0)
       setDraft({
-        ...base, rows, read, photo: result.photo, engine: result.engine,
+        ...base, rows, read, photo: result.photo, engine: result.engine, cloudError: result.cloudError,
         total: fmtInputNum(read.total ?? (rowSum > 0 ? Math.round(rowSum * 10) / 10 : null)) || base.total,
         temperature: fmtInputNum(read.temperature) || base.temperature, sample: read.sample ?? base.sample, ruler: fmtInputNum(read.ruler) || base.ruler,
       })
@@ -1395,7 +1397,7 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
           )}
           {draft.engine === 'aparelho' && (
             <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              {navigator.onLine ? 'A leitura na nuvem não está configurada neste sistema; o aparelho lê o impresso, mas quase nunca os números escritos à mão.' : 'Sem internet, o aparelho lê o impresso, mas quase nunca os números escritos à mão. Com sinal, a leitura é feita na nuvem e acerta a letra à mão.'}
+              {cloudErrorMessage(draft.cloudError, navigator.onLine)}
             </p>
           )}
           <label className="block text-sm font-medium text-blue-950">Dia da coleta
