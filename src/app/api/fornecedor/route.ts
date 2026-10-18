@@ -12,7 +12,8 @@ export async function GET() {
 
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
   const since = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)
-  const [offers, clients, offersThisWeek, requests, needs] = await Promise.all([
+  const monthStart = new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), 1))
+  const [offers, clients, offersThisWeek, requests, needs, salesThisMonth, contactsToConfirm] = await Promise.all([
     prisma.promotion.findMany({ where: { vendorId: vendor.id }, orderBy: { createdAt: 'desc' } }),
     prisma.vendorClient.findMany({
       where: { vendorId: vendor.id },
@@ -28,17 +29,22 @@ export async function GET() {
       take: 100,
     }),
     clientsNeedingSupplies(vendor.id, vendor.categories),
+    // Vendas das ofertas no mês e contatos do WhatsApp ainda sem resposta (relatório de vendas)
+    prisma.offerContact.count({ where: { promotion: { vendorId: vendor.id }, status: 'venda', soldAt: { gte: monthStart } } }),
+    prisma.offerContact.count({ where: { promotion: { vendorId: vendor.id }, status: 'contato' } }),
   ])
 
   return NextResponse.json({
     vendor,
     offers,
     // O fornecedor vê só dados de contato de quem se vinculou a ele
-    clients: clients.map((c) => ({ id: c.id, since: c.createdAt, ...c.farm })),
+    clients: clients.map((c) => ({ id: c.id, farmId: c.farmId, since: c.createdAt, ...c.farm })),
     offersThisWeek,
     weeklyLimit: WEEKLY_OFFER_LIMIT,
     requests,
     needs,
+    salesThisMonth,
+    contactsToConfirm,
   })
 }
 

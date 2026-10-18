@@ -7,6 +7,7 @@ import { FecharIcon } from '@/components/ModuleIcons'
 import { SUPPLY_CATEGORIES } from '@/lib/supplies'
 import { fmtDate, fmtMoney } from '@/lib/reports'
 import { todayISO, whatsappLink } from '@/lib/utils'
+import { VendasTab } from './VendasTab'
 
 interface Vendor {
   companyName: string
@@ -63,6 +64,7 @@ interface Offer {
 
 interface Client {
   id: string
+  farmId: string
   name: string
   owner: string | null
   city: string | null
@@ -79,9 +81,12 @@ interface Panel {
   weeklyLimit: number
   requests: SupplyRequest[]
   needs: ClientNeed[]
+  /** Vendas confirmadas no mês e contatos do WhatsApp ainda sem resposta */
+  salesThisMonth: number
+  contactsToConfirm: number
 }
 
-type Tab = 'pedidos' | 'precisando' | 'ofertas' | 'clientes' | 'convidar'
+type Tab = 'pedidos' | 'precisando' | 'ofertas' | 'vendas' | 'clientes' | 'convidar'
 
 const fmtQty = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
 const place = (f: FarmContact) => [f.owner, [f.city, f.state].filter(Boolean).join('/')].filter(Boolean).join(' · ')
@@ -210,11 +215,12 @@ export default function PainelFornecedorPage() {
 
       {/* Os cartões são o menu: cada um mostra o número e abre a sua seção (sem abas que arrastam para o lado) */}
       {/* div com role (não <nav>): o globals.css diminui o texto de "nav p", pensado para o menu lateral */}
-      <div role="navigation" aria-label="Seções do painel" className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+      <div role="navigation" aria-label="Seções do painel" className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
         {([
           ['pedidos', 'Pedidos novos', newRequests, newRequests > 0],
           ['precisando', 'Precisando repor', needs.length, needs.length > 0],
           ['ofertas', 'Ofertas ativas', activeOffers.length, false],
+          ['vendas', 'Vendas no mês', panel.salesThisMonth, panel.contactsToConfirm > 0],
           ['clientes', 'Clientes', clients.length, false],
         ] as const).map(([target, label, value, highlight]) => {
           const active = tab === target
@@ -304,6 +310,10 @@ export default function PainelFornecedorPage() {
             </ul>
           )}
         </div>
+      )}
+
+      {tab === 'vendas' && (
+        <VendasTab offers={offers.map((o) => ({ id: o.id, title: o.title }))} clients={clients.map((c) => ({ farmId: c.farmId, name: c.name }))} onChanged={load} />
       )}
 
       {tab === 'clientes' && (
