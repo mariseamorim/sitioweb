@@ -2,8 +2,9 @@
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
 
-import { useEffect, useState } from 'react'
-import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
+import { useEffect, useRef, useState } from 'react'
+import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/offlineStorage'
+import { applyPendingMovements, movementDelta, movementReady, parseMovement, type MovementInput, type PendingMovement } from '@/lib/stockMovements'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon } from '@/components/ModuleIcons'
@@ -33,6 +34,12 @@ interface Supply {
 }
 
 const CATEGORIES = SUPPLY_CATEGORIES
+const EMPTY_MOV = () => ({ type: 'Entrada', quantity: '', date: todayISO(), description: '' })
+/** Produtos cadastrados e movimentações feitas sem internet, à espera de envio */
+const countPending = () => getPendingRecords('estoque').length + getPendingRecords('estoque-mov').length
+const pendingMovements = (fid: string) => (getPendingRecords('estoque-mov') as PendingMovement[]).filter((m) => m.farmId === fid)
+const round2 = (n: number) => Math.round(n * 100) / 100
+type MovStatus = '' | 'saving' | 'saved' | 'offline' | 'error'
 
 export default function EstoquePage() {
   const { confirm } = useDialog()
@@ -48,15 +55,23 @@ export default function EstoquePage() {
   const [showMov, setShowMov] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '' })
-  const [mov, setMov] = useState({ type: 'Entrada', quantity: '', date: todayISO(), description: '' })
+  const [mov, setMov] = useState(EMPTY_MOV)
+  // Movimentação que a tela está salvando sozinha: o que já foi gravado (no servidor ou no aparelho) e o estado do envio
+  const [movSaved, setMovSaved] = useState(false)
+  const [movStatus, setMovStatus] = useState<MovStatus>('')
+  const [movError, setMovError] = useState('')
+  const savedRef = useRef<{ id: string | null; pendingId: number | null; before: MovementInput | null }>({ id: null, pendingId: null, before: null })
+  const movBusy = useRef(false)
   const [isOnline, setIsOnline] = useState(true)
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
+  const syncRef = useRef<() => Promise<void>>(async () => {})
 
   useEffect(() => {
     setIsOnline(navigator.onLine)
-    setPendingCount(getPendingRecords('estoque').length)
-    const handleOnline = () => setIsOnline(true)
+    setPendingCount(countPending())
+    // Voltou a internet: envia sozinho o que ficou no aparelho
+    const handleOnline = () => { setIsOnline(true); void syncRef.current() }
     const handleOffline = () => setIsOnline(false)
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
@@ -78,7 +93,7 @@ export default function EstoquePage() {
     setLoading(true)
     const mapPending = () =>
       getPendingRecords('estoque')
-        .filter(r => r.farmId === fid && r._type === 'create')
+        .filter(r => r.farmId === fid && (r._type ?? 'create') === 'create')
         .map(r => ({
           id: `pending_${r._pendingId}`,
           name: r.name,
@@ -101,7 +116,8 @@ export default function EstoquePage() {
       .then(r => r.json())
       .then(data => {
         const pending = mapPending()
-        setSupplies(Array.isArray(data) ? [...data, ...pending] : pending)
+        // Movimentações feitas sem internet já entram no saldo mostrado
+        setSupplies(Array.isArray(data) ? [...applyPendingMovements(data as Supply[], pendingMovements(fid)), ...pending] : pending)
         setLoading(false)
       })
       .catch(() => {
@@ -123,6 +139,14 @@ export default function EstoquePage() {
 
   async function handleDelete(id: string) {
     if (!canEdit) return
+    if (id.startsWith('pending_')) {
+      if (!(await confirm({ title: 'Excluir este produto?', message: 'Ele foi cadastrado sem internet e ainda não foi enviado.', confirmLabel: 'Excluir', danger: true }))) return
+      removePendingRecord('estoque', Number(id.slice('pending_'.length)))
+      setPendingCount(countPending())
+      setDetail(null)
+      loadData(farmId)
+      return
+    }
     if (!(await confirm({ title: 'Excluir este insumo?', message: 'As entradas e saídas registradas também serão apagadas.', confirmLabel: 'Excluir', danger: true }))) return
     await fetch(`/api/estoque/${id}`, { method: 'DELETE' })
     setDetail(null)
@@ -131,21 +155,34 @@ export default function EstoquePage() {
 
   async function handleSync() {
     const pending = getPendingRecords('estoque')
-    if (!pending.length) return
+    const movs = getPendingRecords('estoque-mov') as PendingMovement[]
+    if (!pending.length && !movs.length) return
     setSyncing(true)
+    if (showMov) void closeMov(false)
     for (const record of pending) {
       const { _pendingId, _type, farmId: _, ...data } = record
-      await fetch('/api/estoque', {
+      const res = await fetch('/api/estoque', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...data, farmId }),
-      })
+      }).catch(() => null)
+      if (res?.ok) removePendingRecord('estoque', _pendingId)
     }
-    clearPendingRecords('estoque')
-    setPendingCount(0)
+    for (const m of movs) {
+      const { _pendingId, supplyId, farmId: _, ...data } = m
+      const res = await fetch(`/api/estoque/${supplyId}/movimentacao`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }).catch(() => null)
+      // Enviado, ou o produto não existe mais: sai da fila
+      if (res?.ok || res?.status === 404) removePendingRecord('estoque-mov', _pendingId)
+    }
+    setPendingCount(countPending())
     setSyncing(false)
     loadData(farmId)
   }
+  useEffect(() => { syncRef.current = handleSync })
 
   async function handleSaveNew(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -153,11 +190,13 @@ export default function EstoquePage() {
 
     // Se estiver offline, salva no localStorage
     if (!isOnline) {
-      addPendingRecord('estoque', { ...form, farmId })
-      setPendingCount(getPendingRecords('estoque').length)
+      addPendingRecord('estoque', { ...form, farmId, _type: 'create' })
+      setPendingCount(countPending())
       setSaving(false)
       setShowNew(false)
       setForm({ name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '' })
+      // Aparece na lista na hora, marcado como pendente
+      loadData(farmId)
       return
     }
 
@@ -173,23 +212,133 @@ export default function EstoquePage() {
     loadData(farmId)
   }
 
-  async function handleMovimentacao(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!detail) return
-    setSaving(true)
-    const res = await fetch(`/api/estoque/${detail.id}/movimentacao`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...mov, description: mov.description || null }),
-    })
-    const data = await res.json()
-    setSaving(false)
-    setShowMov(false)
-    setMov({ type: 'Entrada', quantity: '', date: todayISO(), description: '' })
-    if (data.supply) {
-      setDetail(data.supply)
-      setSupplies(prev => prev.map(s => s.id === data.supply.id ? data.supply : s))
+  // ----- Movimentação: salva sozinha pouco depois de a pessoa parar de digitar -----
+
+  /** Atualiza o insumo na lista e na ficha aberta com o que o servidor devolveu */
+  function applySupply(supply: Supply) {
+    setDetail((d) => (d && d.id === supply.id ? supply : d))
+    setSupplies((prev) => prev.map((s) => (s.id === supply.id ? supply : s)))
+  }
+
+  /** Ajusta o saldo mostrado no aparelho (sem internet) e a linha da movimentação pendente */
+  function patchLocal(supplyId: string, delta: number, row: SupplyMovement | null, dropId: string | null) {
+    const patch = (s: Supply): Supply => s.id !== supplyId ? s : {
+      ...s,
+      currentQuantity: round2(s.currentQuantity + delta),
+      movements: [...(row ? [row] : []), ...s.movements.filter((m) => m.id !== dropId)],
     }
+    setDetail((d) => (d ? patch(d) : d))
+    setSupplies((prev) => prev.map(patch))
+  }
+
+  function resetMov() {
+    savedRef.current = { id: null, pendingId: null, before: null }
+    setMovSaved(false)
+    setMovStatus('')
+    setMovError('')
+    setMov(EMPTY_MOV())
+  }
+
+  function openMov() {
+    resetMov()
+    setShowMov(true)
+  }
+
+  /** Sem internet (ou a rede falhou): guarda no aparelho e já reflete no saldo */
+  function saveMovLocally(supplyId: string, input: MovementInput) {
+    const saved = savedRef.current
+    if (saved.id) {
+      // Já está no servidor: a correção precisa de internet
+      setMovStatus('error')
+      setMovError('Sem internet. A correção não foi salva: tente de novo quando a conexão voltar.')
+      return
+    }
+    const dropId = saved.pendingId !== null ? `pending_${saved.pendingId}` : null
+    if (saved.pendingId !== null) removePendingRecord('estoque-mov', saved.pendingId)
+    addPendingRecord('estoque-mov', { ...input, supplyId, farmId })
+    const list = getPendingRecords('estoque-mov') as PendingMovement[]
+    const pendingId = list[list.length - 1]?._pendingId ?? null
+    patchLocal(supplyId, movementDelta(saved.before, input), { id: `pending_${pendingId}`, type: input.type, quantity: input.quantity, date: `${input.date}T00:00:00.000Z`, description: input.description }, dropId)
+    savedRef.current = { id: null, pendingId, before: input }
+    setMovSaved(true)
+    setMovStatus('offline')
+    setPendingCount(countPending())
+  }
+
+  async function saveMov() {
+    if (!detail || !canEdit || detail.id.startsWith('pending_')) return
+    const input = parseMovement(mov)
+    if (!input) return
+    const saved = savedRef.current
+    if (saved.before && JSON.stringify(saved.before) === JSON.stringify(input) && movStatus !== 'error') return
+    if (movBusy.current) { setTimeout(() => void saveMovRef.current(), 400); return }
+    movBusy.current = true
+    setMovStatus('saving')
+    setMovError('')
+    try {
+      if (!navigator.onLine) return saveMovLocally(detail.id, input)
+      const url = saved.id ? `/api/estoque/${detail.id}/movimentacao/${saved.id}` : `/api/estoque/${detail.id}/movimentacao`
+      const res = await fetch(url, { method: saved.id ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }).catch(() => null)
+      if (!res) return saveMovLocally(detail.id, input)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.supply) {
+        setMovStatus('error')
+        setMovError(data.error || 'Não foi possível salvar. Tente de novo.')
+        return
+      }
+      // Estava guardada no aparelho e agora foi para o servidor
+      if (saved.pendingId !== null) removePendingRecord('estoque-mov', saved.pendingId)
+      savedRef.current = { id: data.movement?.id ?? saved.id, pendingId: null, before: input }
+      applySupply(data.supply)
+      setMovSaved(true)
+      setMovStatus('saved')
+      setPendingCount(countPending())
+    } finally {
+      movBusy.current = false
+    }
+  }
+  const saveMovRef = useRef(saveMov)
+  useEffect(() => { saveMovRef.current = saveMov })
+  const movKey = showMov && movementReady(mov) ? JSON.stringify(mov) : ''
+  useEffect(() => {
+    if (!movKey) return
+    const timer = setTimeout(() => void saveMovRef.current(), 1200)
+    return () => clearTimeout(timer)
+  }, [movKey])
+  // Ao sair do app ou bloquear o celular no meio do preenchimento, salva na hora
+  useEffect(() => {
+    const flush = () => { if (document.visibilityState === 'hidden') void saveMovRef.current() }
+    document.addEventListener('visibilitychange', flush)
+    return () => document.removeEventListener('visibilitychange', flush)
+  }, [])
+
+  /** Desfaz o que a tela acabou de gravar e devolve o saldo */
+  async function undoMov() {
+    const saved = savedRef.current
+    if (!detail || !saved.before) return resetMov()
+    if (saved.id) {
+      setMovStatus('saving')
+      const res = await fetch(`/api/estoque/${detail.id}/movimentacao/${saved.id}`, { method: 'DELETE' }).catch(() => null)
+      const data = res ? await res.json().catch(() => ({})) : {}
+      if (!res?.ok || !data.supply) {
+        setMovStatus('error')
+        setMovError(navigator.onLine ? data.error || 'Não foi possível desfazer. Tente de novo.' : 'Sem internet. Para desfazer, tente quando a conexão voltar.')
+        return
+      }
+      applySupply(data.supply)
+    } else if (saved.pendingId !== null) {
+      removePendingRecord('estoque-mov', saved.pendingId)
+      patchLocal(detail.id, movementDelta(saved.before, null), null, `pending_${saved.pendingId}`)
+      setPendingCount(countPending())
+    }
+    resetMov()
+  }
+
+  /** Fecha a janela; o que estiver preenchido e ainda não gravado é salvo antes */
+  async function closeMov(flush = true) {
+    if (flush && movementReady(mov) && !movBusy.current) await saveMov()
+    setShowMov(false)
+    resetMov()
   }
 
   // Datas gravadas à meia-noite UTC: mostrar em UTC para não cair no dia anterior no horário de Brasília
@@ -219,7 +368,7 @@ export default function EstoquePage() {
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} insumo{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para enviar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} registro{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para enviar</span>
           <button
             onClick={handleSync}
             disabled={syncing}
@@ -259,7 +408,10 @@ export default function EstoquePage() {
             <tbody className="divide-y divide-gray-100">
               {sortedSupplies.map(s => (
                 <tr key={s.id} className={`hover:bg-gray-50 cursor-pointer ${isLow(s) ? 'bg-red-50/40' : ''}`} onClick={() => setDetail(s)}>
-                  <td className="px-4 py-3 font-medium text-gray-800">{s.name}</td>
+                  <td className="px-4 py-3 font-medium text-gray-800">
+                    {s.name}
+                    {s.id.startsWith('pending_') && <span className="block text-xs font-medium text-blue-700">Aguardando envio</span>}
+                  </td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{s.category}</td>
                   <td className={`px-4 py-3 text-right font-semibold ${isLow(s) ? 'text-red-600' : 'text-gray-800'}`}>
                     {s.currentQuantity} {s.unit}
@@ -311,12 +463,20 @@ export default function EstoquePage() {
                 </p>
               )}
 
-              <PriceLine supply={detail} canEdit={canEdit && isOnline} onSaved={(updated) => { setDetail({ ...detail, ...updated }); loadData(farmId) }} />
+              {detail.id.startsWith('pending_') ? (
+                <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900">Cadastrado sem internet, aguardando envio. Entradas e saídas ficam disponíveis depois que ele for enviado.</p>
+              ) : (
+                <>
+                  <PriceLine supply={detail} canEdit={canEdit && isOnline} onSaved={(updated) => { setDetail({ ...detail, ...updated }); loadData(farmId) }} />
 
-              <button onClick={() => setShowMov(true)} className="w-full bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg mb-2">
-                + Movimentação (Entrada / Saída)
-              </button>
-              {canEdit && (
+                  {canEdit && (
+                    <button onClick={openMov} className="w-full bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg mb-2">
+                      + Movimentação (Entrada / Saída)
+                    </button>
+                  )}
+                </>
+              )}
+              {canEdit && !detail.id.startsWith('pending_') && (
                 <button onClick={() => setQuoteFor(detail)}
                   className={`w-full text-sm font-semibold py-2 rounded-lg mb-4 border-2 ${isLow(detail) ? 'border-amber-500 text-amber-800 hover:bg-amber-50' : 'border-green-700 text-green-800 hover:bg-green-50'}`}>
                   Pedir orçamento a um fornecedor
@@ -338,7 +498,7 @@ export default function EstoquePage() {
                       <tbody className="divide-y divide-gray-100">
                         {sortedMovements.map(m => (
                           <tr key={m.id} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 text-gray-600">{fmt(m.date)}</td>
+                            <td className="px-3 py-2 text-gray-600">{fmt(m.date)}{m.id.startsWith('pending_') && <span className="block text-xs text-blue-700">a enviar</span>}</td>
                             <td className="px-3 py-2">
                               <span className={`text-xs font-medium ${m.type === 'Entrada' ? 'text-green-600' : 'text-red-500'}`}>{m.type}</span>
                             </td>
@@ -361,44 +521,59 @@ export default function EstoquePage() {
         </div>
       )}
 
-      {/* Movimentação modal */}
+      {/* Movimentação modal: salva sozinha enquanto a pessoa preenche */}
       {showMov && detail && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+          <div role="dialog" aria-labelledby="mov-title" className="bg-white rounded-2xl shadow-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">Movimentação</h2>
-                <button onClick={() => setShowMov(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
+              <div className="flex items-center justify-between mb-1">
+                <h2 id="mov-title" className="text-lg font-bold text-gray-800">Movimentação</h2>
+                <button type="button" onClick={() => void closeMov()} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
-              <form onSubmit={handleMovimentacao} className="flex flex-col gap-3">
+              <p className="text-xs text-gray-500 mb-4">{detail.name} · saldo atual {detail.currentQuantity} {detail.unit}. Salva sozinho enquanto você preenche.</p>
+              <form onSubmit={e => { e.preventDefault(); void saveMov() }} className="flex flex-col gap-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Tipo *</label>
-                    <select value={mov.type} onChange={e => setMov({ ...mov, type: e.target.value })}
+                    <label htmlFor="mov-type" className="text-xs font-medium text-gray-600">Tipo *</label>
+                    <select id="mov-type" value={mov.type} onChange={e => setMov({ ...mov, type: e.target.value })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
                       <option>Entrada</option>
                       <option>Saída</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Quantidade *</label>
-                    <input type="number" value={mov.quantity} onChange={e => setMov({ ...mov, quantity: e.target.value })} step="0.01" min="0" required
+                    <label htmlFor="mov-quantity" className="text-xs font-medium text-gray-600">Quantidade ({detail.unit}) *</label>
+                    <input id="mov-quantity" type="number" inputMode="decimal" autoFocus value={mov.quantity} onChange={e => setMov({ ...mov, quantity: e.target.value })} step="0.01" min="0" required
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Data *</label>
-                  <input type="date" value={mov.date} onChange={e => setMov({ ...mov, date: e.target.value })} required
+                  <label htmlFor="mov-date" className="text-xs font-medium text-gray-600">Data *</label>
+                  <input id="mov-date" type="date" value={mov.date} onChange={e => setMov({ ...mov, date: e.target.value })} required
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Descrição</label>
-                  <input type="text" value={mov.description} onChange={e => setMov({ ...mov, description: e.target.value })}
+                  <label htmlFor="mov-description" className="text-xs font-medium text-gray-600">Descrição</label>
+                  <input id="mov-description" type="text" value={mov.description} onChange={e => setMov({ ...mov, description: e.target.value })}
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
+                <p role="status" className={`text-sm min-h-[1.25rem] ${movStatus === 'error' ? 'text-red-600' : movStatus === 'saved' ? 'text-green-700' : movStatus === 'offline' ? 'text-blue-800' : 'text-gray-500'}`}>
+                  {movStatus === 'saving' ? 'Salvando…'
+                    : movStatus === 'saved' ? 'Salvo. Pode corrigir os campos ou desfazer.'
+                    : movStatus === 'offline' ? 'Salvo no celular. Será enviado quando houver internet.'
+                    : movStatus === 'error' ? movError
+                    : 'Informe a quantidade: o lançamento é salvo sozinho.'}
+                </p>
                 <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setShowMov(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
+                  {movSaved ? (
+                    <>
+                      <button type="button" onClick={() => void undoMov()} className="flex-1 border border-red-200 text-red-600 text-sm font-medium py-2 rounded-lg hover:bg-red-50">Desfazer</button>
+                      <button type="button" onClick={resetMov} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Lançar outra</button>
+                    </>
+                  ) : (
+                    <button type="button" onClick={() => { setShowMov(false); resetMov() }} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
+                  )}
+                  <button type="button" onClick={() => void closeMov()} className="flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg">Concluir</button>
                 </div>
               </form>
             </div>
