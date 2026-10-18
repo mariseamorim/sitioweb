@@ -12,7 +12,7 @@ Entrar exige internet: a senha é conferida no servidor e a sessão é um cookie
 - PwaRegistration guarda essas telas de antemão no primeiro acesso com internet e a cada 6 horas; o login refaz esse cache para a pessoa que entrou.
 - A tela de login sem internet avisa, desativa o botão Entrar e, se alguém já entrou neste aparelho, oferece "Continuar sem internet", que abre o app guardado.
 - Entrar sem internet: ao entrar com internet, a senha fica guardada no aparelho como hash PBKDF2 com sal (src/lib/offlineUnlock.ts), nunca a senha. Sem sinal, o login confere a senha no aparelho e abre o app com os dados guardados, sem criar sessão no servidor; quando o sinal volta, a pessoa entra de novo com internet para enviar a fila. Só vale para a última pessoa que entrou neste aparelho.
-- "Sair" deixa dados, filas e a credencial no aparelho. "Sair e apagar os dados deste aparelho", em Meu cadastro, limpa tudo (para aparelho emprestado).
+- "Sair" só pergunta se quer sair e deixa dados, filas e a credencial no aparelho, sem explicar isso na hora (a sessão é de 90 dias e a explicação fica em Meu cadastro). "Sair e apagar os dados deste aparelho", em Meu cadastro, limpa tudo (para aparelho emprestado).
 - O endereço inicial "/" é uma página normal para quem não usa o Painel (Anota Aí Leite, fornecedor, laticínio, associação e visitante): ela segue para a tela certa. Antes era um redirecionamento do servidor, que o service worker não consegue guardar, e o app instalado não abria sem internet. A rota especial do next-pwa para o endereço inicial foi desligada (cacheStartUrl e dynamicStartUrl false), e "/" entra na regra "telas".
 
 ## Validação

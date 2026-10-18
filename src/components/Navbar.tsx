@@ -58,7 +58,7 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   const pathname = usePathname();
   const router = useRouter();
   const { canAccess, user } = useUser();
-  const { notify, confirm } = useDialog();
+  const { notify } = useDialog();
   const [openPath, setOpenPath] = useState<string | null>(null);
   const drawerOpen = openPath === pathname;
   const drawer = useRef<HTMLDivElement>(null);
@@ -123,11 +123,6 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
       );
       return;
     }
-    if (!(await confirm({
-      title: 'Sair?',
-      message: 'Seus dados ficam neste aparelho para você entrar sem internet com a mesma senha. Para apagar tudo do aparelho, use "Sair e apagar" em Meu cadastro.',
-      confirmLabel: 'Sair',
-    }))) return;
     // Sai, mas deixa os dados e a credencial no aparelho (entrar sem internet)
     logoutKeepingDevice();
     try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
