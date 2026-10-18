@@ -85,7 +85,7 @@ export default function VacinacaoPage() {
     setLoading(true)
     const mapPending = () =>
       getPendingRecords('vacinacao')
-        .filter(r => r.farmId === fid && r._type === 'create')
+        .filter(r => r.farmId === fid && (r._type ?? 'create') === 'create')
         .map(r => ({
           id: `pending_${r._pendingId}`,
           animalId: r.animalId,
@@ -191,11 +191,14 @@ export default function VacinacaoPage() {
         observations: form.observations || null,
         farmId,
         animal: animal || undefined,
+        _type: 'create',
       })
       setPendingCount(getPendingRecords('vacinacao').length)
       setSaving(false)
       setShowRegister(false)
       setForm({ animalId: '', vaccineName: '', scheduledDate: todayISO(), appliedDate: '', batch: '', manufacturer: '', observations: '' })
+      // Aparece na lista na hora, sem precisar recarregar
+      loadData(farmId)
       return
     }
 

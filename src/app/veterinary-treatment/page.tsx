@@ -83,7 +83,7 @@ export default function VeterinaryTreatmentPage() {
     setLoading(true)
     const mapPending = () =>
       getPendingRecords('veterinary-treatment')
-        .filter(r => r.farmId === fid && r._type === 'create')
+        .filter(r => r.farmId === fid && (r._type ?? 'create') === 'create')
         .map(r => ({
           id: `pending_${r._pendingId}`,
           animalId: r.animalId,
@@ -195,7 +195,7 @@ export default function VeterinaryTreatmentPage() {
     // Se estiver offline, salva no localStorage
     if (!isOnline) {
       const animal = allAnimals.find(a => a.id === form.animalId)
-      addPendingRecord('veterinary-treatment', { ...form, farmId, animal: animal || undefined })
+      addPendingRecord('veterinary-treatment', { ...form, farmId, animal: animal || undefined, _type: 'create' })
       setPendingCount(getPendingRecords('veterinary-treatment').length)
       setSaving(false)
       setShowRegister(false)
@@ -203,6 +203,8 @@ export default function VeterinaryTreatmentPage() {
         animalId: '', startDate: todayISO(), endDate: '',
         medicine: '', milkWithdrawalDays: '', meatWithdrawalDays: '', batch: '', manufacturer: '', description: '', observations: '',
       })
+      // Aparece na lista na hora, sem precisar recarregar
+      loadData(farmId)
       return
     }
 

@@ -62,12 +62,24 @@ export default function FinanceiroPage() {
 
   function loadData(fid: string) {
     setLoading(true)
+    // Lançamentos feitos sem internet entram na lista e nos totais, marcados como "a enviar"
+    const pending = (): Transaction[] => getPendingRecords('financeiro')
+      .filter(r => r.farmId === fid)
+      .map(r => ({ id: `pending_${r._pendingId}`, type: r.type, category: r.category, date: `${r.date}T00:00:00.000Z`, amount: Number(r.amount) || 0, description: r.description ?? null, animal: null }))
+    if (!navigator.onLine) {
+      setTransactions(pending())
+      setLoading(false)
+      return
+    }
     Promise.all([
       fetch(`/api/financeiro?farmId=${fid}`).then(r => r.json()),
       fetch(`/api/animals?farmId=${fid}`).then(r => r.json()),
     ]).then(([txs, anims]) => {
-      setTransactions(Array.isArray(txs) ? txs : [])
+      setTransactions(Array.isArray(txs) ? [...txs, ...pending()] : pending())
       setAnimals(Array.isArray(anims) ? anims : [])
+      setLoading(false)
+    }).catch(() => {
+      setTransactions(pending())
       setLoading(false)
     })
   }
@@ -122,6 +134,13 @@ export default function FinanceiroPage() {
 
   async function handleDelete(id: string) {
     if (!(await confirm({ title: 'Excluir este lançamento?', confirmLabel: 'Excluir', danger: true }))) return
+    if (id.startsWith('pending_')) {
+      // Ainda não foi enviado: sai da fila do aparelho
+      removePendingRecord('financeiro', Number(id.slice('pending_'.length)))
+      setPendingCount(getPendingRecords('financeiro').length)
+      loadData(farmId)
+      return
+    }
     await fetch(`/api/financeiro/${id}`, { method: 'DELETE' })
     loadData(farmId)
   }
@@ -145,6 +164,8 @@ export default function FinanceiroPage() {
       setPendingCount(count)
       setShowRegister(false)
       setForm({ type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '' })
+      // Aparece na lista na hora, sem precisar recarregar
+      loadData(farmId)
       return
     }
 
@@ -278,7 +299,7 @@ export default function FinanceiroPage() {
             <tbody className="divide-y divide-gray-100">
               {sortedTransactions.map(t => (
                 <tr key={t.id} className="hover:bg-gray-50">
-                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-600 whitespace-nowrap">{fmt(t.date)}</td>
+                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-600 whitespace-nowrap">{fmt(t.date)}{t.id.startsWith('pending_') && <span className="block text-xs text-blue-700">a enviar</span>}</td>
                   <td className="px-2 sm:px-4 py-2 sm:py-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium truncate inline-block ${t.type === 'Receita' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.category}</span>
                   </td>
