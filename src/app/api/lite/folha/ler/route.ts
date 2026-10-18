@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/lib/auth'
+import { flattenVision, type VisionResponse } from '@/lib/vision'
 
 // POST { photo }: lê a foto da folha na nuvem (Google Cloud Vision, que lê letra à mão). Devolve o texto e as
 // palavras com a confiança, no mesmo formato do leitor do aparelho; a regra de extração é a mesma (src/lib/folhaOcr.ts).
@@ -7,10 +8,6 @@ import { requireUser } from '@/lib/auth'
 // A foto não é guardada aqui; quem guarda é a folha, quando a pessoa salva.
 
 const MAX_PHOTO = 1500 * 1024
-
-export const visionEnabled = () => !!process.env.GOOGLE_VISION_API_KEY
-
-interface VisionWord { text: string; confidence: number }
 
 export async function POST(request: NextRequest) {
   const auth = await requireUser()
@@ -39,41 +36,6 @@ export async function POST(request: NextRequest) {
   }
   const first = body.responses?.[0]
   if (first?.error) return NextResponse.json({ error: 'O serviço de leitura recusou a foto' }, { status: 502 })
-  const { text, words } = flatten(first)
+  const { text, words } = flattenVision(first)
   return NextResponse.json({ text, words, engine: 'nuvem' })
-}
-
-interface VisionResponse {
-  responses?: {
-    error?: { message?: string }
-    fullTextAnnotation?: { text?: string; pages?: { blocks?: { paragraphs?: { words?: { confidence?: number; symbols?: { text?: string; property?: { detectedBreak?: { type?: string } } }[] }[] }[] }[] }[] }
-  }[]
-}
-
-type VisionResult = NonNullable<VisionResponse['responses']>[number]
-
-/** Texto com quebras de linha (pelos "breaks" do Vision) e palavras com confiança de 0 a 100 */
-export function flatten(r: VisionResult | undefined): { text: string; words: VisionWord[] } {
-  const words: VisionWord[] = []
-  let text = ''
-  for (const page of r?.fullTextAnnotation?.pages ?? []) {
-    for (const block of page.blocks ?? []) {
-      for (const paragraph of block.paragraphs ?? []) {
-        for (const word of paragraph.words ?? []) {
-          let wordText = ''
-          let after = ''
-          for (const symbol of word.symbols ?? []) {
-            wordText += symbol.text ?? ''
-            const brk = symbol.property?.detectedBreak?.type
-            if (brk === 'SPACE' || brk === 'SURE_SPACE') after = ' '
-            else if (brk === 'EOL_SURE_SPACE' || brk === 'LINE_BREAK') after = '\n'
-          }
-          if (wordText) words.push({ text: wordText, confidence: Math.round((word.confidence ?? 0) * 100) })
-          text += wordText + after
-        }
-        if (!text.endsWith('\n')) text += '\n'
-      }
-    }
-  }
-  return { text: text || r?.fullTextAnnotation?.text || '', words }
 }

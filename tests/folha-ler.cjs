@@ -14,6 +14,7 @@ function load(path) {
   vm.runInNewContext(code, { exports, Date, console, Response, AbortSignal, encodeURIComponent, process: { env }, fetch: async (url, options) => { calls.push({ url, body: JSON.parse(options.body) }); return visionReply }, require: (name) => {
     if (name === 'next/server') return { NextResponse }
     if (name === '@/lib/auth') return { requireUser: async () => ({ user: { id: 'u1', role: 'lite' } }) }
+    if (name.startsWith('@/')) return load(`src/${name.slice(2)}.ts`)
     throw new Error('módulo inesperado: ' + name)
   } })
   return exports
