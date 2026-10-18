@@ -110,6 +110,8 @@ export default function LitePage() {
     return liters === (saved.get(p.id) ?? null) ? [] : [{ pointId: p.id, date, liters }]
   })
   const dayTotal = activePoints.reduce((s, p) => s + (parseLiters(valueOf(p.id)) ?? 0), 0)
+  // O campo começa vazio: o que já está anotado no dia aparece como texto, e digitar substitui
+  const draftOf = (pointId: string) => drafts[`${date}|${pointId}`] ?? ''
 
   // Motorista de laticínio: paradas das rotas do dia em ordem, depois os demais locais
   const skipped = useMemo(() => {
@@ -241,7 +243,7 @@ export default function LitePage() {
       await notify('Ainda há anotações não enviadas', 'Conecte-se à internet para enviá-las antes de sair, senão elas se perdem.')
       return
     }
-    if (!(await confirm({ title: 'Sair do Anota Aí Leite?', message: 'Suas anotações ficam neste aparelho para você entrar sem internet com a mesma senha. Para apagar tudo, use "Sair e apagar" em Meu cadastro.', confirmLabel: 'Sair' }))) return
+    if (!(await confirm({ title: 'Sair do Anota Aí Leite?', confirmLabel: 'Sair' }))) return
     // Sai, mas deixa os dados e a credencial no aparelho (entrar sem internet)
     logoutKeepingDevice()
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
@@ -328,8 +330,9 @@ export default function LitePage() {
                 <div className="mt-5 bg-white rounded-2xl border border-gray-200 p-5 text-center">
                   <span className="block text-sm font-medium text-gray-500">{single.name}</span>
                   <span className="mt-1 block text-lg font-semibold text-gray-900">Leite do dia</span>
+                  {saved.has(single.id) && <span className="mt-1 block text-sm font-semibold text-green-800">Anotado: {fmtNumber(saved.get(single.id)!)} L{draftOf(single.id) ? ' · digite para substituir' : ''}</span>}
                   <span className="mt-4 flex items-center justify-center gap-2">
-                    <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={valueOf(single.id)} autoFocus readOnly={!canWrite}
+                    <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={draftOf(single.id)} autoFocus readOnly={!canWrite}
                       onChange={(e) => setDrafts({ ...drafts, [`${date}|${single.id}`]: e.target.value.replace(/[^\d.,]/g, '') })}
                       aria-label={`Litros de ${single.name}`}
                       className="w-44 border border-gray-300 rounded-2xl px-4 py-4 !text-5xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-green-600" />
@@ -357,10 +360,11 @@ export default function LitePage() {
                               <span className="flex-1 min-w-0">
                                 <span className="block text-lg font-semibold text-gray-900 truncate">{p.name}</span>
                                 {p.kind === 'tanque' && <span className="text-xs font-medium text-gray-500">{KIND_LABEL.tanque}</span>}
+                                {saved.has(p.id) && !skipped.has(p.id) && <span className="block text-xs font-semibold text-green-800">Anotado: {fmtNumber(saved.get(p.id)!)} L</span>}
                               </span>
                               {!skipped.has(p.id) && (
                                 <span className="flex items-center gap-2 shrink-0">
-                                  <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={valueOf(p.id)}
+                                  <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={draftOf(p.id)}
                                     onChange={(e) => setDrafts({ ...drafts, [`${date}|${p.id}`]: e.target.value.replace(/[^\d.,]/g, '') })}
                                     aria-label={`Litros de ${p.name}`}
                                     className="w-28 border border-gray-300 rounded-xl px-3 py-3 !text-2xl font-semibold text-right focus:outline-none focus:ring-2 focus:ring-green-600" />
