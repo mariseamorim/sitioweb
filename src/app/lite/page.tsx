@@ -1164,10 +1164,16 @@ function Nomes({ data, online, canWrite, onChanged }: {
           <span className="text-4xl" aria-hidden="true">📄</span>
           <h2 className="mt-2 text-lg font-bold text-gray-900">A nota do laticínio tem mais de um nome?</h2>
           <p className="mx-auto mt-1 max-w-xs text-sm text-gray-600">Cadastre quem divide o leite do tanque. Depois, a cada coleta, você só diz quanto vai para cada um, na tela Anotar.</p>
-          {canWrite && canReadFolha() && <label className={`mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-700 py-3 font-bold text-white ${online ? '' : 'opacity-50'}`}>
-            📷 Fotografar a folha do laticínio
-            <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={!online} onChange={(e) => { const f = e.target.files?.[0]; if (f) void readNames(f); e.target.value = '' }} />
-          </label>}
+          {canWrite && canReadFolha() && <div className="mt-4 grid grid-cols-2 gap-2">
+            <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-700 py-3 font-bold text-white ${online ? '' : 'opacity-50'}`}>
+              📷 Tirar foto
+              <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={!online} onChange={(e) => { const f = e.target.files?.[0]; if (f) void readNames(f); e.target.value = '' }} />
+            </label>
+            <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800 ${online ? '' : 'opacity-50'}`}>
+              🖼 Da galeria
+              <input type="file" accept="image/*" className="sr-only" disabled={!online} onChange={(e) => { const f = e.target.files?.[0]; if (f) void readNames(f); e.target.value = '' }} />
+            </label>
+          </div>}
           {canWrite && <button type="button" onClick={startNew} disabled={!online} className="mt-2 w-full rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800 disabled:border-gray-300 disabled:text-gray-400">Digitar os nomes</button>}
           {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-left text-sm text-red-700">{error}</p>}
         </div>
@@ -1355,10 +1361,16 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
             </div>
           ) : (
             <div className="mt-4 flex flex-col gap-2">
-              {canReadFolha() && <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-700 py-3 font-bold text-white hover:bg-green-600">
-                📷 Fotografar a folha
-                <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void readPhoto(f); e.target.value = '' }} />
-              </label>}
+              {canReadFolha() && <div className="grid grid-cols-2 gap-2">
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-700 py-3 font-bold text-white hover:bg-green-600">
+                  📷 Tirar foto
+                  <input type="file" accept="image/*" capture="environment" className="sr-only" aria-label="Tirar foto da folha" onChange={(e) => { const f = e.target.files?.[0]; if (f) void readPhoto(f); e.target.value = '' }} />
+                </label>
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800 hover:bg-green-50">
+                  🖼 Da galeria
+                  <input type="file" accept="image/*" className="sr-only" aria-label="Escolher foto da folha na galeria" onChange={(e) => { const f = e.target.files?.[0]; if (f) void readPhoto(f); e.target.value = '' }} />
+                </label>
+              </div>}
               <button type="button" onClick={() => { setError(''); setDraft(emptyDraft(today, sheets.find((x) => x.date === today))) }} className="w-full rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800">Digitar a folha</button>
             </div>
           )}
