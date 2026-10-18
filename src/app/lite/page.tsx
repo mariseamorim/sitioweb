@@ -14,7 +14,7 @@ import { exportCSV } from '@/lib/reportExport'
 import { fmtMoney, fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
 import { parseFolha, type FolhaParsed } from '@/lib/folhaOcr'
-import { canReadFolha, readFolha } from '@/lib/ocr'
+import { canReadFolha, readFolha, type OcrEngine } from '@/lib/ocr'
 import { logoutKeepingDevice } from '@/lib/offlineUnlock'
 
 type Tab = 'anotar' | 'historico' | 'locais' | 'folha' | 'nomes'
@@ -1227,6 +1227,7 @@ interface SheetDraft {
   photo: string | null
   /** O que a leitura encontrou, para a tela dizer */
   read: FolhaParsed | null
+  engine: OcrEngine | null
 }
 
 function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
@@ -1256,7 +1257,7 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
       date,
       rows: payees.map((p) => ({ payee: p, liters: fmtInputNum(splits.find((x) => x.payeeId === p.id && x.date === date)?.liters ?? null), confidence: null })),
       total: fmtInputNum(sheet?.liters ?? null), temperature: fmtInputNum(sheet?.temperature ?? null), sample: sheet?.sampleNumber ?? '', ruler: fmtInputNum(sheet?.rulerValue ?? null),
-      photo: null, read: null,
+      photo: null, read: null, engine: null,
     }
   }
 
@@ -1274,7 +1275,7 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
       })
       const rowSum = rows.reduce((t, r) => t + (parseLiters(r.liters) ?? 0), 0)
       setDraft({
-        ...base, rows, read, photo: result.photo,
+        ...base, rows, read, photo: result.photo, engine: result.engine,
         total: fmtInputNum(read.total ?? (rowSum > 0 ? Math.round(rowSum * 10) / 10 : null)) || base.total,
         temperature: fmtInputNum(read.temperature) || base.temperature, sample: read.sample ?? base.sample, ruler: fmtInputNum(read.ruler) || base.ruler,
       })
@@ -1359,9 +1360,9 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
           <p className="mt-1 text-sm text-gray-600">Fotografe a folha preenchida. O app lê os litros de cada nome, a temperatura, a amostra e a régua, e você confere antes de salvar. A foto fica guardada junto da coleta.</p>
           {reading ? (
             <div className="mt-4">
-              <p className="font-semibold text-gray-900">{/load|core|init/.test(reading.status) ? 'Preparando o leitor…' : 'Lendo a folha…'}</p>
+              <p className="font-semibold text-gray-900">{reading.status === 'nuvem' ? 'Lendo a folha na nuvem…' : /load|core|init/.test(reading.status) ? 'Preparando o leitor do aparelho…' : 'Lendo a folha no aparelho…'}</p>
               <div className="mt-2 h-2 overflow-hidden rounded bg-gray-100"><div className="h-full bg-green-600 transition-all" style={{ width: `${Math.round(reading.fraction * 100)}%` }} /></div>
-              <p className="mt-1 text-xs text-gray-500">Na primeira vez baixa o leitor (12 MB). Depois funciona sem internet.</p>
+              <p className="mt-1 text-xs text-gray-500">{reading.status === 'nuvem' ? 'Com internet a leitura é feita na nuvem e lê a letra à mão.' : 'Sem internet o leitor do aparelho lê o impresso; os números à mão vêm para você conferir.'}</p>
             </div>
           ) : (
             <div className="mt-4 flex flex-col gap-2">
@@ -1388,8 +1389,13 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
           {draft.photo && <img src={draft.photo} alt="Foto da folha" className="mb-3 max-h-56 w-full rounded-xl object-contain bg-white" />}
           {draft.read && (
             <p className="mb-3 text-sm text-blue-900">
-              {draft.read.found >= 4 ? `Li ${draft.read.found} de ${draft.read.expected} campos.` : `Li só ${draft.read.found} de ${draft.read.expected} campos.`} Confira cada número antes de salvar.
-              {draft.read.tank && draft.read.dairy ? ` Folha de ${titleCase(draft.read.dairy)}, tanque ${draft.read.tank}.` : ''}
+              {draft.read.found >= 4 ? `Li ${draft.read.found} de ${draft.read.expected} campos` : `Li só ${draft.read.found} de ${draft.read.expected} campos`}{draft.engine === 'nuvem' ? ' (leitura na nuvem).' : draft.engine === 'aparelho' ? ' (leitura no aparelho).' : '.'} Confira cada número antes de salvar.
+              {draft.read.tank ? ` Folha do tanque ${draft.read.tank}.` : ''}
+            </p>
+          )}
+          {draft.engine === 'aparelho' && (
+            <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {navigator.onLine ? 'A leitura na nuvem não está configurada neste sistema; o aparelho lê o impresso, mas quase nunca os números escritos à mão.' : 'Sem internet, o aparelho lê o impresso, mas quase nunca os números escritos à mão. Com sinal, a leitura é feita na nuvem e acerta a letra à mão.'}
             </p>
           )}
           <label className="block text-sm font-medium text-blue-950">Dia da coleta
