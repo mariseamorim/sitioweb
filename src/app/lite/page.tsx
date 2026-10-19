@@ -1291,12 +1291,13 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
 
   function save() {
     if (!draft) return
-    const liters = parseLiters(draft.total)
-    if (!liters) { setError('Informe o total da folha'); return }
     const payeeLiters: Record<string, number> = {}
     for (const r of draft.rows) { const v = parseLiters(r.liters); if (v !== null && r.liters !== '') payeeLiters[r.payee.id] = v }
-    const partsSum = Object.values(payeeLiters).reduce((t, v) => t + v, 0)
-    if (Object.keys(payeeLiters).length && Math.abs(partsSum - liters) > 0.05) { setError(`Os litros por nome somam ${fmtNumber(partsSum)} L e o total é ${fmtNumber(liters)} L. Acerte um dos dois.`); return }
+    // Com nomes na folha, o total é sempre a soma dos litros de cada nome
+    const partsSum = Math.round(Object.values(payeeLiters).reduce((t, v) => t + v, 0) * 10) / 10
+    const liters = draft.rows.length ? partsSum : parseLiters(draft.total)
+    if (!liters) { setError(draft.rows.length ? 'Informe os litros de cada nome da folha' : 'Informe o total da folha'); return }
+    if (draft.rows.length && Object.keys(payeeLiters).length < draft.rows.length) { setError('Informe os litros de todos os nomes da folha (0 se não levou leite)'); return }
     onSave({
       date: draft.date, liters,
       temperature: parseLiters(draft.temperature), sampleNumber: draft.sample.trim() || null, rulerValue: parseLiters(draft.ruler),
@@ -1334,7 +1335,9 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
     for (const e of data.entries) if (e.pointId === pointId && e.date >= from && e.date <= draft.date) liters += e.liters
     return { liters: Math.round(liters * 10) / 10, from }
   }, [draft, sheets, data.entries, data.splits, data.payees, pointId])
-  const draftTotal = draft ? parseLiters(draft.total) : null
+  // Com nomes na folha, o total mostrado é a soma dos litros de cada nome
+  const draftRowSum = draft ? Math.round(draft.rows.reduce((t, r) => t + (parseLiters(r.liters) ?? 0), 0) * 10) / 10 : 0
+  const draftTotal = draft ? (draft.rows.length ? (draftRowSum > 0 ? draftRowSum : null) : parseLiters(draft.total)) : null
   const diff = draftTotal !== null && noted && noted.liters > 0 ? Math.round((draftTotal - noted.liters) * 10) / 10 : null
   const diffPct = diff !== null && noted ? Math.abs(diff) / noted.liters * 100 : null
   const months = [0, 1, 2].map((back) => { const d = new Date(`${today.slice(0, 7)}-01T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() - back); return d.toISOString().slice(0, 7) })
@@ -1418,8 +1421,9 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
             </ul>
           )}
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <label className="text-sm font-medium text-blue-950">Total da folha
-              <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={draft.total} aria-label="Total da folha" onChange={(e) => setDraft({ ...draft, total: e.target.value.replace(/[^\d.,]/g, '') })} className={`mt-1 ${field}`} />
+            <label className="text-sm font-medium text-blue-950">{draft.rows.length ? 'Total (soma dos nomes)' : 'Total da folha'}
+              <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={draft.rows.length ? fmtInputNum(draftRowSum > 0 ? draftRowSum : null) : draft.total} readOnly={draft.rows.length > 0} aria-label="Total da folha"
+                onChange={(e) => setDraft({ ...draft, total: e.target.value.replace(/[^\d.,]/g, '') })} className={`mt-1 ${field}${draft.rows.length ? ' bg-gray-50 text-gray-700' : ''}`} />
             </label>
             <label className="text-sm font-medium text-blue-950">Valor da régua
               <MilkDecimalInput type="text" inputMode="decimal" placeholder="—" value={draft.ruler} aria-label="Valor da régua" onChange={(e) => setDraft({ ...draft, ruler: e.target.value.replace(/[^\d.,]/g, '') })} className={`mt-1 ${field}`} />

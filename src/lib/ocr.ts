@@ -23,7 +23,7 @@ export interface OcrResult {
 
 type Worker = {
   setParameters: (params: Record<string, string>) => Promise<unknown>
-  recognize: (image: HTMLCanvasElement | string, options?: object, output?: object) => Promise<{ data: { text: string; confidence: number; blocks?: { paragraphs: { lines: { words: { text: string; confidence: number }[] }[] }[] }[] | null } }>
+  recognize: (image: HTMLCanvasElement | string, options?: object, output?: object) => Promise<{ data: { text: string; confidence: number; blocks?: { paragraphs: { lines: { words: { text: string; confidence: number; bbox?: { x0: number; y0: number; x1: number; y1: number } }[] }[] }[] }[] | null } }>
   terminate: () => Promise<void>
 }
 
@@ -131,7 +131,8 @@ export async function readFolha(file: Blob, onProgress: (fraction: number, statu
   await worker.setParameters({ tessedit_pageseg_mode: '3' })
   const { data } = await worker.recognize(canvas, {}, { blocks: true })
   const words: OcrWord[] = []
-  for (const b of data.blocks ?? []) for (const p of b.paragraphs) for (const l of p.lines) for (const w of l.words) words.push({ text: w.text, confidence: w.confidence })
+  // A posição (bbox) deixa a regra da folha remontar as linhas: número à mão ao lado do nome
+  for (const b of data.blocks ?? []) for (const p of b.paragraphs) for (const l of p.lines) for (const w of l.words) words.push({ text: w.text, confidence: w.confidence, ...(w.bbox ? { box: { x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, y1: w.bbox.y1 } } : {}) })
   return { text: data.text, words, confidence: data.confidence, engine: 'aparelho', cloudError, photo }
 }
 

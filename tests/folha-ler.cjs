@@ -21,7 +21,7 @@ function load(path) {
 }
 const req = (data) => ({ json: async () => data })
 const sym = (t, brk) => ({ text: t, ...(brk ? { property: { detectedBreak: { type: brk } } } : {}) })
-const word = (t, confidence, brk) => ({ confidence, symbols: [...t.slice(0, -1)].map((c) => sym(c)).concat([sym(t.slice(-1), brk)]) })
+const word = (t, confidence, brk) => ({ confidence, symbols: [...t.slice(0, -1)].map((c) => sym(c)).concat([sym(t.slice(-1), brk)]), boundingBox: { vertices: [{ x: 10, y: 20 }, { x: 60, y: 20 }, { x: 60, y: 35 }, { x: 10 }] } })
 
 ;(async () => {
   const api = load('src/app/api/lite/folha/ler/route.ts')
@@ -38,6 +38,7 @@ const word = (t, confidence, brk) => ({ confidence, symbols: [...t.slice(0, -1)]
   assert.equal(body.engine, 'nuvem')
   assert.equal(body.text, '030 005712 MANOEL 100\nTemp: 04\n')
   assert.deepEqual(body.words.map((w) => [w.text, w.confidence]), [['030', 99], ['005712', 98], ['MANOEL', 97], ['100', 71], ['Temp:', 90], ['04', 66]])
+  assert.deepEqual(body.words[0].box, { x0: 10, y0: 0, x1: 60, y1: 35 }, 'posição da palavra na foto (vértice sem y vale 0)')
   assert.ok(calls[0].url.startsWith('https://vision.googleapis.com/v1/images:annotate?key=chave-teste'))
   assert.equal(calls[0].body.requests[0].features[0].type, 'DOCUMENT_TEXT_DETECTION')
   assert.deepEqual(calls[0].body.requests[0].imageContext.languageHints, ['pt'])
