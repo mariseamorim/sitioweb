@@ -114,7 +114,9 @@ const params = (id) => ({ params: Promise.resolve({ id }) })
 
   assert.equal(rules.parseMoney('1.250,50'), 1250.5); assert.equal(rules.parseMoney('12.5'), 12.5); assert.equal(rules.parseMoney(''), null); assert.equal(rules.parseMoney('abc'), undefined)
   assert.deepEqual(plain(rules.parseSale({ saleValue: '95,00', quantity: '1', soldAt: '2026-10-10', buyerName: ' Zé ' }, '2026-10-18')), { saleValue: 95, quantity: 1, soldAt: '2026-10-10', buyerName: 'Zé', note: null })
-  assert.deepEqual(plain(rules.parseSale({}, '2026-10-18')), { saleValue: null, quantity: null, soldAt: '2026-10-18', buyerName: null, note: null }, 'sem data: hoje')
+  assert.deepEqual(plain(rules.parseSale({}, '2026-10-18')), { saleValue: null, quantity: 1, soldAt: '2026-10-18', buyerName: null, note: null }, 'sem data: hoje; sem quantidade: 1')
+  assert.equal(rules.parseSale({ quantity: '0' }, '2026-10-18'), 'A quantidade mínima é 1')
+  assert.equal(rules.parseSale({ quantity: '0,5' }, '2026-10-18'), 'A quantidade mínima é 1')
   assert.equal(rules.parseSale({ saleValue: 'x' }, '2026-10-18'), 'Valor inválido')
   assert.equal(rules.parseSale({ soldAt: '2026-10-19' }, '2026-10-18'), 'A data da venda não pode ser no futuro')
 
@@ -141,7 +143,10 @@ const params = (id) => ({ params: Promise.resolve({ id }) })
   assert.equal((await res.json()).farm.name, 'Fazenda Teste', 'cliente do app')
   assert.equal((await api.POST(req({ promotionId: 'ox', buyerName: 'x' }))).status, 400, 'oferta de outro fornecedor')
   assert.equal((await api.POST(req({ promotionId: 'o1', farmId: 'f9' }))).status, 400, 'não é cliente')
-  assert.equal((await api.POST(req({ promotionId: 'o1' }))).status, 400, 'sem cliente nem nome')
+  res = await api.POST(req({ promotionId: 'o1' }))
+  assert.equal(res.status, 201, 'cliente e comprador são opcionais')
+  body = await res.json()
+  assert.equal(body.buyerName, null); assert.equal(body.farmId, null); assert.equal(body.quantity, 1)
   assert.equal((await api.POST(req({ promotionId: 'o1', buyerName: 'x', saleValue: 'abc' }))).status, 400)
 
   // --- rota PATCH/DELETE: confirma, perde, desfaz ---

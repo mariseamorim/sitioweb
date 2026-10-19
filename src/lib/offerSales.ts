@@ -131,14 +131,16 @@ export function parseMoney(raw: unknown): number | null | undefined {
   return Number.isFinite(n) && n >= 0 ? round2(n) : undefined
 }
 
-export interface SaleInput { saleValue: number | null; quantity: number | null; soldAt: string; buyerName: string | null; note: string | null }
+export interface SaleInput { saleValue: number | null; quantity: number; soldAt: string; buyerName: string | null; note: string | null }
 
 /** Dados de uma venda (confirmada a partir de um contato ou registrada à mão). Devolve a mensagem do erro. */
 export function parseSale(body: Record<string, unknown>, today: string): SaleInput | string {
   const saleValue = parseMoney(body.saleValue)
   if (saleValue === undefined) return 'Valor inválido'
-  const quantity = parseMoney(body.quantity)
+  // Sem quantidade, uma unidade; nunca menos que isso
+  const quantity = parseMoney(body.quantity) ?? 1
   if (quantity === undefined) return 'Quantidade inválida'
+  if (quantity < 1) return 'A quantidade mínima é 1'
   const soldAt = body.soldAt === undefined || body.soldAt === null || body.soldAt === '' ? today : String(body.soldAt).slice(0, 10)
   if (!DAY.test(soldAt) || Number.isNaN(new Date(`${soldAt}T00:00:00Z`).getTime())) return 'Data inválida'
   if (soldAt > today) return 'A data da venda não pode ser no futuro'
