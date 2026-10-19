@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   })
 }
 
-// POST: venda registrada à mão { promotionId, farmId?, buyerName?, saleValue?, quantity?, soldAt?, note? }
+// POST: venda registrada à mão { promotionId, farmId?, buyerName?, saleValue?, quantity?, soldAt?, note? }. Cliente e comprador são opcionais.
 export async function POST(request: NextRequest) {
   const auth = await requireVendor()
   if ('error' in auth) return auth.error
@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
     const client = await prisma.vendorClient.findFirst({ where: { vendorId: vendor.id, farmId }, select: { id: true } })
     if (!client) return NextResponse.json({ error: 'Cliente não encontrado' }, { status: 400 })
   }
-  if (!farmId && !sale.buyerName) return NextResponse.json({ error: 'Informe o cliente ou o nome do comprador' }, { status: 400 })
 
   const created = await prisma.offerContact.create({
     data: {

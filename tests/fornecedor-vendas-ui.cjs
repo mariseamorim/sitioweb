@@ -63,21 +63,31 @@ async function main() {
 
     // Contato do WhatsApp vira venda
     await page.getByRole('button', { name: 'Virou venda', exact: true }).click()
-    await page.getByLabel('Valor (R$)').fill('95,00')
+    assert.equal(await page.getByLabel('Valor (R$)').inputValue(), '95,00', 'valor sugerido pelo preço da oferta')
+    assert.equal(await page.getByLabel('Quantidade').inputValue(), '1')
     await page.getByRole('button', { name: 'Confirmar venda', exact: true }).click()
     await page.getByText('Nenhum contato esperando resposta.').waitFor()
-    assert.deepEqual(patches[0].status, 'venda'); assert.equal(patches[0].saleValue, '95,00'); assert.match(patches[0].soldAt, /^\d{4}-\d{2}-\d{2}$/)
+    assert.deepEqual(patches[0].status, 'venda'); assert.equal(patches[0].saleValue, '95,00'); assert.equal(patches[0].quantity, '1'); assert.match(patches[0].soldAt, /^\d{4}-\d{2}-\d{2}$/)
     assert.match(await page.locator('body').innerText(), /2 vendas em 2 contatos \(100%\)/)
 
     // Venda registrada à mão, para quem não está no app
     await page.getByRole('button', { name: '+ Registrar venda', exact: true }).click()
     const form = page.getByRole('form', { name: 'Registrar venda' })
+    assert.equal(await form.getByLabel('Valor (R$)').inputValue(), '95,00', 'primeira oferta: R$ 95 × 1')
     await form.getByLabel('Oferta *').selectOption('o2')
-    await form.getByLabel('Nome do comprador *').fill('Sítio Boa Vista')
-    await form.getByLabel('Valor (R$)').fill('160')
+    assert.equal(await form.getByLabel('Valor (R$)').inputValue(), '80,00', 'trocou a oferta: preço dela')
+    await form.getByLabel('Quantidade').fill('2')
+    assert.equal(await form.getByLabel('Valor (R$)').inputValue(), '160,00', 'quantidade 2: dobra')
+    await form.getByLabel('Nome do comprador').fill('Sítio Boa Vista')
     await form.getByRole('button', { name: 'Salvar venda', exact: true }).click()
     await form.waitFor({ state: 'detached' })
-    assert.equal(posts[0].promotionId, 'o2'); assert.equal(posts[0].buyerName, 'Sítio Boa Vista'); assert.equal(posts[0].farmId, '')
+    assert.equal(posts[0].promotionId, 'o2'); assert.equal(posts[0].buyerName, 'Sítio Boa Vista'); assert.equal(posts[0].farmId, ''); assert.equal(posts[0].saleValue, '160,00'); assert.equal(posts[0].quantity, '2')
+
+    // Sem comprador e sem cliente também salva
+    await page.getByRole('button', { name: '+ Registrar venda', exact: true }).click()
+    await form.getByRole('button', { name: 'Salvar venda', exact: true }).click()
+    await form.waitFor({ state: 'detached' })
+    assert.equal(posts[1].buyerName, ''); assert.equal(posts[1].quantity, '1')
     await page.getByText('Sítio Boa Vista', { exact: false }).first().waitFor()
     assert.match(await page.locator('body').innerText(), /registrada à mão/)
 

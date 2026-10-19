@@ -313,7 +313,7 @@ export default function PainelFornecedorPage() {
       )}
 
       {tab === 'vendas' && (
-        <VendasTab offers={offers.map((o) => ({ id: o.id, title: o.title }))} clients={clients.map((c) => ({ farmId: c.farmId, name: c.name }))} onChanged={load} />
+        <VendasTab offers={offers.map((o) => ({ id: o.id, title: o.title, price: o.price }))} clients={clients.map((c) => ({ farmId: c.farmId, name: c.name }))} onChanged={load} />
       )}
 
       {tab === 'clientes' && (

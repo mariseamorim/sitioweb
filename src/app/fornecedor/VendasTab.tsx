@@ -9,7 +9,7 @@ import { todayISO } from '@/lib/utils'
 // Relatório de vendas do fornecedor: qual oferta mais virou venda, contatos do WhatsApp a confirmar
 // e as vendas do período (confirmadas a partir do contato ou registradas à mão).
 
-export interface SalesOffer { id: string; title: string }
+export interface SalesOffer { id: string; title: string; price: number | null }
 export interface SalesClient { farmId: string; name: string }
 
 interface ContactRow {
@@ -53,7 +53,13 @@ const who = (c: ContactRow) => c.farm?.name ?? c.buyerName ?? '—'
 const money = (v: number | null) => (v === null ? '—' : fmtMoney(v))
 
 const input = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
-const EMPTY_SALE = { promotionId: '', farmId: '', buyerName: '', saleValue: '', quantity: '', soldAt: todayISO() }
+const EMPTY_SALE = { promotionId: '', farmId: '', buyerName: '', saleValue: '', quantity: '1', soldAt: todayISO() }
+const toNumber = (raw: string) => Number(raw.replace(',', '.'))
+/** Valor sugerido: preço da oferta × quantidade, no formato "95,00" (vazio sem preço) */
+const suggestedValue = (price: number | null, quantity: string) => {
+  const qty = toNumber(quantity)
+  return price !== null && qty > 0 ? (Math.round(price * qty * 100) / 100).toFixed(2).replace('.', ',') : ''
+}
 
 export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]; clients: SalesClient[]; onChanged: () => void }) {
   const [preset, setPreset] = useState<Preset>('mes')
@@ -64,7 +70,22 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
   const [confirming, setConfirming] = useState<ContactRow | null>(null)
   const [registering, setRegistering] = useState(false)
   const [sale, setSale] = useState(EMPTY_SALE)
+  // A pessoa mexeu no valor: para de sugerir pelo preço da oferta
+  const [valueTouched, setValueTouched] = useState(false)
   const [saving, setSaving] = useState(false)
+  const priceOf = (promotionId: string) => offers.find((o) => o.id === promotionId)?.price ?? null
+
+  function startSale(promotionId: string, extra: Partial<typeof EMPTY_SALE> = {}) {
+    setValueTouched(false)
+    setFormError('')
+    setSale({ ...EMPTY_SALE, promotionId, soldAt: todayISO(), saleValue: suggestedValue(priceOf(promotionId), '1'), ...extra })
+  }
+  const changeOffer = (promotionId: string) => setSale({ ...sale, promotionId, saleValue: valueTouched ? sale.saleValue : suggestedValue(priceOf(promotionId), sale.quantity) })
+  const changeQuantity = (raw: string, promotionId: string) => {
+    const quantity = raw.replace(/[^\d.,]/g, '')
+    setSale({ ...sale, quantity, saleValue: valueTouched ? sale.saleValue : suggestedValue(priceOf(promotionId), quantity) })
+  }
+  const changeValue = (raw: string) => { setValueTouched(true); setSale({ ...sale, saleValue: raw.replace(/[^\d.,]/g, '') }) }
   const [formError, setFormError] = useState('')
 
   const load = useCallback(() => {
@@ -240,7 +261,7 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
                       </div>
                       {confirming?.id !== c.id && (
                         <div className="flex gap-2 text-sm">
-                          <button type="button" onClick={() => { setConfirming(c); setSale({ ...EMPTY_SALE, soldAt: todayISO() }); setFormError('') }}
+                          <button type="button" onClick={() => { setConfirming(c); startSale(c.promotionId) }}
                             className="bg-green-700 hover:bg-green-600 text-white font-semibold px-3 py-2 rounded-lg">Virou venda</button>
                           <button type="button" disabled={saving} onClick={() => void markLost(c)} className="border border-gray-200 text-gray-600 font-medium px-3 py-2 rounded-lg hover:bg-gray-50">Não fechou</button>
                         </div>
@@ -249,10 +270,10 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
                     {confirming?.id === c.id && (
                       <form onSubmit={confirmSale} className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <label className="text-sm font-medium text-gray-700">Valor (R$)
-                          <input inputMode="decimal" value={sale.saleValue} onChange={(e) => setSale({ ...sale, saleValue: e.target.value.replace(/[^\d.,]/g, '') })} placeholder="Opcional" className={`mt-1 ${input}`} />
+                          <input inputMode="decimal" value={sale.saleValue} onChange={(e) => changeValue(e.target.value)} placeholder="Opcional" className={`mt-1 ${input}`} />
                         </label>
                         <label className="text-sm font-medium text-gray-700">Quantidade
-                          <input inputMode="decimal" value={sale.quantity} onChange={(e) => setSale({ ...sale, quantity: e.target.value.replace(/[^\d.,]/g, '') })} placeholder="Opcional" className={`mt-1 ${input}`} />
+                          <input inputMode="decimal" value={sale.quantity} onChange={(e) => changeQuantity(e.target.value, c.promotionId)} className={`mt-1 ${input}`} />
                         </label>
                         <label className="text-sm font-medium text-gray-700">Dia da venda
                           <input type="date" value={sale.soldAt} max={todayISO()} onChange={(e) => setSale({ ...sale, soldAt: e.target.value })} className={`mt-1 ${input}`} />
@@ -273,7 +294,7 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
           <section aria-labelledby="vendas-periodo">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <h2 id="vendas-periodo" className="text-lg font-semibold text-gray-900">Vendas do período</h2>
-              <button type="button" onClick={() => { setRegistering(true); setSale({ ...EMPTY_SALE, promotionId: offers[0]?.id ?? '', soldAt: todayISO() }); setFormError('') }} disabled={offers.length === 0}
+              <button type="button" onClick={() => { setRegistering(true); startSale(offers[0]?.id ?? '') }} disabled={offers.length === 0}
                 className="bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
                 + Registrar venda
               </button>
@@ -306,9 +327,9 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
                 <h2 id="registrar-venda" className="text-lg font-bold text-gray-900">Registrar venda</h2>
                 <button type="button" onClick={() => setRegistering(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
-              <p className="text-sm text-gray-600">Venda fechada fora do app (balcão, telefone). Entra no relatório da oferta escolhida.</p>
+              <p className="text-sm text-gray-600">Venda fechada fora do app (balcão, telefone). Entra no relatório da oferta escolhida. O valor vem do preço da oferta vezes a quantidade; pode corrigir.</p>
               <label className="text-sm font-medium text-gray-700">Oferta *
-                <select value={sale.promotionId} onChange={(e) => setSale({ ...sale, promotionId: e.target.value })} required className={`mt-1 ${input} bg-white`}>
+                <select value={sale.promotionId} onChange={(e) => changeOffer(e.target.value)} required className={`mt-1 ${input} bg-white`}>
                   {offers.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
                 </select>
               </label>
@@ -319,16 +340,16 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
                 </select>
               </label>
               {!sale.farmId && (
-                <label className="text-sm font-medium text-gray-700">Nome do comprador *
-                  <input value={sale.buyerName} onChange={(e) => setSale({ ...sale, buyerName: e.target.value })} required placeholder="Ex.: Sítio Boa Vista" className={`mt-1 ${input}`} />
+                <label className="text-sm font-medium text-gray-700">Nome do comprador
+                  <input value={sale.buyerName} onChange={(e) => setSale({ ...sale, buyerName: e.target.value })} placeholder="Opcional. Ex.: Sítio Boa Vista" className={`mt-1 ${input}`} />
                 </label>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <label className="text-sm font-medium text-gray-700">Valor (R$)
-                  <input inputMode="decimal" value={sale.saleValue} onChange={(e) => setSale({ ...sale, saleValue: e.target.value.replace(/[^\d.,]/g, '') })} placeholder="Opcional" className={`mt-1 ${input}`} />
+                  <input inputMode="decimal" value={sale.saleValue} onChange={(e) => changeValue(e.target.value)} placeholder="Opcional" className={`mt-1 ${input}`} />
                 </label>
                 <label className="text-sm font-medium text-gray-700">Quantidade
-                  <input inputMode="decimal" value={sale.quantity} onChange={(e) => setSale({ ...sale, quantity: e.target.value.replace(/[^\d.,]/g, '') })} placeholder="Opcional" className={`mt-1 ${input}`} />
+                  <input inputMode="decimal" value={sale.quantity} onChange={(e) => changeQuantity(e.target.value, sale.promotionId)} className={`mt-1 ${input}`} />
                 </label>
                 <label className="text-sm font-medium text-gray-700">Dia da venda *
                   <input type="date" value={sale.soldAt} max={todayISO()} onChange={(e) => setSale({ ...sale, soldAt: e.target.value })} required className={`mt-1 ${input}`} />
