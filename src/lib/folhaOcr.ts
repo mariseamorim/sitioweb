@@ -1,9 +1,13 @@
 // Leitura da folha de coleta do laticínio a partir do texto que o OCR devolve.
 // A folha é impressa (cabeçalho, códigos e nomes) com os volumes e o rodapé escritos à mão.
 // O impresso lê bem; o manuscrito é sugestão, e a pessoa confere cada número antes de salvar.
+// Quando o OCR informa a posição das palavras na foto (nuvem e aparelho informam), as linhas são
+// remontadas por essa posição: o número escrito à mão ao lado do nome entra na linha do nome mesmo
+// que o OCR o tenha devolvido em outro bloco do texto.
 // Sem banco e sem navegador: testável com um texto de exemplo.
 
-export interface OcrWord { text: string; confidence: number }
+export interface OcrBox { x0: number; y0: number; x1: number; y1: number }
+export interface OcrWord { text: string; confidence: number; box?: OcrBox }
 
 export interface FolhaRow {
   /** Sequência na folha (030) */
@@ -23,6 +27,7 @@ export interface FolhaParsed {
   /** yyyy-mm-dd, montado com o ano e o mês da folha quando o rodapé só tem dia e mês */
   date: string | null
   rows: FolhaRow[]
+  /** Total do tanque lido; sem ele, a soma dos volumes por nome quando todos foram lidos */
   total: number | null
   temperature: number | null
   sample: string | null
@@ -56,8 +61,35 @@ export function confidenceOf(words: OcrWord[], ...tokens: (string | null)[]): nu
   return Math.round(hits.reduce((s, w) => s + w.confidence, 0) / hits.length)
 }
 
-export function parseFolha(text: string, words: OcrWord[] = [], today = new Date()): FolhaParsed {
-  const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean)
+/**
+ * Linhas remontadas pela posição das palavras: palavras com o centro na mesma altura (tolerância de 80% da
+ * altura típica de uma palavra) ficam na mesma linha, da esquerda para a direita. null quando o OCR não deu posição.
+ */
+export function linesFromBoxes(words: OcrWord[]): string[] | null {
+  const boxed = words.filter((w): w is OcrWord & { box: OcrBox } => !!w.box && w.text.trim() !== '')
+  if (boxed.length < 2) return null
+  const heights = boxed.map((w) => w.box.y1 - w.box.y0).filter((h) => h > 0).sort((a, b) => a - b)
+  if (!heights.length) return null
+  const tolerance = heights[Math.floor(heights.length / 2)] * 0.8
+  const centerY = (w: OcrWord & { box: OcrBox }) => (w.box.y0 + w.box.y1) / 2
+  const sorted = [...boxed].sort((a, b) => centerY(a) - centerY(b))
+  const lines: { y: number; n: number; words: (OcrWord & { box: OcrBox })[] }[] = []
+  for (const w of sorted) {
+    const last = lines[lines.length - 1]
+    if (last && Math.abs(last.y - centerY(w)) <= tolerance) {
+      last.words.push(w)
+      last.y = (last.y * last.n + centerY(w)) / (last.n + 1)
+      last.n++
+    } else {
+      lines.push({ y: centerY(w), n: 1, words: [w] })
+    }
+  }
+  return lines.map((l) => l.words.sort((a, b) => a.box.x0 - b.box.x0).map((w) => w.text).join(' ').replace(/\s+/g, ' ').trim()).filter(Boolean)
+}
+
+type Fields = Omit<FolhaParsed, 'found' | 'expected'>
+
+function parseLines(lines: string[], words: OcrWord[], today: Date): Fields {
   const flat = lines.join('\n')
   const upper = fold(flat).toUpperCase()
 
@@ -91,10 +123,11 @@ export function parseFolha(text: string, words: OcrWord[] = [], today = new Date
     date = build(Number(column[1]), monthIndex + 1, baseYear)
   }
 
-  // Linhas dos produtores: seq, código, nome e o volume escrito à mão (pode faltar)
+  // Linhas dos produtores: seq, código, nome e o volume escrito à mão (pode faltar). O volume precisa ter um
+  // dígito de verdade; o que vier depois dele na linha (outras colunas, outra linha colada) é ignorado.
   const rows: FolhaRow[] = []
   for (const line of lines) {
-    const m = fold(line).match(/^(\d{3})\s+(\d{5,7})\s+([A-Z][A-Z .]{2,}?)(?:\s+([0-9OolIS|B]{1,4}(?:[.,]\d)?))?\s*$/i)
+    const m = fold(line).match(/^(\d{3})\s+(\d{5,7})\s+([A-Z][A-Z .]*[A-Z])(?:\s+((?=[0-9OolIS|B]*\d)[0-9OolIS|B]{1,4}(?:[.,]\d)?)\b)?(?:\s.*)?$/i)
     if (!m) continue
     const volume = m[4] ?? null
     rows.push({
@@ -113,9 +146,34 @@ export function parseFolha(text: string, words: OcrWord[] = [], today = new Date
   // Alizarol: só o resultado escrito (negativo, positivo, ok); "Valor Régua" vem logo depois e não conta
   const alizarol = str(/ALIZAROL[.\s:]{0,4}(NEG[A-Z]*|POS[A-Z]*|OK|NORMAL)\b/i, upper)
 
+  return { dairy, route, tank, date, rows, total, temperature, sample, ruler, alizarol }
+}
+
+export function parseFolha(text: string, words: OcrWord[] = [], today = new Date()): FolhaParsed {
+  const textLines = text.split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ')).map((l) => l.trim()).filter(Boolean)
+  const geoLines = linesFromBoxes(words)
+  // Primeiro as linhas remontadas pela posição (quando há), depois o texto como o OCR devolveu
+  const sources = (geoLines ? [geoLines, textLines] : [textLines]).map((lines) => parseLines(lines, words, today))
+  const pick = <K extends keyof Fields>(key: K): Fields[K] => sources.map((s) => s[key]).find((v) => v !== null) ?? (null as Fields[K])
+
+  // Linhas dos produtores: união das fontes, pelo código; vale o volume de quem leu
+  const byCode = new Map<string, FolhaRow>()
+  for (const s of sources) {
+    for (const row of s.rows) {
+      const key = row.producerCode ?? row.name
+      const known = byCode.get(key)
+      if (!known) byCode.set(key, row)
+      else if (known.liters === null && row.liters !== null) byCode.set(key, { ...known, liters: row.liters, confidence: row.confidence })
+    }
+  }
+  const rows = [...byCode.values()].sort((a, b) => (a.sequence ?? '').localeCompare(b.sequence ?? ''))
+
+  const read = pick('total')
+  const total = read ?? (rows.length && rows.every((r) => r.liters !== null) ? Math.round(rows.reduce((t, r) => t + (r.liters ?? 0), 0) * 10) / 10 : null)
+  const date = pick('date'), temperature = pick('temperature'), sample = pick('sample'), ruler = pick('ruler')
   const fields = [date, rows.length ? rows : null, total, temperature, sample, ruler]
   return {
-    dairy, route, tank, date, rows, total, temperature, sample, ruler, alizarol,
+    dairy: pick('dairy'), route: pick('route'), tank: pick('tank'), date, rows, total, temperature, sample, ruler, alizarol: pick('alizarol'),
     found: fields.filter((f) => f !== null).length, expected: fields.length,
   }
 }
