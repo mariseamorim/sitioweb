@@ -89,3 +89,6 @@
 
 @media(max-width:1023px){.audience-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.plans-grid{grid-template-columns:minmax(0,1fr);max-width:560px}.faq-grid{grid-template-columns:minmax(0,1fr);gap:28px}}
 @media(max-width:767px){.audience-grid{grid-template-columns:minmax(0,1fr)}.audience-shot{height:360px}.plans-section{padding-block:58px}.plan-card{padding:28px 22px}.offer-shot img{max-width:280px}}
+
+/* Primeira anota??o sem cadastro. */
+.demo-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}.demo-summary{margin-top:24px;padding:20px;border-radius:12px;background:#e8eddf;line-height:1.6}.demo-grid .section-description{max-width:520px}.demo-grid input:focus-visible{outline-color:#35634a}@media(max-width:767px){.demo-grid{grid-template-columns:minmax(0,1fr);gap:28px}}
