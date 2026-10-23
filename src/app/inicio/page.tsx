@@ -1,14 +1,14 @@
 ﻿import type { Metadata } from 'next'
 import Image from 'next/image'
-import { InstallAppButton } from '@/components/InstallAppButton'
+import { MilkDemo } from '@/components/MilkDemo'
 import Link from 'next/link'
-import { AnimalIcon, LeiteIcon, TratamentoIcon, FinanceiroIcon, EstoqueIcon, PainelIcon, SincronizarIcon, CheckIcon, SetaDireitaIcon, SetaBaixoIcon } from '@/components/ModuleIcons'
+import { AnimalIcon, LeiteIcon, TratamentoIcon, FinanceiroIcon, EstoqueIcon, PainelIcon, SincronizarIcon, CheckIcon, SetaDireitaIcon } from '@/components/ModuleIcons'
 import { LandingHeader } from '@/components/LandingHeader'
 import { ContactForm } from '@/components/ContactForm'
 import { AudienceSection, FaqSection, PlansSection } from './sections'
 import './landing.css'
 
-export const metadata: Metadata = { title: 'Anota Aí Agro — Gestão rural que acompanha o seu ritmo', description: 'Gestão rural que liga produtor, motorista, laticínio e fornecedor. Anota Aí Leite grátis, funciona sem internet e por voz.' }
+export const metadata: Metadata = { title: 'Anota Aí Leite — Anote o leite e confira os litros', description: 'Anote o leite do dia, acompanhe o histórico e confira a folha do motorista. Grátis, com anotações sem internet. Experimente sem cadastro.' }
 const features = [
   { Icon: AnimalIcon, title: 'Rebanho organizado', text: 'Cada animal identificado, com foto, informações e registros em um só lugar.' },
   { Icon: LeiteIcon, title: 'Produção de leite', text: 'Lançamentos individuais ou em lote e acompanhamento por período.' },
@@ -19,16 +19,17 @@ const features = [
 ]
 export default function LandingPage() {
   return <main className="rural-landing" id="inicio">
-    <a className="landing-skip" href="#recursos">Pular para o conteúdo</a>
+    <a className="landing-skip" href="#experimentar">Pular para o conteúdo</a>
     <LandingHeader />
     <section className="landing-hero"><div className="landing-container hero-content">
-      <p className="landing-eyebrow">Gestão rural que acompanha o seu ritmo</p>
-      <h1>Mais tempo no campo.<br /><em>Mais clareza</em><br />para decidir.</h1>
-      <p className="hero-description">O sistema para cuidar do seu rebanho, produção e negócio, mesmo quando a internet não chega.</p>
-      <div className="landing-actions"><Link className="landing-button button-sage" href="/criar-conta">Criar minha conta <SetaDireitaIcon /></Link><a className="landing-button button-outline" href="#recursos">Ver recursos <SetaBaixoIcon /></a></div><InstallAppButton className="mt-4 max-w-xs" />
-    </div><div className="hero-caption landing-container">Da rotina no campo às decisões da sua propriedade.</div></section>
+      <p className="landing-eyebrow">Anota Aí Leite · Grátis para sempre</p>
+      <h1>Anote o leite do dia.<br /><em>Confira os litros</em><br />com o motorista.</h1>
+      <p className="hero-description">Guarde suas anotações no celular, acompanhe o total e confira a folha do motorista. As anotações funcionam mesmo sem internet.</p>
+      <div className="landing-actions"><a className="landing-button button-sage" href="#experimentar">Experimentar sem cadastro <SetaDireitaIcon /></a><Link className="landing-button button-outline" href="/lite/cadastro">Começar grátis <SetaDireitaIcon /></Link></div><p className="mt-4 text-sm text-green-100">Sem cartão. Sem precisar cadastrar o rebanho.</p>
+    </div><div className="hero-caption landing-container">Do leite anotado ao total que você tem para conferir.</div></section>
+    <MilkDemo />
     <section id="recursos" className="landing-section landing-container">
-      <div className="section-intro"><div><p className="landing-eyebrow">Tudo em um só lugar</p><h2>A sua propriedade,<br /><em>mais inteligente.</em></h2></div><p>Do primeiro cadastro ao fechamento do mês, o Anota Aí Agro transforma a rotina da fazenda em informações simples para você acompanhar o que realmente importa.</p></div>
+      <div className="section-intro"><div><p className="landing-eyebrow">Também precisa de gestão completa?</p><h2>Cuide também<br /><em>da sua propriedade.</em></h2></div><p>Do primeiro cadastro ao fechamento do mês, o Anota Aí Agro transforma a rotina da fazenda em informações simples para você acompanhar o que realmente importa.</p></div>
       <div className="feature-grid">{features.map(({ Icon, title, text }) => <article key={title} className="feature-card"><span className="feature-icon" aria-hidden="true"><Icon className="w-6 h-6" /></span><h3>{title}</h3><p>{text}</p></article>)}</div>
     </section>
     <AudienceSection />
@@ -46,7 +47,7 @@ export default function LandingPage() {
       <div><p className="landing-eyebrow">Fale conosco</p><h2 id="contact-title">Conheça o Anota Aí Agro na prática.</h2><p className="contact-description">Quer tirar uma dúvida ou entender como o sistema pode ajudar na sua propriedade? Fale com a gente ou solicite uma demonstração. Combinamos por e-mail o melhor dia e horário para você.</p></div>
       <ContactForm />
     </section>
-    <section id="comecar" className="landing-cta"><div className="landing-container"><div><p className="landing-eyebrow">Pronto para simplificar?</p><h2>Sua propriedade merece uma gestão à altura.</h2></div><Link href="/criar-conta" className="landing-button button-dark">Criar minha conta <SetaDireitaIcon /></Link></div></section>
+    <section id="comecar" className="landing-cta"><div className="landing-container"><div><p className="landing-eyebrow">Pronto para simplificar?</p><h2>Comece anotando o leite de hoje.</h2></div><Link href="/lite/cadastro" className="landing-button button-dark">Começar grátis <SetaDireitaIcon /></Link></div></section>
     <footer className="landing-footer landing-container"><a href="#inicio" className="landing-brand"><Image src="/anota-ai-agro-logo.png" width={1632} height={473} alt="Anota Aí Agro" className="landing-brand-logo" /></a><p>Gestão rural simples, de verdade.</p><div><Link href="/login">Entrar no sistema</Link><Link href="/ajuda">Ajuda e suporte</Link><a href="#contato">Fale conosco</a><a href="mailto:anotaaiagro@gmail.com">anotaaiagro@gmail.com</a><span>© {new Date().getFullYear()} Anota Aí Agro</span></div></footer>
   </main>
 }
