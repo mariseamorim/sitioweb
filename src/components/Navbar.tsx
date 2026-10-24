@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
-import { PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon, SetaDireitaIcon, BalancaIcon, AjudaIcon } from '@/components/ModuleIcons';import { SyncStatus } from '@/components/SyncStatus';
+import { PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon, SetaDireitaIcon, BalancaIcon, AjudaIcon, CadeadoIcon } from '@/components/ModuleIcons';import { SyncStatus } from '@/components/SyncStatus';
 import { TaskBell } from '@/components/TaskBell';
 import { FarmSwitcher } from '@/components/FarmSwitcher';
 import { useDialog } from '@/components/DialogProvider';
@@ -39,6 +39,10 @@ const groups: { label: string; links: NavLink[] }[] = [
   ] },
   { label: 'Fornecedores', links: [
     { href: '/ofertas', label: 'Ofertas', module: null, Icon: EtiquetaIcon },
+  ] },
+  // Só o administrador: aprovações e as contas de todos os perfis (dados e senha)
+  { label: 'Administração', links: [
+    { href: '/admin/usuarios', label: 'Contas e senhas', module: null, adminOnly: true, Icon: CadeadoIcon },
     { href: '/admin/fornecedores', label: 'Aprovar fornecedores', module: null, adminOnly: true, Icon: LojaIcon },
     { href: '/admin/organizacoes', label: 'Aprovar laticínios e associações', module: null, adminOnly: true, Icon: UsuariosIcon },
   ] },
@@ -72,8 +76,9 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   const segments = user?.farmSegments ?? [];
   const fitsSegment = (href: string) => !segments.length || !SEGMENT_PAGES[href] || SEGMENT_PAGES[href].some(s => segments.includes(s));
   // Celular: atalhos do dia a dia no rodapé, como num app; o resto fica em "Mais"
+  // Fornecedor, laticínio e associação: o cadastro (nome, telefone, senha, empresa) e a ajuda ficam à mão
   const bottomTabs = panelRole
-    ? [{ href: panelRole.href, label: 'Painel', Icon: panelRole.Icon }]
+    ? [{ href: panelRole.href, label: 'Painel', Icon: panelRole.Icon }, { href: '/perfil', label: 'Cadastro', Icon: UsuariosIcon }, { href: '/ajuda', label: 'Ajuda', Icon: AjudaIcon }]
     : [
         { href: '/', label: 'Painel', module: null, Icon: PainelIcon },
         { href: '/lite', label: 'Anotar', module: 'leite', Icon: LeiteIcon },

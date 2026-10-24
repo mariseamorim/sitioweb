@@ -3,16 +3,21 @@
 import Link from 'next/link'
 import { useUser } from '@/contexts/UserContext'
 import { SupportWhatsApp, WhatsAppIcon } from '@/components/SupportWhatsApp'
-import { PAGE_HELP } from '@/components/PageHelp'
 import { BackLink } from '@/components/BackLink'
+import { isPanelRole, visibleHelp } from '@/lib/pageHelp'
 
 // Ajuda e suporte: falar com o suporte, pedir a configuração inicial e, para quem está logado, como usar cada tela.
+// Fornecedor, laticínio e associação não têm propriedade: em vez da configuração inicial, veem onde editar o cadastro.
+// Sem WhatsApp configurado no servidor, o e-mail vira o botão, para a tela sempre ter uma ação.
 
 const CONTACT_EMAIL = 'anotaaiagro@gmail.com'
+const BUTTON = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-green-700 px-4 text-sm font-semibold text-white hover:bg-green-600'
+const mailto = (subject: string) => `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`
 
 export function AjudaView({ support, loggedIn }: { support: boolean; loggedIn: boolean }) {
   const { user, canAccess } = useUser()
-  const screens = Object.entries(PAGE_HELP).filter(([, item]) => canAccess(item.module))
+  const panel = isPanelRole(user?.role)
+  const screens = visibleHelp(user, canAccess)
   const email = <a href={`mailto:${CONTACT_EMAIL}`} className="font-semibold text-green-700 hover:underline">{CONTACT_EMAIL}</a>
 
   return (
@@ -30,15 +35,18 @@ export function AjudaView({ support, loggedIn }: { support: boolean; loggedIn: b
           <span aria-hidden="true" className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-700"><WhatsAppIcon className="h-6 w-6" /></span>
           <h2 id="ajuda-suporte" className="text-lg font-bold text-gray-900">{loggedIn ? 'Falar com o suporte' : 'Tirar dúvidas'}</h2>
           <p className="mt-1 text-sm text-gray-600">
-            {loggedIn
-              ? 'Abre o WhatsApp com a mensagem pronta, já com o seu nome e a propriedade. Conte o que aconteceu e em qual tela.'
-              : 'Quer saber se o sistema serve para a sua propriedade, quanto custa ou como funciona? Abre o WhatsApp com a mensagem pronta.'}
+            {!loggedIn
+              ? 'Quer saber se o sistema serve para a sua propriedade, quanto custa ou como funciona? Abre o WhatsApp com a mensagem pronta.'
+              : panel
+                ? 'Abre o WhatsApp com a mensagem pronta, já com o seu nome e a sua empresa. Conte o que aconteceu e em qual tela.'
+                : 'Abre o WhatsApp com a mensagem pronta, já com o seu nome e a propriedade. Conte o que aconteceu e em qual tela.'}
           </p>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             {support
               ? <SupportWhatsApp enabled kind={loggedIn ? 'ajuda' : 'conhecer'} variant="button" label="Chamar no WhatsApp" />
-              : <p className="text-sm text-gray-500">O suporte pelo WhatsApp ainda não está configurado. Escreva para {email}.</p>}
+              : <a href={mailto('Ajuda com o Anota Aí Agro')} className={BUTTON}>Enviar e-mail para o suporte</a>}
           </div>
+          {!support && <p className="mt-2 text-xs text-gray-500">Atendemos pelo e-mail {email}.</p>}
         </section>
 
         {!loggedIn && (
@@ -47,27 +55,44 @@ export function AjudaView({ support, loggedIn }: { support: boolean; loggedIn: b
             <h2 id="ajuda-entrar" className="text-lg font-bold text-gray-900">Não consigo entrar</h2>
             <p className="mt-1 text-sm text-gray-600">Esqueceu a senha, o e-mail não funciona ou o app não abre? A gente resolve com você.</p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              {support && <SupportWhatsApp enabled kind="entrar" variant="button" label="Pedir ajuda para entrar" />}
+              {support
+                ? <SupportWhatsApp enabled kind="entrar" variant="button" label="Pedir ajuda para entrar" />
+                : <a href={mailto('Não consigo entrar no Anota Aí Agro')} className={BUTTON}>Pedir ajuda por e-mail</a>}
               <Link href="/login" className="text-sm font-semibold text-green-700 hover:underline">Ir para o login</Link>
             </div>
           </section>
         )}
 
-        <section aria-labelledby="ajuda-config" className="rounded-xl border border-gray-200 bg-white p-5">
-          <span aria-hidden="true" className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-700 text-xl font-bold">1</span>
-          <h2 id="ajuda-config" className="text-lg font-bold text-gray-900">Configuração inicial</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            {loggedIn
-              ? 'A gente configura com você: propriedade, animais, leite e quem vai usar. O resumo do seu cadastro vai junto na mensagem, para o atendimento já saber por onde começar.'
-              : 'A gente cria a conta e configura com você: propriedade, animais, leite e quem vai usar. Pode chamar antes mesmo de se cadastrar.'}
-          </p>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            {support
-              ? <SupportWhatsApp enabled kind="configurar" variant="button" label="Pedir configuração inicial" />
-              : <p className="text-sm text-gray-500">Peça pelo e-mail {email}.</p>}
-            {!loggedIn && <Link href="/criar-conta" className="text-sm font-semibold text-green-700 hover:underline">Criar conta sozinho</Link>}
-          </div>
-        </section>
+        {loggedIn && panel ? (
+          <section aria-labelledby="ajuda-cadastro" className="rounded-xl border border-gray-200 bg-white p-5">
+            <span aria-hidden="true" className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-700 text-xl font-bold">1</span>
+            <h2 id="ajuda-cadastro" className="text-lg font-bold text-gray-900">Meus dados e senha</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              {user?.role === 'fornecedor'
+                ? 'Nome, telefone, e-mail, senha e os dados da empresa (nome, CPF/CNPJ, WhatsApp, cidade e o que vende) ficam em Meu cadastro.'
+                : 'Nome, telefone, e-mail e senha ficam em Meu cadastro.'}
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Link href="/perfil" className={BUTTON}>Abrir Meu cadastro</Link>
+            </div>
+          </section>
+        ) : (
+          <section aria-labelledby="ajuda-config" className="rounded-xl border border-gray-200 bg-white p-5">
+            <span aria-hidden="true" className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-700 text-xl font-bold">1</span>
+            <h2 id="ajuda-config" className="text-lg font-bold text-gray-900">Configuração inicial</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              {loggedIn
+                ? 'A gente configura com você: propriedade, animais, leite e quem vai usar. O resumo do seu cadastro vai junto na mensagem, para o atendimento já saber por onde começar.'
+                : 'A gente cria a conta e configura com você: propriedade, animais, leite e quem vai usar. Pode chamar antes mesmo de se cadastrar.'}
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {support
+                ? <SupportWhatsApp enabled kind="configurar" variant="button" label="Pedir configuração inicial" />
+                : <a href={mailto('Configuração inicial do Anota Aí Agro')} className={BUTTON}>Pedir por e-mail</a>}
+              {!loggedIn && <Link href="/criar-conta" className="text-sm font-semibold text-green-700 hover:underline">Criar conta sozinho</Link>}
+            </div>
+          </section>
+        )}
       </div>
 
       {user && screens.length > 0 && (

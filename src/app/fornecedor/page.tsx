@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useDialog } from '@/components/DialogProvider'
 import { ImagePicker } from '@/components/ImagePicker'
 import { FecharIcon } from '@/components/ModuleIcons'
@@ -199,9 +200,15 @@ export default function PainelFornecedorPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{vendor.companyName}</h1>
-        <p className="text-gray-500 text-sm mt-1">Painel do fornecedor</p>
+      {/* O cadastro (nome, telefone, senha e dados da empresa) fica em Meu cadastro: o atalho aqui evita procurar no menu */}
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold text-gray-900">{vendor.companyName}</h1>
+          <p className="text-gray-500 text-sm mt-1">Painel do fornecedor · {vendor.contactName}</p>
+        </div>
+        <Link href="/perfil" className="inline-flex min-h-11 items-center rounded-xl border border-gray-300 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+          Meu cadastro
+        </Link>
       </div>
 
       {vendor.status === 'pendente' && (
