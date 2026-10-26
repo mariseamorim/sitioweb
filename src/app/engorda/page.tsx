@@ -7,6 +7,7 @@ import { LOT_PHASES, STOCK_WARNING_DAYS, lotSummary, projectTarget } from '@/lib
 import { fmtDate, fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
 import { LotDetail } from './LotDetail'
+import { RearingAnimals } from './RearingAnimals'
 import {
   AnimalPicker, HerdAnimal, Lot, Modal, ProductForm, ProductsEditor, Stat, SupplyRef, WeightList, averageOf, decimal, input, kg, label,
   offlineMessage, parseKg, phaseLabel, productLines, productsPayload, send,
@@ -24,6 +25,8 @@ export default function EngordaPage() {
   const [tab, setTab] = useState<Tab>('todos')
   const [creating, setCreating] = useState(false)
   const [open, setOpen] = useState<{ id: string; focus?: 'pesar' | 'animais' } | null>(null)
+  const [farmId, setFarmId] = useState('')
+  const [rearingCount, setRearingCount] = useState(0)
   const today = todayISO()
 
   const loadHerd = useCallback(() => {
@@ -38,6 +41,7 @@ export default function EngordaPage() {
     loadHerd()
   }, [loadHerd])
   useEffect(() => { load(); loadSupplies() }, [load, loadSupplies])
+  useEffect(() => { fetch('/api/auth/me').then((r) => r.json()).then((me) => setFarmId(me.farmId ?? '')).catch(() => {}) }, [])
 
   // Um animal muda de lote: o lote antigo também perde o animal na tela. O trato mexe no estoque.
   const replace = (lot: Lot) => {
@@ -51,7 +55,7 @@ export default function EngordaPage() {
   const closed = visible.filter((l) => l.endDate)
   const current = lots?.find((l) => l.id === open?.id) ?? null
   const lotNames = useMemo(() => new Map((lots ?? []).filter((l) => !l.endDate).map((l) => [l.id, l.name])), [lots])
-  const count = (phase: string) => (lots ?? []).filter((l) => l.phase === phase && !l.endDate).length
+  const count = (phase: string) => (lots ?? []).filter((l) => l.phase === phase && !l.endDate).length + (phase === 'recria' ? rearingCount : 0)
 
   // Resumo dos lotes abertos da aba
   const totals = useMemo(() => {
@@ -74,7 +78,7 @@ export default function EngordaPage() {
           <h1 className="text-2xl font-bold text-gray-800">Recria e engorda</h1>
           {canEdit && <button type="button" onClick={() => setCreating(true)} className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600">Novo lote</button>}
         </div>
-        <p className="mb-4 text-sm text-gray-600">Junte os animais em lotes, pese e acompanhe o ganho por dia, o trato e quando o lote chega ao peso desejado. Na recria, registre também o cio e a cobertura das novilhas.</p>
+        <p className="mb-4 text-sm text-gray-600">Na recria, acompanhe cada bezerro sozinho (desmama, pesagens, cobertura da novilha) ou em lote. Na engorda, junte os animais em lotes, pese e veja o ganho por dia, o trato e quando chegam ao peso de saída.</p>
 
         <nav aria-label="Fase" className="mb-5 inline-flex rounded-xl border border-gray-200 bg-white p-1">
           {([['todos', 'Todos'], ['recria', `Recria (${count('recria')})`], ['engorda', `Engorda (${count('engorda')})`]] as const).map(([key, text]) => (
@@ -82,6 +86,8 @@ export default function EngordaPage() {
               className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === key ? 'bg-green-700 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>{text}</button>
           ))}
         </nav>
+
+        <RearingAnimals farmId={farmId} herd={herd} canEdit={canEdit} canBreed={canEdit && canAccess('reproducao')} today={today} visible={tab !== 'engorda'} onCount={setRearingCount} onHerdChanged={loadHerd} />
 
         {openLots.length > 0 && (
           <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -103,7 +109,7 @@ export default function EngordaPage() {
         {!lots ? <p className="text-sm text-gray-400">Carregando...</p> : visible.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-600">
             <p className="font-semibold text-gray-800">{tab === 'todos' ? 'Nenhum lote ainda' : `Nenhum lote de ${phaseLabel(tab).toLowerCase()}`}</p>
-            <p className="mt-1 text-sm">Crie um lote com os animais cadastrados (ou só a quantidade e o peso médio). A cada pesagem, o app mostra quanto o lote ganhou.</p>
+            <p className="mt-1 text-sm">{tab === 'recria' ? 'Para acompanhar um animal sozinho, use “Acompanhar um animal”. Para um grupo, crie um lote de recria.' : 'Crie um lote com os animais cadastrados (ou só a quantidade e o peso médio). A cada pesagem, o app mostra quanto o lote ganhou.'}</p>
           </div>
         ) : (
           <>

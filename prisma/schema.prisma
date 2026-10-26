@@ -50,67 +50,71 @@ model Farm {
 }
 
 model User {
-  id           String      @id @default(cuid())
+  id               String        @id @default(cuid())
   /// E-mail ou telefone: pelo menos um, os dois servem para entrar
-  email        String?     @unique
-  name         String
-  password     String?
-  googleId     String?     @unique
-  role         String      @default("viewer")
-  permissions  Json? // String[] de chaves de módulo; null = admin tem tudo
-  farmId       String?
-  farm         Farm?       @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  vendorId     String? // preenchido quando role = "fornecedor"
-  vendor       Vendor?     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  offersSeenAt DateTime? // última vez que o produtor abriu a tela de ofertas
-  milkPrice    Float? // Anota Aí Leite: valor do litro informado pelo produtor
-  milkPoints   MilkPoint[]
+  email            String?       @unique
+  name             String
+  password         String?
+  googleId         String?       @unique
+  role             String        @default("viewer")
+  permissions      Json? // String[] de chaves de módulo; null = admin tem tudo
+  farmId           String?
+  farm             Farm?         @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  vendorId         String? // preenchido quando role = "fornecedor"
+  vendor           Vendor?       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  offersSeenAt     DateTime? // última vez que o produtor abriu a tela de ofertas
+  milkPrice        Float? // Anota Aí Leite: valor do litro informado pelo produtor
+  milkPoints       MilkPoint[]
   /// Laticínio/associação: quem administra (role laticinio/associacao) ou motorista do laticínio
-  organizationId String?
-  organization   Organization? @relation("OrgUsers", fields: [organizationId], references: [id], onDelete: SetNull)
+  organizationId   String?
+  organization     Organization? @relation("OrgUsers", fields: [organizationId], references: [id], onDelete: SetNull)
   /// Telefone só com números (DDD + número): serve para entrar e não repete entre contas
-  phone          String?       @unique
-  vehicle        String? // veículo do motorista do laticínio
-  driverRoutes     Route[]        @relation("RouteDriver")
-  collectedEntries MilkEntry[]    @relation("EntryCollector")
+  phone            String?       @unique
+  vehicle          String? // veículo do motorista do laticínio
+  driverRoutes     Route[]       @relation("RouteDriver")
+  collectedEntries MilkEntry[]   @relation("EntryCollector")
   orgMemberships   OrgMember[] // associações do produtor do Anota Aí Leite (sem propriedade)
   milkSheets       MilkSheet[] // litros da folha do motorista, para conferir
   farmMemberships  FarmMember[] // propriedades a que tem acesso; farmId é a que está aberta
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   @@index([organizationId])
   @@map("users")
 }
 
 model Animal {
-  id           String    @id @default(cuid())
-  code         String // número automático da propriedade (01, 02...)
-  customCode   String? // outro código opcional do produtor: brinco, SISBOV...
-  name         String
-  species      String
-  gender       String
-  birthDate    DateTime
-  isCastrated  Boolean   @default(false)
-  acquisitionType String @default("existente") // existente | nascimento | compra
-  status       String
-  gta          String?
-  observations String?
-  imageUrl     String?
-  lowDate      DateTime?
-  lowReason    String?
-  farmId       String
-  farm         Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  code            String // número automático da propriedade (01, 02...)
+  customCode      String? // outro código opcional do produtor: brinco, SISBOV...
+  name            String
+  species         String
+  gender          String
+  birthDate       DateTime
+  isCastrated     Boolean          @default(false)
+  acquisitionType String           @default("existente") // existente | nascimento | compra
+  status          String
+  gta             String?
+  observations    String?
+  imageUrl        String?
+  lowDate         DateTime?
+  lowReason       String?
+  farmId          String
+  farm            Farm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
   // Mãe (para crias): cada vaca guarda a lista das suas crias
-  motherId     String?
-  mother       Animal?   @relation("Crias", fields: [motherId], references: [id], onDelete: SetNull)
-  calves       Animal[]  @relation("Crias")
+  motherId        String?
+  mother          Animal?          @relation("Crias", fields: [motherId], references: [id], onDelete: SetNull)
+  calves          Animal[]         @relation("Crias")
   /// Lote de recria/engorda em que o animal está (um por vez)
-  lotId        String?
-  lot          Lot?      @relation(fields: [lotId], references: [id], onDelete: SetNull)
-  weighings    AnimalWeighing[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  lotId           String?
+  lot             Lot?             @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  /// Recria por animal (sem lote): entrada (desmama), saída e peso-alvo para a primeira cobertura ou a engorda
+  rearingStart    DateTime?
+  rearingEnd      DateTime?
+  rearingTarget   Float?
+  weighings       AnimalWeighing[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   milkProductions      MilkProduction[]
   veterinaryTreatments VeterinaryTreatment[]
@@ -138,41 +142,41 @@ model AnimalHistory {
 }
 
 model MilkProduction {
-  id           String   @id @default(cuid())
-  farmId       String
-  farm         Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  animalId     String? // vazio = total do dia, sem separar por vaca
-  animal       Animal?  @relation(fields: [animalId], references: [id], onDelete: Cascade)
-  date         DateTime
-  quantity     Float
+  id            String   @id @default(cuid())
+  farmId        String
+  farm          Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  animalId      String? // vazio = total do dia, sem separar por vaca
+  animal        Animal?  @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  date          DateTime
+  quantity      Float
   pricePerLiter Float? // preço do litro no momento do lançamento, preserva o histórico
-  cowsMilked   Int? // no total do dia: quantas vacas foram ordenhadas
-  source       String? // "lite" = anotado pelo Anota Aí Leite (um por dia); vazio = app completo
-  observations String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  cowsMilked    Int? // no total do dia: quantas vacas foram ordenhadas
+  source        String? // "lite" = anotado pelo Anota Aí Leite (um por dia); vazio = app completo
+  observations  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([farmId, date])
   @@map("milk_productions")
 }
 
 model VeterinaryTreatment {
-  id           String    @id @default(cuid())
-  animalId     String
-  animal       Animal    @relation(fields: [animalId], references: [id], onDelete: Cascade)
-  startDate    DateTime
-  endDate      DateTime?
-  medicine     String
+  id                 String    @id @default(cuid())
+  animalId           String
+  animal             Animal    @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  startDate          DateTime
+  endDate            DateTime?
+  medicine           String
   /// Carência do medicamento, contada a partir do fim do tratamento (ou do início, sem fim):
   /// leite que não pode ir para o tanque e animal que não pode ir para o abate
   milkWithdrawalDays Int?
   meatWithdrawalDays Int?
-  batch        String?
-  manufacturer String?
-  description  String?
-  observations String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  batch              String?
+  manufacturer       String?
+  description        String?
+  observations       String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@map("veterinary_treatments")
 }
@@ -206,6 +210,8 @@ model Reproduction {
   semenBatch        String?
   /// Registro do touro (do sêmen ou da monta)
   bullRegistry      String?
+  /// Quem inseminou (a taxa de prenhez muda por inseminador)
+  inseminator       String?
   coverageDate      DateTime
   expectedBirthDate DateTime?
   actualBirthDate   DateTime?
@@ -261,16 +267,16 @@ model Supply {
 }
 
 model SupplyMovement {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   supplyId    String
-  supply      Supply   @relation(fields: [supplyId], references: [id], onDelete: Cascade)
+  supply      Supply      @relation(fields: [supplyId], references: [id], onDelete: Cascade)
   type        String
   quantity    Float
   date        DateTime
   description String?
   /// Saída gerada por um trato de lote (apagar o trato devolve ao estoque)
   feeding     LotFeeding?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime    @default(now())
 
   @@map("supply_movements")
 }
@@ -304,14 +310,14 @@ model Vendor {
 
 /// Vínculo produtor ↔ fornecedor, sempre criado pelo produtor (convite ou busca)
 model VendorClient {
-  id        String   @id @default(cuid())
-  vendorId  String
-  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  farmId    String
-  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  muted     Boolean  @default(false) // produtor silenciou as ofertas deste fornecedor
-  shareStock Boolean @default(true) // fornecedor vê os itens do estoque abaixo do mínimo
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  vendorId   String
+  vendor     Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  farmId     String
+  farm       Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  muted      Boolean  @default(false) // produtor silenciou as ofertas deste fornecedor
+  shareStock Boolean  @default(true) // fornecedor vê os itens do estoque abaixo do mínimo
+  createdAt  DateTime @default(now())
 
   @@unique([vendorId, farmId])
   @@map("vendor_clients")
@@ -345,21 +351,21 @@ model SupplyRequest {
 }
 
 model Promotion {
-  id             String   @id @default(cuid())
+  id             String         @id @default(cuid())
   vendorId       String
-  vendor         Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendor         Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   title          String
   description    String?
   category       String
   price          Float?
   unit           String?
   imageUrl       String?
-  reach          String   @default("clientes") // clientes | regiao (clientes + produtores do mesmo estado)
+  reach          String         @default("clientes") // clientes | regiao (clientes + produtores do mesmo estado)
   validUntil     DateTime
-  isActive       Boolean  @default(true)
-  whatsappClicks Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isActive       Boolean        @default(true)
+  whatsappClicks Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
   contacts       OfferContact[]
 
   @@index([vendorId])
@@ -394,15 +400,15 @@ model OfferContact {
 /// Local onde o leite é anotado: um sítio ou um tanque comunitário.
 /// Pertence a quem anota (produtor, motorista ou coletor).
 model MilkPoint {
-  id        String   @id @default(cuid())
-  ownerId   String
-  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  name      String
-  kind      String   @default("sitio") // sitio | tanque
-  active    Boolean  @default(true)
+  id             String        @id @default(cuid())
+  ownerId        String
+  owner          User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name           String
+  kind           String        @default("sitio") // sitio | tanque
+  active         Boolean       @default(true)
   /// Propriedade Pro ligada a este sítio da rota: o produtor vê as coletas do motorista
-  farmId    String?
-  farm      Farm?    @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  farmId         String?
+  farm           Farm?         @relation(fields: [farmId], references: [id], onDelete: SetNull)
   /// Ponto de coleta do laticínio (cadastrado por ele e visitado pelos motoristas das rotas)
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -411,8 +417,8 @@ model MilkPoint {
   address        String? // localização / como chegar
   tankLiters     Float? // capacidade do tanque
   accessNotes    String? // instruções de acesso (porteira, cachorro...)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   entries MilkEntry[]
   payees  MilkPayee[] // nomes da nota do laticínio deste local
@@ -427,19 +433,19 @@ model MilkPoint {
 /// Litros anotados em um local num dia. Um valor por local por dia:
 /// salvar de novo substitui, o que torna o reenvio offline seguro.
 model MilkEntry {
-  id        String    @id @default(cuid())
-  pointId   String
-  point     MilkPoint @relation(fields: [pointId], references: [id], onDelete: Cascade)
-  date      DateTime
-  liters    Float
+  id            String    @id @default(cuid())
+  pointId       String
+  point         MilkPoint @relation(fields: [pointId], references: [id], onDelete: Cascade)
+  date          DateTime
+  liters        Float
   /// Coleta do laticínio: observação, motivo de não ter coletado (litros 0), quem coletou e quando
   note          String?
   skipReason    String?
   collectedById String?
   collectedBy   User?     @relation("EntryCollector", fields: [collectedById], references: [id], onDelete: SetNull)
   collectedAt   DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([pointId, date])
   @@map("milk_entries")
@@ -448,24 +454,24 @@ model MilkEntry {
 /// Lote de recria ou engorda: acompanha o peso médio do lote ao longo do tempo (pesagens)
 /// e o suplemento dado, com consumo em % do peso vivo por dia.
 model Lot {
-  id            String        @id @default(cuid())
-  farmId        String
-  farm          Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  name          String
-  phase         String        @default("engorda") // recria | engorda
-  startDate     DateTime
+  id           String        @id @default(cuid())
+  farmId       String
+  farm         Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  name         String
+  phase        String        @default("engorda") // recria | engorda
+  startDate    DateTime
   /// Preenchido quando o lote sai (vendido, abatido ou passou de fase)
-  endDate       DateTime?
+  endDate      DateTime?
   /// Produtos dados ao lote (suplementos, sal, ração), cada um com seu consumo em % do peso vivo
-  supplies      LotSupply[]
+  supplies     LotSupply[]
   /// Peso de saída desejado por cabeça (kg), para prever quando o lote chega lá
-  targetWeight  Float?
-  notes         String?
-  weighings     LotWeighing[]
-  animals       Animal[]
-  feedings      LotFeeding[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  targetWeight Float?
+  notes        String?
+  weighings    LotWeighing[]
+  animals      Animal[]
+  feedings     LotFeeding[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   @@index([farmId])
   @@map("lots")
@@ -473,15 +479,15 @@ model Lot {
 
 /// Pesagem do lote: peso médio e quantas cabeças tinha no dia. A primeira é a entrada.
 model LotWeighing {
-  id        String   @id @default(cuid())
-  lotId     String
-  lot       Lot      @relation(fields: [lotId], references: [id], onDelete: Cascade)
-  date      DateTime
-  headCount Int
-  avgWeight Float // kg por cabeça
+  id              String           @id @default(cuid())
+  lotId           String
+  lot             Lot              @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  date            DateTime
+  headCount       Int
+  avgWeight       Float // kg por cabeça
   /// Pesos de cada animal, quando o lote tem animais cadastrados (a média vem deles)
   animalWeighings AnimalWeighing[]
-  createdAt DateTime @default(now())
+  createdAt       DateTime         @default(now())
 
   @@index([lotId, date])
   @@map("lot_weighings")
@@ -594,21 +600,21 @@ model MilkSplit {
 }
 
 model MilkSheet {
-  id        String   @id @default(cuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  farmId    String?
-  farm      Farm?    @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  date      DateTime
-  liters    Float
+  id           String   @id @default(cuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farmId       String?
+  farm         Farm?    @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  date         DateTime
+  liters       Float
   /// Lidos da folha do carreteiro (pela foto ou digitados): temperatura, nº da amostra, valor da régua
   temperature  Float?
   sampleNumber String?
   rulerValue   Float?
   /// Foto da folha, reduzida (data URL), como prova
   photo        String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([userId, date])
   @@unique([farmId, date])

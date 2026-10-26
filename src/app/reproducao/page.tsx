@@ -8,16 +8,19 @@ import { SortTh } from '@/components/SortTh'
 
 import { useEffect, useState, useMemo } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
+import { readHerdCache, writeHerdCache } from '@/lib/herdCache'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, FecharIcon, ReproducaoIcon } from '@/components/ModuleIcons'
 import { HerdCalvingPanel, PregnancyCheckPanel } from '@/components/HerdCalvingPanel'
 import { canBreed } from '@/lib/animalRules'
+import { isInRearing } from '@/lib/rearing'
 import { pregnancyChecks, type PregnancyCheck } from '@/lib/calving'
 import { AddCalfForm } from '@/components/CalfSection'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
+import { COVERAGE_METHODS, EMPTY_COVERAGE, gestation, isInsemination, methodLabel, repeatCoverage, repeatedFields, type CoverageForm } from '@/lib/coverage'
 
-interface Animal { id: string; name: string; code: string; species: string; gender: string; status: string; birthDate: string; motherId?: string | null }
+interface Animal { id: string; name: string; code: string; species: string; gender: string; status: string; birthDate: string; motherId?: string | null; rearingStart?: string | null; rearingEnd?: string | null }
 
 interface Reproduction {
   id: string
@@ -35,9 +38,11 @@ interface Reproduction {
   heatDate?: string | null
   semenBatch?: string | null
   bullRegistry?: string | null
+  inseminator?: string | null
 }
 
 const STATUS_LIST = ['Coberta', 'Prenha', 'Parida', 'Vazia', 'Perdida']
+const FIELD = 'mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600'
 const STATUS_COLOR: Record<string, string> = {
   Coberta: 'bg-blue-100 text-blue-700',
   Prenha: 'bg-purple-100 text-purple-700',
@@ -63,7 +68,10 @@ export default function ReproducaoPage() {
   const [editingRecord, setEditingRecord] = useState(false)
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ femaleId: '', maleName: '', coverageDate: todayISO(), status: 'Coberta', observations: '' })
+  const [form, setForm] = useState<CoverageForm>({ ...EMPTY_COVERAGE, coverageDate: todayISO() })
+  // "Salvar e repetir": quantas fêmeas já foram salvas nesta fila e o que ficou preenchido para a próxima
+  const [repeated, setRepeated] = useState<{ count: number; kept: string[] } | null>(null)
+  const [error, setError] = useState('')
   const [editStatus, setEditStatus] = useState('')
   const [editBirthDate, setEditBirthDate] = useState('')
   const [isOnline, setIsOnline] = useState(true)
@@ -107,16 +115,23 @@ export default function ReproducaoPage() {
           status: r.status,
           calfId: r.calfId ?? null,
           observations: r.observations ?? null,
+          method: r.method || null,
+          heatDate: r.heatDate || null,
+          semenBatch: r.semenBatch || null,
+          bullRegistry: r.bullRegistry || null,
+          inseminator: r.inseminator || null,
         }))
 
-    // If offline, load only pending records
-    if (!navigator.onLine) {
+    // Sem internet: as fêmeas vêm do rebanho guardado no aparelho (pela tela Animais ou por esta), e a lista são os registros pendentes
+    const offline = () => {
       const pending = mapPending()
+      const cached = readHerdCache<Animal>(fid)
       setReproductions(pending)
-      setFemales(pending.map(p => p.female))
+      setHerd(cached)
+      setFemales(cached.length ? cached.filter(a => canBreed(a, undefined, { inRearingLot: isInRearing(a) })) : pending.map(p => p.female))
       setLoading(false)
-      return
     }
+    if (!navigator.onLine) return offline()
     
     Promise.all([
       fetch(`/api/reproducao?farmId=${fid}`).then(r => r.json()).catch(() => []),
@@ -125,15 +140,11 @@ export default function ReproducaoPage() {
       const pending = mapPending()
       setReproductions(Array.isArray(repros) ? [...repros, ...pending] : pending)
       // Só fêmeas vivas e, se bovinas, com 2 anos ou mais
-      setFemales(Array.isArray(anims) ? anims.filter((a: Animal) => canBreed(a)) : [])
+      setFemales(Array.isArray(anims) ? anims.filter((a: Animal) => canBreed(a, undefined, { inRearingLot: isInRearing(a) })) : [])
       setHerd(Array.isArray(anims) ? anims : [])
+      if (Array.isArray(anims) && anims.length) writeHerdCache(fid, anims)
       setLoading(false)
-    }).catch(() => {
-      const pending = mapPending()
-      setReproductions(pending)
-      setFemales(pending.map(p => p.female))
-      setLoading(false)
-    })
+    }).catch(offline)
   }
 
   const filtered = useMemo(() => {
@@ -168,8 +179,8 @@ export default function ReproducaoPage() {
       })
     } else {
       // Prenha sem cobertura anotada: abre o registro já preenchido para informar a data da cobertura
-      setForm({ femaleId: check.cow.id, maleName: '', coverageDate: '', status: 'Prenha', observations: '' })
-      setShowRegister(true)
+      setForm({ ...EMPTY_COVERAGE, femaleId: check.cow.id, coverageDate: '', status: 'Prenha' })
+      openRegister()
       return
     }
     loadData(farmId)
@@ -214,36 +225,53 @@ export default function ReproducaoPage() {
     loadData(farmId)
   }
 
-  async function handleSave(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setSaving(true)
+  function openRegister() {
+    setRepeated(null)
+    setError('')
+    setShowRegister(true)
+  }
 
-    // Se estiver offline, salva no localStorage
-    if (!isOnline) {
-      const female = females.find(f => f.id === form.femaleId)
-      addPendingRecord('reproducao', {
-        ...form,
-        farmId,
-        maleName: form.maleName || null,
-        observations: form.observations || null,
-        female: female || undefined,
-      })
-      setPendingCount(getPendingRecords('reproducao').length)
+  function closeRegister() {
+    setShowRegister(false)
+    setForm({ ...EMPTY_COVERAGE, coverageDate: todayISO() })
+    if (repeated) loadData(farmId)
+  }
+
+  // Salva a cobertura. Com `repeat`, mantém data, tipo, touro, partida e inseminador e limpa só a fêmea:
+  // é o dia de IATF, em que a fila toda leva o mesmo sêmen e só muda o brinco.
+  async function handleSave(repeat: boolean) {
+    if (!form.femaleId) return setError('Escolha a fêmea')
+    if (!form.coverageDate) return setError('Informe a data da cobertura')
+    setSaving(true)
+    setError('')
+    const payload = { ...form, farmId, maleName: form.maleName || null, observations: form.observations || null }
+
+    try {
+      if (!isOnline) {
+        // Sem internet: fica na fila do aparelho e vai para o servidor em "Sincronizar"
+        const female = females.find(f => f.id === form.femaleId)
+        addPendingRecord('reproducao', { ...payload, female: female || undefined })
+        setPendingCount(getPendingRecords('reproducao').length)
+      } else {
+        const res = await fetch('/api/reproducao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Não foi possível salvar')
+      }
+    } catch (err) {
+      setError((err as Error).message)
       setSaving(false)
-      setShowRegister(false)
-      setForm({ femaleId: '', maleName: '', coverageDate: todayISO(), status: 'Coberta', observations: '' })
       return
     }
-
-    // Se estiver online, envia para API
-    await fetch('/api/reproducao', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, farmId, maleName: form.maleName || null, observations: form.observations || null }),
-    })
     setSaving(false)
+
+    if (repeat) {
+      setForm(repeatCoverage(form))
+      setRepeated((r) => ({ count: (r?.count ?? 0) + 1, kept: repeatedFields(form) }))
+      if (!isOnline) loadData(farmId)
+      return
+    }
     setShowRegister(false)
-    setForm({ femaleId: '', maleName: '', coverageDate: todayISO(), status: 'Coberta', observations: '' })
+    setForm({ ...EMPTY_COVERAGE, coverageDate: todayISO() })
+    setRepeated(null)
     loadData(farmId)
   }
 
@@ -262,7 +290,7 @@ export default function ReproducaoPage() {
           <h1 className="text-2xl font-bold text-gray-800">Reprodução</h1>
           <p className="text-gray-500 text-sm mt-1">Coberturas, prenhez e partos</p>
         </div>
-        <button onClick={() => setShowRegister(true)} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
+        <button onClick={openRegister} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
           + Registrar
         </button>
       </div>
@@ -361,10 +389,21 @@ export default function ReproducaoPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
-                <div><p className="text-xs text-gray-500">Reprodutor</p><p className="font-medium text-gray-800">{detail.maleName || '—'}{detail.bullRegistry ? ` · ${detail.bullRegistry}` : ''}</p></div>
-                {detail.method && <div><p className="text-xs text-gray-500">Tipo</p><p className="font-medium text-gray-800">{detail.method === 'ia' ? 'Inseminação' : 'Monta natural'}{detail.semenBatch ? ` · sêmen ${detail.semenBatch}` : ''}</p></div>}
+                <div><p className="text-xs text-gray-500">Touro</p><p className="font-medium text-gray-800">{detail.maleName || '—'}{detail.bullRegistry ? ` · ${detail.bullRegistry}` : ''}</p></div>
+                {detail.method && <div><p className="text-xs text-gray-500">Como foi</p><p className="font-medium text-gray-800">{methodLabel(detail.method)}{detail.semenBatch ? ` · partida ${detail.semenBatch}` : ''}</p></div>}
+                {detail.inseminator && <div><p className="text-xs text-gray-500">Inseminador</p><p className="font-medium text-gray-800">{detail.inseminator}</p></div>}
                 {detail.heatDate && <div><p className="text-xs text-gray-500">Cio</p><p className="font-medium text-gray-800">{fmt(detail.heatDate)}</p></div>}
                 <div><p className="text-xs text-gray-500">Parto Esperado</p><p className="font-medium text-gray-800">{detail.expectedBirthDate ? fmt(detail.expectedBirthDate) : '—'}</p></div>
+                {!detail.actualBirthDate && (detail.status === 'Coberta' || detail.status === 'Prenha') && (() => {
+                  const g = gestation(detail.coverageDate, detail.expectedBirthDate, todayISO())
+                  return g && (
+                    <div className="sm:col-span-2">
+                      <p className="text-xs text-gray-500">Gestação</p>
+                      <p className="font-medium text-gray-800">{g.days} dia{g.days === 1 ? '' : 's'} · {g.toBirth >= 0 ? `faltam ${g.toBirth} dia${g.toBirth === 1 ? '' : 's'} para o parto` : `parto atrasado ${-g.toBirth} dia${g.toBirth === -1 ? '' : 's'}`}</p>
+                      <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-gray-100" aria-hidden="true"><div className="h-full rounded-full bg-purple-500" style={{ width: `${g.percent}%` }} /></div>
+                    </div>
+                  )
+                })()}
                 {detail.actualBirthDate && <div><p className="text-xs text-gray-500">Parto Real</p><p className="font-medium text-green-700">{fmt(detail.actualBirthDate)}</p></div>}
                 {detail.observations && <div className="sm:col-span-2"><p className="text-xs text-gray-500">Observações</p><p className="text-gray-700">{detail.observations}</p></div>}
               </div>
@@ -419,13 +458,30 @@ export default function ReproducaoPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">Registrar Cobertura</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
+                <h2 className="text-lg font-bold text-gray-800">Registrar cobertura</h2>
+                <button onClick={closeRegister} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
-              <form onSubmit={handleSave} className="flex flex-col gap-3">
+              {repeated && (
+                <p role="status" className="mb-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
+                  <strong>{repeated.count} cobertura{repeated.count === 1 ? '' : 's'} salva{repeated.count === 1 ? '' : 's'}.</strong> Mantido para a próxima fêmea: {repeated.kept.join(', ')}.
+                </p>
+              )}
+              <form onSubmit={e => { e.preventDefault(); void handleSave(false) }} className="flex flex-col gap-3">
                 <AnimalPicker animals={females} value={form.femaleId} onChange={id => setForm({ ...form, femaleId: id })} label="Fêmea" />
+                <fieldset>
+                  <legend className="text-xs font-medium text-gray-600">Como foi</legend>
+                  <div className="mt-1 grid grid-cols-2 gap-2">
+                    {COVERAGE_METHODS.map(m => (
+                      <button key={m.key} type="button" aria-pressed={form.method === m.key} onClick={() => setForm({ ...form, method: form.method === m.key ? '' : m.key })}
+                        className={`rounded-xl border-2 px-2 py-2 text-left ${form.method === m.key ? 'border-green-700 bg-green-50' : 'border-gray-200'}`}>
+                        <span className={`block text-sm font-semibold ${form.method === m.key ? 'text-green-800' : 'text-gray-700'}`}>{m.label}</span>
+                        <span className="block text-xs text-gray-500">{m.hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Reprodutor</label>
+                  <label className="text-xs font-medium text-gray-600">Touro</label>
                   <input type="text" value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} placeholder="Nome ou código do touro"
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
@@ -446,15 +502,41 @@ export default function ReproducaoPage() {
                     </select>
                   </div>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600">Observações</label>
-                  <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none" />
+                {/* Detalhes recolhidos: o registro rápido é fêmea, como foi, touro e data */}
+                <details className="rounded-lg border border-gray-200 px-3 py-2" open={!!(form.semenBatch || form.inseminator || form.bullRegistry || form.heatDate)}>
+                  <summary className="cursor-pointer text-sm font-medium text-gray-700">Mais detalhes (opcional)</summary>
+                  <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {isInsemination(form.method) && (
+                      <>
+                        <label className="text-xs font-medium text-gray-600">Partida do sêmen
+                          <input value={form.semenBatch} onChange={e => setForm({ ...form, semenBatch: e.target.value })} placeholder="Ex.: 2412-A" className={FIELD} />
+                        </label>
+                        <label className="text-xs font-medium text-gray-600">Inseminador
+                          <input value={form.inseminator} onChange={e => setForm({ ...form, inseminator: e.target.value })} placeholder="Quem inseminou" className={FIELD} />
+                        </label>
+                      </>
+                    )}
+                    <label className="text-xs font-medium text-gray-600">Registro do touro
+                      <input value={form.bullRegistry} onChange={e => setForm({ ...form, bullRegistry: e.target.value })} placeholder="Ex.: RGD 12345" className={FIELD} />
+                    </label>
+                    <label className="text-xs font-medium text-gray-600">Data do cio
+                      <input type="date" max={todayISO()} value={form.heatDate} onChange={e => setForm({ ...form, heatDate: e.target.value })} className={FIELD} />
+                    </label>
+                    <label className="text-xs font-medium text-gray-600 sm:col-span-2">Observações
+                      <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2} className={`${FIELD} resize-none`} />
+                    </label>
+                  </div>
+                </details>
+                {error && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+                <div className="flex flex-col gap-2 pt-1 sm:flex-row">
+                  <button type="button" onClick={closeRegister} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-lg hover:bg-gray-50">{repeated ? 'Fechar' : 'Cancelar'}</button>
+                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2.5 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
                 </div>
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setShowRegister(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
-                </div>
+                <button type="button" disabled={saving} onClick={() => void handleSave(true)}
+                  className="rounded-lg border-2 border-green-700 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-50 disabled:opacity-50">
+                  Salvar e repetir para outra fêmea
+                </button>
+                <p className="text-xs text-gray-500">Para o dia de inseminação: a data, o tipo, o touro, a partida e o inseminador ficam preenchidos e só a fêmea muda.</p>
               </form>
             </div>
           </div>
@@ -470,7 +552,7 @@ function RecordEditor({ record, onCancel, onSaved }: { record: Reproduction; onC
   const [form, setForm] = useState({
     coverageDate: day(record.coverageDate), expectedBirthDate: day(record.expectedBirthDate), heatDate: day(record.heatDate),
     method: record.method ?? '', maleName: record.maleName ?? '', bullRegistry: record.bullRegistry ?? '', semenBatch: record.semenBatch ?? '',
-    observations: record.observations ?? '',
+    inseminator: record.inseminator ?? '', observations: record.observations ?? '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -506,23 +588,27 @@ function RecordEditor({ record, onCancel, onSaved }: { record: Reproduction; onC
       <label className="text-xs font-medium text-gray-600">Data do cio
         <input type="date" value={form.heatDate} onChange={e => setForm({ ...form, heatDate: e.target.value })} className={field} />
       </label>
-      <label className="text-xs font-medium text-gray-600">Tipo
+      <label className="text-xs font-medium text-gray-600">Como foi
         <select value={form.method} onChange={e => setForm({ ...form, method: e.target.value })} className={field}>
           <option value="">Não informado</option>
-          <option value="ia">Inseminação</option>
-          <option value="natural">Monta natural</option>
+          {COVERAGE_METHODS.map(m => <option key={m.key} value={m.key}>{m.label} ({m.hint})</option>)}
         </select>
       </label>
-      <label className="text-xs font-medium text-gray-600">Reprodutor (nome)
+      <label className="text-xs font-medium text-gray-600">Touro (nome)
         <input value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} className={field} />
       </label>
       <label className="text-xs font-medium text-gray-600">Registro do touro
         <input value={form.bullRegistry} onChange={e => setForm({ ...form, bullRegistry: e.target.value })} className={field} />
       </label>
-      {form.method !== 'natural' && (
-        <label className="text-xs font-medium text-gray-600">Lote do sêmen
-          <input value={form.semenBatch} onChange={e => setForm({ ...form, semenBatch: e.target.value })} className={field} />
-        </label>
+      {(isInsemination(form.method) || !form.method) && (
+        <>
+          <label className="text-xs font-medium text-gray-600">Partida do sêmen
+            <input value={form.semenBatch} onChange={e => setForm({ ...form, semenBatch: e.target.value })} className={field} />
+          </label>
+          <label className="text-xs font-medium text-gray-600">Inseminador
+            <input value={form.inseminator} onChange={e => setForm({ ...form, inseminator: e.target.value })} className={field} />
+          </label>
+        </>
       )}
       <label className="text-xs font-medium text-gray-600 sm:col-span-2">Observações
         <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2} className={field} />

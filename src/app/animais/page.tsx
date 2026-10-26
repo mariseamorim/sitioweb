@@ -6,6 +6,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { ESPECIES, STATUS_LIST, type Especie, type StatusAnimal } from '@/lib/types'
 import { ImagePicker } from '@/components/ImagePicker'
 import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/offlineStorage'
+import { readHerdCache, writeHerdCache } from '@/lib/herdCache'
+import { RearingEntryForm } from '@/components/RearingEntryForm'
+import { canEnterRearing, isInRearing } from '@/lib/rearing'
+import { syncRearing } from '@/lib/rearingQueue'
+import Link from 'next/link'
 import { useDialog } from '@/components/DialogProvider'
 import { SemSinalIcon, SincronizarIcon, AnimalIcon, FecharIcon } from '@/components/ModuleIcons'
 import { CalfSection } from '@/components/CalfSection'
@@ -30,20 +35,14 @@ interface Animal {
   observations?: string
   imageUrl?: string
   motherId?: string | null
+  lotId?: string | null
+  rearingStart?: string | null
+  rearingEnd?: string | null
 }
 
 const HERD_FILTERS = ['vivos', 'matrizes', 'com-cria', 'solteiras'] as const
 type HerdFilter = (typeof HERD_FILTERS)[number]
 const HERD_FILTER_LABEL: Record<HerdFilter, string> = { vivos: 'animais vivos', matrizes: 'matrizes', 'com-cria': 'matrizes com bezerro ao pé', solteiras: 'matrizes solteiras' }
-
-// Rebanho guardado no aparelho, para abrir a ficha (e anotar cria) sem internet
-const cacheKey = (fid: string) => `animais_cache_${fid}`
-function readHerdCache(fid: string): Animal[] {
-  try { return JSON.parse(localStorage.getItem(cacheKey(fid)) || '[]') } catch { return [] }
-}
-function writeHerdCache(fid: string, list: Animal[]) {
-  try { localStorage.setItem(cacheKey(fid), JSON.stringify(list.map(a => ({ ...a, imageUrl: undefined })))) } catch {}
-}
 
 const EMPTY_FORM = {
   code: '',
@@ -71,6 +70,7 @@ export default function AnimaisPage() {
   const [editing, setEditing] = useState<Animal | null>(null)
   const [selectedAnimal, setSelectedAnimal] = useState<Animal | null>(null)
   const [expandedImage, setExpandedImage] = useState<{ src: string; alt: string } | null>(null)
+  const [enteringRearing, setEnteringRearing] = useState(false)
 
   // Esc fecha a foto ampliada
   useEffect(() => {
@@ -125,7 +125,7 @@ export default function AnimaisPage() {
 
     // Sem internet: o rebanho guardado no aparelho mais o que ainda não foi enviado
     if (!navigator.onLine) {
-      show([...readHerdCache(fid), ...pending].map(a => ({ ...a, species: animalCategory(a) })))
+      show([...readHerdCache<Animal>(fid), ...pending].map(a => ({ ...a, species: animalCategory(a) })))
       setLoading(false)
       return
     }
@@ -145,7 +145,7 @@ export default function AnimaisPage() {
       .catch((err) => {
         // Sinal fraco: mostra o rebanho guardado no aparelho
         console.log('Fetch error:', err)
-        show([...readHerdCache(fid), ...pending])
+        show([...readHerdCache<Animal>(fid), ...pending])
         setLoading(false)
       })
   }, [])
@@ -170,6 +170,8 @@ export default function AnimaisPage() {
       }
     }
     
+    // A recria (desmama, pesagens, saídas) anotada sem internet sobe junto
+    await syncRearing(farmId)
     setPendingCount(getPendingRecords('animais').filter(r => r.farmId === farmId).length)
     setSyncing(false)
     fetchAnimals(farmId)
@@ -240,6 +242,7 @@ export default function AnimaisPage() {
 
   function closeDetails() {
     setSelectedAnimal(null)
+    setEnteringRearing(false)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -569,6 +572,28 @@ export default function AnimaisPage() {
                   </div>
                 )}
               </div>
+
+              {/* Recria por animal: a partir da desmama o app acompanha peso, ganho e cobertura em Recria e engorda */}
+              {isInRearing(selectedAnimal) ? (
+                <p className="mt-4 rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                  Na recria desde {new Date(selectedAnimal.rearingStart!).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}. <Link href="/engorda" className="font-semibold underline">Pesar e acompanhar</Link>
+                </p>
+              ) : canEdit && !selectedAnimal.id.startsWith('pending_') && canEnterRearing(selectedAnimal, animalToday()) && (
+                <div className="mt-4">
+                  {enteringRearing ? (
+                    <RearingEntryForm animal={selectedAnimal} farmId={farmId} isOnline={isOnline} onCancel={() => setEnteringRearing(false)}
+                      onSaved={(saved) => {
+                        setEnteringRearing(false)
+                        setSelectedAnimal((a) => a && { ...a, rearingStart: saved?.rearingStart ?? animalToday(), rearingEnd: null })
+                        fetchAnimals(farmId)
+                      }} />
+                  ) : (
+                    <button type="button" onClick={() => setEnteringRearing(true)} className="w-full rounded-xl border border-sky-300 bg-sky-50 py-2.5 text-sm font-semibold text-sky-800 hover:bg-sky-100">
+                      Entrar na recria (desmama)
+                    </button>
+                  )}
+                </div>
+              )}
 
               {selectedAnimal.gender === 'Fêmea' && isBovine(selectedAnimal.species) && (
                 <CalfSection key={selectedAnimal.id} mother={selectedAnimal} animals={animals} farmId={farmId} canEdit={canEdit} isOnline={isOnline}

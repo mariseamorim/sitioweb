@@ -1,13 +1,12 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
+import { GESTATION_DAYS, parseCoverageDetails } from '@/lib/coverage'
 
-/** Campos da cobertura: cio, inseminação ou monta natural, sêmen e touro (todos opcionais) */
+/** Campos da cobertura (todos opcionais): como foi, cio, sêmen, touro e inseminador */
 function coverageDetails(body: Record<string, unknown>) {
-  const text = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null)
-  const method = body.method === 'ia' || body.method === 'natural' ? body.method : null
-  const heat = typeof body.heatDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.heatDate) ? new Date(body.heatDate) : null
-  return { method, heatDate: heat, semenBatch: method === 'natural' ? null : text(body.semenBatch, 60), bullRegistry: text(body.bullRegistry, 60) }
+  const { heatDate, ...rest } = parseCoverageDetails(body)
+  return { ...rest, heatDate: heatDate ? new Date(heatDate) : null }
 }
 
 async function findOwned(id: string, farmId: string) {
@@ -30,12 +29,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if ('observations' in body) data.observations = observations || null
 
     if (maleName !== undefined) data.maleName = maleName || null
-    if (['method', 'heatDate', 'semenBatch', 'bullRegistry'].some((k) => k in body)) Object.assign(data, coverageDetails(body))
+    if (['method', 'heatDate', 'semenBatch', 'bullRegistry', 'inseminator'].some((k) => k in body)) Object.assign(data, coverageDetails(body))
     if (coverageDate) {
       const coverage = new Date(coverageDate)
       data.coverageDate = coverage
       const expected = new Date(coverage)
-      expected.setDate(expected.getDate() + 280)
+      expected.setDate(expected.getDate() + GESTATION_DAYS)
       data.expectedBirthDate = expected
     }
     if (typeof body.expectedBirthDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.expectedBirthDate)) data.expectedBirthDate = new Date(body.expectedBirthDate)

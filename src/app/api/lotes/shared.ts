@@ -13,7 +13,7 @@ export const LOT_SELECT = {
       id: true, code: true, customCode: true, name: true, gender: true, birthDate: true,
       weighings: { select: { date: true, weight: true }, orderBy: { date: 'asc' as const } },
       reproductions: {
-        select: { id: true, heatDate: true, method: true, coverageDate: true, expectedBirthDate: true, semenBatch: true, bullRegistry: true, maleName: true, status: true },
+        select: { id: true, heatDate: true, method: true, coverageDate: true, expectedBirthDate: true, semenBatch: true, bullRegistry: true, inseminator: true, maleName: true, status: true },
         orderBy: { coverageDate: 'desc' as const }, take: 1,
       },
     },

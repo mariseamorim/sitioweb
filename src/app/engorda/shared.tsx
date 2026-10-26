@@ -17,6 +17,7 @@ export interface Coverage {
   expectedBirthDate: string | null
   semenBatch: string | null
   bullRegistry: string | null
+  inseminator: string | null
   maleName: string | null
   status: string
 }
@@ -44,7 +45,11 @@ export interface Lot {
   animals: LotAnimal[]
 }
 /** Animal do rebanho, para escolher quem entra no lote */
-export interface HerdAnimal { id: string; code: string; customCode: string | null; name: string; species: string; status: string; lotId: string | null }
+export interface HerdAnimal {
+  id: string; code: string; customCode: string | null; name: string; species: string; status: string; lotId: string | null
+  /** Vêm de /api/animals; a recria por animal usa */
+  gender?: string; birthDate?: string; isCastrated?: boolean; rearingStart?: string | null; rearingEnd?: string | null
+}
 
 export const input = 'mt-1 w-full border border-gray-300 rounded-xl px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 export const label = 'block text-sm font-medium text-gray-700'
