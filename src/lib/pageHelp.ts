@@ -18,7 +18,7 @@ export const PAGE_HELP: Record<string, HelpItem> = {
   '/fazendas': { title: 'Propriedades', module: 'fazendas', steps: ['Uma propriedade pode ser um sítio ou uma fazenda.', 'Use “Cadastrar propriedade” para preencher os dados. Campos com * são obrigatórios.', 'Excluir pede confirmação. Uma propriedade com registros é desativada para preservar seu histórico.'] },
   '/vacinacao': { title: 'Vacinação', module: 'vacinacao', steps: ['Escolha o animal, a vacina e a data prevista.', 'Depois da aplicação, registre a data em que o animal foi vacinado.'] },
   '/veterinary-treatment': { title: 'Tratamentos', module: 'veterinario', steps: ['Escolha o animal que recebeu o tratamento.', 'Anote a data, o medicamento e os cuidados realizados para consultar depois.'] },
-  '/reproducao': { title: 'Reprodução', module: 'reproducao', steps: ['Registre a cobertura ou inseminação do animal.', 'Acompanhe a previsão do parto e registre a data quando ele acontecer.'] },
+  '/reproducao': { title: 'Reprodução', module: 'reproducao', steps: ['Em + Registrar, escolha a fêmea, como foi (inseminação, IATF, monta ou repasse), o touro e a data. Partida do sêmen e inseminador ficam em Mais detalhes.', 'No dia de inseminação, use "Salvar e repetir para outra fêmea": tudo fica preenchido e só a fêmea muda.', 'Acompanhe a previsão do parto, confirme a prenhez e registre a cria quando ela nascer.'] },
   // Fornecedor: não tem módulos da propriedade; a ajuda é pelo perfil
   '/fornecedor': { title: 'Painel do fornecedor', roles: ['fornecedor'], steps: [
     'Os cartões do topo são o menu: toque em um para abrir a seção. “Pedidos novos” são os orçamentos que os clientes pediram pelo app.',

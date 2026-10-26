@@ -206,6 +206,8 @@ model Reproduction {
   semenBatch        String?
   /// Registro do touro (do sêmen ou da monta)
   bullRegistry      String?
+  /// Quem inseminou (a taxa de prenhez muda por inseminador)
+  inseminator       String?
   coverageDate      DateTime
   expectedBirthDate DateTime?
   actualBirthDate   DateTime?

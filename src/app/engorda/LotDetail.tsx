@@ -7,6 +7,7 @@ import {
   feedingSummary, kgInStockUnit, lotSummary, pricePerKg, projectTarget,
 } from '@/lib/lots'
 import { fmtDate, fmtMoney, fmtNumber } from '@/lib/reports'
+import { COVERAGE_METHODS, GESTATION_DAYS, isInsemination, methodLabel, plusDays } from '@/lib/coverage'
 import {
   AnimalPicker, Coverage, HerdAnimal, Lot, LotAnimal, Modal, ProductForm, ProductsEditor, SupplyRef, WeightList, averageOf, decimal, input, kg, label,
   lastWeight, offlineMessage, parseKg, phaseLabel, productLines, productsFromLot, productsPayload, send, tag, toField,
@@ -526,14 +527,12 @@ function FeedingSection({ lot, canEdit, today, busy, run }: { lot: Lot; canEdit:
 
 // ── Recria: cio e cobertura das novilhas ────────────────────────────────
 
-const GESTATION_DAYS = 280
-const plusDays = (iso: string, days: number) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10) }
 const months = (birth: string, today: string) => Math.floor(daysBetween(birth, today) / 30.44)
 
 function coverageText(c: LotAnimal['reproductions'][number] | undefined) {
   if (!c) return 'Sem registro'
   if (c.status === 'Vazia' || c.status === 'Perdida') return `${c.status} (cobertura de ${fmtDate(c.coverageDate)})`
-  const how = c.method === 'ia' ? 'Inseminada' : c.method === 'natural' ? 'Monta natural' : 'Coberta'
+  const how = c.method ? methodLabel(c.method) : 'Coberta'
   return `${how} em ${fmtDate(c.coverageDate)}${c.expectedBirthDate ? ` · parto previsto ${fmtDate(c.expectedBirthDate)}` : ''}${c.status === 'Prenha' ? ' · prenha' : ''}`
 }
 
@@ -575,9 +574,9 @@ function CoverageForm({ female, today, editing, onCancel, onSaved }: { female: L
     ? {
         heatDate: editing.heatDate ?? '', method: editing.method ?? 'ia', coverageDate: editing.coverageDate,
         expectedBirthDate: editing.expectedBirthDate ?? plusDays(editing.coverageDate, GESTATION_DAYS),
-        semenBatch: editing.semenBatch ?? '', maleName: editing.maleName ?? '', bullRegistry: editing.bullRegistry ?? '',
+        semenBatch: editing.semenBatch ?? '', maleName: editing.maleName ?? '', bullRegistry: editing.bullRegistry ?? '', inseminator: editing.inseminator ?? '',
       }
-    : { heatDate: '', method: 'ia', coverageDate: today, expectedBirthDate: plusDays(today, GESTATION_DAYS), semenBatch: '', maleName: '', bullRegistry: '' })
+    : { heatDate: '', method: 'ia', coverageDate: today, expectedBirthDate: plusDays(today, GESTATION_DAYS), semenBatch: '', maleName: '', bullRegistry: '', inseminator: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const young = months(female.birthDate, today) < 13
@@ -603,25 +602,30 @@ function CoverageForm({ female, today, editing, onCancel, onSaved }: { female: L
         <input type="date" max={today} value={form.heatDate} onChange={(e) => setForm({ ...form, heatDate: e.target.value })} className={input} />
       </label>
       <fieldset className="text-sm font-medium text-gray-700">
-        <legend>Tipo</legend>
+        <legend>Como foi</legend>
         <div className="mt-1 grid grid-cols-2 gap-1">
-          {([['ia', 'Inseminação'], ['natural', 'Monta natural']] as const).map(([key, text]) => (
-            <button key={key} type="button" aria-pressed={form.method === key} onClick={() => setForm({ ...form, method: key })}
-              className={`whitespace-nowrap rounded-lg border-2 px-2 py-2.5 text-sm font-semibold ${form.method === key ? 'border-pink-700 bg-white text-pink-800' : 'border-gray-200 text-gray-600'}`}>{text}</button>
+          {COVERAGE_METHODS.map((m) => (
+            <button key={m.key} type="button" aria-pressed={form.method === m.key} onClick={() => setForm({ ...form, method: m.key })}
+              className={`whitespace-nowrap rounded-lg border-2 px-2 py-2.5 text-sm font-semibold ${form.method === m.key ? 'border-pink-700 bg-white text-pink-800' : 'border-gray-200 text-gray-600'}`}>{m.label}</button>
           ))}
         </div>
       </fieldset>
-      <label className="text-sm font-medium text-gray-700">{form.method === 'ia' ? 'Data da inseminação' : 'Data da monta'}
+      <label className="text-sm font-medium text-gray-700">{isInsemination(form.method) ? 'Data da inseminação' : 'Data da monta'}
         <input type="date" required max={today} value={form.coverageDate}
           onChange={(e) => setForm({ ...form, coverageDate: e.target.value, expectedBirthDate: e.target.value ? plusDays(e.target.value, GESTATION_DAYS) : form.expectedBirthDate })} className={input} />
       </label>
       <label className="text-sm font-medium text-gray-700">Parto estimado
         <input type="date" value={form.expectedBirthDate} onChange={(e) => setForm({ ...form, expectedBirthDate: e.target.value })} className={input} />
       </label>
-      {form.method === 'ia' && (
-        <label className="text-sm font-medium text-gray-700">Lote do sêmen
-          <input value={form.semenBatch} onChange={(e) => setForm({ ...form, semenBatch: e.target.value })} placeholder="Ex.: 2412-A" className={input} />
-        </label>
+      {isInsemination(form.method) && (
+        <>
+          <label className="text-sm font-medium text-gray-700">Partida do sêmen
+            <input value={form.semenBatch} onChange={(e) => setForm({ ...form, semenBatch: e.target.value })} placeholder="Ex.: 2412-A" className={input} />
+          </label>
+          <label className="text-sm font-medium text-gray-700">Inseminador
+            <input value={form.inseminator} onChange={(e) => setForm({ ...form, inseminator: e.target.value })} placeholder="Quem inseminou" className={input} />
+          </label>
+        </>
       )}
       <label className="text-sm font-medium text-gray-700">Touro (nome)
         <input value={form.maleName} onChange={(e) => setForm({ ...form, maleName: e.target.value })} placeholder="Ex.: Trovão" className={input} />

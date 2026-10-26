@@ -17,6 +17,7 @@ export interface Coverage {
   expectedBirthDate: string | null
   semenBatch: string | null
   bullRegistry: string | null
+  inseminator: string | null
   maleName: string | null
   status: string
 }
