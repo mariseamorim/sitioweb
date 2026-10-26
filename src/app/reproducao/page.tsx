@@ -8,6 +8,7 @@ import { SortTh } from '@/components/SortTh'
 
 import { useEffect, useState, useMemo } from 'react'
 import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
+import { readHerdCache, writeHerdCache } from '@/lib/herdCache'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, FecharIcon, ReproducaoIcon } from '@/components/ModuleIcons'
@@ -120,14 +121,16 @@ export default function ReproducaoPage() {
           inseminator: r.inseminator || null,
         }))
 
-    // If offline, load only pending records
-    if (!navigator.onLine) {
+    // Sem internet: as fêmeas vêm do rebanho guardado no aparelho (pela tela Animais ou por esta), e a lista são os registros pendentes
+    const offline = () => {
       const pending = mapPending()
+      const cached = readHerdCache<Animal>(fid)
       setReproductions(pending)
-      setFemales(pending.map(p => p.female))
+      setHerd(cached)
+      setFemales(cached.length ? cached.filter(a => canBreed(a)) : pending.map(p => p.female))
       setLoading(false)
-      return
     }
+    if (!navigator.onLine) return offline()
     
     Promise.all([
       fetch(`/api/reproducao?farmId=${fid}`).then(r => r.json()).catch(() => []),
@@ -138,13 +141,9 @@ export default function ReproducaoPage() {
       // Só fêmeas vivas e, se bovinas, com 2 anos ou mais
       setFemales(Array.isArray(anims) ? anims.filter((a: Animal) => canBreed(a)) : [])
       setHerd(Array.isArray(anims) ? anims : [])
+      if (Array.isArray(anims) && anims.length) writeHerdCache(fid, anims)
       setLoading(false)
-    }).catch(() => {
-      const pending = mapPending()
-      setReproductions(pending)
-      setFemales(pending.map(p => p.female))
-      setLoading(false)
-    })
+    }).catch(offline)
   }
 
   const filtered = useMemo(() => {

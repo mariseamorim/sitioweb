@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { ESPECIES, STATUS_LIST, type Especie, type StatusAnimal } from '@/lib/types'
 import { ImagePicker } from '@/components/ImagePicker'
 import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/offlineStorage'
+import { readHerdCache, writeHerdCache } from '@/lib/herdCache'
 import { useDialog } from '@/components/DialogProvider'
 import { SemSinalIcon, SincronizarIcon, AnimalIcon, FecharIcon } from '@/components/ModuleIcons'
 import { CalfSection } from '@/components/CalfSection'
@@ -35,15 +36,6 @@ interface Animal {
 const HERD_FILTERS = ['vivos', 'matrizes', 'com-cria', 'solteiras'] as const
 type HerdFilter = (typeof HERD_FILTERS)[number]
 const HERD_FILTER_LABEL: Record<HerdFilter, string> = { vivos: 'animais vivos', matrizes: 'matrizes', 'com-cria': 'matrizes com bezerro ao pé', solteiras: 'matrizes solteiras' }
-
-// Rebanho guardado no aparelho, para abrir a ficha (e anotar cria) sem internet
-const cacheKey = (fid: string) => `animais_cache_${fid}`
-function readHerdCache(fid: string): Animal[] {
-  try { return JSON.parse(localStorage.getItem(cacheKey(fid)) || '[]') } catch { return [] }
-}
-function writeHerdCache(fid: string, list: Animal[]) {
-  try { localStorage.setItem(cacheKey(fid), JSON.stringify(list.map(a => ({ ...a, imageUrl: undefined })))) } catch {}
-}
 
 const EMPTY_FORM = {
   code: '',
@@ -125,7 +117,7 @@ export default function AnimaisPage() {
 
     // Sem internet: o rebanho guardado no aparelho mais o que ainda não foi enviado
     if (!navigator.onLine) {
-      show([...readHerdCache(fid), ...pending].map(a => ({ ...a, species: animalCategory(a) })))
+      show([...readHerdCache<Animal>(fid), ...pending].map(a => ({ ...a, species: animalCategory(a) })))
       setLoading(false)
       return
     }
@@ -145,7 +137,7 @@ export default function AnimaisPage() {
       .catch((err) => {
         // Sinal fraco: mostra o rebanho guardado no aparelho
         console.log('Fetch error:', err)
-        show([...readHerdCache(fid), ...pending])
+        show([...readHerdCache<Animal>(fid), ...pending])
         setLoading(false)
       })
   }, [])

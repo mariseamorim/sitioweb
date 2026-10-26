@@ -6,7 +6,7 @@ Registro por fêmea, como nos apps de mercado (Rebanho Fácil, Controle IATF): p
 
 Em Reprodução > + Registrar: fêmea, como foi (Inseminação, IATF, Monta natural ou Repasse), touro, data e status. "Mais detalhes" (recolhido) tem partida do sêmen e inseminador (só na inseminação), registro do touro, data do cio e observações.
 
-"Salvar e repetir para outra fêmea" salva e mantém data, tipo, touro, partida e inseminador; limpa fêmea, cio e observações. Um aviso diz quantas coberturas foram salvas e o que ficou preenchido. Sem internet, cada cobertura entra na fila do aparelho e sobe em "Sincronizar".
+"Salvar e repetir para outra fêmea" salva e mantém data, tipo, touro, partida e inseminador; limpa fêmea, cio e observações. Um aviso diz quantas coberturas foram salvas e o que ficou preenchido. Sem internet, cada cobertura entra na fila do aparelho e sobe em "Sincronizar". As fêmeas para escolher vêm do rebanho guardado no aparelho (`src/lib/herdCache.ts`), que Animais e Reprodução gravam quando carregam com sinal.
 
 Na ficha, uma cobertura em andamento mostra os dias de gestação, quanto falta para o parto (ou o atraso) e uma barra. É conta sobre a data da cobertura e o parto previsto, sem campo novo.
 
