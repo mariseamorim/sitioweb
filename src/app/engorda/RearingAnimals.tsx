@@ -23,7 +23,8 @@ function coverageLine(c: Coverage | undefined) {
 }
 
 export function RearingAnimals({ farmId, herd, canEdit, canBreed, today, visible, onCount, onHerdChanged }: {
-  farmId: string
+  /** null enquanto /api/auth/me não respondeu; '' quando não há propriedade */
+  farmId: string | null
   herd: HerdAnimal[]
   canEdit: boolean
   canBreed: boolean
@@ -45,7 +46,8 @@ export function RearingAnimals({ farmId, herd, canEdit, canBreed, today, visible
   const refreshPending = useCallback(() => setPending(farmId ? pendingRearing(farmId).length : 0), [farmId])
 
   const load = useCallback(async () => {
-    if (!farmId) return
+    if (farmId === null) return
+    if (!farmId) { setList([]); return }
     const fromDevice = () => setList(rearingWithPending(farmId, herdRef.current) as RearingRow[])
     if (!navigator.onLine) { fromDevice(); refreshPending(); return }
     await syncRearing(farmId)
@@ -129,7 +131,7 @@ export function RearingAnimals({ farmId, herd, canEdit, canBreed, today, visible
       )}
 
       {adding && (
-        <AddModal herd={herd} farmId={farmId} isOnline={isOnline} today={today} onClose={() => setAdding(false)}
+        <AddModal herd={herd} farmId={farmId ?? ''} isOnline={isOnline} today={today} onClose={() => setAdding(false)}
           onSaved={(saved) => {
             setAdding(false)
             if (saved) replace(saved as RearingRow)
@@ -139,7 +141,7 @@ export function RearingAnimals({ farmId, herd, canEdit, canBreed, today, visible
           }} />
       )}
       {current && (
-        <RearingDetail key={current.id} animal={current} farmId={farmId} today={today} canEdit={canEdit} canBreed={canBreed} isOnline={isOnline}
+        <RearingDetail key={current.id} animal={current} farmId={farmId ?? ''} today={today} canEdit={canEdit} canBreed={canBreed} isOnline={isOnline}
           onClose={() => setOpenId(null)} onChanged={replace} onQueued={() => { void load(); refreshPending() }} onReload={() => void load()} />
       )}
     </section>

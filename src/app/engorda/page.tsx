@@ -25,7 +25,7 @@ export default function EngordaPage() {
   const [tab, setTab] = useState<Tab>('todos')
   const [creating, setCreating] = useState(false)
   const [open, setOpen] = useState<{ id: string; focus?: 'pesar' | 'animais' } | null>(null)
-  const [farmId, setFarmId] = useState('')
+  const [farmId, setFarmId] = useState<string | null>(null)
   const [rearingCount, setRearingCount] = useState(0)
   const today = todayISO()
 
@@ -36,12 +36,13 @@ export default function EngordaPage() {
     if (canAccess('estoque')) fetch('/api/estoque').then((r) => (r.ok ? r.json() : [])).then(setSupplies).catch(() => {})
   }, [canAccess])
   const load = useCallback(() => {
-    fetch('/api/lotes').then((r) => (r.ok ? r.json() : Promise.reject())).then(setLots)
-      .catch(() => setError('Não foi possível carregar os lotes. Confira a internet.'))
+    fetch('/api/lotes').then((r) => (r.ok ? r.json() : Promise.reject(r.status))).then(setLots)
+      // 5xx: o servidor falhou (banco sem as migrations, por exemplo); sem status, foi a rede
+      .catch((status) => setError(typeof status === 'number' && status >= 500 ? 'O servidor não conseguiu carregar os lotes. Se o app acabou de ser atualizado, aplique as migrations do banco (npx prisma migrate deploy).' : 'Não foi possível carregar os lotes. Confira a internet.'))
     loadHerd()
   }, [loadHerd])
   useEffect(() => { load(); loadSupplies() }, [load, loadSupplies])
-  useEffect(() => { fetch('/api/auth/me').then((r) => r.json()).then((me) => setFarmId(me.farmId ?? '')).catch(() => {}) }, [])
+  useEffect(() => { fetch('/api/auth/me').then((r) => r.json()).then((me) => setFarmId(me.farmId ?? '')).catch(() => setFarmId('')) }, [])
 
   // Um animal muda de lote: o lote antigo também perde o animal na tela. O trato mexe no estoque.
   const replace = (lot: Lot) => {
