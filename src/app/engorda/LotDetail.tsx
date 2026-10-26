@@ -536,12 +536,12 @@ function coverageText(c: LotAnimal['reproductions'][number] | undefined) {
   return `${how} em ${fmtDate(c.coverageDate)}${c.expectedBirthDate ? ` · parto previsto ${fmtDate(c.expectedBirthDate)}` : ''}${c.status === 'Prenha' ? ' · prenha' : ''}`
 }
 
-function ReproductionSection({ females, today, canEdit, onSaved }: { females: LotAnimal[]; today: string; canEdit: boolean; onSaved: () => void }) {
+export function ReproductionSection({ females, today, canEdit, onSaved }: { females: LotAnimal[]; today: string; canEdit: boolean; onSaved: () => void }) {
   // Fêmea com o formulário aberto e, se for edição, a cobertura editada
   const [open, setOpen] = useState<{ id: string; editing?: Coverage } | null>(null)
   return (
     <section className="mt-5">
-      <h3 className="mb-1 text-sm font-semibold text-gray-700">Reprodução das novilhas</h3>
+      <h3 className="mb-1 text-sm font-semibold text-gray-700">{females.length === 1 ? 'Reprodução da novilha' : 'Reprodução das novilhas'}</h3>
       <p className="mb-2 text-xs text-gray-500">Registre o cio e a cobertura (inseminação ou monta natural). O parto previsto entra nos avisos e na tela Reprodução.</p>
       <ul className="divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm">
         {females.map((f) => (

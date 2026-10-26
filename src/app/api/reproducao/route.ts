@@ -42,10 +42,11 @@ export async function POST(request: NextRequest) {
     }
     const female = await prisma.animal.findFirst({
       where: { id: femaleId, farmId: auth.farmId },
-      select: { id: true, species: true, gender: true, birthDate: true, status: true, lot: { select: { phase: true, endDate: true } } },
+      select: { id: true, species: true, gender: true, birthDate: true, status: true, rearingStart: true, rearingEnd: true, lot: { select: { phase: true, endDate: true } } },
     })
     if (!female) return notFound('Animal não encontrado')
-    const inRearingLot = female.lot?.phase === 'recria' && !female.lot.endDate
+    // Novilha na recria (em lote ou acompanhada um a um) pode ser coberta mais cedo
+    const inRearingLot = (female.lot?.phase === 'recria' && !female.lot.endDate) || (!!female.rearingStart && !female.rearingEnd)
     if (!canBreed(female, undefined, { inRearingLot })) {
       return NextResponse.json({ error: inRearingLot ? 'A novilha precisa ter pelo menos 13 meses' : 'A fêmea precisa estar viva e, se for bovina, ter pelo menos 2 anos' }, { status: 400 })
     }

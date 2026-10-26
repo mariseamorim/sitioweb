@@ -14,12 +14,13 @@ import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, FecharIcon, ReproducaoIcon } from '@/components/ModuleIcons'
 import { HerdCalvingPanel, PregnancyCheckPanel } from '@/components/HerdCalvingPanel'
 import { canBreed } from '@/lib/animalRules'
+import { isInRearing } from '@/lib/rearing'
 import { pregnancyChecks, type PregnancyCheck } from '@/lib/calving'
 import { AddCalfForm } from '@/components/CalfSection'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 import { COVERAGE_METHODS, EMPTY_COVERAGE, gestation, isInsemination, methodLabel, repeatCoverage, repeatedFields, type CoverageForm } from '@/lib/coverage'
 
-interface Animal { id: string; name: string; code: string; species: string; gender: string; status: string; birthDate: string; motherId?: string | null }
+interface Animal { id: string; name: string; code: string; species: string; gender: string; status: string; birthDate: string; motherId?: string | null; rearingStart?: string | null; rearingEnd?: string | null }
 
 interface Reproduction {
   id: string
@@ -127,7 +128,7 @@ export default function ReproducaoPage() {
       const cached = readHerdCache<Animal>(fid)
       setReproductions(pending)
       setHerd(cached)
-      setFemales(cached.length ? cached.filter(a => canBreed(a)) : pending.map(p => p.female))
+      setFemales(cached.length ? cached.filter(a => canBreed(a, undefined, { inRearingLot: isInRearing(a) })) : pending.map(p => p.female))
       setLoading(false)
     }
     if (!navigator.onLine) return offline()
@@ -139,7 +140,7 @@ export default function ReproducaoPage() {
       const pending = mapPending()
       setReproductions(Array.isArray(repros) ? [...repros, ...pending] : pending)
       // Só fêmeas vivas e, se bovinas, com 2 anos ou mais
-      setFemales(Array.isArray(anims) ? anims.filter((a: Animal) => canBreed(a)) : [])
+      setFemales(Array.isArray(anims) ? anims.filter((a: Animal) => canBreed(a, undefined, { inRearingLot: isInRearing(a) })) : [])
       setHerd(Array.isArray(anims) ? anims : [])
       if (Array.isArray(anims) && anims.length) writeHerdCache(fid, anims)
       setLoading(false)

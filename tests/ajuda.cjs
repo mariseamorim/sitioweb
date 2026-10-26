@@ -39,7 +39,7 @@ assert.equal(help.canSeeHelp(help.PAGE_HELP['/perfil'], null, all), false, 'sem 
 assert.deepEqual(Array.from(help.visibleHelp({ role: 'fornecedor' }, none), ([href]) => href), ['/fornecedor', '/perfil'], 'fornecedor vê o painel e o cadastro')
 assert.deepEqual(Array.from(help.visibleHelp(null, all)), [])
 const producer = Array.from(help.visibleHelp({ role: 'editor' }, only('animais', 'leite')), ([href]) => href)
-assert.deepEqual(producer, ['/animais', '/milk-production', '/perfil'])
+assert.deepEqual(producer, ['/animais', '/milk-production', '/engorda', '/perfil'], 'Recria e engorda entra pelo módulo animais')
 assert.ok(help.PAGE_HELP['/fornecedor'].steps.some((s) => s.includes('Meu cadastro')), 'a ajuda do fornecedor diz onde editar nome, telefone e senha')
 
 assert.equal(help.isPanelRole('fornecedor'), true)
