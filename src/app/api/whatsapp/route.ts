@@ -30,6 +30,8 @@ export async function POST(request: NextRequest) {
   try { payload = JSON.parse(raw) } catch { return NextResponse.json({ error: 'JSON inválido' }, { status: 400 }) }
 
   const messages = incomingTexts(payload)
+  // Registro curto para acompanhar nos logs da Vercel (fim do número oculto)
+  console.log(`[whatsapp] chegou: ${messages.length} mensagem(ns)`, messages.map((m) => `${hidePhone(m.from)} "${m.text.slice(0, 40)}"`).join('; '))
   // Uma de cada vez, para a resposta chegar na ordem; erros não derrubam as outras
   for (const message of messages) {
     try {
@@ -42,8 +44,13 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ ok: true, handled: messages.length })
 }
 
+const hidePhone = (v: string) => v.replace(/\d{4}$/, '****')
+
 async function handle(message: IncomingText) {
-  if (!allowedSender(message.from)) return // fora da lista de teste: silêncio
+  if (!allowedSender(message.from)) {
+    console.log(`[whatsapp] ignorado: ${hidePhone(message.from)} não está em WHATSAPP_TEST_NUMBERS`)
+    return
+  }
   void markRead(message.id)
   const reply = (text: string) => sendText(message.from, text)
 
@@ -51,7 +58,10 @@ async function handle(message: IncomingText) {
     where: { phone: { in: phoneCandidates(message.from) } },
     select: { id: true, name: true, role: true, permissions: true, farmId: true, farm: { select: { id: true, name: true, milkPrice: true } } },
   })
-  if (!user) return reply(NO_ACCOUNT_REPLY)
+  if (!user) {
+    console.log(`[whatsapp] sem conta para ${hidePhone(message.from)}`)
+    return reply(NO_ACCOUNT_REPLY)
+  }
 
   const today = animalToday()
   const parsed = parseMessage(message.text, today)
@@ -80,5 +90,6 @@ async function handle(message: IncomingText) {
       observations: `Pelo WhatsApp (${user.name})`,
     },
   })
+  console.log(`[whatsapp] anotado: ${parsed.liters} L em ${day.toISOString().slice(0, 10)} (${user.farm.name})`)
   return reply(savedReply(parsed, user.farm.name, animal, today))
 }
