@@ -139,6 +139,27 @@ export function incomingTexts(payload: unknown): IncomingText[] {
   return out
 }
 
+export interface DeliveryStatus { id: string; to: string; status: string; errors: string[] }
+
+/** Avisos de entrega (entry[].changes[].value.statuses[]): enviado, entregue, lido ou falha com o motivo */
+export function deliveryStatuses(payload: unknown): DeliveryStatus[] {
+  const out: DeliveryStatus[] = []
+  const entries = (payload as { entry?: unknown[] })?.entry
+  if (!Array.isArray(entries)) return out
+  for (const entry of entries) {
+    for (const change of (entry as { changes?: unknown[] })?.changes ?? []) {
+      const value = (change as { value?: { statuses?: unknown[] } })?.value
+      for (const st of value?.statuses ?? []) {
+        const s = st as { id?: string; recipient_id?: string; status?: string; errors?: { code?: number; title?: string; message?: string; error_data?: { details?: string } }[] }
+        if (!s.id || !s.status) continue
+        const errors = (s.errors ?? []).map((e) => [e.code, e.title ?? e.message, e.error_data?.details].filter(Boolean).join(' '))
+        out.push({ id: s.id, to: s.recipient_id ?? '', status: s.status, errors })
+      }
+    }
+  }
+  return out
+}
+
 // ── Respostas ───────────────────────────────────────────────────────────
 
 const fmtDay = (isoDay: string) => `${isoDay.slice(8, 10)}/${isoDay.slice(5, 7)}/${isoDay.slice(0, 4)}`

@@ -93,6 +93,9 @@ const payload = { object: 'whatsapp_business_account', entry: [{ id: '1', change
 assert.deepEqual(plain(w.incomingTexts(payload)), [{ id: 'wamid.1', from: '5547999887766', text: '120 litros', phoneNumberId: '111' }], 'só texto')
 assert.deepEqual(plain(w.incomingTexts({ entry: [{ changes: [{ value: { statuses: [{}] } }] }] })), [], 'confirmação de entrega não é mensagem')
 assert.deepEqual(plain(w.incomingTexts('lixo')), [])
+const statusPayload = { entry: [{ changes: [{ value: { statuses: [{ id: 'wamid.9', recipient_id: '5547999887766', status: 'failed', errors: [{ code: 131026, title: 'Message undeliverable', error_data: { details: 'Recipient not available' } }] }, { id: 'wamid.8', recipient_id: '5547999887766', status: 'delivered' }] } }] }] }
+assert.deepEqual(plain(w.deliveryStatuses(statusPayload)), [{ id: 'wamid.9', to: '5547999887766', status: 'failed', errors: ['131026 Message undeliverable Recipient not available'] }, { id: 'wamid.8', to: '5547999887766', status: 'delivered', errors: [] }], 'avisos de entrega')
+assert.deepEqual(plain(w.deliveryStatuses(payload)), [], 'mensagem não é aviso')
 
 // Respostas
 assert.equal(w.savedReply({ liters: 120, date: today, cowsMilked: 8 }, 'Sítio Boa Vista', null, today), 'Anotado: 120 litros no total do dia, hoje, 8 vacas ordenhadas. Propriedade Sítio Boa Vista. Para corrigir, abra Leite no app.')
