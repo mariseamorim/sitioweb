@@ -10,12 +10,13 @@ import { fmtDate, fmtMoney, fmtNumber } from '@/lib/reports'
 import { COVERAGE_METHODS, GESTATION_DAYS, isInsemination, methodLabel, plusDays } from '@/lib/coverage'
 import {
   AnimalPicker, Coverage, HerdAnimal, Lot, LotAnimal, Modal, ProductForm, ProductsEditor, SupplyRef, WeightList, averageOf, decimal, input, kg, label,
-  lastWeight, offlineMessage, parseKg, phaseLabel, productLines, productsFromLot, productsPayload, send, tag, toField,
+  isQueued, lastWeight, offlineMessage, parseKg, phaseLabel, productLines, productsFromLot, productsPayload, send, tag, toField,
 } from './shared'
 
-type Run = (action: () => Promise<Lot | null>) => Promise<void>
+/** Roda uma ação do lote. `onQueued` fecha o formulário quando o pedido ficou na fila do aparelho (não há lote atualizado para mostrar). */
+type Run = (action: () => Promise<Lot | null>, onQueued?: () => void) => Promise<void>
 
-export function LotDetail({ lot, supplies, herd, lotNames, canEdit, canBreed, today, focus, onClose, onChanged, onDeleted, onReload }: {
+export function LotDetail({ lot, supplies, herd, lotNames, canEdit, canBreed, today, focus, onClose, onChanged, onDeleted, onReload, onQueued }: {
   lot: Lot
   supplies: SupplyRef[]
   herd: HerdAnimal[]
@@ -30,6 +31,8 @@ export function LotDetail({ lot, supplies, herd, lotNames, canEdit, canBreed, to
   onDeleted: () => void
   /** Recarrega os lotes (depois de registrar uma cobertura, que não devolve o lote) */
   onReload: () => void
+  /** Um pedido ficou na fila do aparelho (a página atualiza a contagem) */
+  onQueued?: () => void
 }) {
   const { confirm } = useDialog()
   const s = lotSummary(lot.weighings, today, lot.endDate)
@@ -47,20 +50,29 @@ export function LotDetail({ lot, supplies, herd, lotNames, canEdit, canBreed, to
   const [endDate, setEndDate] = useState(today)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const previous = useMemo(() => new Map(lot.animals.flatMap((a) => { const w = lastWeight(a); return w === null ? [] : [[a.id, w] as const] })), [lot.animals])
 
   useEffect(() => {
     if (focus === 'pesar') document.getElementById('pesagem')?.scrollIntoView({ block: 'start' })
   }, [focus])
 
-  const run: Run = async (action) => {
+  const run: Run = async (action, afterQueued) => {
     setBusy(true)
     setError('')
+    setNotice('')
     try {
       const updated = await action()
       if (updated) onChanged(updated)
     } catch (err) {
-      setError(offlineMessage(err))
+      if (isQueued(err)) {
+        // Ficou na fila: avisa e fecha o formulário, mas não inventa um lote atualizado
+        setNotice(err.message)
+        afterQueued?.()
+        onQueued?.()
+      } else {
+        setError(offlineMessage(err))
+      }
     } finally {
       setBusy(false)
     }
@@ -68,18 +80,18 @@ export function LotDetail({ lot, supplies, herd, lotNames, canEdit, canBreed, to
 
   const saveWeighing = (e: React.FormEvent) => {
     e.preventDefault()
+    const reset = () => { setWeights({}); setWeighing({ ...weighing, avgWeight: '' }) }
     void run(async () => {
       const updated = await send(`/api/lotes/${lot.id}/pesagens`, 'POST', hasAnimals ? { date: weighing.date, weights } : weighing)
-      setWeights({})
-      setWeighing({ ...weighing, avgWeight: '' })
+      reset()
       return updated
-    })
+    }, reset)
   }
   const addAnimals = () => void run(async () => {
     const updated = await send(`/api/lotes/${lot.id}`, 'PATCH', { addAnimalIds: adding })
     setAdding(null)
     return updated
-  })
+  }, () => setAdding(null))
   const removeAnimal = async (a: LotAnimal) => {
     if (!(await confirm({ title: `Tirar ${tag(a)} ${a.name} do lote?`, message: 'As pesagens dele continuam guardadas.', confirmLabel: 'Tirar do lote' }))) return
     void run(() => send(`/api/lotes/${lot.id}`, 'PATCH', { removeAnimalIds: [a.id] }))
@@ -89,7 +101,7 @@ export function LotDetail({ lot, supplies, herd, lotNames, canEdit, canBreed, to
     const updated = await send(`/api/lotes/${lot.id}`, 'PATCH', { supplies: productsPayload(editingProducts ?? []) })
     setEditingProducts(null)
     return updated
-  })
+  }, () => setEditingProducts(null))
   const close = async () => {
     if (!(await confirm({ title: `Encerrar o lote ${lot.name}?`, message: 'Use quando o lote sair: vendido, abatido ou mudou de fase. Ele fica guardado em Encerrados.', confirmLabel: 'Encerrar' }))) return
     void run(() => send(`/api/lotes/${lot.id}`, 'PATCH', { endDate }))
@@ -98,7 +110,14 @@ export function LotDetail({ lot, supplies, herd, lotNames, canEdit, canBreed, to
   const remove = async () => {
     if (!(await confirm({ title: `Excluir o lote ${lot.name}?`, message: 'As pesagens também serão apagadas e os animais saem do lote. Para guardar o histórico, prefira encerrar o lote.', confirmLabel: 'Excluir', danger: true }))) return
     setBusy(true)
-    try { await send(`/api/lotes/${lot.id}`, 'DELETE', {}); onDeleted() } catch (err) { setError((err as Error).message); setBusy(false) }
+    setNotice('')
+    try {
+      await send(`/api/lotes/${lot.id}`, 'DELETE', {})
+      onDeleted()
+    } catch (err) {
+      if (isQueued(err)) { setNotice(`${err.message} O lote some da lista depois do envio.`); onQueued?.() } else setError((err as Error).message)
+      setBusy(false)
+    }
   }
 
   return (
@@ -267,6 +286,7 @@ export function LotDetail({ lot, supplies, herd, lotNames, canEdit, canBreed, to
       <WeighingHistory lot={lot} canEdit={canEdit} today={today} busy={busy} run={run} />
 
       {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {notice && <p role="status" className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{notice}</p>}
 
       {canEdit && (
         <section className="mt-6 flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4">
@@ -297,7 +317,7 @@ function LotEditForm({ lot, busy, run, onDone }: { lot: Lot; busy: boolean; run:
       const updated = await send(`/api/lotes/${lot.id}`, 'PATCH', form)
       onDone()
       return updated
-    })
+    }, onDone)
   }
   return (
     <form onSubmit={save} className="mb-4 flex flex-col gap-3 rounded-xl border border-gray-200 p-3">
@@ -351,7 +371,7 @@ function WeighingHistory({ lot, canEdit, today, busy, run }: { lot: Lot; canEdit
     const updated = await send(`/api/lotes/${lot.id}/pesagens`, 'PATCH', hasAnimals ? { weighingId: id, date: form.date, weights } : { weighingId: id, ...form })
     setEditing(null)
     return updated
-  })
+  }, () => setEditing(null))
   const remove = async (id: string) => {
     if (!(await confirm({ title: 'Apagar esta pesagem?', message: hasAnimals ? 'Os pesos de cada animal nesse dia também serão apagados.' : undefined, confirmLabel: 'Apagar', danger: true }))) return
     void run(() => send(`/api/lotes/${lot.id}/pesagens`, 'DELETE', { weighingId: id }))
@@ -439,7 +459,7 @@ function FeedingSection({ lot, canEdit, today, busy, run }: { lot: Lot; canEdit:
     const updated = await send(`/api/lotes/${lot.id}/tratos`, 'PATCH', { feedingId: editing!.id, date: editing!.date, kg: editing!.kg })
     setEditing(null)
     return updated
-  })
+  }, () => setEditing(null))
   const remove = async (id: string) => {
     if (!(await confirm({ title: 'Apagar este trato?', message: 'A quantidade volta para o estoque.', confirmLabel: 'Apagar', danger: true }))) return
     void run(() => send(`/api/lotes/${lot.id}/tratos`, 'DELETE', { feedingId: id }))
@@ -539,10 +559,12 @@ function coverageText(c: LotAnimal['reproductions'][number] | undefined) {
 export function ReproductionSection({ females, today, canEdit, onSaved }: { females: LotAnimal[]; today: string; canEdit: boolean; onSaved: () => void }) {
   // Fêmea com o formulário aberto e, se for edição, a cobertura editada
   const [open, setOpen] = useState<{ id: string; editing?: Coverage } | null>(null)
+  const [notice, setNotice] = useState('')
   return (
     <section className="mt-5">
       <h3 className="mb-1 text-sm font-semibold text-gray-700">{females.length === 1 ? 'Reprodução da novilha' : 'Reprodução das novilhas'}</h3>
       <p className="mb-2 text-xs text-gray-500">Registre o cio e a cobertura (inseminação ou monta natural). O parto previsto entra nos avisos e na tela Reprodução.</p>
+      {notice && <p role="status" className="mb-2 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{notice}</p>}
       <ul className="divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm">
         {females.map((f) => (
           <li key={f.id} className="px-3 py-2">
@@ -561,7 +583,8 @@ export function ReproductionSection({ females, today, canEdit, onSaved }: { fema
                 </span>
               )}
             </div>
-            {open?.id === f.id && <CoverageForm female={f} today={today} editing={open.editing} onCancel={() => setOpen(null)} onSaved={() => { setOpen(null); onSaved() }} />}
+            {open?.id === f.id && <CoverageForm female={f} today={today} editing={open.editing} onCancel={() => setOpen(null)} onSaved={() => { setNotice(''); setOpen(null); onSaved() }}
+              onQueued={(message) => { setNotice(`${message} A cobertura aparece aqui depois do envio.`); setOpen(null) }} />}
           </li>
         ))}
       </ul>
@@ -569,7 +592,7 @@ export function ReproductionSection({ females, today, canEdit, onSaved }: { fema
   )
 }
 
-function CoverageForm({ female, today, editing, onCancel, onSaved }: { female: LotAnimal; today: string; editing?: Coverage; onCancel: () => void; onSaved: () => void }) {
+function CoverageForm({ female, today, editing, onCancel, onSaved, onQueued }: { female: LotAnimal; today: string; editing?: Coverage; onCancel: () => void; onSaved: () => void; onQueued: (message: string) => void }) {
   const [form, setForm] = useState(editing
     ? {
         heatDate: editing.heatDate ?? '', method: editing.method ?? 'ia', coverageDate: editing.coverageDate,
@@ -590,7 +613,8 @@ function CoverageForm({ female, today, editing, onCancel, onSaved }: { female: L
       else await send('/api/reproducao', 'POST', { femaleId: female.id, status: 'Coberta', ...form })
       onSaved()
     } catch (err) {
-      setError(offlineMessage(err))
+      if (isQueued(err)) onQueued(err.message)
+      else setError(offlineMessage(err))
     } finally {
       setSaving(false)
     }

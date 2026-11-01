@@ -2,6 +2,8 @@
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
 import { getPendingRecords, removePendingRecord } from '@/lib/offlineStorage'
+import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
+import { loadHerd } from '@/lib/herdCache'
 import { MilkDailyEntry } from '@/components/MilkDailyEntry'
 import { MilkTotalEntry } from '@/components/MilkTotalEntry'
 import { MilkCollections } from '@/components/MilkCollections'
@@ -52,7 +54,7 @@ export default function MilkProductionPage() {
   const [productions, setProductions] = useState<Production[]>([])
   const [allAnimals, setAllAnimals] = useState<Animal[]>([])
   const [loading, setLoading] = useState(true)
-  const [farmId, setFarmId] = useState('')
+  const farmId = user?.farmId ?? ''
   // Abre nos últimos 7 dias (D-7); o período pode ser mudado nos campos De/Até
   const [from, setFrom] = useState(() => lastDaysRange(7).from)
   const [to, setTo] = useState(() => lastDaysRange(7).to)
@@ -86,10 +88,11 @@ export default function MilkProductionPage() {
     setLoading(true)
     const liteCache = readLiteCache()
     if (navigator.onLine && liteCache?.mode === 'fazenda' && liteCache.farmId === fid && litePendingCount() > 0) await syncLite()
+    // Lista, rebanho e preço com cópia no aparelho: sem sinal (ou com sinal fraco) mostra a última cópia
     Promise.all([
-      fetch(`/api/milk-production?farmId=${fid}`, { cache: 'no-store' }).then((r) => r.json()),
-      fetch(`/api/animals?farmId=${fid}`).then((r) => r.json()),
-      fetch('/api/milk-production/price', { cache: 'no-store' }).then(r => r.ok ? r.json() : null),
+      cachedGet<Production[]>(`cache_milk_${fid}`, `/api/milk-production?farmId=${fid}`).then((r) => r.data).catch(() => []),
+      loadHerd<Animal & { species: string; gender: string; status: string }>(fid).then((r) => r.data).catch(() => []),
+      cachedGet<{ price: number | null }>(`cache_milk_price_${fid}`, '/api/milk-production/price').then((r) => r.data).catch(() => null),
     ]).then(([prods, animals, priceData]) => {
       if (priceData) setPrice(priceData.price)
       setProductions(Array.isArray(prods) ? prods : [])
@@ -108,14 +111,9 @@ export default function MilkProductionPage() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/auth/me')
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data.farmId) return
-        setFarmId(data.farmId)
-        loadData(data.farmId)
-      })
-  }, [loadData])
+    // Fora do corpo do efeito (regra do lint): a carga mexe no estado
+    if (farmId) void Promise.resolve().then(() => loadData(farmId))
+  }, [farmId, loadData])
 
   useEffect(() => {
     const refresh = () => { if (farmId && navigator.onLine) loadData(farmId) }
@@ -209,7 +207,7 @@ export default function MilkProductionPage() {
   async function handleDelete(id: string) {
     if (!canEdit) return
     if (!(await confirm({ title: 'Excluir este registro de leite?', confirmLabel: 'Excluir', danger: true }))) return
-    await fetch(`/api/milk-production/${id}`, { method: 'DELETE' })
+    await fetchWithTimeout(`/api/milk-production/${id}`, { method: 'DELETE' }).catch(() => null)
     loadData(farmId)
   }
 
@@ -220,7 +218,7 @@ export default function MilkProductionPage() {
     for (const record of pending) {
       try {
         const pendingId = record._pendingId
-        const res = await fetch('/api/milk-production', {
+        const res = await fetchWithTimeout('/api/milk-production', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

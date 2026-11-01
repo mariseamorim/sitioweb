@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { addPendingRecord } from '@/lib/offlineStorage'
+import { fetchWithTimeout } from '@/lib/offlineData'
 import { todayISO } from '@/lib/utils'
 import { calvingStarts, cowCalving, monthsLabel, plural } from '@/lib/calving'
 import { canAddCalf } from '@/lib/animalRules'
@@ -135,12 +136,12 @@ export function AddCalfForm({ mother, animals, farmId, isOnline, onCancel, onSav
       if (!isOnline) return setError('Para ligar uma cria já cadastrada, é preciso internet.')
       setSaving(true)
       try {
-        const res = await fetch(`/api/animals/${existingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ motherId: mother.id }) })
+        const res = await fetchWithTimeout(`/api/animals/${existingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ motherId: mother.id }) })
         const data = await res.json()
         if (!res.ok) return setError(data.error || 'Não foi possível salvar')
         onSaved()
       } catch {
-        setError('Sem conexão. Tente de novo.')
+        setError('Sem internet. Para ligar uma cria já cadastrada, tente de novo quando o sinal voltar.')
       } finally {
         setSaving(false)
       }
@@ -157,7 +158,7 @@ export function AddCalfForm({ mother, animals, farmId, isOnline, onCancel, onSav
     }
     setSaving(true)
     try {
-      const res = await fetch('/api/animals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(calf) })
+      const res = await fetchWithTimeout('/api/animals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(calf) })
       const data = await res.json()
       if (!res.ok) return setError(data.error || 'Não foi possível salvar')
       onSaved()

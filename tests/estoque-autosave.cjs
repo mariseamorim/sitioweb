@@ -87,7 +87,7 @@ async function main() {
 
     // 5. Sem internet: fica no aparelho, saldo já reflete, e ao voltar a internet é enviado sozinho
     await page.evaluate(() => { Object.defineProperty(navigator, 'onLine', { get: () => false, configurable: true }); window.dispatchEvent(new Event('offline')) })
-    await page.getByText('Sem internet. Ao salvar, os registros ficam neste aparelho.', { exact: false }).waitFor()
+    await page.getByText('Sem internet. O que você registrar fica salvo no aparelho', { exact: false }).waitFor()
     await page.getByRole('row').filter({ hasText: 'Ração' }).click()
     await page.getByRole('button', { name: '+ Movimentação (Entrada / Saída)', exact: true }).click()
     await dialog.getByLabel('Quantidade (kg) *').fill('3')

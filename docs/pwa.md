@@ -22,4 +22,20 @@ node tests/pwa-responsive.cjs verifica 320, 375, 768, 1024 e 1440 pixels, ausên
 
 Para verificar instalação e offline, execute contra uma versão de produção com TEST_PWA=1 e TEST_BASE_URL apontando para o servidor. O teste usa um perfil temporário, confirma o registro e controle do service worker, manifesto, ícones e critérios de instalação, e abre uma página em cache e o fallback sem internet. Nenhum registro real é criado.
 
-O offline depende das telas e dados acessados anteriormente; módulos com suporte offline mantêm registros pendentes no aparelho. Formulários de contato e outras ações que dependem de servidor precisam de internet.
+## Dados sem internet (src/lib/offlineData.ts)
+
+Todas as telas usam a mesma base, que trata dois casos: sem sinal (navigator.onLine false) e sinal fraco, em que o celular acha que está online mas nada chega. Cada pedido de rede desiste em 8 segundos (`fetchWithTimeout`); sem isso, o app ficava minutos em "Carregando".
+
+- Leitura: `cachedGet(chave, url)` busca, guarda a resposta no aparelho e, quando a rede falha (sem sinal, demora ou erro 5xx), devolve a cópia com `fromCache: true`; a tela mostra "Sinal fraco: mostrando a última cópia". Erro 4xx (sem permissão, por exemplo) não usa a cópia. O rebanho tem a própria chave, `animais_cache_<propriedade>`, por `loadHerd` em src/lib/herdCache.ts (sem a foto, para caber).
+- Escrita: `sendOrQueue(modulo, { type, id?, url, method, body, local })` envia agora ou guarda na fila `pending_<modulo>`. Cada pedido guardado leva a própria URL e método (`_url`, `_method`, `_body`), então o envio é igual para todos os módulos. Recusa do servidor (4xx) volta como `rejected` com a mensagem e não entra na fila. `local` são campos só para a tela mostrar o registro enquanto espera (o animal, o farmId).
+- Lista com a fila por cima: `withPending(lista, fila, build)`: `delete` tira o registro, `update` mescla o corpo no registro, `create` vira um item com id `pending_<n>` (marcado "a enviar" na tela). Excluir um item `pending_` só tira da fila.
+- Envio: `syncModule(modulo)` manda a fila na ordem; enviado ou recusado (4xx: já não existe, inválido) sai da fila; falha de rede ou 5xx para e guarda o resto. A barra do topo (SyncStatus) chama `syncAll` quando a internet volta e a cada 30 s enquanto houver fila, e dispara `SYNC_EVENT` para as telas abertas recarregarem. Registros antigos da fila, sem `_url`, são enviados pela própria tela (`legacy` em `useOfflineModule`).
+- Tela: `useOfflineModule(modulo, reload, legacy)` (src/lib/useOffline.ts) dá `online`, `pending`, `sync()` e recarrega quando a fila é enviada.
+
+Filas com formato próprio, anteriores a esta base e mantidas: `estoque-mov` (movimentações com autosave), `animais` (com foto), `recria` (src/lib/rearingQueue.ts) e as do Anota Aí Leite (`lite_*`). A barra do topo conta todas; envia sozinha só as que têm `_url`.
+
+Telas de administração e marketplace (Usuários, Propriedades, Ofertas, Fornecedor, Associação, Admin) abrem pela cópia, mas as ações (convidar, aprovar, pedir) precisam de internet: dependem da resposta do servidor.
+
+```powershell
+node tests/offline-data.cjs
+```

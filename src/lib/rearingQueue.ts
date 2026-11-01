@@ -2,6 +2,7 @@
 // Só no navegador (localStorage).
 
 import { addPendingRecord, getPendingRecords, removePendingRecord } from './offlineStorage'
+import { fetchWithTimeout } from './offlineData'
 import { type HerdRef, type RearingAnimal, type RearingPending, applyPending, pendingRequest } from './rearing'
 
 const MODULE = 'recria'
@@ -39,7 +40,7 @@ export async function syncRearing(farmId: string): Promise<{ sent: number; faile
   for (const record of pendingRearing(farmId)) {
     const { url, method, body } = pendingRequest(record)
     try {
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const res = await fetchWithTimeout(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (res.ok || res.status === 400 || res.status === 404) {
         removePendingRecord(MODULE, record._pendingId)
         if (res.ok) sent++

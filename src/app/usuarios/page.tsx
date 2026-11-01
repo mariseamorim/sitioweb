@@ -10,6 +10,7 @@ import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 import { contactLabel } from '@/lib/identity'
 import { maskPhone } from '@/lib/masks'
+import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
 
 interface User {
   id: string
@@ -69,6 +70,8 @@ function PermissionsGrid({ value, onChange, disabled, allowed }: {
   )
 }
 
+const OFFLINE_ACTION = 'Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.'
+
 export default function UsuariosPage() {
   const { confirm, notify } = useDialog()
   const { user: me } = useUser()
@@ -82,6 +85,8 @@ export default function UsuariosPage() {
     modules: u => (u.role === 'admin' ? 999 : u.permissions?.length ?? 0),
   })
   const [loading, setLoading] = useState(true)
+  const [fromCache, setFromCache] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [editUser, setEditUser] = useState<User | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -89,10 +94,15 @@ export default function UsuariosPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
+  // Lista com cópia no aparelho: sem sinal ou com sinal fraco, mostra a última cópia
   function fetchUsers() {
-    setLoading(true)
-    fetch('/api/users').then(r => r.json()).then(data => {
+    cachedGet<User[]>('cache_usuarios', '/api/users').then(({ data, fromCache }) => {
       setUsers(Array.isArray(data) ? data : [])
+      setFromCache(fromCache)
+      setLoadError('')
+      setLoading(false)
+    }).catch((e: Error) => {
+      setLoadError(e.message || 'Sem internet e sem cópia guardada neste aparelho. Abra esta tela uma vez com sinal.')
       setLoading(false)
     })
   }
@@ -112,15 +122,18 @@ export default function UsuariosPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true); setError('')
-    const res = await fetch('/api/users', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...form,
-        permissions: form.permissions,
-      }),
-    })
-    const data = await res.json()
+    let res: Response
+    try {
+      res = await fetchWithTimeout('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          permissions: form.permissions,
+        }),
+      })
+    } catch { setError(OFFLINE_ACTION); setSaving(false); return }
+    const data = await res.json().catch(() => ({}))
     if (!res.ok) { setError(data.error || 'Erro ao salvar'); setSaving(false); return }
     setSaving(false); setShowCreate(false); setForm(EMPTY_FORM); fetchUsers()
   }
@@ -129,23 +142,27 @@ export default function UsuariosPage() {
     e.preventDefault()
     if (!editUser) return
     setSaving(true); setError('')
-    const res = await fetch(`/api/users/${editUser.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      // Ao editar a si mesmo, só o nome muda (perfil e módulos ficam como estão)
-      body: JSON.stringify(editUser.id === me?.id
-        ? { name: editForm.name }
-        : { name: editForm.name, role: editForm.role, permissions: editForm.permissions }),
-    })
-    const data = await res.json()
+    let res: Response
+    try {
+      res = await fetchWithTimeout(`/api/users/${editUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        // Ao editar a si mesmo, só o nome muda (perfil e módulos ficam como estão)
+        body: JSON.stringify(editUser.id === me?.id
+          ? { name: editForm.name }
+          : { name: editForm.name, role: editForm.role, permissions: editForm.permissions }),
+      })
+    } catch { setError(OFFLINE_ACTION); setSaving(false); return }
+    const data = await res.json().catch(() => ({}))
     if (!res.ok) { setError(data.error || 'Erro ao salvar'); setSaving(false); return }
     setSaving(false); setEditUser(null); fetchUsers()
   }
 
   async function handleDelete(id: string, name: string) {
     if (!(await confirm({ title: `Excluir o usuário ${name}?`, message: 'Ele não vai mais conseguir entrar no sistema.', confirmLabel: 'Excluir', danger: true }))) return
-    const res = await fetch(`/api/users/${id}`, { method: 'DELETE' })
-    if (!res.ok) { const d = await res.json(); await notify('Não foi possível excluir', d.error); return }
+    let res: Response
+    try { res = await fetchWithTimeout(`/api/users/${id}`, { method: 'DELETE' }) } catch { await notify('Não foi possível excluir', OFFLINE_ACTION); return }
+    if (!res.ok) { const d = await res.json().catch(() => ({})); await notify('Não foi possível excluir', d.error); return }
     fetchUsers()
   }
 
@@ -167,8 +184,11 @@ export default function UsuariosPage() {
           )}
         </div>
 
+        {fromCache && <p role="status" className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho.</p>}
         {loading ? (
           <p className="text-gray-400 text-sm">Carregando...</p>
+        ) : loadError && users.length === 0 ? (
+          <p className="text-gray-500 text-sm">{loadError}</p>
         ) : users.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <p className="text-lg">Nenhum usuário cadastrado</p>

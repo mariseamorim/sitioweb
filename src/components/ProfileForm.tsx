@@ -8,6 +8,7 @@ import { homeForRole } from '@/lib/organizations'
 import { maskPhone } from '@/lib/masks'
 import { useDialog } from '@/components/DialogProvider'
 import { wipeDevice } from '@/lib/offlineUnlock'
+import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
 
 interface Profile {
   name: string
@@ -30,13 +31,14 @@ export function ProfileForm() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [fromCache, setFromCache] = useState(false)
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get('googleError')
     if (code) setError(GOOGLE_ERRORS[code] || GOOGLE_ERRORS.failed)
-    fetch('/api/perfil').then(async r => {
-      const data = await r.json()
-      if (!r.ok) throw new Error(data.error)
+    // Cadastro com cópia no aparelho: sem sinal ou com sinal fraco, mostra a última cópia (só leitura)
+    cachedGet<Profile>('cache_perfil', '/api/perfil').then(({ data, fromCache }) => {
       setProfile(data)
+      setFromCache(fromCache)
     }).catch((e: Error) => setError(e.message || 'Não foi possível carregar o cadastro'))
   }, [])
 
@@ -48,8 +50,9 @@ export function ProfileForm() {
     setSaving(true)
     try {
       const vendor = profile.vendor ? Object.fromEntries(Object.entries(profile.vendor).map(([key, value]) => [key, value ?? ''])) : null
-      const res = await fetch('/api/perfil', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...profile, vendor, points: profile.milkPoints, password, currentPassword }) })
-      const data = await res.json()
+      const res = await fetchWithTimeout('/api/perfil', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...profile, vendor, points: profile.milkPoints, password, currentPassword }) }).catch(() => null)
+      if (!res) throw new Error('Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.')
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error)
       setPassword(''); setConfirmation(''); setCurrentPassword('')
       refresh()
@@ -73,6 +76,7 @@ export function ProfileForm() {
     <Link href={home} className="text-sm font-medium text-green-700">← Voltar</Link>
     <h1 className="mt-4 text-2xl font-bold text-gray-900">Meu cadastro</h1>
     {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-red-700">{error}</p>}
+    {fromCache && <p role="status" className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho. Para alterar, é preciso conexão.</p>}
     {!profile ? <p className="mt-4 text-gray-500">{error ? 'Cadastro indisponível.' : 'Carregando...'}</p> :
       <form onSubmit={save} className="mt-5 rounded-xl border border-gray-200 bg-white p-5">
         <fieldset disabled={saving} className="flex flex-col gap-4 disabled:opacity-70">

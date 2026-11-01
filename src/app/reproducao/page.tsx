@@ -6,9 +6,11 @@ import { animalSearchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 
-import { useEffect, useState, useMemo } from 'react'
-import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
-import { readHerdCache, writeHerdCache } from '@/lib/herdCache'
+import { useCallback, useEffect, useState, useMemo } from 'react'
+import { removePendingRecord, type OfflineRecord } from '@/lib/offlineStorage'
+import { cachedGet, isPendingId, pendingIdOf, pendingItemId, pendingOf, sendOrQueue, updatePending, withPending, type PendingRequest, type QueuedRequest } from '@/lib/offlineData'
+import { useOfflineModule } from '@/lib/useOffline'
+import { loadHerd } from '@/lib/herdCache'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, FecharIcon, ReproducaoIcon } from '@/components/ModuleIcons'
@@ -18,7 +20,7 @@ import { isInRearing } from '@/lib/rearing'
 import { pregnancyChecks, type PregnancyCheck } from '@/lib/calving'
 import { AddCalfForm } from '@/components/CalfSection'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
-import { COVERAGE_METHODS, EMPTY_COVERAGE, gestation, isInsemination, methodLabel, repeatCoverage, repeatedFields, type CoverageForm } from '@/lib/coverage'
+import { COVERAGE_METHODS, EMPTY_COVERAGE, GESTATION_DAYS, gestation, isInsemination, methodLabel, plusDays, repeatCoverage, repeatedFields, type CoverageForm } from '@/lib/coverage'
 
 interface Animal { id: string; name: string; code: string; species: string; gender: string; status: string; birthDate: string; motherId?: string | null; rearingStart?: string | null; rearingEnd?: string | null }
 
@@ -51,17 +53,42 @@ const STATUS_COLOR: Record<string, string> = {
   Perdida: 'bg-red-100 text-red-700',
 }
 
+const MODULE = 'reproducao'
+
+/** Cobertura guardada sem internet, como aparece na lista. Registros antigos da fila têm os campos soltos (sem _body nem _type). */
+function pendingReproduction(p: PendingRequest, herd: Animal[]): Reproduction | null {
+  if ((p._type ?? 'create') !== 'create') return null
+  const b = (p._body ?? p) as Record<string, string | null | undefined>
+  const femaleId = b.femaleId ?? ''
+  const female = (p.female as Animal | undefined) ?? herd.find(a => a.id === femaleId) ?? { id: femaleId, name: '(sem internet)', code: '', species: '', gender: 'Fêmea', status: 'Vivo', birthDate: '' }
+  return {
+    id: pendingItemId(p), femaleId, female, maleName: b.maleName || null, coverageDate: b.coverageDate ?? '',
+    // O servidor calcula o parto previsto; aqui a mesma conta, para a lista e o painel de partos
+    expectedBirthDate: b.expectedBirthDate || (b.coverageDate ? plusDays(b.coverageDate, GESTATION_DAYS) : null),
+    actualBirthDate: b.actualBirthDate || null, status: b.status || 'Coberta', calfId: null, observations: b.observations || null,
+    method: b.method || null, heatDate: b.heatDate || null, semenBatch: b.semenBatch || null, bullRegistry: b.bullRegistry || null, inseminator: b.inseminator || null,
+  }
+}
+
+/** Fila antiga (antes de cada pedido levar a própria URL): era sempre um POST com os campos soltos mais a fêmea */
+const legacyRequest = (r: OfflineRecord): QueuedRequest => {
+  const data = Object.fromEntries(Object.entries(r).filter(([k]) => !['_pendingId', '_type', 'female'].includes(k)))
+  return { url: '/api/reproducao', method: 'POST', body: data }
+}
+
 export default function ReproducaoPage() {
   const { confirm } = useDialog()
   const { user } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
+  const farmId = user?.farmId ?? ''
   const [reproductions, setReproductions] = useState<Reproduction[]>([])
   const [females, setFemales] = useState<Animal[]>([])
   const [animalSearch, setAnimalSearch] = useState('')
   const [herd, setHerd] = useState<Animal[]>([])
   const [registeringBirth, setRegisteringBirth] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [farmId, setFarmId] = useState('')
+  const [fromCache, setFromCache] = useState(false)
+  const [notice, setNotice] = useState('')
   const [filterStatus, setFilterStatus] = useState('Todas')
   const [quick, setQuick] = useQuickFilter(['partos'] as const)
   const [detail, setDetail] = useState<Reproduction | null>(null)
@@ -74,78 +101,25 @@ export default function ReproducaoPage() {
   const [error, setError] = useState('')
   const [editStatus, setEditStatus] = useState('')
   const [editBirthDate, setEditBirthDate] = useState('')
-  const [isOnline, setIsOnline] = useState(true)
-  const [pendingCount, setPendingCount] = useState(0)
-  const [syncing, setSyncing] = useState(false)
 
-  useEffect(() => {
-    setIsOnline(navigator.onLine)
-    setPendingCount(getPendingRecords('reproducao').length)
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
+  // Lista e rebanho com cópia no aparelho; a fila (coberturas, correções e exclusões sem internet) entra por cima
+  const loadData = useCallback(async (fid: string) => {
+    const [repros, herdLoaded] = await Promise.all([
+      cachedGet<Reproduction[]>(`cache_reproducao_${fid}`, `/api/reproducao?farmId=${fid}`).catch(() => null),
+      loadHerd<Animal>(fid).catch(() => null),
+    ])
+    const anims = Array.isArray(herdLoaded?.data) ? herdLoaded.data : []
+    const list = Array.isArray(repros?.data) ? repros.data : []
+    setHerd(anims)
+    // Só fêmeas vivas e, se bovinas, com 2 anos ou mais
+    setFemales(anims.filter(a => canBreed(a, undefined, { inRearingLot: isInRearing(a) })))
+    setReproductions(withPending(list, pendingOf(MODULE, p => p.farmId === fid), p => pendingReproduction(p, anims)))
+    setFromCache(!!(repros?.fromCache || herdLoaded?.fromCache))
+    setLoading(false)
   }, [])
-
-  useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(data => {
-      if (!data.farmId) return
-      setFarmId(data.farmId)
-      loadData(data.farmId)
-    })
-  }, [])
-
-  function loadData(fid: string) {
-    setLoading(true)
-    const mapPending = () =>
-      getPendingRecords('reproducao')
-        .filter(r => r.farmId === fid && r._type === 'create')
-        .map(r => ({
-          id: `pending_${r._pendingId}`,
-          femaleId: r.femaleId,
-          female: r.female || { id: r.femaleId, name: '(Offline)', code: '', species: '', gender: 'Fêmea' },
-          maleName: r.maleName ?? null,
-          coverageDate: r.coverageDate,
-          expectedBirthDate: r.expectedBirthDate ?? null,
-          actualBirthDate: r.actualBirthDate ?? null,
-          status: r.status,
-          calfId: r.calfId ?? null,
-          observations: r.observations ?? null,
-          method: r.method || null,
-          heatDate: r.heatDate || null,
-          semenBatch: r.semenBatch || null,
-          bullRegistry: r.bullRegistry || null,
-          inseminator: r.inseminator || null,
-        }))
-
-    // Sem internet: as fêmeas vêm do rebanho guardado no aparelho (pela tela Animais ou por esta), e a lista são os registros pendentes
-    const offline = () => {
-      const pending = mapPending()
-      const cached = readHerdCache<Animal>(fid)
-      setReproductions(pending)
-      setHerd(cached)
-      setFemales(cached.length ? cached.filter(a => canBreed(a, undefined, { inRearingLot: isInRearing(a) })) : pending.map(p => p.female))
-      setLoading(false)
-    }
-    if (!navigator.onLine) return offline()
-    
-    Promise.all([
-      fetch(`/api/reproducao?farmId=${fid}`).then(r => r.json()).catch(() => []),
-      fetch(`/api/animals?farmId=${fid}`).then(r => r.json()).catch(() => []),
-    ]).then(([repros, anims]) => {
-      const pending = mapPending()
-      setReproductions(Array.isArray(repros) ? [...repros, ...pending] : pending)
-      // Só fêmeas vivas e, se bovinas, com 2 anos ou mais
-      setFemales(Array.isArray(anims) ? anims.filter((a: Animal) => canBreed(a, undefined, { inRearingLot: isInRearing(a) })) : [])
-      setHerd(Array.isArray(anims) ? anims : [])
-      if (Array.isArray(anims) && anims.length) writeHerdCache(fid, anims)
-      setLoading(false)
-    }).catch(offline)
-  }
+  const reload = useCallback(() => { if (farmId) void loadData(farmId) }, [farmId, loadData])
+  const net = useOfflineModule(MODULE, reload, legacyRequest)
+  useEffect(() => { void Promise.resolve().then(reload) }, [reload])
 
   const filtered = useMemo(() => {
     const term = animalSearch.trim().toLowerCase()
@@ -163,66 +137,59 @@ export default function ReproducaoPage() {
     return reproductions.filter(r => (r.status === 'Coberta' || r.status === 'Prenha') && r.expectedBirthDate && !r.actualBirthDate && new Date(r.expectedBirthDate) <= in30).length
   }, [reproductions])
 
+  // Depois de guardar ou enviar: a lista mostra na hora e a barra do topo atualiza a contagem
+  const afterChange = (queued: boolean) => {
+    setNotice(queued ? net.queuedMessage : '')
+    net.refresh()
+    reload()
+  }
+
   // Resposta do "Confirmar prenhez": atualiza a cobertura anotada depois do parto ou cria o registro
   async function answerPregnancyCheck(check: PregnancyCheck, answer: 'Prenha' | 'Vazia') {
+    let r
     if (check.openCoverage) {
-      await fetch(`/api/reproducao/${check.openCoverage.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: answer, observations: check.openCoverage.observations ?? null }),
-      })
+      r = await sendOrQueue(MODULE, { type: 'update', id: check.openCoverage.id, url: `/api/reproducao/${check.openCoverage.id}`, method: 'PUT', body: { status: answer, observations: check.openCoverage.observations ?? null }, local: { farmId } })
     } else if (answer === 'Vazia') {
-      await fetch('/api/reproducao', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ femaleId: check.cow.id, coverageDate: todayISO(), status: 'Vazia', observations: 'Confirmada vazia depois do parto' }),
-      })
+      const body = { femaleId: check.cow.id, coverageDate: todayISO(), status: 'Vazia', observations: 'Confirmada vazia depois do parto', farmId }
+      r = await sendOrQueue(MODULE, { type: 'create', url: '/api/reproducao', method: 'POST', body, local: { farmId, female: check.cow } })
     } else {
       // Prenha sem cobertura anotada: abre o registro já preenchido para informar a data da cobertura
       setForm({ ...EMPTY_COVERAGE, femaleId: check.cow.id, coverageDate: '', status: 'Prenha' })
       openRegister()
       return
     }
-    loadData(farmId)
+    if (r.status === 'rejected') setNotice(r.error)
+    else afterChange(r.status === 'queued')
   }
 
   async function handleDelete(id: string) {
     if (!canEdit) return
     if (!(await confirm({ title: 'Excluir este registro de reprodução?', confirmLabel: 'Excluir', danger: true }))) return
-    await fetch(`/api/reproducao/${id}`, { method: 'DELETE' })
     setDetail(null)
-    loadData(farmId)
-  }
-
-  async function handleSync() {
-    const pending = getPendingRecords('reproducao')
-    if (!pending.length) return
-    setSyncing(true)
-    for (const record of pending) {
-      const { _pendingId, _type, farmId: _, ...data } = record
-      await fetch('/api/reproducao', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, farmId }),
-      })
+    if (isPendingId(id)) {
+      // Ainda não foi enviado: sai da fila do aparelho
+      removePendingRecord(MODULE, pendingIdOf(id))
+      return afterChange(false)
     }
-    clearPendingRecords('reproducao')
-    setPendingCount(0)
-    setSyncing(false)
-    loadData(farmId)
+    const r = await sendOrQueue(MODULE, { type: 'delete', id, url: `/api/reproducao/${id}`, method: 'DELETE', local: { farmId } })
+    if (r.status === 'rejected') setNotice(r.error)
+    else afterChange(r.status === 'queued')
   }
 
   async function handleUpdateStatus() {
     if (!detail) return
-    await fetch(`/api/reproducao/${detail.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: editStatus || detail.status, actualBirthDate: editBirthDate || null }),
-    })
+    const body = { status: editStatus || detail.status, actualBirthDate: editBirthDate || null }
     setDetail(null)
     setEditStatus('')
     setEditBirthDate('')
-    loadData(farmId)
+    if (isPendingId(detail.id)) {
+      // Ainda na fila: o status novo vai junto quando for enviada
+      updatePending(MODULE, pendingIdOf(detail.id), p => (p._body ? { ...p, _body: { ...(p._body as object), ...body } } : { ...p, ...body }))
+      return afterChange(true)
+    }
+    const r = await sendOrQueue(MODULE, { type: 'update', id: detail.id, url: `/api/reproducao/${detail.id}`, method: 'PUT', body, local: { farmId } })
+    if (r.status === 'rejected') setNotice(r.error)
+    else afterChange(r.status === 'queued')
   }
 
   function openRegister() {
@@ -234,7 +201,7 @@ export default function ReproducaoPage() {
   function closeRegister() {
     setShowRegister(false)
     setForm({ ...EMPTY_COVERAGE, coverageDate: todayISO() })
-    if (repeated) loadData(farmId)
+    if (repeated) reload()
   }
 
   // Salva a cobertura. Com `repeat`, mantém data, tipo, touro, partida e inseminador e limpa só a fêmea:
@@ -245,40 +212,29 @@ export default function ReproducaoPage() {
     setSaving(true)
     setError('')
     const payload = { ...form, farmId, maleName: form.maleName || null, observations: form.observations || null }
-
-    try {
-      if (!isOnline) {
-        // Sem internet: fica na fila do aparelho e vai para o servidor em "Sincronizar"
-        const female = females.find(f => f.id === form.femaleId)
-        addPendingRecord('reproducao', { ...payload, female: female || undefined })
-        setPendingCount(getPendingRecords('reproducao').length)
-      } else {
-        const res = await fetch('/api/reproducao', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Não foi possível salvar')
-      }
-    } catch (err) {
-      setError((err as Error).message)
-      setSaving(false)
-      return
-    }
+    const female = females.find(f => f.id === form.femaleId)
+    const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/reproducao', method: 'POST', body: payload, local: { farmId, female } })
     setSaving(false)
+    if (r.status === 'rejected') return setError(r.error)
+    const queued = r.status === 'queued'
+    net.refresh()
 
     if (repeat) {
       setForm(repeatCoverage(form))
-      setRepeated((r) => ({ count: (r?.count ?? 0) + 1, kept: repeatedFields(form) }))
-      if (!isOnline) loadData(farmId)
+      setRepeated((prev) => ({ count: (prev?.count ?? 0) + 1, kept: repeatedFields(form) }))
+      if (queued) { setNotice(net.queuedMessage); reload() }
       return
     }
     setShowRegister(false)
     setForm({ ...EMPTY_COVERAGE, coverageDate: todayISO() })
     setRepeated(null)
-    loadData(farmId)
+    afterChange(queued)
   }
 
   // Datas gravadas à meia-noite UTC: mostrar em UTC para não cair no dia anterior no horário de Brasília
   const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
   // Cobertura em aberto: dá para registrar o parto anotando a cria
-  const birthMother = detail && canEdit && !detail.actualBirthDate && !detail.id.startsWith('pending_') && (detail.status === 'Coberta' || detail.status === 'Prenha')
+  const birthMother = detail && canEdit && !detail.actualBirthDate && !isPendingId(detail.id) && (detail.status === 'Coberta' || detail.status === 'Prenha')
     ? herd.find((a) => a.id === detail.femaleId)
     : undefined
 
@@ -295,28 +251,35 @@ export default function ReproducaoPage() {
         </button>
       </div>
 
-      {/* Offline / sync banner */}
-      {!isOnline && (
+      {/* Sem internet / fila / aviso */}
+      {(!net.online || fromCache) && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />
-          <span>Você está offline. Os registros serão salvos localmente e sincronizados quando reconectar.</span>
+          <span>{net.online ? 'Sinal fraco: mostrando a última cópia guardada neste aparelho.' : 'Sem internet.'} O que você registrar fica salvo no aparelho e é enviado quando a conexão voltar.</span>
         </div>
       )}
-      {isOnline && pendingCount > 0 && (
+      {net.online && net.pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} reprodução{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{net.pendingCount} registro{net.pendingCount > 1 ? 's' : ''} para enviar</span>
           <button
-            onClick={handleSync}
-            disabled={syncing}
+            onClick={() => void net.sync()}
+            disabled={net.syncing}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+            {net.syncing ? 'Enviando...' : 'Enviar agora'}
           </button>
         </div>
-      )}      </div>
+      )}
+      {notice && (
+        <div role="status" className="bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
+          <span>{notice}</span>
+          <button onClick={() => setNotice('')} className="text-green-700 hover:text-green-900 p-1" aria-label="Fechar aviso"><FecharIcon /></button>
+        </div>
+      )}
+      </div>
 
       {!loading && (
-        <PregnancyCheckPanel checks={pregnancyChecks(herd, reproductions.filter(r => !r.id.startsWith('pending_')))} canEdit={canEdit && isOnline}
+        <PregnancyCheckPanel checks={pregnancyChecks(herd, reproductions.filter(r => !isPendingId(r.id)))} canEdit={canEdit}
           onAnswer={answerPregnancyCheck} />
       )}
       {!loading && <HerdCalvingPanel herd={herd} reproductions={reproductions} />}
@@ -361,7 +324,7 @@ export default function ReproducaoPage() {
             <tbody className="divide-y divide-gray-100">
               {sortedReproductions.map(r => (
                 <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetail(r); setEditingRecord(false); setRegisteringBirth(false); setEditStatus(r.status); setEditBirthDate(r.actualBirthDate?.slice(0, 10) || '') }}>
-                  <td className="px-4 py-3 font-medium text-gray-800">{r.female.name}</td>
+                  <td className="px-4 py-3 font-medium text-gray-800">{r.female.name}{isPendingId(r.id) && <span className="ml-2 text-xs font-normal text-blue-700">a enviar</span>}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{r.maleName || '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{fmt(r.coverageDate)}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{r.expectedBirthDate ? fmt(r.expectedBirthDate) : '—'}</td>
@@ -383,7 +346,7 @@ export default function ReproducaoPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-lg font-bold text-gray-800">{detail.female.name}</h2>
-                  <p className="text-xs text-gray-500">Cobertura: {fmt(detail.coverageDate)}</p>
+                  <p className="text-xs text-gray-500">Cobertura: {fmt(detail.coverageDate)}{isPendingId(detail.id) ? ' · a enviar' : ''}</p>
                 </div>
                 <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
               </div>
@@ -412,9 +375,9 @@ export default function ReproducaoPage() {
               {birthMother && (
                 registeringBirth ? (
                   <div className="mb-4">
-                    <AddCalfForm mother={birthMother} animals={herd} farmId={farmId} isOnline={isOnline}
+                    <AddCalfForm mother={birthMother} animals={herd} farmId={farmId} isOnline={net.online}
                       onCancel={() => setRegisteringBirth(false)}
-                      onSaved={() => { setRegisteringBirth(false); setDetail(null); loadData(farmId) }} />
+                      onSaved={() => { setRegisteringBirth(false); setDetail(null); reload() }} />
                   </div>
                 ) : (
                   <button type="button" onClick={() => setRegisteringBirth(true)}
@@ -424,8 +387,8 @@ export default function ReproducaoPage() {
                 )
               )}
 
-              {canEdit && !detail.id.startsWith('pending_') && (editingRecord
-                ? <RecordEditor record={detail} onCancel={() => setEditingRecord(false)} onSaved={() => { setEditingRecord(false); setDetail(null); loadData(farmId) }} />
+              {canEdit && !isPendingId(detail.id) && (editingRecord
+                ? <RecordEditor record={detail} farmId={farmId} onCancel={() => setEditingRecord(false)} onSaved={(queued) => { setEditingRecord(false); setDetail(null); afterChange(queued) }} />
                 : <button type="button" onClick={() => setEditingRecord(true)} className="mb-4 w-full border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-lg hover:bg-gray-50">Editar registro</button>)}
 
               <div className="border-t border-gray-100 pt-4 mb-4">
@@ -546,8 +509,8 @@ export default function ReproducaoPage() {
   )
 }
 
-/** Corrigir a cobertura: datas, reprodutor, inseminação ou monta, sêmen, registro do touro e observações */
-function RecordEditor({ record, onCancel, onSaved }: { record: Reproduction; onCancel: () => void; onSaved: () => void }) {
+/** Corrigir a cobertura: datas, reprodutor, inseminação ou monta, sêmen, registro do touro e observações. Sem internet, a correção fica na fila. */
+function RecordEditor({ record, farmId, onCancel, onSaved }: { record: Reproduction; farmId: string; onCancel: () => void; onSaved: (queued: boolean) => void }) {
   const day = (v?: string | null) => (v ? v.slice(0, 10) : '')
   const [form, setForm] = useState({
     coverageDate: day(record.coverageDate), expectedBirthDate: day(record.expectedBirthDate), heatDate: day(record.heatDate),
@@ -562,19 +525,12 @@ function RecordEditor({ record, onCancel, onSaved }: { record: Reproduction; onC
     e.preventDefault()
     setSaving(true)
     setError('')
-    try {
-      // A data da cobertura recalcula o parto previsto; a previsão digitada vale por cima
-      const res = await fetch(`/api/reproducao/${record.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, method: form.method || null, status: record.status }),
-      })
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Não foi possível salvar')
-      onSaved()
-    } catch (err) {
-      setError(navigator.onLine ? (err as Error).message : 'Sem internet. Tente de novo quando houver sinal.')
-    } finally {
-      setSaving(false)
-    }
+    // A data da cobertura recalcula o parto previsto; a previsão digitada vale por cima
+    const body = { ...form, method: form.method || null, status: record.status }
+    const r = await sendOrQueue(MODULE, { type: 'update', id: record.id, url: `/api/reproducao/${record.id}`, method: 'PUT', body, local: { farmId } })
+    setSaving(false)
+    if (r.status === 'rejected') return setError(r.error)
+    onSaved(r.status === 'queued')
   }
 
   return (

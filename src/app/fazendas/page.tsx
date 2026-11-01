@@ -9,6 +9,7 @@ import { PENDING_MESSAGE, hasPendingOnDevice, reloadInFarm, switchFarm } from '@
 import { DOCUMENT_PLACEHOLDER, maskDocument, maskPhone } from '@/lib/masks'
 import { OwnerGroups } from '@/components/OwnerGroups'
 import type { AdminFarmSummary } from '@/lib/ownerGroups'
+import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
 
 interface Farm {
   id: string
@@ -43,6 +44,8 @@ const typeColor: Record<string, string> = {
   Sítio:   'bg-amber-100 text-amber-700',
 }
 
+const OFFLINE_ACTION = 'Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.'
+
 export default function PropriedadesPage() {
   const { confirm, notify } = useDialog()
   const { user, refresh } = useUser()
@@ -50,6 +53,8 @@ export default function PropriedadesPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [farms, setFarms] = useState<Farm[]>([])
   const [loading, setLoading] = useState(true)
+  const [fromCache, setFromCache] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
@@ -61,18 +66,18 @@ export default function PropriedadesPage() {
 
   const isAdmin = user?.role === 'admin'
 
+  // Listas com cópia no aparelho: sem sinal ou com sinal fraco, mostra a última cópia
   function fetchFarms() {
     setLoading(true)
     if (isAdmin) {
-      fetch('/api/admin/propriedades')
-        .then((r) => (r.ok ? r.json() : []))
-        .then((data: AdminFarmSummary[]) => { setSummaries(data); setFarms(data); setLoading(false) })
-        .catch(() => { setSummaries([]); setFarms([]); setLoading(false) })
+      cachedGet<AdminFarmSummary[]>('cache_fazendas_admin', '/api/admin/propriedades')
+        .then(({ data, fromCache }) => { setSummaries(data); setFarms(data); setFromCache(fromCache); setLoadError(''); setLoading(false) })
+        .catch((e: Error) => { setSummaries([]); setFarms([]); setLoadError(e.message || 'Sem internet e sem cópia guardada neste aparelho. Abra esta tela uma vez com sinal.'); setLoading(false) })
       return
     }
-    fetch('/api/farms')
-      .then((r) => r.json())
-      .then((data) => { setFarms(data); setLoading(false) })
+    cachedGet<Farm[]>('cache_fazendas', '/api/farms')
+      .then(({ data, fromCache }) => { setFarms(Array.isArray(data) ? data : []); setFromCache(fromCache); setLoadError(''); setLoading(false) })
+      .catch((e: Error) => { setFarms([]); setLoadError(e.message || 'Sem internet e sem cópia guardada neste aparelho. Abra esta tela uma vez com sinal.'); setLoading(false) })
   }
 
   // Só busca depois de saber quem é: o administrador usa outra lista
@@ -87,12 +92,12 @@ export default function PropriedadesPage() {
     setError('')
 
     try {
-    const res = await fetch(editingId ? `/api/farms/${editingId}` : '/api/farms', {
+    const res = await fetchWithTimeout(editingId ? `/api/farms/${editingId}` : '/api/farms', {
       method: editingId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
     })
-    const data = await res.json()
+    const data = await res.json().catch(() => ({}))
 
     if (!res.ok) { setError(data.error || 'Erro ao salvar'); setSaving(false); return }
 
@@ -105,7 +110,7 @@ export default function PropriedadesPage() {
     refresh()
     fetchFarms()
     } catch {
-      setError('Não foi possível salvar. Verifique sua conexão e tente novamente.')
+      setError(OFFLINE_ACTION)
     } finally {
       setSaving(false)
     }
@@ -128,10 +133,11 @@ export default function PropriedadesPage() {
   async function handleDelete(farmId: string) {
     if (!(await confirm({ title: 'Excluir esta propriedade?', message: 'Se ela já tiver registros, será apenas desativada e nada se perde.', confirmLabel: 'Excluir', danger: true }))) return
     setDeleting(farmId)
-    
-    const res = await fetch(`/api/farms/${farmId}/delete`, { method: 'DELETE' })
-    const data = await res.json()
-    
+
+    let res: Response
+    try { res = await fetchWithTimeout(`/api/farms/${farmId}/delete`, { method: 'DELETE' }) } catch { setDeleting(null); await notify('Não foi possível excluir', OFFLINE_ACTION); return }
+    const data = await res.json().catch(() => ({}))
+
     setDeleting(null)
     if (!res.ok) {
       await notify('Não foi possível excluir', data.error)
@@ -159,8 +165,11 @@ export default function PropriedadesPage() {
         </button>
       </div>
 
+      {fromCache && <p role="status" className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho.</p>}
       {loading ? (
         <p className="text-gray-400 text-sm">Carregando...</p>
+      ) : loadError && farms.length === 0 ? (
+        <p className="text-gray-500 text-sm">{loadError}</p>
       ) : isAdmin && summaries.length > 0 ? (
         <OwnerGroups farms={summaries} activeFarmId={user?.farmId} onOpen={(f) => void openFarm(f.id)} openingId={opening}
           onEdit={(f) => handleEdit(f)} onDelete={(f) => void handleDelete(f.id)} deletingId={deleting} />

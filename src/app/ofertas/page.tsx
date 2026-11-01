@@ -7,6 +7,7 @@ import { AlertaIcon } from '@/components/ModuleIcons'
 import { fmtDate, fmtMoney } from '@/lib/reports'
 import { whatsappLink } from '@/lib/utils'
 import { RequestQuote } from '@/components/RequestQuote'
+import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
 
 interface Offer {
   id: string
@@ -67,6 +68,8 @@ interface Found {
   linked: boolean
 }
 
+const OFFLINE_ACTION = 'Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.'
+
 export default function OfertasPage() {
   const { user } = useUser()
   const { confirm } = useDialog()
@@ -79,26 +82,44 @@ export default function OfertasPage() {
   const [query, setQuery] = useState('')
   const [found, setFound] = useState<Found[]>([])
   const [error, setError] = useState('')
+  const [fromCache, setFromCache] = useState(false)
+  const [actionError, setActionError] = useState('')
   // Fornecedor escolhido para "Mandar mensagem"
   const [messageTo, setMessageTo] = useState<string | null>(null)
 
+  // Ofertas, fornecedores e pedidos com cópia no aparelho: sem sinal ou com sinal fraco, mostra a última cópia
   function load() {
-    fetch('/api/ofertas')
-      .then(async (r) => {
-        const data = await r.json()
-        if (!r.ok) throw new Error(data.error)
+    cachedGet<{ offers: Offer[]; lowCategories: string[] }>('cache_ofertas', '/api/ofertas')
+      .then(({ data, fromCache }) => {
         setOffers(data.offers)
         setLowCategories(data.lowCategories)
+        setFromCache(fromCache)
+        setError('')
       })
-      .catch((e: Error) => setError(e.message || 'Não foi possível carregar as ofertas'))
-    fetch('/api/meus-fornecedores')
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setVendors)
+      .catch((e: Error) => setError(e.message || 'Não foi possível carregar as ofertas. Sem internet, abra esta tela uma vez com sinal para guardar uma cópia.'))
+    cachedGet<MyVendor[]>('cache_meus_fornecedores', '/api/meus-fornecedores')
+      .then(({ data }) => setVendors(Array.isArray(data) ? data : []))
       .catch(() => {})
-    fetch('/api/pedidos')
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setRequests)
+    cachedGet<MyRequest[]>('cache_pedidos', '/api/pedidos')
+      .then(({ data }) => setRequests(Array.isArray(data) ? data : []))
       .catch(() => {})
+  }
+
+  // Ações (pedido, fornecedor): precisam de internet; com sinal fraco, desiste e avisa em vez de ficar pendurado
+  async function act(url: string, init: RequestInit) {
+    setActionError('')
+    try {
+      const res = await fetchWithTimeout(url, init)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setActionError(data.error || 'Não foi possível concluir. Tente de novo.')
+        return false
+      }
+      return true
+    } catch {
+      setActionError(OFFLINE_ACTION)
+      return false
+    }
   }
 
   // Vindo do sino (#pedidos): as listas chegam depois da página, então rola quando as duas estiverem na tela
@@ -111,17 +132,15 @@ export default function OfertasPage() {
 
   async function setRequestStatus(r: MyRequest, status: 'fechado' | 'cancelado') {
     if (status === 'cancelado' && !(await confirm({ title: 'Cancelar este pedido?', message: `${r.itemName} · ${r.vendor.companyName}`, confirmLabel: 'Cancelar pedido', danger: true }))) return
-    await fetch(`/api/pedidos/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
-    load()
+    if (await act(`/api/pedidos/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })) load()
   }
 
   async function toggleShareStock(v: MyVendor) {
-    await fetch(`/api/meus-fornecedores/${v.id}`, {
+    if (await act(`/api/meus-fornecedores/${v.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ shareStock: !v.shareStock }),
-    })
-    load()
+    })) load()
   }
 
   useEffect(load, [])
@@ -130,7 +149,7 @@ export default function OfertasPage() {
   useEffect(() => {
     if (query.trim().length < 2) return
     const timer = setTimeout(() => {
-      fetch(`/api/fornecedores/busca?q=${encodeURIComponent(query.trim())}`)
+      fetchWithTimeout(`/api/fornecedores/busca?q=${encodeURIComponent(query.trim())}`)
         .then((r) => (r.ok ? r.json() : []))
         .then(setFound)
         .catch(() => setFound([]))
@@ -144,23 +163,22 @@ export default function OfertasPage() {
   }
 
   async function addVendor(id: string) {
-    await fetch('/api/meus-fornecedores', {
+    if (!(await act('/api/meus-fornecedores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ vendorId: id }),
-    })
+    }))) return
     setQuery('')
     setFound([])
     load()
   }
 
   async function toggleMute(v: MyVendor) {
-    await fetch(`/api/meus-fornecedores/${v.id}`, {
+    if (await act(`/api/meus-fornecedores/${v.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ muted: !v.muted }),
-    })
-    load()
+    })) load()
   }
 
   async function removeVendor(v: MyVendor) {
@@ -171,8 +189,7 @@ export default function OfertasPage() {
       danger: true,
     })
     if (!ok) return
-    await fetch(`/api/meus-fornecedores/${v.id}`, { method: 'DELETE' })
-    load()
+    if (await act(`/api/meus-fornecedores/${v.id}`, { method: 'DELETE' })) load()
   }
 
   const categories = [...new Set((offers ?? []).map((o) => o.category))]
@@ -184,6 +201,9 @@ export default function OfertasPage() {
         <h1 className="text-2xl font-bold text-gray-900">Ofertas</h1>
         <p className="text-gray-500 text-sm mt-1">Insumos dos seus fornecedores e da sua região</p>
       </div>
+
+      {fromCache && <p role="status" className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho.</p>}
+      {actionError && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</p>}
 
       {lowCategories.length > 0 && (
         <div className="mb-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
