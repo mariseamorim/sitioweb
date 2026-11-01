@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { countAllPendingOnDevice } from '@/lib/offlineStorage'
+import { pendingModules, syncAll } from '@/lib/offlineData'
 
-// Mostra na barra do topo se o aparelho está sem sinal e quantos registros aguardam envio
+// Mostra na barra do topo se o aparelho está sem sinal e quantos registros aguardam envio.
+// Quando a internet volta (e a cada 30 s enquanto houver fila), envia os pedidos guardados de todos os módulos.
 export function SyncStatus() {
   const [online, setOnline] = useState(true)
   const [pending, setPending] = useState(0)
@@ -14,13 +16,18 @@ export function SyncStatus() {
       setPending(countAllPendingOnDevice())
     }
     refresh()
+    const send = () => { if (navigator.onLine && pendingModules().length) void syncAll().then(refresh) }
+    const up = () => { refresh(); send() }
     const timer = setInterval(refresh, 3000)
-    window.addEventListener('online', refresh)
+    const sender = setInterval(send, 30000)
+    send()
+    window.addEventListener('online', up)
     window.addEventListener('offline', refresh)
     window.addEventListener('storage', refresh)
     return () => {
       clearInterval(timer)
-      window.removeEventListener('online', refresh)
+      clearInterval(sender)
+      window.removeEventListener('online', up)
       window.removeEventListener('offline', refresh)
       window.removeEventListener('storage', refresh)
     }

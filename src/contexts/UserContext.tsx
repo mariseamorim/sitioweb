@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { fetchWithTimeout } from '@/lib/offlineData'
 
 export interface UserData {
   id: string
@@ -59,7 +60,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setLoading(true)
-    fetch('/api/auth/me')
+    // Com limite de espera: com sinal fraco, o fetch comum fica minutos pendurado e o app inteiro mostra "Carregando"
+    fetchWithTimeout('/api/auth/me')
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
         if (data) {
