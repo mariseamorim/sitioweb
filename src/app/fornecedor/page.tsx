@@ -9,6 +9,7 @@ import { SUPPLY_CATEGORIES } from '@/lib/supplies'
 import { fmtDate, fmtMoney } from '@/lib/reports'
 import { todayISO, whatsappLink } from '@/lib/utils'
 import { VendasTab } from './VendasTab'
+import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
 
 interface Vendor {
   companyName: string
@@ -103,11 +104,14 @@ const OFFER_UNITS = ['Kg', 'Saco', 'Litro']
 const matchUnit = (unit: string) => OFFER_UNITS.find((u) => u.toLowerCase() === unit.toLowerCase()) ?? unit
 const EMPTY_FORM = { title: '', category: 'Ração', price: '', unit: '', description: '', imageUrl: '', reach: 'clientes', validUntil: '' }
 const input = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
+const OFFLINE_ACTION = 'Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.'
 
 export default function PainelFornecedorPage() {
   const { confirm } = useDialog()
   const [panel, setPanel] = useState<Panel | null>(null)
   const [loadError, setLoadError] = useState('')
+  const [fromCache, setFromCache] = useState(false)
+  const [actionError, setActionError] = useState('')
   const [tab, setTab] = useState<Tab>('pedidos')
   const [editing, setEditing] = useState<Offer | 'new' | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -115,14 +119,28 @@ export default function PainelFornecedorPage() {
   const [formError, setFormError] = useState('')
   const [copied, setCopied] = useState(false)
 
+  // Painel com cópia no aparelho: sem sinal ou com sinal fraco, mostra a última cópia
   function load() {
-    fetch('/api/fornecedor')
-      .then(async (r) => {
-        const data = await r.json()
-        if (!r.ok) throw new Error(data.error)
-        setPanel(data)
-      })
-      .catch((e: Error) => setLoadError(e.message || 'Não foi possível carregar o painel'))
+    cachedGet<Panel>('cache_fornecedor', '/api/fornecedor')
+      .then(({ data, fromCache }) => { setPanel(data); setFromCache(fromCache); setLoadError('') })
+      .catch((e: Error) => setLoadError(e.message || 'Não foi possível carregar o painel. Sem internet, abra esta tela uma vez com sinal para guardar uma cópia.'))
+  }
+
+  // Ações do painel: precisam de internet; com sinal fraco, desiste e avisa em vez de ficar pendurado
+  async function act(url: string, init: RequestInit) {
+    setActionError('')
+    try {
+      const res = await fetchWithTimeout(url, init)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setActionError(data.error || 'Não foi possível concluir. Tente de novo.')
+        return false
+      }
+      return true
+    } catch {
+      setActionError(OFFLINE_ACTION)
+      return false
+    }
   }
 
   useEffect(load, [])
@@ -157,35 +175,33 @@ export default function PainelFornecedorPage() {
     setFormError('')
     try {
       const isNew = editing === 'new'
-      const res = await fetch(isNew ? '/api/fornecedor/ofertas' : `/api/fornecedor/ofertas/${(editing as Offer).id}`, {
+      const res = await fetchWithTimeout(isNew ? '/api/fornecedor/ofertas' : `/api/fornecedor/ofertas/${(editing as Offer).id}`, {
         method: isNew ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) return setFormError(data.error || 'Não foi possível salvar')
       setEditing(null)
       load()
     } catch {
-      setFormError('Sem conexão. Tente de novo.')
+      setFormError(OFFLINE_ACTION)
     } finally {
       setSaving(false)
     }
   }
 
   async function toggleOffer(offer: Offer) {
-    await fetch(`/api/fornecedor/ofertas/${offer.id}`, {
+    if (await act(`/api/fornecedor/ofertas/${offer.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isActive: !offer.isActive }),
-    })
-    load()
+    })) load()
   }
 
   async function deleteOffer(offer: Offer) {
     if (!(await confirm({ title: 'Excluir esta oferta?', message: offer.title, confirmLabel: 'Excluir', danger: true }))) return
-    await fetch(`/api/fornecedor/ofertas/${offer.id}`, { method: 'DELETE' })
-    load()
+    if (await act(`/api/fornecedor/ofertas/${offer.id}`, { method: 'DELETE' })) load()
   }
 
   async function copyInvite() {
@@ -210,6 +226,8 @@ export default function PainelFornecedorPage() {
           Meu cadastro
         </Link>
       </div>
+      {fromCache && <p role="status" className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho.</p>}
+      {actionError && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</p>}
 
       {vendor.status === 'pendente' && (
         <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
@@ -474,14 +492,14 @@ function RequestCard({ request: r, vendorName, onChanged }: { request: SupplyReq
     setSaving(true)
     setError('')
     try {
-      const res = await fetch(`/api/fornecedor/pedidos/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      const data = await res.json()
+      const res = await fetchWithTimeout(`/api/fornecedor/pedidos/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) return setError(data.error || 'Não foi possível salvar')
       setReplying(false)
       setSent(body.reply ? { reply: data.reply, price: data.replyPrice } : null)
       onChanged()
     } catch {
-      setError('Sem conexão. Tente de novo.')
+      setError(OFFLINE_ACTION)
     } finally {
       setSaving(false)
     }
@@ -569,13 +587,18 @@ function NeedsTab({ needs, vendor, onChanged }: { needs: ClientNeed[]; vendor: V
   const [editing, setEditing] = useState(false)
   const [selected, setSelected] = useState<string[]>(vendor.categories)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
 
   async function saveCategories() {
     setSaving(true)
+    setError('')
     try {
-      await fetch('/api/fornecedor', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categories: selected }) })
+      const res = await fetchWithTimeout('/api/fornecedor', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categories: selected }) })
+      if (!res.ok) { const data = await res.json().catch(() => ({})); return setError(data.error || 'Não foi possível salvar') }
       setEditing(false)
       onChanged()
+    } catch {
+      setError(OFFLINE_ACTION)
     } finally {
       setSaving(false)
     }
@@ -609,6 +632,7 @@ function NeedsTab({ needs, vendor, onChanged }: { needs: ClientNeed[]; vendor: V
               })}
             </div>
             <p className="mt-2 text-xs text-gray-500">Você só vê a falta destes produtos nos clientes. Nenhum marcado = todos.</p>
+            {error && <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>}
             <div className="mt-3 flex gap-2">
               <button type="button" onClick={() => setEditing(false)} className="border border-gray-200 text-gray-600 font-medium px-4 py-2 rounded-lg">Cancelar</button>
               <button type="button" onClick={saveCategories} disabled={saving} className="bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold px-4 py-2 rounded-lg">

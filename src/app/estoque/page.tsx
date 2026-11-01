@@ -2,8 +2,10 @@
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
 
-import { useEffect, useRef, useState } from 'react'
-import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/offlineStorage'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { getPendingRecords, addPendingRecord, removePendingRecord, type OfflineRecord } from '@/lib/offlineStorage'
+import { cachedGet, fetchWithTimeout, isPendingId, pendingIdOf, pendingItemId, pendingOf, sendOrQueue, withPending, type PendingRequest, type QueuedRequest } from '@/lib/offlineData'
+import { useOfflineModule } from '@/lib/useOffline'
 import { applyPendingMovements, movementDelta, movementReady, parseMovement, type MovementInput, type PendingMovement } from '@/lib/stockMovements'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
@@ -34,9 +36,28 @@ interface Supply {
 }
 
 const CATEGORIES = SUPPLY_CATEGORIES
+const MODULE = 'estoque'
 const EMPTY_MOV = () => ({ type: 'Entrada', quantity: '', date: todayISO(), description: '' })
-/** Produtos cadastrados e movimentações feitas sem internet, à espera de envio */
-const countPending = () => getPendingRecords('estoque').length + getPendingRecords('estoque-mov').length
+const EMPTY_FORM = { name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '' }
+/** Movimentações feitas sem internet, à espera de envio (fila própria, com saldo já refletido na tela) */
+const countMovPending = () => getPendingRecords('estoque-mov').length
+const parseDec = (v: string) => { const n = Number(v.replace(',', '.')); return v.trim() && Number.isFinite(n) && n > 0 ? n : null }
+
+/** Insumo cadastrado sem internet, como aparece na lista. Registros antigos da fila têm os campos soltos, sem _body. */
+function pendingSupply(p: PendingRequest): Supply | null {
+  if (p._type !== 'create') return null
+  const b = (p._body ?? p) as Record<string, string | number | null | undefined>
+  return {
+    id: pendingItemId(p), name: String(b.name ?? ''), category: String(b.category ?? ''), unit: String(b.unit ?? ''),
+    currentQuantity: Number(b.currentQuantity ?? 0), minimumQuantity: Number(b.minimumQuantity ?? 0), movements: [],
+    unitPrice: parseDec(String(b.unitPrice ?? '')), packageKg: parseDec(String(b.packageKg ?? '')),
+  }
+}
+
+/** Fila antiga (antes de cada pedido levar a própria URL): era sempre um POST com os campos soltos */
+const legacyRequest = (r: OfflineRecord): QueuedRequest => ({
+  url: '/api/estoque', method: 'POST', body: Object.fromEntries(Object.entries(r).filter(([k]) => !['_pendingId', '_type'].includes(k))),
+})
 const pendingMovements = (fid: string) => (getPendingRecords('estoque-mov') as PendingMovement[]).filter((m) => m.farmId === fid)
 const round2 = (n: number) => Math.round(n * 100) / 100
 type MovStatus = '' | 'saving' | 'saved' | 'offline' | 'error'
@@ -47,14 +68,17 @@ export default function EstoquePage() {
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const [supplies, setSupplies] = useState<Supply[]>([])
   const [loading, setLoading] = useState(true)
-  const [farmId, setFarmId] = useState('')
+  const farmId = user?.farmId ?? ''
+  const [fromCache, setFromCache] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [saveError, setSaveError] = useState('')
   const [detail, setDetail] = useState<Supply | null>(null)
   const [quick, setQuick] = useQuickFilter(['alerta'] as const)
   const [quoteFor, setQuoteFor] = useState<Supply | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [showMov, setShowMov] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '' })
+  const [form, setForm] = useState(EMPTY_FORM)
   const [mov, setMov] = useState(EMPTY_MOV)
   // Movimentação que a tela está salvando sozinha: o que já foi gravado (no servidor ou no aparelho) e o estado do envio
   const [movSaved, setMovSaved] = useState(false)
@@ -62,70 +86,32 @@ export default function EstoquePage() {
   const [movError, setMovError] = useState('')
   const savedRef = useRef<{ id: string | null; pendingId: number | null; before: MovementInput | null }>({ id: null, pendingId: null, before: null })
   const movBusy = useRef(false)
-  const [isOnline, setIsOnline] = useState(true)
-  const [pendingCount, setPendingCount] = useState(0)
-  const [syncing, setSyncing] = useState(false)
+  const [movPending, setMovPending] = useState(0)
+  const [sendingMovs, setSendingMovs] = useState(false)
   const syncRef = useRef<() => Promise<void>>(async () => {})
 
   useEffect(() => {
-    setIsOnline(navigator.onLine)
-    setPendingCount(countPending())
-    // Voltou a internet: envia sozinho o que ficou no aparelho
-    const handleOnline = () => { setIsOnline(true); void syncRef.current() }
-    const handleOffline = () => setIsOnline(false)
+    // Voltou a internet: envia sozinho as movimentações que ficaram no aparelho (os insumos vão pelo useOfflineModule)
+    const handleOnline = () => { void syncRef.current() }
     window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
+    return () => window.removeEventListener('online', handleOnline)
   }, [])
 
-  useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(data => {
-      if (!data.farmId) return
-      setFarmId(data.farmId)
-      loadData(data.farmId)
-    })
+  // Lista com cópia no aparelho; movimentações pendentes entram no saldo e insumos criados sem internet entram no fim
+  const loadData = useCallback(async (fid: string) => {
+    const r = await cachedGet<Supply[]>(`cache_estoque_${fid}`, `/api/estoque?farmId=${fid}`).catch(() => null)
+    const data = Array.isArray(r?.data) ? r.data : []
+    setSupplies(withPending(applyPendingMovements(data, pendingMovements(fid)), pendingOf(MODULE, p => p.farmId === fid), pendingSupply))
+    setFromCache(!!r?.fromCache)
+    setMovPending(countMovPending())
+    setLoading(false)
   }, [])
-
-  function loadData(fid: string) {
-    setLoading(true)
-    const mapPending = () =>
-      getPendingRecords('estoque')
-        .filter(r => r.farmId === fid && (r._type ?? 'create') === 'create')
-        .map(r => ({
-          id: `pending_${r._pendingId}`,
-          name: r.name,
-          category: r.category,
-          unit: r.unit,
-          currentQuantity: Number(r.currentQuantity ?? 0),
-          minimumQuantity: Number(r.minimumQuantity ?? 0),
-          movements: [],
-        }))
-
-    // If offline, load only pending records
-    if (!navigator.onLine) {
-      const pending = mapPending()
-      setSupplies(pending)
-      setLoading(false)
-      return
-    }
-    
-    fetch(`/api/estoque?farmId=${fid}`)
-      .then(r => r.json())
-      .then(data => {
-        const pending = mapPending()
-        // Movimentações feitas sem internet já entram no saldo mostrado
-        setSupplies(Array.isArray(data) ? [...applyPendingMovements(data as Supply[], pendingMovements(fid)), ...pending] : pending)
-        setLoading(false)
-      })
-      .catch(() => {
-        const pending = mapPending()
-        setSupplies(pending)
-        setLoading(false)
-      })
-  }
+  const reload = useCallback(() => { if (farmId) void loadData(farmId) }, [farmId, loadData])
+  const net = useOfflineModule(MODULE, reload, legacyRequest)
+  useEffect(() => { void Promise.resolve().then(reload) }, [reload])
+  const isOnline = net.online
+  const pendingCount = net.pendingCount + movPending
+  const refreshPending = () => { setMovPending(countMovPending()); net.refresh() }
 
   const alertCount = supplies.filter(s => s.currentQuantity <= s.minimumQuantity).length
   const shown = quick ? supplies.filter(s => s.currentQuantity <= s.minimumQuantity) : supplies
@@ -139,38 +125,34 @@ export default function EstoquePage() {
 
   async function handleDelete(id: string) {
     if (!canEdit) return
-    if (id.startsWith('pending_')) {
+    if (isPendingId(id)) {
       if (!(await confirm({ title: 'Excluir este produto?', message: 'Ele foi cadastrado sem internet e ainda não foi enviado.', confirmLabel: 'Excluir', danger: true }))) return
-      removePendingRecord('estoque', Number(id.slice('pending_'.length)))
-      setPendingCount(countPending())
+      removePendingRecord(MODULE, pendingIdOf(id))
+      refreshPending()
       setDetail(null)
-      loadData(farmId)
+      reload()
       return
     }
     if (!(await confirm({ title: 'Excluir este insumo?', message: 'As entradas e saídas registradas também serão apagadas.', confirmLabel: 'Excluir', danger: true }))) return
-    await fetch(`/api/estoque/${id}`, { method: 'DELETE' })
     setDetail(null)
-    loadData(farmId)
+    const r = await sendOrQueue(MODULE, { type: 'delete', id, url: `/api/estoque/${id}`, method: 'DELETE', local: { farmId } })
+    if (r.status === 'rejected') return setNotice(r.error)
+    setNotice(r.status === 'queued' ? net.queuedMessage : '')
+    refreshPending()
+    reload()
   }
 
   async function handleSync() {
-    const pending = getPendingRecords('estoque')
     const movs = getPendingRecords('estoque-mov') as PendingMovement[]
-    if (!pending.length && !movs.length) return
-    setSyncing(true)
+    if (!net.pendingCount && !movs.length) return
+    setSendingMovs(true)
     if (showMov) void closeMov(false)
-    for (const record of pending) {
-      const { _pendingId, _type, farmId: _, ...data } = record
-      const res = await fetch('/api/estoque', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, farmId }),
-      }).catch(() => null)
-      if (res?.ok) removePendingRecord('estoque', _pendingId)
-    }
+    // Insumos criados, alterados ou excluídos sem internet: fila comum (cada pedido leva a própria URL)
+    await net.sync()
     for (const m of movs) {
-      const { _pendingId, supplyId, farmId: _, ...data } = m
-      const res = await fetch(`/api/estoque/${supplyId}/movimentacao`, {
+      const { _pendingId, supplyId } = m
+      const data = Object.fromEntries(Object.entries(m).filter(([k]) => !['_pendingId', 'supplyId', 'farmId'].includes(k)))
+      const res = await fetchWithTimeout(`/api/estoque/${supplyId}/movimentacao`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -178,38 +160,25 @@ export default function EstoquePage() {
       // Enviado, ou o produto não existe mais: sai da fila
       if (res?.ok || res?.status === 404) removePendingRecord('estoque-mov', _pendingId)
     }
-    setPendingCount(countPending())
-    setSyncing(false)
-    loadData(farmId)
+    setSendingMovs(false)
+    refreshPending()
+    reload()
   }
   useEffect(() => { syncRef.current = handleSync })
 
   async function handleSaveNew(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaving(true)
-
-    // Se estiver offline, salva no localStorage
-    if (!isOnline) {
-      addPendingRecord('estoque', { ...form, farmId, _type: 'create' })
-      setPendingCount(countPending())
-      setSaving(false)
-      setShowNew(false)
-      setForm({ name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '' })
-      // Aparece na lista na hora, marcado como pendente
-      loadData(farmId)
-      return
-    }
-
-    // Se estiver online, envia para API
-    await fetch('/api/estoque', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, farmId }),
-    })
+    setSaveError('')
+    // Com internet envia; sem internet ou com sinal fraco fica na fila do aparelho e já aparece na lista
+    const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/estoque', method: 'POST', body: { ...form, farmId }, local: { farmId } })
     setSaving(false)
+    if (r.status === 'rejected') return setSaveError(r.error)
     setShowNew(false)
-    setForm({ name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '' })
-    loadData(farmId)
+    setForm(EMPTY_FORM)
+    setNotice(r.status === 'queued' ? net.queuedMessage : '')
+    refreshPending()
+    reload()
   }
 
   // ----- Movimentação: salva sozinha pouco depois de a pessoa parar de digitar -----
@@ -262,7 +231,7 @@ export default function EstoquePage() {
     savedRef.current = { id: null, pendingId, before: input }
     setMovSaved(true)
     setMovStatus('offline')
-    setPendingCount(countPending())
+    refreshPending()
   }
 
   async function saveMov() {
@@ -278,7 +247,8 @@ export default function EstoquePage() {
     try {
       if (!navigator.onLine) return saveMovLocally(detail.id, input)
       const url = saved.id ? `/api/estoque/${detail.id}/movimentacao/${saved.id}` : `/api/estoque/${detail.id}/movimentacao`
-      const res = await fetch(url, { method: saved.id ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }).catch(() => null)
+      // Sinal fraco: a espera estoura e a movimentação fica no aparelho, como sem internet
+      const res = await fetchWithTimeout(url, { method: saved.id ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }).catch(() => null)
       if (!res) return saveMovLocally(detail.id, input)
       const data = await res.json().catch(() => ({}))
       if (!res.ok || !data.supply) {
@@ -292,7 +262,7 @@ export default function EstoquePage() {
       applySupply(data.supply)
       setMovSaved(true)
       setMovStatus('saved')
-      setPendingCount(countPending())
+      refreshPending()
     } finally {
       movBusy.current = false
     }
@@ -318,7 +288,7 @@ export default function EstoquePage() {
     if (!detail || !saved.before) return resetMov()
     if (saved.id) {
       setMovStatus('saving')
-      const res = await fetch(`/api/estoque/${detail.id}/movimentacao/${saved.id}`, { method: 'DELETE' }).catch(() => null)
+      const res = await fetchWithTimeout(`/api/estoque/${detail.id}/movimentacao/${saved.id}`, { method: 'DELETE' }).catch(() => null)
       const data = res ? await res.json().catch(() => ({})) : {}
       if (!res?.ok || !data.supply) {
         setMovStatus('error')
@@ -329,7 +299,7 @@ export default function EstoquePage() {
     } else if (saved.pendingId !== null) {
       removePendingRecord('estoque-mov', saved.pendingId)
       patchLocal(detail.id, movementDelta(saved.before, null), null, `pending_${saved.pendingId}`)
-      setPendingCount(countPending())
+      refreshPending()
     }
     resetMov()
   }
@@ -359,23 +329,29 @@ export default function EstoquePage() {
         </button>
       </div>
 
-      {/* Offline / sync banner */}
-      {!isOnline && (
+      {/* Sem internet / sinal fraco / fila / aviso */}
+      {(!isOnline || fromCache) && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />
-          <span>Sem internet. Ao salvar, os registros ficam neste aparelho. Quando a internet voltar, use “Enviar registros”.</span>
+          <span>{isOnline ? 'Sinal fraco: mostrando a última cópia guardada neste aparelho.' : 'Sem internet.'} O que você registrar fica salvo no aparelho e é enviado quando a conexão voltar.</span>
         </div>
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} registro{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para enviar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} registro{pendingCount > 1 ? 's' : ''} para enviar</span>
           <button
             onClick={handleSync}
-            disabled={syncing}
+            disabled={net.syncing || sendingMovs}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {syncing ? 'Enviando...' : 'Enviar registros'}
+            {net.syncing || sendingMovs ? 'Enviando...' : 'Enviar agora'}
           </button>
+        </div>
+      )}
+      {notice && (
+        <div role="status" className="bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
+          <span>{notice}</span>
+          <button onClick={() => setNotice('')} className="text-green-700 hover:text-green-900 p-1" aria-label="Fechar aviso"><FecharIcon /></button>
         </div>
       )}
 
@@ -467,7 +443,7 @@ export default function EstoquePage() {
                 <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900">Cadastrado sem internet, aguardando envio. Entradas e saídas ficam disponíveis depois que ele for enviado.</p>
               ) : (
                 <>
-                  <PriceLine supply={detail} canEdit={canEdit && isOnline} onSaved={(updated) => { setDetail({ ...detail, ...updated }); loadData(farmId) }} />
+                  <PriceLine supply={detail} farmId={farmId} canEdit={canEdit && !isPendingId(detail.id)} onSaved={(updated, queued) => { setDetail({ ...detail, ...updated }); setNotice(queued ? net.queuedMessage : ''); refreshPending(); reload() }} />
 
                   {canEdit && (
                     <button onClick={openMov} className="w-full bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg mb-2">
@@ -639,6 +615,7 @@ export default function EstoquePage() {
                   )}
                 </div>
                 <p className="text-xs text-gray-500">Com o preço, o trato dos lotes mostra o custo por animal. Pode deixar em branco.</p>
+                {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setShowNew(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
                   <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
@@ -655,7 +632,7 @@ export default function EstoquePage() {
 }
 
 /** Preço por unidade e peso do saco (opcionais): com eles o trato dos lotes mostra o custo */
-function PriceLine({ supply, canEdit, onSaved }: { supply: Supply; canEdit: boolean; onSaved: (s: Partial<Supply>) => void }) {
+function PriceLine({ supply, farmId, canEdit, onSaved }: { supply: Supply; farmId: string; canEdit: boolean; onSaved: (s: Partial<Supply>, queued: boolean) => void }) {
   const [editing, setEditing] = useState(false)
   const [price, setPrice] = useState(supply.unitPrice ? String(supply.unitPrice).replace('.', ',') : '')
   const [bag, setBag] = useState(supply.packageKg ? String(supply.packageKg).replace('.', ',') : '')
@@ -664,13 +641,12 @@ function PriceLine({ supply, canEdit, onSaved }: { supply: Supply; canEdit: bool
 
   async function save() {
     setError('')
-    const res = await fetch(`/api/estoque/${supply.id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ unitPrice: price, ...(supply.unit === 'sacos' && { packageKg: bag }) }),
-    }).catch(() => null)
-    if (!res?.ok) return setError('Não foi possível salvar')
-    const body = await res.json()
-    onSaved({ unitPrice: body.unitPrice, packageKg: body.packageKg })
+    // Números já convertidos: sem internet o pedido fica na fila e a lista mostra estes valores até o envio
+    const body = { unitPrice: parseDec(price), ...(supply.unit === 'sacos' && { packageKg: parseDec(bag) }) }
+    const r = await sendOrQueue<{ unitPrice?: number | null; packageKg?: number | null }>(MODULE, { type: 'update', id: supply.id, url: `/api/estoque/${supply.id}`, method: 'PUT', body, local: { farmId } })
+    if (r.status === 'rejected') return setError(r.error)
+    if (r.status === 'sent') onSaved({ unitPrice: r.data.unitPrice ?? null, packageKg: r.data.packageKg ?? null }, false)
+    else onSaved({ unitPrice: body.unitPrice, packageKg: 'packageKg' in body ? body.packageKg ?? null : supply.packageKg }, true)
     setEditing(false)
   }
 

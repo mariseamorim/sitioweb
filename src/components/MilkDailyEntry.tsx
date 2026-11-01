@@ -3,6 +3,7 @@ import { MilkDecimalInput } from '@/components/MilkDecimalInput'
 
 import { useMemo, useState } from 'react'
 import { addPendingRecord } from '@/lib/offlineStorage'
+import { fetchWithTimeout } from '@/lib/offlineData'
 import { todayISO } from '@/lib/utils'
 import { fmtNumber } from '@/lib/reports'
 import { OfflineVoiceSetup, VoiceButton } from '@/components/VoiceButton'
@@ -63,7 +64,7 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel, 
 
     setSaving(true)
     try {
-      const res = await fetch('/api/milk-production/batch', {
+      const res = await fetchWithTimeout('/api/milk-production/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date, items: filled, pricePerLiter }),
@@ -75,7 +76,12 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel, 
       }
       onDone({ saved: data.created, pending: 0 })
     } catch {
-      setError('Sem conexão. Tente de novo ou salve quando o sinal voltar.')
+      // Sinal fraco: o pedido não chegou. Guarda no aparelho, como sem internet
+      let pending = 0
+      for (const item of filled) {
+        pending = addPendingRecord('milk_productions', { animalId: item.animalId, date, quantity: item.quantity, observations: '', pricePerLiter })
+      }
+      onDone({ saved: 0, pending })
     } finally {
       setSaving(false)
     }

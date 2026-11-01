@@ -1,8 +1,12 @@
 'use client'
 import { PermissionGuard } from '@/components/PermissionGuard'
-import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/offlineStorage'
+import { useUser } from '@/contexts/UserContext'
+import { removePendingRecord, type OfflineRecord } from '@/lib/offlineStorage'
+import { cachedGet, isPendingId, pendingIdOf, pendingItemId, pendingOf, sendOrQueue, withPending, type PendingRequest, type QueuedRequest } from '@/lib/offlineData'
+import { useOfflineModule } from '@/lib/useOffline'
+import { loadHerd } from '@/lib/herdCache'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
 import { useDialog } from '@/components/DialogProvider'
 import { currentMonthRange, inDayRange, todayISO } from '@/lib/utils'
 import { useSort } from '@/lib/useSort'
@@ -23,89 +27,61 @@ interface Transaction {
 const CATEGORIES_RECEITA = ['Venda de Leite', 'Venda de Animal', 'Outros']
 const CATEGORIES_DESPESA = ['Medicamentos', 'Ração', 'Vacinas', 'Mão de Obra', 'Outros']
 
+const MODULE = 'financeiro'
+const EMPTY_FORM = { type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '' }
+
+/** Lançamento guardado sem internet, como aparece na lista e nos totais. Registros antigos da fila têm os campos soltos, sem _body. */
+function pendingTransaction(p: PendingRequest, animals: Animal[]): Transaction | null {
+  if ((p._type ?? 'create') !== 'create') return null
+  const b = (p._body ?? p) as Record<string, string | number | null | undefined>
+  const date = String(b.date ?? '')
+  return {
+    id: pendingItemId(p), type: String(b.type ?? ''), category: String(b.category ?? ''),
+    date: date.includes('T') ? date : `${date}T00:00:00.000Z`, amount: Number(b.amount) || 0,
+    description: b.description ? String(b.description) : null,
+    animal: animals.find(a => a.id === b.animalId) ?? null,
+  }
+}
+
+/** Fila antiga (antes de cada pedido levar a própria URL): era sempre um POST com o lançamento solto */
+const legacyRequest = (r: OfflineRecord): QueuedRequest => {
+  const data = Object.fromEntries(Object.entries(r).filter(([k]) => k !== '_pendingId'))
+  return { url: '/api/financeiro', method: 'POST', body: data }
+}
+
 export default function FinanceiroPage() {
   const { confirm } = useDialog()
+  const { user } = useUser()
+  const farmId = user?.farmId ?? ''
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [animals, setAnimals] = useState<Animal[]>([])
   const [loading, setLoading] = useState(true)
-  const [farmId, setFarmId] = useState('')
+  const [fromCache, setFromCache] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [saveError, setSaveError] = useState('')
   const [from, setFrom] = useState(() => currentMonthRange().from)
   const [to, setTo] = useState(() => currentMonthRange().to)
   const [filterType, setFilterType] = useState('Todas')
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '' })
-  const [isOnline, setIsOnline] = useState(true)
-  const [pendingCount, setPendingCount] = useState(0)
-  const [syncing, setSyncing] = useState(false)
+  const [form, setForm] = useState(EMPTY_FORM)
 
-  useEffect(() => {
-    setIsOnline(navigator.onLine)
-    setPendingCount(getPendingRecords('financeiro').length)
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
+  // Lista e rebanho com cópia no aparelho; a fila (lançados e excluídos sem internet) entra por cima e nos totais
+  const loadData = useCallback(async (fid: string) => {
+    const [txs, herd] = await Promise.all([
+      cachedGet<Transaction[]>(`cache_financeiro_${fid}`, `/api/financeiro?farmId=${fid}`).catch(() => null),
+      loadHerd<Animal>(fid).catch(() => null),
+    ])
+    const anims = Array.isArray(herd?.data) ? herd.data : []
+    const list = Array.isArray(txs?.data) ? txs.data : []
+    setAnimals(anims)
+    setTransactions(withPending(list, pendingOf(MODULE, p => p.farmId === fid), p => pendingTransaction(p, anims)))
+    setFromCache(!!(txs?.fromCache || herd?.fromCache))
+    setLoading(false)
   }, [])
-
-  useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(data => {
-      if (!data.farmId) return
-      setFarmId(data.farmId)
-      loadData(data.farmId)
-    })
-  }, [])
-
-  function loadData(fid: string) {
-    setLoading(true)
-    // Lançamentos feitos sem internet entram na lista e nos totais, marcados como "a enviar"
-    const pending = (): Transaction[] => getPendingRecords('financeiro')
-      .filter(r => r.farmId === fid)
-      .map(r => ({ id: `pending_${r._pendingId}`, type: r.type, category: r.category, date: `${r.date}T00:00:00.000Z`, amount: Number(r.amount) || 0, description: r.description ?? null, animal: null }))
-    if (!navigator.onLine) {
-      setTransactions(pending())
-      setLoading(false)
-      return
-    }
-    Promise.all([
-      fetch(`/api/financeiro?farmId=${fid}`).then(r => r.json()),
-      fetch(`/api/animals?farmId=${fid}`).then(r => r.json()),
-    ]).then(([txs, anims]) => {
-      setTransactions(Array.isArray(txs) ? [...txs, ...pending()] : pending())
-      setAnimals(Array.isArray(anims) ? anims : [])
-      setLoading(false)
-    }).catch(() => {
-      setTransactions(pending())
-      setLoading(false)
-    })
-  }
-
-  async function handleSync() {
-    const pending = getPendingRecords('financeiro')
-    if (!pending.length) return
-    setSyncing(true)
-    for (const record of pending) {
-      try {
-        const pendingId = record._pendingId
-        const { _pendingId, ...data } = record
-        const res = await fetch('/api/financeiro', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
-        })
-        if (res.ok) removePendingRecord('financeiro', pendingId)
-      } catch {
-        // keep record for next sync attempt
-      }
-    }
-    setPendingCount(getPendingRecords('financeiro').length)
-    setSyncing(false)
-    if (farmId) loadData(farmId)
-  }
+  const reload = useCallback(() => { if (farmId) void loadData(farmId) }, [farmId, loadData])
+  const net = useOfflineModule(MODULE, reload, legacyRequest)
+  useEffect(() => { void Promise.resolve().then(reload) }, [reload])
 
   const filtered = useMemo(() => {
     return transactions.filter(t => {
@@ -132,23 +108,30 @@ export default function FinanceiroPage() {
 
   const maxCat = byCategory[0]?.[1] || 1
 
+  // Depois de guardar ou enviar: a lista mostra na hora e a barra do topo atualiza a contagem
+  const afterChange = (queued: boolean) => {
+    setNotice(queued ? net.queuedMessage : '')
+    net.refresh()
+    reload()
+  }
+
   async function handleDelete(id: string) {
     if (!(await confirm({ title: 'Excluir este lançamento?', confirmLabel: 'Excluir', danger: true }))) return
-    if (id.startsWith('pending_')) {
+    if (isPendingId(id)) {
       // Ainda não foi enviado: sai da fila do aparelho
-      removePendingRecord('financeiro', Number(id.slice('pending_'.length)))
-      setPendingCount(getPendingRecords('financeiro').length)
-      loadData(farmId)
-      return
+      removePendingRecord(MODULE, pendingIdOf(id))
+      return afterChange(false)
     }
-    await fetch(`/api/financeiro/${id}`, { method: 'DELETE' })
-    loadData(farmId)
+    const r = await sendOrQueue(MODULE, { type: 'delete', id, url: `/api/financeiro/${id}`, method: 'DELETE', local: { farmId } })
+    if (r.status === 'rejected') setNotice(r.error)
+    else afterChange(r.status === 'queued')
   }
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-
-    const payload = {
+    setSaving(true)
+    setSaveError('')
+    const body = {
       type: form.type,
       category: form.category,
       date: form.date,
@@ -156,29 +139,13 @@ export default function FinanceiroPage() {
       description: form.description || null,
       // Animal só na venda de animal; despesa não tem animal
       animalId: form.type === 'Receita' && form.category === 'Venda de Animal' ? form.animalId || null : null,
-      farmId,
     }
-
-    if (!isOnline) {
-      const count = addPendingRecord('financeiro', payload)
-      setPendingCount(count)
-      setShowRegister(false)
-      setForm({ type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '' })
-      // Aparece na lista na hora, sem precisar recarregar
-      loadData(farmId)
-      return
-    }
-
-    setSaving(true)
-    await fetch('/api/financeiro', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
+    const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/financeiro', method: 'POST', body, local: { farmId } })
     setSaving(false)
+    if (r.status === 'rejected') return setSaveError(r.error)
     setShowRegister(false)
-    setForm({ type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '' })
-    loadData(farmId)
+    setForm(EMPTY_FORM)
+    afterChange(r.status === 'queued')
   }
 
   const cats = form.type === 'Receita' ? CATEGORIES_RECEITA : CATEGORIES_DESPESA
@@ -199,23 +166,29 @@ export default function FinanceiroPage() {
         </button>
       </div>
 
-      {/* Offline / sync banner */}
-      {!isOnline && (
+      {/* Sem internet / fila / aviso */}
+      {(!net.online || fromCache) && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />
-          <span>Sem internet. Ao salvar, as movimentações ficam neste aparelho. Quando a internet voltar, use “Enviar registros”.</span>
+          <span>{net.online ? 'Sinal fraco: mostrando a última cópia guardada neste aparelho.' : 'Sem internet.'} O que você anotar fica salvo no aparelho e é enviado quando a conexão voltar.</span>
         </div>
       )}
-      {isOnline && pendingCount > 0 && (
+      {net.online && net.pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} {pendingCount > 1 ? 'movimentações' : 'movimentação'} pendente{pendingCount > 1 ? 's' : ''} para enviar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{net.pendingCount} registro{net.pendingCount > 1 ? 's' : ''} para enviar</span>
           <button
-            onClick={handleSync}
-            disabled={syncing}
+            onClick={() => void net.sync()}
+            disabled={net.syncing}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {syncing ? 'Enviando...' : 'Enviar registros'}
+            {net.syncing ? 'Enviando...' : 'Enviar agora'}
           </button>
+        </div>
+      )}
+      {notice && (
+        <div role="status" className="bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
+          <span>{notice}</span>
+          <button onClick={() => setNotice('')} className="text-green-700 hover:text-green-900 p-1" aria-label="Fechar aviso"><FecharIcon /></button>
         </div>
       )}
 
@@ -299,7 +272,7 @@ export default function FinanceiroPage() {
             <tbody className="divide-y divide-gray-100">
               {sortedTransactions.map(t => (
                 <tr key={t.id} className="hover:bg-gray-50">
-                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-600 whitespace-nowrap">{fmt(t.date)}{t.id.startsWith('pending_') && <span className="block text-xs text-blue-700">a enviar</span>}</td>
+                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-600 whitespace-nowrap">{fmt(t.date)}{isPendingId(t.id) && <span className="block text-xs text-blue-700">a enviar</span>}</td>
                   <td className="px-2 sm:px-4 py-2 sm:py-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium truncate inline-block ${t.type === 'Receita' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.category}</span>
                   </td>
@@ -308,7 +281,7 @@ export default function FinanceiroPage() {
                     {t.type === 'Receita' ? '+' : '-'}{fmtBRL(t.amount)}
                   </td>
                   <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
-                    <button onClick={() => handleDelete(t.id)} className="text-red-400 hover:text-red-600 p-1">
+                    <button onClick={() => handleDelete(t.id)} className="text-red-400 hover:text-red-600 p-1" aria-label="Excluir lançamento">
                       <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
                       </svg>
@@ -372,10 +345,11 @@ export default function FinanceiroPage() {
                     <option value="">— Nenhum —</option>
                     {animals.map(a => <option key={a.id} value={a.id}>{a.name} ({a.code})</option>)}
                   </select>
-                  {!isOnline && animals.length === 0 && (
-                    <p className="text-xs text-gray-400 mt-1">Lista de animais indisponível offline</p>
+                  {!net.online && animals.length === 0 && (
+                    <p className="text-xs text-gray-400 mt-1">Lista de animais ainda não guardada neste aparelho. Abra Animais com internet uma vez.</p>
                   )}
                 </div>}
+                {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setShowRegister(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
                   <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>

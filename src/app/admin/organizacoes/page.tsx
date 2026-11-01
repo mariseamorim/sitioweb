@@ -7,6 +7,7 @@ import { CadeadoIcon } from '@/components/ModuleIcons'
 import { fmtDate } from '@/lib/reports'
 import { whatsappLink } from '@/lib/utils'
 import { ORG_TYPES, type OrgType } from '@/lib/organizations'
+import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
 
 interface Organization {
   id: string
@@ -27,15 +28,19 @@ const STATUS_LABEL = { pendente: 'Em análise', aprovado: 'Aprovado', bloqueado:
 const STATUS_STYLE = { pendente: 'bg-amber-100 text-amber-800', aprovado: 'bg-green-100 text-green-800', bloqueado: 'bg-gray-200 text-gray-700' }
 
 // Admin aprova ou bloqueia laticínios e associações
+const OFFLINE_ACTION = 'Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.'
+
 export default function AdminOrganizacoesPage() {
   const { isAdmin, loading: userLoading } = useUser()
   const { confirm } = useDialog()
   const [organizations, setOrganizations] = useState<Organization[] | null>(null)
+  const [fromCache, setFromCache] = useState(false)
+  const [actionError, setActionError] = useState('')
 
+  // Lista com cópia no aparelho: sem sinal ou com sinal fraco, mostra a última cópia
   function load() {
-    fetch('/api/organizacoes')
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setOrganizations)
+    cachedGet<Organization[]>('cache_admin_organizacoes', '/api/organizacoes')
+      .then(({ data, fromCache }) => { setOrganizations(Array.isArray(data) ? data : []); setFromCache(fromCache) })
       .catch(() => setOrganizations([]))
   }
 
@@ -43,7 +48,13 @@ export default function AdminOrganizacoesPage() {
 
   async function setStatus(o: Organization, status: Organization['status']) {
     if (status === 'bloqueado' && !(await confirm({ title: `Bloquear ${o.name}?`, message: 'A conta deixa de conseguir usar o painel.', confirmLabel: 'Bloquear', danger: true }))) return
-    await fetch(`/api/organizacoes/${o.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
+    setActionError('')
+    try {
+      const res = await fetchWithTimeout(`/api/organizacoes/${o.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) })
+      if (!res.ok) { const data = await res.json().catch(() => ({})); return setActionError(data.error || 'Não foi possível salvar') }
+    } catch {
+      return setActionError(OFFLINE_ACTION)
+    }
     load()
   }
 
@@ -68,6 +79,8 @@ export default function AdminOrganizacoesPage() {
         </p>
       </div>
 
+      {fromCache && <p role="status" className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho.</p>}
+      {actionError && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</p>}
       {!organizations ? (
         <p className="text-gray-400 text-sm">Carregando...</p>
       ) : organizations.length === 0 ? (

@@ -6,6 +6,8 @@ import { REPORT_TYPES, Report } from '@/lib/reports'
 import { exportCSV, exportPDF } from '@/lib/reportExport'
 import { todayISO } from '@/lib/utils'
 import { cellSortValue, compareValues } from '@/lib/useSort'
+import { HttpError, cachedGet } from '@/lib/offlineData'
+import { loadHerd } from '@/lib/herdCache'
 
 type Preset = 'mes' | 'mes-passado' | 'ano' | 'outro'
 
@@ -30,7 +32,8 @@ const PRESETS: { key: Preset; label: string }[] = [
 ]
 
 export default function RelatoriosPage() {
-  const { canAccess, loading: userLoading } = useUser()
+  const { canAccess, loading: userLoading, user } = useUser()
+  const farmId = user?.farmId ?? ''
   const types = useMemo(() => REPORT_TYPES.filter((t) => canAccess(t.module)), [canAccess])
 
   const [typeKey, setTypeKey] = useState('')
@@ -42,16 +45,18 @@ export default function RelatoriosPage() {
   const [loading, setLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
+  // O relatório mostrado veio da cópia guardada no aparelho (sem internet ou sinal fraco)
+  const [fromCache, setFromCache] = useState(false)
 
   const type = types.find((t) => t.key === typeKey)
 
   useEffect(() => {
-    if (!type?.needsAnimal || animals.length) return
-    fetch('/api/animals')
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list) => setAnimals(Array.isArray(list) ? list : []))
+    if (!type?.needsAnimal || animals.length || !farmId) return
+    // Rebanho com cópia no aparelho: a lista de animais abre mesmo sem internet
+    loadHerd<{ id: string; code: string; name: string }>(farmId)
+      .then((r) => setAnimals(Array.isArray(r.data) ? r.data : []))
       .catch(() => setAnimals([]))
-  }, [type, animals.length])
+  }, [type, animals.length, farmId])
 
   function choosePreset(p: Preset) {
     setPreset(p)
@@ -68,22 +73,21 @@ export default function RelatoriosPage() {
     if (!type) return
     setError('')
     setReport(null)
-    if (!navigator.onLine) {
-      setError('Os relatórios precisam de internet. Conecte-se e tente de novo.')
-      return
-    }
+    setFromCache(false)
     const params = new URLSearchParams({ tipo: type.key })
     if (type.needsPeriod) { params.set('from', from); params.set('to', to) }
     if (type.needsAnimal) params.set('animalId', animalId)
 
     setLoading(true)
     try {
-      const res = await fetch(`/api/relatorios?${params}`)
-      const data = await res.json()
-      if (!res.ok) setError(data.error || 'Não foi possível gerar o relatório.')
-      else setReport(data)
-    } catch {
-      setError('Sem conexão. Tente de novo quando a internet voltar.')
+      // Cada relatório gerado fica guardado no aparelho por tipo e período: sem internet, abre o último gerado
+      const r = await cachedGet<Report>(`cache_relatorio_${type.key}_${from}_${to}_${animalId}`, `/api/relatorios?${params}`)
+      setReport(r.data)
+      setFromCache(r.fromCache)
+    } catch (err) {
+      if (err instanceof HttpError) setError(err.message || 'Não foi possível gerar o relatório.')
+      else if (navigator.onLine) setError('Não foi possível gerar o relatório agora. Tente de novo em instantes.')
+      else setError('Os relatórios precisam de internet. Este período ainda não foi gerado neste aparelho; conecte-se e tente de novo.')
     } finally {
       setLoading(false)
     }
@@ -191,6 +195,11 @@ export default function RelatoriosPage() {
           )}
 
           {/* 3. Resultado */}
+          {report && fromCache && (
+            <p role="status" className="mt-5 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+              Sem internet: este é o último relatório gerado neste aparelho para este período. Pode estar desatualizado.
+            </p>
+          )}
           {report && (
             <div className="mt-5 bg-white rounded-xl shadow-sm border border-gray-100">
               <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

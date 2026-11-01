@@ -6,8 +6,11 @@ import { animalSearchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 
-import { useEffect, useState, useMemo } from 'react'
-import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
+import { useCallback, useEffect, useState, useMemo } from 'react'
+import { removePendingRecord, type OfflineRecord } from '@/lib/offlineStorage'
+import { cachedGet, isPendingId, pendingIdOf, pendingItemId, pendingOf, sendOrQueue, updatePending, withPending, type PendingRequest, type QueuedRequest } from '@/lib/offlineData'
+import { useOfflineModule } from '@/lib/useOffline'
+import { loadHerd } from '@/lib/herdCache'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon } from '@/components/ModuleIcons'
@@ -41,87 +44,61 @@ const STATUS_COLOR: Record<string, string> = {
   Vencida: 'bg-red-100 text-red-700',
 }
 
+const MODULE = 'vacinacao'
+const EMPTY_FORM = { animalId: '', vaccineName: '', scheduledDate: todayISO(), appliedDate: '', batch: '', manufacturer: '', observations: '' }
+
+/** Vacinação guardada sem internet, como aparece na lista. Registros antigos da fila têm os campos soltos, sem _body. */
+function pendingVaccination(p: PendingRequest, animals: Animal[]): Vaccination | null {
+  if (p._type !== 'create') return null
+  const b = (p._body ?? p) as Record<string, string | null | undefined>
+  const animal = (p.animal as Animal | undefined) ?? animals.find(a => a.id === b.animalId) ?? { id: b.animalId ?? '', name: '(sem internet)', code: '' }
+  return {
+    id: pendingItemId(p), animalId: b.animalId ?? '', animal, vaccineName: b.vaccineName ?? '', scheduledDate: b.scheduledDate ?? '',
+    appliedDate: b.appliedDate ?? null, batch: b.batch ?? null, manufacturer: b.manufacturer ?? null, observations: b.observations ?? null,
+  }
+}
+
+/** Fila antiga (antes de cada pedido levar a própria URL): era sempre um POST com os campos soltos */
+const legacyRequest = (r: OfflineRecord): QueuedRequest => {
+  const data = Object.fromEntries(Object.entries(r).filter(([k]) => !['_pendingId', '_type', 'animal'].includes(k)))
+  return { url: '/api/vacinacao', method: 'POST', body: data }
+}
+
 export default function VacinacaoPage() {
   const { confirm } = useDialog()
   const { user } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
+  const farmId = user?.farmId ?? ''
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
   const [animals, setAnimals] = useState<Animal[]>([])
   const [animalSearch, setAnimalSearch] = useState('')
   const [loading, setLoading] = useState(true)
-  const [farmId, setFarmId] = useState('')
+  const [fromCache, setFromCache] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [saveError, setSaveError] = useState('')
   const [filter, setFilter] = useState<VaccStatus>('Todas')
   const [quick, setQuick] = useQuickFilter(['pendentes'] as const)
   const [detail, setDetail] = useState<Vaccination | null>(null)
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ animalId: '', vaccineName: '', scheduledDate: todayISO(), appliedDate: '', batch: '', manufacturer: '', observations: '' })
-  const [isOnline, setIsOnline] = useState(true)
-  const [pendingCount, setPendingCount] = useState(0)
-  const [syncing, setSyncing] = useState(false)
+  const [form, setForm] = useState(EMPTY_FORM)
 
-  useEffect(() => {
-    setIsOnline(navigator.onLine)
-    setPendingCount(getPendingRecords('vacinacao').length)
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
+  // Lista e rebanho com cópia no aparelho; a fila (criadas, aplicadas e excluídas sem internet) entra por cima
+  const loadData = useCallback(async (fid: string) => {
+    const [vaccs, herd] = await Promise.all([
+      cachedGet<Vaccination[]>(`cache_vacinacao_${fid}`, `/api/vacinacao?farmId=${fid}`).catch(() => null),
+      loadHerd<Animal>(fid).catch(() => null),
+    ])
+    const anims = Array.isArray(herd?.data) ? herd.data : []
+    const list = Array.isArray(vaccs?.data) ? vaccs.data : []
+    setAnimals(anims)
+    setVaccinations(withPending(list, pendingOf(MODULE, p => p.farmId === fid), p => pendingVaccination(p, anims)))
+    setFromCache(!!(vaccs?.fromCache || herd?.fromCache))
+    setLoading(false)
   }, [])
-
-  useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(data => {
-      if (!data.farmId) return
-      setFarmId(data.farmId)
-      loadData(data.farmId)
-    })
-  }, [])
-
-  function loadData(fid: string) {
-    setLoading(true)
-    const mapPending = () =>
-      getPendingRecords('vacinacao')
-        .filter(r => r.farmId === fid && (r._type ?? 'create') === 'create')
-        .map(r => ({
-          id: `pending_${r._pendingId}`,
-          animalId: r.animalId,
-          animal: r.animal || { id: r.animalId, name: '(Offline)', code: '' },
-          vaccineName: r.vaccineName,
-          scheduledDate: r.scheduledDate,
-          appliedDate: r.appliedDate ?? null,
-          batch: r.batch ?? null,
-          manufacturer: r.manufacturer ?? null,
-          observations: r.observations ?? null,
-        }))
-
-    // If offline, load only pending records
-    if (!navigator.onLine) {
-      const pending = mapPending()
-      setVaccinations(pending)
-      setAnimals(pending.map(p => p.animal))
-      setLoading(false)
-      return
-    }
-    
-    Promise.all([
-      fetch(`/api/vacinacao?farmId=${fid}`).then(r => r.json()).catch(() => []),
-      fetch(`/api/animals?farmId=${fid}`).then(r => r.json()).catch(() => []),
-    ]).then(([vaccs, anims]) => {
-      const pending = mapPending()
-      setVaccinations(Array.isArray(vaccs) ? [...vaccs, ...pending] : pending)
-      setAnimals(Array.isArray(anims) ? anims : [])
-      setLoading(false)
-    }).catch(() => {
-      const pending = mapPending()
-      setVaccinations(pending)
-      setAnimals(pending.map(p => p.animal))
-      setLoading(false)
-    })
-  }
+  const reload = useCallback(() => { if (farmId) void loadData(farmId) }, [farmId, loadData])
+  const net = useOfflineModule(MODULE, reload, legacyRequest)
+  useEffect(() => { void Promise.resolve().then(reload) }, [reload])
 
   const filtered = useMemo(() => {
     const term = animalSearch.trim().toLowerCase()
@@ -139,79 +116,53 @@ export default function VacinacaoPage() {
     return vaccinations.filter(v => !v.appliedDate && new Date(v.scheduledDate) <= in7).length
   }, [vaccinations])
 
+  // Depois de guardar ou enviar: a lista mostra na hora e a barra do topo atualiza a contagem
+  const afterChange = (queued: boolean) => {
+    setNotice(queued ? net.queuedMessage : '')
+    net.refresh()
+    reload()
+  }
+
   async function handleDelete(id: string) {
     if (!canEdit) return
     if (!(await confirm({ title: 'Excluir esta vacinação?', confirmLabel: 'Excluir', danger: true }))) return
-    await fetch(`/api/vacinacao/${id}`, { method: 'DELETE' })
     setDetail(null)
-    loadData(farmId)
-  }
-
-  async function handleSync() {
-    const pending = getPendingRecords('vacinacao')
-    if (!pending.length) return
-    setSyncing(true)
-    for (const record of pending) {
-      const { _pendingId, _type, farmId: _, ...data } = record
-      await fetch('/api/vacinacao', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, farmId }),
-      })
+    if (isPendingId(id)) {
+      // Ainda não foi enviada: sai da fila do aparelho
+      removePendingRecord(MODULE, pendingIdOf(id))
+      return afterChange(false)
     }
-    clearPendingRecords('vacinacao')
-    setPendingCount(0)
-    setSyncing(false)
-    loadData(farmId)
+    const r = await sendOrQueue(MODULE, { type: 'delete', id, url: `/api/vacinacao/${id}`, method: 'DELETE', local: { farmId } })
+    if (r.status === 'rejected') setNotice(r.error)
+    else afterChange(r.status === 'queued')
   }
 
   async function handleApply(v: Vaccination) {
-    const today = new Date().toISOString().slice(0, 10)
-    await fetch(`/api/vacinacao/${v.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...v, appliedDate: today }),
-    })
+    const today = todayISO()
     setDetail(null)
-    loadData(farmId)
+    if (isPendingId(v.id)) {
+      // Ainda na fila: a data de aplicação vai junto quando for enviada
+      updatePending(MODULE, pendingIdOf(v.id), p => (p._body ? { ...p, _body: { ...(p._body as object), appliedDate: today } } : { ...p, appliedDate: today }))
+      return afterChange(true)
+    }
+    const body = { animalId: v.animalId, vaccineName: v.vaccineName, scheduledDate: v.scheduledDate, appliedDate: today, batch: v.batch ?? null, manufacturer: v.manufacturer ?? null, observations: v.observations ?? null }
+    const r = await sendOrQueue(MODULE, { type: 'update', id: v.id, url: `/api/vacinacao/${v.id}`, method: 'PUT', body, local: { farmId } })
+    if (r.status === 'rejected') setNotice(r.error)
+    else afterChange(r.status === 'queued')
   }
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaving(true)
-
-    // Se estiver offline, salva no localStorage
-    if (!isOnline) {
-      const animal = animals.find(a => a.id === form.animalId)
-      addPendingRecord('vacinacao', {
-        ...form,
-        appliedDate: form.appliedDate || null,
-        batch: form.batch || null,
-        manufacturer: form.manufacturer || null,
-        observations: form.observations || null,
-        farmId,
-        animal: animal || undefined,
-        _type: 'create',
-      })
-      setPendingCount(getPendingRecords('vacinacao').length)
-      setSaving(false)
-      setShowRegister(false)
-      setForm({ animalId: '', vaccineName: '', scheduledDate: todayISO(), appliedDate: '', batch: '', manufacturer: '', observations: '' })
-      // Aparece na lista na hora, sem precisar recarregar
-      loadData(farmId)
-      return
-    }
-
-    // Se estiver online, envia para API
-    await fetch('/api/vacinacao', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, appliedDate: form.appliedDate || null, batch: form.batch || null, manufacturer: form.manufacturer || null, observations: form.observations || null }),
-    })
+    setSaveError('')
+    const body = { ...form, appliedDate: form.appliedDate || null, batch: form.batch || null, manufacturer: form.manufacturer || null, observations: form.observations || null, farmId }
+    const animal = animals.find(a => a.id === form.animalId)
+    const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/vacinacao', method: 'POST', body, local: { farmId, animal } })
     setSaving(false)
+    if (r.status === 'rejected') return setSaveError(r.error)
     setShowRegister(false)
-    setForm({ animalId: '', vaccineName: '', scheduledDate: todayISO(), appliedDate: '', batch: '', manufacturer: '', observations: '' })
-    loadData(farmId)
+    setForm(EMPTY_FORM)
+    afterChange(r.status === 'queued')
   }
 
   // Datas gravadas à meia-noite UTC: mostrar em UTC para não cair no dia anterior no horário de Brasília
@@ -230,25 +181,32 @@ export default function VacinacaoPage() {
         </button>
       </div>
 
-      {/* Offline / sync banner */}
-      {!isOnline && (
+      {/* Sem internet / fila / aviso */}
+      {(!net.online || fromCache) && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />
-          <span>Você está offline. Os registros serão salvos localmente e sincronizados quando reconectar.</span>
+          <span>{net.online ? 'Sinal fraco: mostrando a última cópia guardada neste aparelho.' : 'Sem internet.'} O que você registrar fica salvo no aparelho e é enviado quando a conexão voltar.</span>
         </div>
       )}
-      {isOnline && pendingCount > 0 && (
+      {net.online && net.pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} vacinação{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{net.pendingCount} registro{net.pendingCount > 1 ? 's' : ''} para enviar</span>
           <button
-            onClick={handleSync}
-            disabled={syncing}
+            onClick={() => void net.sync()}
+            disabled={net.syncing}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+            {net.syncing ? 'Enviando...' : 'Enviar agora'}
           </button>
         </div>
-      )}      {alertCount > 0 && (
+      )}
+      {notice && (
+        <div role="status" className="bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
+          <span>{notice}</span>
+          <button onClick={() => setNotice('')} className="text-green-700 hover:text-green-900 p-1" aria-label="Fechar aviso"><FecharIcon /></button>
+        </div>
+      )}
+      {alertCount > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-6 text-sm flex items-center gap-2">
           <AlertaIcon className="w-5 h-5 shrink-0" />
           <span><strong>{alertCount}</strong> vacina{alertCount > 1 ? 's' : ''} vencida{alertCount > 1 ? 's' : ''} ou com vencimento nos próximos 7 dias</span>
@@ -290,7 +248,7 @@ export default function VacinacaoPage() {
                 const status = getStatus(v)
                 return (
                   <tr key={v.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetail(v)}>
-                    <td className="px-4 py-3 font-medium text-gray-800">{v.animal.name}</td>
+                    <td className="px-4 py-3 font-medium text-gray-800">{v.animal.name}{isPendingId(v.id) && <span className="ml-2 text-xs font-normal text-blue-700">a enviar</span>}</td>
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{v.vaccineName}</td>
                     <td className="px-4 py-3 text-gray-600">{fmt(v.scheduledDate)}</td>
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{v.appliedDate ? fmt(v.appliedDate) : '—'}</td>
@@ -386,6 +344,7 @@ export default function VacinacaoPage() {
                   <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2}
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none" />
                 </div>
+                {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setShowRegister(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
                   <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>

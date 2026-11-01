@@ -6,43 +6,60 @@ import { useUser } from '@/contexts/UserContext'
 import { LOT_PHASES, STOCK_WARNING_DAYS, lotSummary, projectTarget } from '@/lib/lots'
 import { fmtDate, fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
+import { HttpError, cachedGet } from '@/lib/offlineData'
+import { loadHerd as fetchHerd } from '@/lib/herdCache'
+import { useOfflineModule } from '@/lib/useOffline'
+import { SemSinalIcon, SincronizarIcon } from '@/components/ModuleIcons'
 import { LotDetail } from './LotDetail'
 import { RearingAnimals } from './RearingAnimals'
 import {
-  AnimalPicker, HerdAnimal, Lot, Modal, ProductForm, ProductsEditor, Stat, SupplyRef, WeightList, averageOf, decimal, input, kg, label,
+  AnimalPicker, HerdAnimal, LOTS_MODULE, Lot, Modal, ProductForm, ProductsEditor, QUEUED_MESSAGE, Stat, SupplyRef, WeightList, averageOf, decimal, input, isQueued, kg, label,
   offlineMessage, parseKg, phaseLabel, productLines, productsPayload, send,
 } from './shared'
 
 type Tab = 'todos' | 'recria' | 'engorda'
 
 export default function EngordaPage() {
-  const { user, canAccess } = useUser()
+  const { user, canAccess, loading: userLoading } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const [lots, setLots] = useState<Lot[] | null>(null)
   const [herd, setHerd] = useState<HerdAnimal[]>([])
   const [supplies, setSupplies] = useState<SupplyRef[]>([])
   const [error, setError] = useState('')
+  const [fromCache, setFromCache] = useState(false)
+  const [notice, setNotice] = useState('')
   const [tab, setTab] = useState<Tab>('todos')
   const [creating, setCreating] = useState(false)
   const [open, setOpen] = useState<{ id: string; focus?: 'pesar' | 'animais' } | null>(null)
-  const [farmId, setFarmId] = useState<string | null>(null)
   const [rearingCount, setRearingCount] = useState(0)
   const today = todayISO()
+  // Quem está entrando vem do contexto (funciona sem internet pela cópia do aparelho); null = ainda carregando
+  const farmId = userLoading ? null : (user?.farmId ?? '')
+  const fid = farmId ?? ''
 
+  // Lotes, rebanho e insumos com cópia no aparelho: sem internet ou com sinal fraco, abre a última cópia
   const loadHerd = useCallback(() => {
-    fetch('/api/animals').then((r) => (r.ok ? r.json() : [])).then((list: HerdAnimal[]) => setHerd(list.filter((a) => a.status === 'Vivo'))).catch(() => {})
-  }, [])
+    if (!fid) return
+    fetchHerd<HerdAnimal>(fid).then((r) => setHerd(r.data.filter((a) => a.status === 'Vivo'))).catch(() => {})
+  }, [fid])
   const loadSupplies = useCallback(() => {
-    if (canAccess('estoque')) fetch('/api/estoque').then((r) => (r.ok ? r.json() : [])).then(setSupplies).catch(() => {})
-  }, [canAccess])
+    if (fid && canAccess('estoque')) cachedGet<SupplyRef[]>(`cache_estoque_${fid}`, '/api/estoque').then((r) => setSupplies(r.data)).catch(() => {})
+  }, [fid, canAccess])
   const load = useCallback(() => {
-    fetch('/api/lotes').then((r) => (r.ok ? r.json() : Promise.reject(r.status))).then(setLots)
-      // 5xx: o servidor falhou (banco sem as migrations, por exemplo); sem status, foi a rede
-      .catch((status) => setError(typeof status === 'number' && status >= 500 ? 'O servidor não conseguiu carregar os lotes. Se o app acabou de ser atualizado, aplique as migrations do banco (npx prisma migrate deploy).' : 'Não foi possível carregar os lotes. Confira a internet.'))
+    if (!fid) return
+    cachedGet<Lot[]>(`cache_lotes_${fid}`, '/api/lotes')
+      .then((r) => { setLots(r.data); setFromCache(r.fromCache); setError('') })
+      // 5xx sem cópia: o servidor falhou (banco sem as migrations, por exemplo); sem status, foi a rede e não há cópia
+      .catch((err) => setError(err instanceof HttpError
+        ? (err.status >= 500 ? 'O servidor não conseguiu carregar os lotes. Se o app acabou de ser atualizado, aplique as migrations do banco (npx prisma migrate deploy).' : err.message)
+        : 'Não foi possível carregar os lotes. Confira a internet. Depois do primeiro acesso com sinal, eles ficam guardados neste aparelho.'))
     loadHerd()
-  }, [loadHerd])
-  useEffect(() => { load(); loadSupplies() }, [load, loadSupplies])
-  useEffect(() => { fetch('/api/auth/me').then((r) => r.json()).then((me) => setFarmId(me.farmId ?? '')).catch(() => setFarmId('')) }, [])
+  }, [fid, loadHerd])
+  const reload = useCallback(() => { load(); loadSupplies() }, [load, loadSupplies])
+  // Fila dos lotes: contagem, "Enviar agora" e recarga quando a barra do topo terminar de enviar
+  const net = useOfflineModule(LOTS_MODULE, reload)
+  useEffect(() => { void Promise.resolve().then(reload) }, [reload])
+  const queued = (message: string) => { setNotice(message); net.refresh() }
 
   // Um animal muda de lote: o lote antigo também perde o animal na tela. O trato mexe no estoque.
   const replace = (lot: Lot) => {
@@ -81,6 +98,25 @@ export default function EngordaPage() {
         </div>
         <p className="mb-4 text-sm text-gray-600">Na recria, acompanhe cada bezerro sozinho (desmama, pesagens, cobertura da novilha) ou em lote. Na engorda, junte os animais em lotes, pese e veja o ganho por dia, o trato e quando chegam ao peso de saída.</p>
 
+        {(!net.online || fromCache) && (
+          <p className="mb-3 flex items-center gap-2 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+            <SemSinalIcon className="h-5 w-5 shrink-0" />
+            <span>{net.online ? 'Sinal fraco: mostrando a última cópia dos lotes guardada neste aparelho.' : 'Sem internet: mostrando a última cópia dos lotes guardada neste aparelho.'} O que você registrar fica na fila e é enviado quando a conexão voltar; o lote na tela só muda depois do envio.</span>
+          </p>
+        )}
+        {net.online && net.pendingCount > 0 && (
+          <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            <span className="flex items-center gap-2"><SincronizarIcon className="h-5 w-5 shrink-0" />{net.pendingCount} registro{net.pendingCount === 1 ? '' : 's'} de lotes para enviar</span>
+            <button type="button" onClick={() => void net.sync()} disabled={net.syncing} className="shrink-0 rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600 disabled:bg-blue-400">{net.syncing ? 'Enviando...' : 'Enviar agora'}</button>
+          </div>
+        )}
+        {notice && (
+          <p role="status" className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            <span>{notice}</span>
+            <button type="button" onClick={() => setNotice('')} className="shrink-0 text-xs font-semibold hover:underline">Fechar</button>
+          </p>
+        )}
+
         <nav aria-label="Fase" className="mb-5 inline-flex rounded-xl border border-gray-200 bg-white p-1">
           {([['todos', 'Todos'], ['recria', `Recria (${count('recria')})`], ['engorda', `Engorda (${count('engorda')})`]] as const).map(([key, text]) => (
             <button key={key} type="button" onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined}
@@ -88,7 +124,7 @@ export default function EngordaPage() {
           ))}
         </nav>
 
-        <RearingAnimals farmId={farmId} herd={herd} canEdit={canEdit} canBreed={canEdit && canAccess('reproducao')} today={today} visible={tab !== 'engorda'} onCount={setRearingCount} onHerdChanged={loadHerd} />
+        <RearingAnimals farmId={farmId} herd={herd} canEdit={canEdit} canBreed={canEdit && canAccess('reproducao')} today={today} visible={tab !== 'engorda'} onCount={setRearingCount} onHerdChanged={loadHerd} onQueued={net.refresh} />
 
         {openLots.length > 0 && (
           <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -129,9 +165,10 @@ export default function EngordaPage() {
         )}
 
         {creating && <LotForm supplies={supplies} herd={herd} lotNames={lotNames} defaultPhase={tab === 'recria' ? 'recria' : 'engorda'} onClose={() => setCreating(false)}
-          onSaved={(lot) => { setCreating(false); setLots((list) => [lot, ...(list ?? [])]); replace(lot) }} />}
+          onSaved={(lot) => { setCreating(false); setLots((list) => [lot, ...(list ?? [])]); replace(lot) }}
+          onQueued={() => { setCreating(false); queued(`${QUEUED_MESSAGE} O lote aparece na lista depois do envio.`) }} />}
         {current && <LotDetail key={current.id} lot={current} supplies={supplies} herd={herd} lotNames={lotNames} canEdit={canEdit}
-          canBreed={canEdit && canAccess('reproducao')} today={today} focus={open?.focus} onClose={() => setOpen(null)} onChanged={replace} onReload={load}
+          canBreed={canEdit && canAccess('reproducao')} today={today} focus={open?.focus} onClose={() => setOpen(null)} onChanged={replace} onReload={load} onQueued={net.refresh}
           onDeleted={() => { setLots((list) => (list ?? []).filter((l) => l.id !== current.id)); setOpen(null); loadHerd(); loadSupplies() }} />}
       </div>
     </PermissionGuard>
@@ -181,13 +218,15 @@ function LotCard({ lot, today, canEdit, onOpen }: { lot: Lot; today: string; can
 
 // ── Novo lote ───────────────────────────────────────────────────────────
 
-function LotForm({ supplies, herd, lotNames, defaultPhase, onClose, onSaved }: {
+function LotForm({ supplies, herd, lotNames, defaultPhase, onClose, onSaved, onQueued }: {
   supplies: SupplyRef[]
   herd: HerdAnimal[]
   lotNames: Map<string, string>
   defaultPhase: string
   onClose: () => void
   onSaved: (lot: Lot) => void
+  /** Sem internet ou sinal fraco: o lote ficou na fila do aparelho */
+  onQueued: () => void
 }) {
   const [mode, setMode] = useState<'animais' | 'quantidade'>(herd.length ? 'animais' : 'quantidade')
   const [form, setForm] = useState({ name: '', phase: defaultPhase, startDate: todayISO(), headCount: '', avgWeight: '', targetWeight: '' })
@@ -212,7 +251,8 @@ function LotForm({ supplies, herd, lotNames, defaultPhase, onClose, onSaved }: {
         : base
       onSaved(await send('/api/lotes', 'POST', body))
     } catch (err) {
-      setError(offlineMessage(err))
+      if (isQueued(err)) onQueued()
+      else setError(offlineMessage(err))
     } finally {
       setSaving(false)
     }

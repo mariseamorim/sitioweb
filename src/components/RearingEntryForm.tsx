@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { animalToday } from '@/lib/animalRules'
 import { type RearingAnimal, day, rearingEntryError } from '@/lib/rearing'
 import { queueRearing } from '@/lib/rearingQueue'
+import { fetchWithTimeout } from '@/lib/offlineData'
 
 const FIELD = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 const kgOf = (v: string) => { const n = Number(v.replace(',', '.')); return v.trim() ? (Number.isFinite(n) ? n : NaN) : null }
@@ -39,12 +40,18 @@ export function RearingEntryForm({ animal, farmId, isOnline, onCancel, onSaved }
       return
     }
     try {
-      const res = await fetch(`/api/animals/${animal.id}/recria`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: form.start, weight, target }) })
+      const res = await fetchWithTimeout(`/api/animals/${animal.id}/recria`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: form.start, weight, target }) })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Não foi possível salvar')
       onSaved(data)
     } catch (err) {
-      setError(navigator.onLine ? (err as Error).message : 'Sem internet. Tente de novo: o registro vai para a fila do aparelho.')
+      // Rede falhou ou demorou (sinal fraco): vai para a fila do aparelho, como sem internet
+      if (err instanceof TypeError || (err as Error).name === 'AbortError') {
+        queueRearing({ _type: 'entrar', animalId: animal.id, farmId, start: form.start, weight, target })
+        onSaved(null)
+        return
+      }
+      setError((err as Error).message)
     } finally {
       setSaving(false)
     }

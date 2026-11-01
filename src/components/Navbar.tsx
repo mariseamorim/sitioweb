@@ -12,6 +12,7 @@ import { FarmSwitcher } from '@/components/FarmSwitcher';
 import { useDialog } from '@/components/DialogProvider';
 import { countAllPendingOnDevice } from '@/lib/offlineStorage';
 import { logoutKeepingDevice } from '@/lib/offlineUnlock';
+import { forgetWarmedPages, warmOfflinePages } from '@/components/PwaRegistration';
 
 type NavLink = { href: string; label: string; module: string | null; adminOnly?: boolean; Icon: (p: { className?: string }) => React.ReactNode };
 
@@ -131,6 +132,9 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
     // Sai, mas deixa os dados e a credencial no aparelho (entrar sem internet)
     logoutKeepingDevice();
     try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+    // As telas guardadas eram desta pessoa: refaz as essenciais já sem sessão
+    forgetWarmedPages();
+    void warmOfflinePages(true);
     setOpenPath(null);
     router.push('/login');
   }

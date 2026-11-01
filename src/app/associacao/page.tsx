@@ -9,6 +9,7 @@ import { field, fmtDay, fmtL, send } from '@/app/laticinio/types'
 import { PeriodPicker } from '@/app/laticinio/CollectionsSection'
 import { CollectionWorkspace } from '@/app/laticinio/CollectionWorkspace'
 import { FeesSection, NoticesSection, VisitsSection, type Fee, type Notice, type Visit } from './ServicesSections'
+import { cachedGet } from '@/lib/offlineData'
 
 interface Member {
   id: string
@@ -53,6 +54,7 @@ export default function AssociacaoPage() {
   const { confirm } = useDialog()
   const [panel, setPanel] = useState<Panel | null>(null)
   const [error, setError] = useState('')
+  const [fromCache, setFromCache] = useState(false)
   const [tab, setTab] = useState<Tab>('associados')
   const [period, setPeriod] = useState(() => ({ from: currentMonthRange().from, to: todayISO() }))
   const [form, setForm] = useState({ title: '', category: 'Ração', unit: 'Saco', description: '', deadline: '' })
@@ -60,14 +62,11 @@ export default function AssociacaoPage() {
   const [creating, setCreating] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  // Painel com cópia no aparelho (por período): sem sinal ou com sinal fraco, mostra a última cópia
   const load = useCallback(() => {
-    fetch(`/api/associacao?from=${period.from}&to=${period.to}`)
-      .then(async (r) => {
-        const data = await r.json()
-        if (!r.ok) throw new Error(data.error)
-        setPanel(data)
-      })
-      .catch((e: Error) => setError(e.message || 'Não foi possível carregar o painel'))
+    cachedGet<Panel>(`cache_associacao_${period.from}_${period.to}`, `/api/associacao?from=${period.from}&to=${period.to}`)
+      .then(({ data, fromCache }) => { setPanel(data); setFromCache(fromCache); setError('') })
+      .catch((e: Error) => setError(e.message || 'Não foi possível carregar o painel. Sem internet, abra esta tela uma vez com sinal para guardar uma cópia.'))
   }, [period])
 
   useEffect(load, [load])
@@ -130,6 +129,7 @@ export default function AssociacaoPage() {
         <h1 className="text-2xl font-bold text-gray-900">{panel.organization.name}</h1>
         <p className="text-gray-500 text-sm mt-1">Painel da associação</p>
       </div>
+      {fromCache && <p role="status" className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho.</p>}
 
       {!approved && (
         <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">

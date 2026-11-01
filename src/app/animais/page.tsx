@@ -6,7 +6,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { ESPECIES, STATUS_LIST, type Especie, type StatusAnimal } from '@/lib/types'
 import { ImagePicker } from '@/components/ImagePicker'
 import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/offlineStorage'
-import { readHerdCache, writeHerdCache } from '@/lib/herdCache'
+import { loadHerd, readHerdCache } from '@/lib/herdCache'
+import { fetchWithTimeout } from '@/lib/offlineData'
 import { RearingEntryForm } from '@/components/RearingEntryForm'
 import { canEnterRearing, isInRearing } from '@/lib/rearing'
 import { syncRearing } from '@/lib/rearingQueue'
@@ -85,6 +86,8 @@ export default function AnimaisPage() {
   const [search, setSearch] = useState('')
   const [quick, setQuick] = useQuickFilter(HERD_FILTERS)
   const [isOnline, setIsOnline] = useState(true)
+  // A lista veio da cópia guardada no aparelho (sem internet ou sinal fraco)
+  const [fromCache, setFromCache] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
 
@@ -123,31 +126,17 @@ export default function AnimaisPage() {
         motherId: r.motherId ?? null,
       }))
 
-    // Sem internet: o rebanho guardado no aparelho mais o que ainda não foi enviado
-    if (!navigator.onLine) {
-      show([...readHerdCache<Animal>(fid), ...pending].map(a => ({ ...a, species: animalCategory(a) })))
-      setLoading(false)
-      return
-    }
-
-    // Try to fetch from API, but don't fail if offline
-    fetch(`/api/animals?farmId=${fid}`)
+    // Rebanho com cópia no aparelho (sem a foto): sem internet ou com sinal fraco, mostra a última cópia
+    loadHerd<Animal>(fid)
       .then((r) => {
-        if (!r.ok) throw new Error('API error')
-        return r.json()
+        show([...r.data, ...pending])
+        setFromCache(r.fromCache)
       })
-      .then((data) => {
-        // Merge API data with pending records
-        writeHerdCache(fid, data)
-        show([...data, ...pending])
-        setLoading(false)
-      })
-      .catch((err) => {
-        // Sinal fraco: mostra o rebanho guardado no aparelho
-        console.log('Fetch error:', err)
+      .catch(() => {
         show([...readHerdCache<Animal>(fid), ...pending])
-        setLoading(false)
+        setFromCache(true)
       })
+      .finally(() => setLoading(false))
   }, [])
 
   const handleSync = useCallback(async () => {
@@ -252,17 +241,16 @@ export default function AnimaisPage() {
     if (ruleError) { setError(ruleError); return }
     setSaving(true)
 
-    // Se estiver offline e criando novo (não editando), salva no localStorage
-    if (!isOnline && !editing) {
+    // Novo animal sem internet (ou com sinal fraco, abaixo): fica na fila do aparelho e já aparece na lista
+    const queueCreate = () => {
       addPendingRecord('animais', { ...form, farmId, _type: 'create' })
       setPendingCount(getPendingRecords('animais').length)
       setSaving(false)
       setShowForm(false)
       setForm({ ...EMPTY_FORM, code: getNextCode(animals) })
-      // Atualiza a lista com o novo registro pendente
       fetchAnimals(farmId)
-      return
     }
+    if (!isOnline && !editing) return queueCreate()
 
     // Se estiver editando ou online, envia para API normalmente
     const url = editing ? `/api/animals/${editing.id}` : '/api/animals'
@@ -270,7 +258,8 @@ export default function AnimaisPage() {
     const body = editing ? form : { ...form, farmId }
 
     try {
-    const res = await fetch(url, {
+    // Com limite de espera: sinal fraco não deixa o botão em "Salvando..." para sempre
+    const res = await fetchWithTimeout(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -287,6 +276,8 @@ export default function AnimaisPage() {
     setShowForm(false)
     fetchAnimals(farmId)
     } catch {
+      // A rede falhou: o cadastro novo vai para a fila; a edição precisa de internet (o servidor é quem manda)
+      if (!editing) return queueCreate()
       setError('Não foi possível salvar. Verifique a conexão e tente novamente.')
     } finally {
       setSaving(false)
@@ -296,7 +287,9 @@ export default function AnimaisPage() {
   async function handleDelete(id: string) {
     if (!canEdit) return
     if (!(await confirm({ title: 'Excluir este animal?', message: 'Todo o histórico dele (leite, vacinas, tratamentos) também será apagado.', confirmLabel: 'Excluir', danger: true }))) return
-    await fetch(`/api/animals/${id}`, { method: 'DELETE' })
+    // Apagar precisa de internet (leva o histórico junto); com sinal fraco a espera estoura em vez de travar
+    const res = await fetchWithTimeout(`/api/animals/${id}`, { method: 'DELETE' }).catch(() => null)
+    if (!res?.ok) setError(navigator.onLine ? 'Não foi possível excluir agora. Tente de novo.' : 'Sem internet. Para excluir um animal, tente quando a conexão voltar.')
     fetchAnimals(farmId)
   }
 
@@ -356,7 +349,13 @@ export default function AnimaisPage() {
         </button>
       </div>
 
-      {/* Offline / sync banner */}
+      {/* Offline / sinal fraco / sync banner */}
+      {isOnline && fromCache && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
+          <SemSinalIcon className="w-5 h-5 shrink-0" />
+          <span>Sinal fraco: mostrando a última cópia do rebanho guardada neste aparelho. Novos animais ficam no aparelho até a internet voltar.</span>
+        </div>
+      )}
       {!isOnline && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />

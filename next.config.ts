@@ -15,19 +15,33 @@ const withPWA = (require("next-pwa") as any)({
   // Toda regra precisa de `options` (mesmo vazio): com `fallbacks`, o next-pwa lê options.precacheFallback de cada uma
   runtimeCaching: [
     { urlPattern: /\/api\/(?:auth(?:\/|$)|perfil(?:\/|$))/, handler: 'NetworkOnly', method: 'GET', options: {} },
-    // Telas do site (Painel, Anotar, Login, Início): guardadas por 90 dias, como a sessão. A regra padrão
-    // do next-pwa ("others") guardava por um dia, e quem ficava mais tempo sem internet caía na tela offline.
-    // Espera 3 s pela rede antes de usar a cópia. As respostas de navegação interna (cabeçalho RSC) ficam na regra padrão.
+    // Telas do site, guardadas por 90 dias (como a sessão) na regra "telas". A regra padrão do next-pwa ("others")
+    // guardava por um dia, e quem ficava mais tempo sem internet caía na tela offline.
+    // Painel ("/") e Ajuda vêm prontas do servidor com dados da pessoa: espera 3 s pela rede antes de usar a cópia.
+    {
+      urlPattern: ({ url, request }: { url: URL; request: Request }) =>
+        url.origin === self.origin
+        && (url.pathname === '/' || url.pathname === '/ajuda')
+        && !request.headers.get('RSC'),
+      handler: 'NetworkFirst',
+      method: 'GET',
+      options: { cacheName: 'telas', expiration: { maxEntries: 64, maxAgeSeconds: 60 * 60 * 24 * 90 }, networkTimeoutSeconds: 3 },
+    },
+    // As demais telas são cascas que buscam os dados pela API depois de abrir: abrem na hora pela cópia guardada e a cópia
+    // é atualizada por trás. Com sinal fraco (o celular acha que está online, mas nada chega) é isso que evita a espera e a
+    // tela branca. Depois de uma atualização do site, PwaRegistration refaz as cópias (refreshCachedPages).
+    // As respostas de navegação interna (cabeçalho RSC) ficam na regra padrão.
     {
       urlPattern: ({ url, request }: { url: URL; request: Request }) =>
         url.origin === self.origin
         && !url.pathname.startsWith('/api/')
         && !url.pathname.startsWith('/_next/')
         && !/\.[a-z0-9]{2,5}$/i.test(url.pathname)
+        && url.pathname !== '/' && url.pathname !== '/ajuda'
         && !request.headers.get('RSC'),
-      handler: 'NetworkFirst',
+      handler: 'StaleWhileRevalidate',
       method: 'GET',
-      options: { cacheName: 'telas', expiration: { maxEntries: 64, maxAgeSeconds: 60 * 60 * 24 * 90 }, networkTimeoutSeconds: 3 },
+      options: { cacheName: 'telas', expiration: { maxEntries: 64, maxAgeSeconds: 60 * 60 * 24 * 90 } },
     },
     // A voz guarda os próprios arquivos no celular; sem isso o PWA faria outra cópia de 32 MB
     { urlPattern: /\/voz\//, handler: 'NetworkOnly', method: 'GET', options: {} },

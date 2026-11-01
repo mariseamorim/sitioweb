@@ -1,6 +1,8 @@
 // Dados do Anota Aí Leite guardados no aparelho e fila de envio.
 // A tela sempre lê daqui; o servidor só recebe e devolve a cópia oficial.
 import type { LiteChange, LiteData, LiteEntry, LiteSheet, LiteSheetChange, LiteSplit, LiteSplitChange, PointKind } from '@/lib/lite'
+// Com limite de espera: com sinal fraco o fetch comum fica minutos pendurado; aqui desiste e cai no caminho offline
+import { fetchWithTimeout } from './offlineData'
 
 const CACHE_KEY = 'lite_cache_v1'
 const QUEUE_KEY = 'lite_queue_v1'
@@ -69,7 +71,7 @@ export async function flushQueue(): Promise<SyncResult> {
   if (sent.length === 0) return 'ok'
   let res: Response
   try {
-    res = await fetch('/api/lite', {
+    res = await fetchWithTimeout('/api/lite', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ changes: sent }),
@@ -153,7 +155,7 @@ async function flushPoints(): Promise<SyncResult> {
     let res: Response
     try {
       const { id, create, ...fields } = op
-      res = await fetch(create ? '/api/lite/locais' : `/api/lite/locais/${id}`, {
+      res = await fetchWithTimeout(create ? '/api/lite/locais' : `/api/lite/locais/${id}`, {
         method: create ? 'POST' : 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(create ? { id, ...fields } : fields),
@@ -202,7 +204,7 @@ async function flushSheets(): Promise<SyncResult> {
   if (sent.length === 0) return 'ok'
   let res: Response
   try {
-    res = await fetch('/api/lite/folha', {
+    res = await fetchWithTimeout('/api/lite/folha', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ changes: sent }),
@@ -250,7 +252,7 @@ async function flushSplits(): Promise<SyncResult> {
   if (sent.length === 0) return 'ok'
   let res: Response
   try {
-    res = await fetch('/api/lite/divisao', {
+    res = await fetchWithTimeout('/api/lite/divisao', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ changes: sent }),
@@ -281,7 +283,7 @@ export async function syncLite(): Promise<{ data: LiteData | null; result: SyncR
   const flushed = queued !== 'ok' ? queued : sheets !== 'ok' ? sheets : splits
 
   try {
-    const res = await fetch('/api/lite', { cache: 'no-store' })
+    const res = await fetchWithTimeout('/api/lite', { cache: 'no-store' })
     if (res.status === 401) return { data: readCache(), result: 'auth' }
     if (!res.ok) return { data: withPending(readCache()), result: 'error' }
     const fresh = (await res.json()) as LiteData

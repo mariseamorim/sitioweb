@@ -7,6 +7,7 @@ import { FecharIcon } from '@/components/ModuleIcons'
 import { Feeding, LOT_PHASES, Weighing, dailySupplyKg, daysOfStock, lotSummary, stockKg } from '@/lib/lots'
 import { fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
+import { sendOrQueue, type Method } from '@/lib/offlineData'
 
 export interface SupplyRef { id: string; name: string; unit: string; currentQuantity: number; packageKg: number | null; unitPrice?: number | null }
 export interface Coverage {
@@ -61,14 +62,25 @@ export const lastWeight = (a: LotAnimal) => a.weighings[a.weighings.length - 1]?
 export const parseKg = (v: string) => { const n = Number(v.replace(',', '.')); return v.trim() && Number.isFinite(n) && n > 0 ? n : null }
 export const toField = (n: number | null | undefined) => (n ? String(n).replace('.', ',') : '')
 
-export async function send(url: string, method: string, body: unknown) {
-  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || 'Não foi possível salvar')
-  return data
+/** Fila dos lotes no aparelho (cada pedido leva a própria URL; a barra do topo envia quando a internet volta) */
+export const LOTS_MODULE = 'lotes'
+export const QUEUED_MESSAGE = 'Salvo neste aparelho. Será enviado quando a internet voltar.'
+
+/** O pedido ficou na fila (sem internet ou sinal fraco). Não é erro, mas o lote na tela só muda depois do envio. */
+export class QueuedError extends Error {
+  constructor() { super(QUEUED_MESSAGE); this.name = 'QueuedError' }
+}
+export const isQueued = (err: unknown): err is QueuedError => err instanceof QueuedError
+
+/** Envia agora ou guarda na fila. Resposta boa devolve o dado; recusa do servidor vira Error; fila vira QueuedError. */
+export async function send<T = Lot>(url: string, method: string, body: unknown): Promise<T> {
+  const r = await sendOrQueue(LOTS_MODULE, { type: method === 'DELETE' ? 'delete' : 'update', url, method: method as Method, body })
+  if (r.status === 'sent') return r.data as T
+  if (r.status === 'queued') throw new QueuedError()
+  throw new Error(r.error || 'Não foi possível salvar')
 }
 
-export const offlineMessage = (err: unknown) => (navigator.onLine ? (err as Error).message : 'Sem internet. Os lotes precisam de conexão para salvar.')
+export const offlineMessage = (err: unknown) => (isQueued(err) || !navigator.onLine ? QUEUED_MESSAGE : (err as Error).message)
 
 /** Consumo de cada produto do lote por dia e para quantos dias o estoque dá */
 export function productLines(lot: Lot) {

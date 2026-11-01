@@ -12,7 +12,8 @@ import { type RearingAnimal, canEnterRearing, isInRearing, rearingSummary } from
 import { pendingRearing, queueRearing, rearingWithPending, syncRearing, writeRearingCache, applyPendingTo } from '@/lib/rearingQueue'
 import { fmtDate, fmtNumber } from '@/lib/reports'
 import { ReproductionSection } from './LotDetail'
-import { type Coverage, type HerdAnimal, Modal, Stat, decimal, input, kg, label, offlineMessage, parseKg, send, tag, toField } from './shared'
+import { type Coverage, type HerdAnimal, Modal, Stat, decimal, input, isQueued, kg, label, offlineMessage, parseKg, send, tag, toField } from './shared'
+import { fetchWithTimeout } from '@/lib/offlineData'
 
 export type RearingRow = RearingAnimal & { reproductions: Coverage[] }
 
@@ -22,7 +23,7 @@ function coverageLine(c: Coverage | undefined) {
   return `${methodLabel(c.method)} em ${fmtDate(c.coverageDate)}${c.expectedBirthDate ? ` · parto previsto ${fmtDate(c.expectedBirthDate)}` : ''}${c.status === 'Prenha' ? ' · prenha' : ''}`
 }
 
-export function RearingAnimals({ farmId, herd, canEdit, canBreed, today, visible, onCount, onHerdChanged }: {
+export function RearingAnimals({ farmId, herd, canEdit, canBreed, today, visible, onCount, onHerdChanged, onQueued }: {
   /** null enquanto /api/auth/me não respondeu; '' quando não há propriedade */
   farmId: string | null
   herd: HerdAnimal[]
@@ -34,6 +35,8 @@ export function RearingAnimals({ farmId, herd, canEdit, canBreed, today, visible
   /** Quantos animais estão na recria um a um (para o número da aba) */
   onCount: (n: number) => void
   onHerdChanged: () => void
+  /** Um pedido da ficha ficou na fila dos lotes (sinal fraco): a página atualiza a contagem */
+  onQueued?: () => void
 }) {
   const [list, setList] = useState<RearingRow[] | null>(null)
   const [isOnline, setIsOnline] = useState(true)
@@ -52,7 +55,8 @@ export function RearingAnimals({ farmId, herd, canEdit, canBreed, today, visible
     if (!navigator.onLine) { fromDevice(); refreshPending(); return }
     await syncRearing(farmId)
     try {
-      const res = await fetch('/api/recria')
+      // Com limite de espera: com sinal fraco, cai na cópia do aparelho em vez de ficar em "Carregando"
+      const res = await fetchWithTimeout('/api/recria')
       if (!res.ok) throw new Error()
       const data: RearingRow[] = await res.json()
       writeRearingCache(farmId, data)
@@ -142,7 +146,7 @@ export function RearingAnimals({ farmId, herd, canEdit, canBreed, today, visible
       )}
       {current && (
         <RearingDetail key={current.id} animal={current} farmId={farmId ?? ''} today={today} canEdit={canEdit} canBreed={canBreed} isOnline={isOnline}
-          onClose={() => setOpenId(null)} onChanged={replace} onQueued={() => { void load(); refreshPending() }} onReload={() => void load()} />
+          onClose={() => setOpenId(null)} onChanged={replace} onQueued={() => { void load(); refreshPending(); onQueued?.() }} onReload={() => void load()} />
       )}
     </section>
   )
@@ -204,16 +208,19 @@ function RearingDetail({ animal, farmId, today, canEdit, canBreed, isOnline, onC
   const [endDate, setEndDate] = useState(today)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const weighings = [...animal.weighings].reverse()
 
   const run = async (action: () => Promise<RearingRow | null>) => {
     setBusy(true)
     setError('')
+    setNotice('')
     try {
       const updated = await action()
       if (updated) onChanged(updated)
     } catch (err) {
-      setError(offlineMessage(err))
+      // Sinal fraco: o pedido ficou na fila do aparelho; a ficha só muda depois do envio
+      if (isQueued(err)) { setNotice(err.message); onQueued() } else setError(offlineMessage(err))
     } finally {
       setBusy(false)
     }
@@ -230,16 +237,16 @@ function RearingDetail({ animal, farmId, today, canEdit, canBreed, isOnline, onC
       return
     }
     void run(async () => {
-      const updated = await send(`/api/animals/${animal.id}/pesagens`, 'POST', weighing)
+      const updated = await send<RearingRow>(`/api/animals/${animal.id}/pesagens`, 'POST', weighing)
       setWeighing({ date: today, weight: '' })
       return updated
     })
   }
   const removeWeighing = async (w: { id?: string; date: string; weight: number }) => {
     if (!w.id || !(await confirm({ title: `Apagar a pesagem de ${fmtDate(w.date)} (${kg(w.weight)})?`, confirmLabel: 'Apagar', danger: true }))) return
-    void run(() => send(`/api/animals/${animal.id}/pesagens`, 'DELETE', { weighingId: w.id }))
+    void run(() => send<RearingRow>(`/api/animals/${animal.id}/pesagens`, 'DELETE', { weighingId: w.id }))
   }
-  const saveTarget = () => void run(() => send(`/api/animals/${animal.id}/recria`, 'PATCH', { target }))
+  const saveTarget = () => void run(() => send<RearingRow>(`/api/animals/${animal.id}/recria`, 'PATCH', { target }))
   const leave = async () => {
     if (!(await confirm({ title: `${animal.name} sai da recria?`, message: 'Use quando vendeu, foi para a engorda ou virou matriz. O histórico fica guardado.', confirmLabel: 'Sair da recria' }))) return
     if (!isOnline) {
@@ -248,9 +255,9 @@ function RearingDetail({ animal, farmId, today, canEdit, canBreed, isOnline, onC
       onClose()
       return
     }
-    void run(() => send(`/api/animals/${animal.id}/recria`, 'PATCH', { end: endDate }))
+    void run(() => send<RearingRow>(`/api/animals/${animal.id}/recria`, 'PATCH', { end: endDate }))
   }
-  const reopen = () => void run(() => send(`/api/animals/${animal.id}/recria`, 'PATCH', { end: null }))
+  const reopen = () => void run(() => send<RearingRow>(`/api/animals/${animal.id}/recria`, 'PATCH', { end: null }))
 
   return (
     <Modal title={`${tag(animal)} ${animal.name}`} subtitle={`${animal.species} · ${s.months} meses · desmama em ${fmtDate(animal.rearingStart)}${animal.rearingEnd ? ` · saiu em ${fmtDate(animal.rearingEnd)}` : ''}`} onClose={onClose}>
@@ -262,6 +269,7 @@ function RearingDetail({ animal, farmId, today, canEdit, canBreed, isOnline, onC
       </div>
       {s.projection && <p className="mt-2 text-sm text-gray-700">No ritmo atual chega a {kg(animal.rearingTarget!)} em <strong>{s.projection.days} dias</strong> ({fmtDate(s.projection.date)}).</p>}
       {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {notice && <p role="status" className="mt-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{notice}</p>}
 
       {canEdit && inRearing && (
         <form id="pesagem" onSubmit={saveWeighing} className="mt-4 rounded-xl bg-green-50 p-3">

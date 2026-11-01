@@ -6,6 +6,7 @@ import { useDialog } from '@/components/DialogProvider'
 import { CadeadoIcon } from '@/components/ModuleIcons'
 import { fmtDate } from '@/lib/reports'
 import { whatsappLink } from '@/lib/utils'
+import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
 
 interface Vendor {
   id: string
@@ -30,15 +31,19 @@ const STATUS_STYLE = {
   bloqueado: 'bg-gray-200 text-gray-700',
 }
 
+const OFFLINE_ACTION = 'Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.'
+
 export default function AdminFornecedoresPage() {
   const { isAdmin, loading: userLoading } = useUser()
   const { confirm } = useDialog()
   const [vendors, setVendors] = useState<Vendor[] | null>(null)
+  const [fromCache, setFromCache] = useState(false)
+  const [actionError, setActionError] = useState('')
 
+  // Lista com cópia no aparelho: sem sinal ou com sinal fraco, mostra a última cópia
   function load() {
-    fetch('/api/fornecedores')
-      .then((r) => (r.ok ? r.json() : []))
-      .then(setVendors)
+    cachedGet<Vendor[]>('cache_admin_fornecedores', '/api/fornecedores')
+      .then(({ data, fromCache }) => { setVendors(Array.isArray(data) ? data : []); setFromCache(fromCache) })
       .catch(() => setVendors([]))
   }
 
@@ -54,11 +59,17 @@ export default function AdminFornecedoresPage() {
       })
       if (!ok) return
     }
-    await fetch(`/api/fornecedores/${v.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    })
+    setActionError('')
+    try {
+      const res = await fetchWithTimeout(`/api/fornecedores/${v.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      if (!res.ok) { const data = await res.json().catch(() => ({})); return setActionError(data.error || 'Não foi possível salvar') }
+    } catch {
+      return setActionError(OFFLINE_ACTION)
+    }
     load()
   }
 
@@ -83,6 +94,8 @@ export default function AdminFornecedoresPage() {
         </p>
       </div>
 
+      {fromCache && <p role="status" className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho.</p>}
+      {actionError && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</p>}
       {!vendors ? (
         <p className="text-gray-400 text-sm">Carregando...</p>
       ) : vendors.length === 0 ? (

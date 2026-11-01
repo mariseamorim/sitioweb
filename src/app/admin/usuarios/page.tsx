@@ -8,6 +8,7 @@ import { maskPhone } from '@/lib/masks'
 import { ROLE_LABELS, roleLabel } from '@/lib/roles'
 import { fmtDate } from '@/lib/reports'
 import type { Account } from '@/lib/adminAccounts'
+import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
 
 // Contas e senhas: o administrador vê todas as contas (produtor, equipe, fornecedor, laticínio, associação, Anota Aí Leite),
 // corrige nome, telefone e e-mail e define uma senha nova para quem esqueceu a sua.
@@ -40,6 +41,7 @@ export default function AdminUsuariosPage() {
   const { isAdmin, loading: userLoading } = useUser()
   const [accounts, setAccounts] = useState<Account[] | null>(null)
   const [loadError, setLoadError] = useState('')
+  const [fromCache, setFromCache] = useState(false)
   const [query, setQuery] = useState('')
   const [role, setRole] = useState('')
   const [editing, setEditing] = useState<Account | null>(null)
@@ -49,14 +51,11 @@ export default function AdminUsuariosPage() {
   const [error, setError] = useState('')
   const [done, setDone] = useState<{ name: string; password: string } | null>(null)
 
+  // Lista com cópia no aparelho: sem sinal ou com sinal fraco, mostra a última cópia
   function load() {
-    fetch('/api/admin/usuarios')
-      .then(async (r) => {
-        const data = await r.json()
-        if (!r.ok) throw new Error(data.error)
-        setAccounts(data)
-      })
-      .catch((e: Error) => setLoadError(e.message || 'Não foi possível carregar as contas'))
+    cachedGet<Account[]>('cache_admin_usuarios', '/api/admin/usuarios')
+      .then(({ data, fromCache }) => { setAccounts(data); setFromCache(fromCache); setLoadError('') })
+      .catch((e: Error) => setLoadError(e.message || 'Não foi possível carregar as contas. Sem internet, abra esta tela uma vez com sinal para guardar uma cópia.'))
   }
   useEffect(load, [])
 
@@ -96,8 +95,9 @@ export default function AdminUsuariosPage() {
       if (form.email.trim().toLowerCase() !== (editing.email ?? '')) body.email = form.email.trim()
       if (form.password) body.password = form.password
       if (!Object.keys(body).length) { setError('Nada foi alterado'); return }
-      const res = await fetch(`/api/admin/usuarios/${editing.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      const data = await res.json()
+      const res = await fetchWithTimeout(`/api/admin/usuarios/${editing.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null)
+      if (!res) throw new Error('Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.')
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error)
       setAccounts((list) => list?.map((a) => (a.id === data.id ? { ...a, ...data } : a)) ?? list)
       if (form.password) setDone({ name: data.name, password: form.password })
@@ -143,6 +143,7 @@ export default function AdminUsuariosPage() {
         </select>
       </div>
 
+      {fromCache && <p role="status" className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho.</p>}
       {loadError ? (
         <p className="text-gray-500">{loadError}</p>
       ) : !accounts ? (

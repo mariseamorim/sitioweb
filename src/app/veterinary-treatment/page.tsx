@@ -6,8 +6,11 @@ import { animalSearchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 
-import { useEffect, useState, useMemo } from 'react'
-import { getPendingRecords, addPendingRecord, clearPendingRecords } from '@/lib/offlineStorage'
+import { useCallback, useEffect, useState, useMemo } from 'react'
+import { removePendingRecord, type OfflineRecord } from '@/lib/offlineStorage'
+import { cachedGet, isPendingId, pendingIdOf, pendingItemId, pendingOf, sendOrQueue, withPending, type PendingRequest, type QueuedRequest } from '@/lib/offlineData'
+import { useOfflineModule } from '@/lib/useOffline'
+import { loadHerd } from '@/lib/herdCache'
 import { useDialog } from '@/components/DialogProvider'
 import { currentMonthRange, inDayRange, todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
@@ -34,95 +37,67 @@ interface Treatment {
   animal: Animal
 }
 
+const MODULE = 'veterinary-treatment'
+const EMPTY_FORM = {
+  animalId: '', startDate: todayISO(), endDate: '',
+  medicine: '', milkWithdrawalDays: '', meatWithdrawalDays: '', batch: '', manufacturer: '', description: '', observations: '',
+}
+
+/** Tratamento guardado sem internet, como aparece na lista. Registros antigos da fila têm os campos soltos, sem _body. */
+function pendingTreatment(p: PendingRequest, animals: Animal[]): Treatment | null {
+  if (p._type !== 'create') return null
+  const b = (p._body ?? p) as Record<string, string | number | null | undefined>
+  const str = (v: unknown) => (v === null || v === undefined || v === '' ? null : String(v))
+  const days = (v: unknown) => (v ? Number(v) : null)
+  const animal = (p.animal as Animal | undefined) ?? animals.find(a => a.id === b.animalId) ?? { id: String(b.animalId ?? ''), name: '(sem internet)', code: '' }
+  return {
+    id: pendingItemId(p), animalId: String(b.animalId ?? ''), animal, startDate: String(b.startDate ?? ''), endDate: str(b.endDate), medicine: String(b.medicine ?? ''),
+    milkWithdrawalDays: days(b.milkWithdrawalDays), meatWithdrawalDays: days(b.meatWithdrawalDays),
+    batch: str(b.batch), manufacturer: str(b.manufacturer), description: str(b.description), observations: str(b.observations),
+  }
+}
+
+/** Fila antiga (antes de cada pedido levar a própria URL): era sempre um POST com os campos soltos */
+const legacyRequest = (r: OfflineRecord): QueuedRequest => {
+  const data = Object.fromEntries(Object.entries(r).filter(([k]) => !['_pendingId', '_type', 'farmId', 'animal'].includes(k)))
+  return { url: '/api/veterinary-treatment', method: 'POST', body: data }
+}
+
 export default function VeterinaryTreatmentPage() {
   const { confirm } = useDialog()
   const { user } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
+  const farmId = user?.farmId ?? ''
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [allAnimals, setAllAnimals] = useState<Animal[]>([])
   const [animalSearch, setAnimalSearch] = useState('')
   const [loading, setLoading] = useState(true)
-  const [farmId, setFarmId] = useState('')
+  const [fromCache, setFromCache] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [saveError, setSaveError] = useState('')
   const [from, setFrom] = useState(() => currentMonthRange().from)
   const [to, setTo] = useState(() => currentMonthRange().to)
   const [detailAnimalId, setDetailAnimalId] = useState<string | null>(null)
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({
-    animalId: '', startDate: todayISO(), endDate: '',
-    medicine: '', milkWithdrawalDays: '', meatWithdrawalDays: '', batch: '', manufacturer: '', description: '', observations: '',
-  })
-  const [isOnline, setIsOnline] = useState(true)
-  const [pendingCount, setPendingCount] = useState(0)
-  const [syncing, setSyncing] = useState(false)
+  const [form, setForm] = useState(EMPTY_FORM)
 
-  useEffect(() => {
-    setIsOnline(navigator.onLine)
-    setPendingCount(getPendingRecords('veterinary-treatment').length)
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
+  // Lista e rebanho com cópia no aparelho; a fila (criados e excluídos sem internet) entra por cima
+  const loadData = useCallback(async (fid: string) => {
+    const [trts, herd] = await Promise.all([
+      cachedGet<Treatment[]>(`cache_tratamentos_${fid}`, `/api/veterinary-treatment?farmId=${fid}`).catch(() => null),
+      loadHerd<Animal>(fid).catch(() => null),
+    ])
+    const anims = Array.isArray(herd?.data) ? herd.data : []
+    const list = Array.isArray(trts?.data) ? trts.data : []
+    setAllAnimals(anims)
+    setTreatments(withPending(list, pendingOf(MODULE, p => p.farmId === fid), p => pendingTreatment(p, anims)))
+    setFromCache(!!(trts?.fromCache || herd?.fromCache))
+    setLoading(false)
   }, [])
-
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data.farmId) return
-        setFarmId(data.farmId)
-        loadData(data.farmId)
-      })
-  }, [])
-
-  function loadData(fid: string) {
-    setLoading(true)
-    const mapPending = () =>
-      getPendingRecords('veterinary-treatment')
-        .filter(r => r.farmId === fid && (r._type ?? 'create') === 'create')
-        .map(r => ({
-          id: `pending_${r._pendingId}`,
-          animalId: r.animalId,
-          startDate: r.startDate,
-          endDate: r.endDate ?? null,
-          medicine: r.medicine,
-          milkWithdrawalDays: r.milkWithdrawalDays ? Number(r.milkWithdrawalDays) : null,
-          meatWithdrawalDays: r.meatWithdrawalDays ? Number(r.meatWithdrawalDays) : null,
-          batch: r.batch ?? null,
-          manufacturer: r.manufacturer ?? null,
-          description: r.description ?? null,
-          observations: r.observations ?? null,
-          animal: r.animal || { id: r.animalId, name: '(Offline)', code: '' },
-        }))
-
-    // If offline, load only pending records
-    if (!navigator.onLine) {
-      const pending = mapPending()
-      setTreatments(pending)
-      setAllAnimals(pending.map(p => p.animal))
-      setLoading(false)
-      return
-    }
-    
-    Promise.all([
-      fetch(`/api/veterinary-treatment?farmId=${fid}`).then((r) => r.json()).catch(() => []),
-      fetch(`/api/animals?farmId=${fid}`).then((r) => r.json()).catch(() => []),
-    ]).then(([trts, animals]) => {
-      const pending = mapPending()
-      setTreatments(Array.isArray(trts) ? [...trts, ...pending] : pending)
-      setAllAnimals(Array.isArray(animals) ? animals : [])
-      setLoading(false)
-    }).catch(() => {
-      const pending = mapPending()
-      setTreatments(pending)
-      setAllAnimals(pending.map(p => p.animal))
-      setLoading(false)
-    })
-  }
+  const reload = useCallback(() => { if (farmId) void loadData(farmId) }, [farmId, loadData])
+  const net = useOfflineModule(MODULE, reload, legacyRequest)
+  useEffect(() => { void Promise.resolve().then(reload) }, [reload])
 
   const filtered = useMemo(() => {
     return treatments.filter((t) => {
@@ -133,14 +108,16 @@ export default function VeterinaryTreatmentPage() {
   }, [treatments, from, to, animalSearch])
 
   const summary = useMemo(() => {
-    const map = new Map<string, { animal: Animal; count: number; last: string }>()
+    const map = new Map<string, { animal: Animal; count: number; last: string; pending: number }>()
     for (const t of filtered) {
+      const pending = isPendingId(t.id) ? 1 : 0
       const s = map.get(t.animalId)
       if (s) {
         s.count++
+        s.pending += pending
         if (new Date(t.startDate) > new Date(s.last)) s.last = t.startDate
       } else {
-        map.set(t.animalId, { animal: t.animal, count: 1, last: t.startDate })
+        map.set(t.animalId, { animal: t.animal, count: 1, last: t.startDate, pending })
       }
     }
     return Array.from(map.values()).sort((a, b) => new Date(b.last).getTime() - new Date(a.last).getTime())
@@ -163,68 +140,49 @@ export default function VeterinaryTreatmentPage() {
 
   const detailPeriodCount = filtered.filter((t) => t.animalId === detailAnimalId).length
 
+  // Depois de guardar ou enviar: a lista mostra na hora e a barra do topo atualiza a contagem
+  const afterChange = (queued: boolean) => {
+    setNotice(queued ? net.queuedMessage : '')
+    net.refresh()
+    reload()
+  }
+
   async function handleDelete(id: string) {
     if (!canEdit) return
     if (!(await confirm({ title: 'Excluir este tratamento?', confirmLabel: 'Excluir', danger: true }))) return
-    await fetch(`/api/veterinary-treatment/${id}`, { method: 'DELETE' })
-    loadData(farmId)
-  }
-
-  async function handleSync() {
-    const pending = getPendingRecords('veterinary-treatment')
-    if (!pending.length) return
-    setSyncing(true)
-    for (const record of pending) {
-      const { _pendingId, _type, farmId: _, ...data } = record
-      await fetch('/api/veterinary-treatment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, farmId }),
-      })
+    if (isPendingId(id)) {
+      // Ainda não foi enviado: sai da fila do aparelho
+      removePendingRecord(MODULE, pendingIdOf(id))
+      return afterChange(false)
     }
-    clearPendingRecords('veterinary-treatment')
-    setPendingCount(0)
-    setSyncing(false)
-    loadData(farmId)
+    const r = await sendOrQueue(MODULE, { type: 'delete', id, url: `/api/veterinary-treatment/${id}`, method: 'DELETE', local: { farmId } })
+    if (r.status === 'rejected') setNotice(r.error)
+    else afterChange(r.status === 'queued')
   }
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaving(true)
-
-    // Se estiver offline, salva no localStorage
-    if (!isOnline) {
-      const animal = allAnimals.find(a => a.id === form.animalId)
-      addPendingRecord('veterinary-treatment', { ...form, farmId, animal: animal || undefined, _type: 'create' })
-      setPendingCount(getPendingRecords('veterinary-treatment').length)
-      setSaving(false)
-      setShowRegister(false)
-      setForm({
-        animalId: '', startDate: todayISO(), endDate: '',
-        medicine: '', milkWithdrawalDays: '', meatWithdrawalDays: '', batch: '', manufacturer: '', description: '', observations: '',
-      })
-      // Aparece na lista na hora, sem precisar recarregar
-      loadData(farmId)
-      return
+    setSaveError('')
+    const body = {
+      animalId: form.animalId,
+      startDate: form.startDate,
+      endDate: form.endDate || null,
+      medicine: form.medicine,
+      milkWithdrawalDays: form.milkWithdrawalDays || null,
+      meatWithdrawalDays: form.meatWithdrawalDays || null,
+      batch: form.batch || null,
+      manufacturer: form.manufacturer || null,
+      description: form.description || null,
+      observations: form.observations || null,
     }
-
-    // Se estiver online, envia para API
-    await fetch('/api/veterinary-treatment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...form,
-        endDate: form.endDate || null,
-        batch: form.batch || null,
-        manufacturer: form.manufacturer || null,
-        description: form.description || null,
-        observations: form.observations || null,
-      }),
-    })
+    const animal = allAnimals.find(a => a.id === form.animalId)
+    const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/veterinary-treatment', method: 'POST', body, local: { farmId, animal } })
     setSaving(false)
+    if (r.status === 'rejected') return setSaveError(r.error)
     setShowRegister(false)
-    setForm({ animalId: '', startDate: todayISO(), endDate: '', medicine: '', milkWithdrawalDays: '', meatWithdrawalDays: '', batch: '', manufacturer: '', description: '', observations: '' })
-    loadData(farmId)
+    setForm(EMPTY_FORM)
+    afterChange(r.status === 'queued')
   }
 
   function fmt(date: string) {
@@ -244,8 +202,8 @@ export default function VeterinaryTreatmentPage() {
           onClick={() => setShowRegister(true)}
           disabled={!canEdit}
           className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${
-            canEdit 
-              ? 'bg-green-700 hover:bg-green-600' 
+            canEdit
+              ? 'bg-green-700 hover:bg-green-600'
               : 'bg-gray-400 cursor-not-allowed'
           }`}
         >
@@ -253,23 +211,29 @@ export default function VeterinaryTreatmentPage() {
         </button>
       </div>
 
-      {/* Offline / sync banner */}
-      {!isOnline && (
+      {/* Sem internet / fila / aviso */}
+      {(!net.online || fromCache) && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />
-          <span>Você está offline. Os registros serão salvos localmente e sincronizados quando reconectar.</span>
+          <span>{net.online ? 'Sinal fraco: mostrando a última cópia guardada neste aparelho.' : 'Sem internet.'} O que você registrar fica salvo no aparelho e é enviado quando a conexão voltar.</span>
         </div>
       )}
-      {isOnline && pendingCount > 0 && (
+      {net.online && net.pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} tratamento{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para sincronizar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{net.pendingCount} registro{net.pendingCount > 1 ? 's' : ''} para enviar</span>
           <button
-            onClick={handleSync}
-            disabled={syncing}
+            onClick={() => void net.sync()}
+            disabled={net.syncing}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {syncing ? 'Sincronizando...' : 'Sincronizar'}
+            {net.syncing ? 'Enviando...' : 'Enviar agora'}
           </button>
+        </div>
+      )}
+      {notice && (
+        <div role="status" className="bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
+          <span>{notice}</span>
+          <button onClick={() => setNotice('')} className="text-green-700 hover:text-green-900 p-1" aria-label="Fechar aviso"><FecharIcon /></button>
         </div>
       )}
 
@@ -320,13 +284,13 @@ export default function VeterinaryTreatmentPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {sortedSummary.map(({ animal, count, last }) => (
+              {sortedSummary.map(({ animal, count, last, pending }) => (
                 <tr
                   key={animal.id}
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => setDetailAnimalId(animal.id)}
                 >
-                  <td className="px-4 py-3 font-medium text-gray-800">{animal.name}</td>
+                  <td className="px-4 py-3 font-medium text-gray-800">{animal.name}{pending > 0 && <span className="ml-2 text-xs font-normal text-blue-700">{pending} a enviar</span>}</td>
                   <td className="hidden sm:table-cell px-4 py-3 font-mono text-gray-500 text-xs">{animal.code}</td>
                   <td className="px-4 py-3 text-right font-semibold text-green-700">{count}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-right text-gray-500">{fmt(last)}</td>
@@ -384,7 +348,7 @@ export default function VeterinaryTreatmentPage() {
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm pr-6">
                         <div>
                           <p className="text-xs text-gray-500">Medicamento</p>
-                          <p className="font-semibold text-gray-800">{t.medicine}</p>
+                          <p className="font-semibold text-gray-800">{t.medicine}{isPendingId(t.id) && <span className="ml-2 text-xs font-normal text-blue-700">a enviar</span>}</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-500">Período</p>
@@ -507,6 +471,7 @@ export default function VeterinaryTreatmentPage() {
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none" />
                 </div>
 
+                {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setShowRegister(false)}
                     className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
