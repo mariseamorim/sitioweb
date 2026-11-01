@@ -33,6 +33,22 @@ export async function warmOfflinePages(force = false) {
   } catch {}
 }
 
+/**
+ * Depois de uma atualização do site, o service worker novo guarda só os arquivos novos e apaga os antigos.
+ * As telas guardadas antes apontam para os arquivos antigos e abririam em branco sem internet.
+ * Refaz todas as telas que estão guardadas (mais as essenciais) para apontarem para os arquivos novos.
+ */
+export async function refreshCachedPages() {
+  if (!('caches' in window) || !navigator.onLine) return
+  try {
+    const cache = await caches.open('telas')
+    const saved = (await cache.keys()).map((r) => { const u = new URL(r.url); return u.pathname + u.search })
+    const urls = [...new Set([...OFFLINE_PAGES, ...saved])]
+    await Promise.all(urls.map((url) => fetch(url, { credentials: 'same-origin', headers: { accept: 'text/html' } }).catch(() => undefined)))
+    try { localStorage.setItem(WARM_KEY, String(Date.now())) } catch {}
+  } catch {}
+}
+
 /** Depois de entrar ou sair, as telas guardadas precisam ser refeitas para a pessoa certa */
 export function forgetWarmedPages() {
   try { localStorage.removeItem(WARM_KEY) } catch {}
@@ -50,9 +66,12 @@ export function PwaRegistration() {
           console.warn('Não foi possível ativar o modo offline. Verifique a conexão e atualize a página.')
         })
     }
+    // Um service worker novo assumiu (atualização do site): refaz as telas guardadas
+    const onController = () => { if (active) void refreshCachedPages() }
+    navigator.serviceWorker.addEventListener('controllerchange', onController)
     if (document.readyState === 'complete') register()
     else window.addEventListener('load', register, { once: true })
-    return () => { active = false; window.removeEventListener('load', register) }
+    return () => { active = false; window.removeEventListener('load', register); navigator.serviceWorker.removeEventListener('controllerchange', onController) }
   }, [])
   return null
 }

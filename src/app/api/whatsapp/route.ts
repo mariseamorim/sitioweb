@@ -4,7 +4,7 @@ import { animalToday } from '@/lib/animalRules'
 import { milkDay } from '@/lib/milkValidation'
 import {
   ERROR_REPLY, HELP_REPLY, NO_ACCOUNT_REPLY, NO_FARM_REPLY, UNKNOWN_REPLY, type IncomingText, type MatchableAnimal,
-  canNoteMilk, incomingTexts, matchAnimal, notFoundReply, parseMessage, phoneCandidates, savedReply,
+  canNoteMilk, deliveryStatuses, incomingTexts, matchAnimal, notFoundReply, parseMessage, phoneCandidates, savedReply,
 } from '@/lib/whatsapp'
 import { allowedSender, markRead, sendText, validSignature, whatsappConfig, whatsappEnabled } from '@/lib/whatsappServer'
 
@@ -29,6 +29,10 @@ export async function POST(request: NextRequest) {
   let payload: unknown
   try { payload = JSON.parse(raw) } catch { return NextResponse.json({ error: 'JSON inválido' }, { status: 400 }) }
 
+  // Avisos de entrega das nossas respostas: 'failed' traz o motivo (ex.: 131026 destinatário não recebe)
+  for (const st of deliveryStatuses(payload)) {
+    console.log(`[whatsapp] entrega ${st.status} para ${hidePhone(st.to)}${st.errors.length ? `: ${st.errors.join(' | ')}` : ''}`)
+  }
   const messages = incomingTexts(payload)
   // Registro curto para acompanhar nos logs da Vercel (fim do número oculto)
   console.log(`[whatsapp] chegou: ${messages.length} mensagem(ns)`, messages.map((m) => `${hidePhone(m.from)} "${m.text.slice(0, 40)}"`).join('; '))
