@@ -4,7 +4,10 @@
     "target": {
       "namespace": "android_app",
       "package_name": "br.com.anotaaiagro.www.twa",
-      "sha256_cert_fingerprints": ["C1:24:55:1A:C4:57:8A:5D:73:93:AB:39:BB:41:C0:10:FA:57:82:58:03:74:E1:84:F1:3E:9C:41:2C:02:EA:8F"]
+      "sha256_cert_fingerprints": [
+        "C1:24:55:1A:C4:57:8A:5D:73:93:AB:39:BB:41:C0:10:FA:57:82:58:03:74:E1:84:F1:3E:9C:41:2C:02:EA:8F",
+        "C4:FB:77:9B:AD:DF:EE:0A:AF:E3:90:1A:3F:6F:E4:4A:B4:F5:9D:C8:25:A5:14:F9:7D:AE:60:54:DE:93:22:05"
+      ]
     }
   }
 ]
