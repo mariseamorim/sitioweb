@@ -3,6 +3,16 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
+      "package_name": "br.com.anotaaiagro.app",
+      "sha256_cert_fingerprints": [
+        "76:FF:6B:B2:47:E6:CB:86:8D:32:7C:EF:3D:44:13:51:54:95:73:7A:DD:FD:60:50:AC:F9:65:57:97:6A:A5:F5"
+      ]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
       "package_name": "br.com.anotaaiagro.www.twa",
       "sha256_cert_fingerprints": [
         "C1:24:55:1A:C4:57:8A:5D:73:93:AB:39:BB:41:C0:10:FA:57:82:58:03:74:E1:84:F1:3E:9C:41:2C:02:EA:8F",
