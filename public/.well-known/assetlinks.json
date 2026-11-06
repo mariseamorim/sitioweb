@@ -1,6 +1,21 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "br.com.anotaaiagro.app",
+      "sha256_cert_fingerprints": [
+        "F8:00:15:1B:6D:8B:A4:29:F1:20:D0:8A:19:39:FF:39:2F:D3:FE:A6:A0:89:12:02:B8:BE:EA:7B:1E:7C:8D:FC",
+        "76:FF:6B:B2:47:E6:CB:86:8D:32:7C:EF:3D:44:13:51:54:95:73:7A:DD:FD:60:50:AC:F9:65:57:97:6A:A5:F5"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "br.com.anotaaiagro.www.twa",
