@@ -1,6 +1,6 @@
 // Windows limita caminhos a 260 caracteres e a compilação nativa (CMake/ninja) do React Native estoura esse limite.
 // Depois do `expo prebuild`, este script manda os arquivos intermediários do C++ para uma pasta curta (D:\x).
-// Compile também a partir de um atalho curto para o projeto: `mklink /J D:\m C:\sitioweb\mobile` e `cd D:\m\android`.
+// Não use um atalho (mklink /J) para encurtar o caminho do projeto: o empacotador do JavaScript exige o caminho real.
 const fs = require('fs')
 const path = require('path')
 const gradle = path.join(__dirname, '..', 'android', 'app', 'build.gradle')
