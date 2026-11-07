@@ -10,11 +10,16 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors, font, radius, space } from '@/theme'
 import { brDate } from '@/lib/format'
 
-export function Screen({ children, scroll = true, style, background }: { children: ReactNode; scroll?: boolean; style?: ViewStyle; background?: string }) {
+/** Tela com rolagem. `header`: há cabeçalho de navegação acima (para calcular o espaço do teclado). */
+export function Screen({ children, scroll = true, style, background, header = true }: { children: ReactNode; scroll?: boolean; style?: ViewStyle; background?: string; header?: boolean }) {
   const bottom = useBottomInset()
+  const insets = useSafeAreaInsets()
   const inner = <View style={[styles.screenInner, { paddingBottom: 96 + bottom }, style]}>{children}</View>
+  // "padding" também no Android: com a tela até a borda (edge-to-edge) o sistema não encolhe a janela quando o teclado
+  // abre, e o campo em edição ficava escondido. O recuo é a altura do cabeçalho (56) mais a barra de status.
   return (
-    <KeyboardAvoidingView style={[styles.screen, background ? { backgroundColor: background } : null]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[styles.screen, background ? { backgroundColor: background } : null]} behavior="padding"
+      keyboardVerticalOffset={header ? insets.top + 56 : 0}>
       {scroll ? <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>{inner}</ScrollView> : inner}
     </KeyboardAvoidingView>
   )

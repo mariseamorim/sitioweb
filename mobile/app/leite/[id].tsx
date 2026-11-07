@@ -7,6 +7,7 @@ import { brNumber, isoDay, parseNumber, todayISO } from '@/lib/format'
 import { animalOptions } from '@/repos/animals'
 import { getMilkPrice, removeMilk, saveMilk, type Milk } from '@/repos/milk'
 import { Button, Chips, DateField, Field, Notice, Screen, SelectField } from '@/ui'
+import { VoiceButton } from '@/ui/voice'
 import { space } from '@/theme'
 
 // Anotar leite (id = "novo") ou editar um lançamento. "Total do dia" é o uso comum; "Por vaca" separa o leite de uma vaca.
@@ -55,6 +56,7 @@ export default function LeiteForm() {
       <View style={{ height: space.sm }} />
       <DateField label="Data" value={date} onChange={setDate} />
       <Field label="Litros" value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" placeholder="Ex.: 180" autoFocus={!editing} />
+      {canEdit ? <VoiceButton onNumber={v => setQuantity(brNumber(v, 2).replace(/\./g, '').replace(/,?0+$/, ''))} /> : null}
       {mode === 'dia'
         ? <Field label="Vacas ordenhadas (opcional)" value={cows} onChangeText={setCows} keyboardType="number-pad" placeholder="Ex.: 12" />
         : <SelectField label="Vaca" value={animalId} options={animals} onChange={setAnimalId} searchable placeholder="Escolher a vaca" />}
