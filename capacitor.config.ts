@@ -25,6 +25,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: { launchShowDuration: 0, backgroundColor: '#0f3f2e' },
+    // O site usa viewport-fit=cover e reserva o espaço da barra de status via CSS (classe app-android em layout.tsx).
+    // Fundo das telas é claro: ícones escuros na barra de status ("LIGHT"), sem seguir o tema do aparelho.
+    SystemBars: { style: 'LIGHT', initialViewportFitValueHint: 'cover' },
   },
 }
 

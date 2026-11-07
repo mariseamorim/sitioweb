@@ -35,6 +35,10 @@ export default function RootLayout({
     <html lang="pt-BR">
       <head>
         <link rel="manifest" href="/manifest.json" />
+        {/* Dentro do app Android (WebView do Capacitor) a tela vai até embaixo da barra de status. A classe "app-android"
+            liga as regras de margem em globals.css. Script inline para valer antes da primeira pintura. O identificador
+            "AnotaAiAgro/Android" é definido em capacitor.config.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: "if(navigator.userAgent.indexOf('AnotaAiAgro/Android')!==-1)document.documentElement.className+=' app-android'" }} />
       </head>
       <body className={`${geistSans.variable} antialiased bg-gray-50 min-h-screen`}>
         <PwaRegistration />
