@@ -171,12 +171,12 @@ export default function VacinacaoPage() {
   return (
     <PermissionGuard module="vacinacao">
       <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Vacinação</h1>
           <p className="text-gray-500 text-sm mt-1">Agenda e controle de vacinas por animal</p>
         </div>
-        <button onClick={() => setShowRegister(true)} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
+        <button onClick={() => setShowRegister(true)} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
           + Registrar
         </button>
       </div>
@@ -214,7 +214,7 @@ export default function VacinacaoPage() {
       )}
 
       {quick && <QuickFilterChip label="vacinas para aplicar (vencidas e nos próximos 7 dias)" count={filtered.length} onClear={() => setQuick(null)} />}
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-4">
         {(['Todas', 'Pendente', 'Aplicada', 'Vencida'] as VaccStatus[]).map(s => (
           <button key={s} onClick={() => { setQuick(null); setFilter(s) }}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === s ? 'bg-green-700 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>

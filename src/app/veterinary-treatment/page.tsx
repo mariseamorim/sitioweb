@@ -193,7 +193,7 @@ export default function VeterinaryTreatmentPage() {
     <PermissionGuard module="veterinario">
       <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Tratamentos Veterinários</h1>
           <p className="text-gray-500 text-sm mt-1">Resumo por animal no período selecionado</p>
@@ -201,7 +201,7 @@ export default function VeterinaryTreatmentPage() {
         <button
           onClick={() => setShowRegister(true)}
           disabled={!canEdit}
-          className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${
+          className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${
             canEdit
               ? 'bg-green-700 hover:bg-green-600'
               : 'bg-gray-400 cursor-not-allowed'

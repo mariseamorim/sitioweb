@@ -169,7 +169,7 @@ export default function UsuariosPage() {
   return (
     <PermissionGuard module="usuarios">
       <div>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-start justify-between gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Usuários</h1>
             <p className="text-gray-500 text-sm mt-1">Gerencie acesso e permissões por módulo</p>
@@ -177,7 +177,7 @@ export default function UsuariosPage() {
           {canManage && (
           <button
             onClick={() => { setShowCreate(true); setError(''); setForm(EMPTY_FORM) }}
-            className="bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg"
+            className="bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap"
           >
             + Novo Usuário
           </button>

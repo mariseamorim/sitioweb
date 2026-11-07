@@ -79,6 +79,9 @@ body {
 /* Layout fluido, inclusive com texto maior e no aplicativo instalado. */
 /* No celular, sobra espaço para a barra de atalhos fixa no rodapé não cobrir o fim da página */
 .app-workspace #conteudo{min-width:0;overflow-wrap:anywhere;padding-bottom:calc(6rem + env(safe-area-inset-bottom))}
+/* overflow-wrap:anywhere evita que textos longos estourem a tela, mas em botões, abas e cabeçalhos de tabela partia
+   palavras no meio ("Toda s", "Registra r"). Nesses elementos a palavra fica inteira; os contêineres é que quebram linha. */
+.app-workspace #conteudo :is(button, th, summary, [role="tab"]){overflow-wrap:normal}
 @media(min-width:64rem){.app-workspace #conteudo{padding-bottom:calc(1.5rem + env(safe-area-inset-bottom))}}
 .app-workspace #conteudo .grid>*,.app-workspace form .grid>*{min-width:0}
 .app-workspace header>div:first-child>div:first-child{flex:1}
