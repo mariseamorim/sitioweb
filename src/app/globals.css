@@ -84,3 +84,5 @@ body {
 .app-workspace header>div:first-child>div:first-child{flex:1}
 .app-workspace input,.app-workspace select,.app-workspace textarea{max-width:100%;min-width:0}
 @media(display-mode:standalone){body{padding-top:env(safe-area-inset-top)}.app-workspace header{top:env(safe-area-inset-top)}}
+/* App Android (Capacitor): o WebView ocupa a tela toda, inclusive sob a barra de status; a classe vem do script em layout.tsx */
+html.app-android body{padding-top:env(safe-area-inset-top)}html.app-android .app-workspace header{top:env(safe-area-inset-top)}
