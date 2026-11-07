@@ -7,6 +7,7 @@ import { api, HttpError, NetworkError } from '@/api/client'
 import { all, deleteRow, getMeta, one, replaceFromServer, run, setMeta, transaction, upsert, TABLES, type Row, type TableName } from '@/db'
 import { notifyChange } from '@/db/events'
 import { isLocalId, pendingCount, type OutboxRow } from './local'
+import { setSyncTrigger } from './trigger'
 
 export interface SyncState {
   online: boolean
@@ -157,9 +158,11 @@ export function startAutoSync(farmId: string, canAccess: (module: string) => boo
     if (online && !was) void syncNow(farmId, canAccess)
   })
   const sub = AppState.addEventListener('change', (st) => { if (st === 'active') void syncNow(farmId, canAccess) })
+  // Cada gravação no aparelho pede o envio logo em seguida (ver sync/local.ts)
+  setSyncTrigger(() => { if (state.online) void syncNow(farmId, canAccess) })
   refreshCounts(farmId)
   void syncNow(farmId, canAccess)
-  return () => { unsubNet(); sub.remove() }
+  return () => { unsubNet(); sub.remove(); setSyncTrigger(null) }
 }
 
 export function clearUnauthorized() {

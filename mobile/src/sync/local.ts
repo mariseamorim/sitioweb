@@ -3,8 +3,15 @@
 import * as Crypto from 'expo-crypto'
 import { all, deleteRow, one, patchRow, run, transaction, upsert, type Row, type TableName, TABLES } from '@/db'
 import { notifyChange } from '@/db/events'
+import { requestSync } from './trigger'
 
 export const isLocalId = (id: string) => id.startsWith('local_')
+
+/** Id atual de um registro: um id local já enviado vira o id do servidor (a tela pode ter guardado o antigo). */
+export function currentId(id: string): string {
+  if (!isLocalId(id)) return id
+  return one<{ serverId: string }>('SELECT serverId FROM id_map WHERE localId = ?', [id])?.serverId ?? id
+}
 
 export interface OutboxRow {
   seq: number
@@ -36,6 +43,7 @@ export function createLocal(o: { table: TableName; farmId: string; path: string;
     enqueue({ farmId: o.farmId, module: TABLES[o.table].module, method: 'POST', path: o.path, body: o.body, localId: id, tbl: o.table })
   })
   notifyChange()
+  requestSync()
   return id
 }
 
@@ -44,34 +52,40 @@ export function createLocal(o: { table: TableName; farmId: string; path: string;
  * pendente; senão agenda um PUT. `path` pode conter o id local: é trocado pelo definitivo na hora do envio.
  */
 export function updateLocal(o: { table: TableName; farmId: string; id: string; path: string; body: Row; row?: Row }) {
+  const id = currentId(o.id)
+  const path = o.path.split(o.id).join(id)
   transaction(() => {
-    patchRow(o.table, o.id, { ...o.body, ...(o.row ?? {}), updatedAt: new Date().toISOString() })
-    const pending = isLocalId(o.id)
-      ? one<OutboxRow>("SELECT * FROM outbox WHERE localId = ? AND method = 'POST' AND failed = 0", [o.id])
+    patchRow(o.table, id, { ...o.body, ...(o.row ?? {}), updatedAt: new Date().toISOString() })
+    const pending = isLocalId(id)
+      ? one<OutboxRow>("SELECT * FROM outbox WHERE localId = ? AND method = 'POST' AND failed = 0", [id])
       : null
     if (pending) {
       const merged = { ...(pending.body ? JSON.parse(pending.body) : {}), ...o.body }
       run('UPDATE outbox SET body = ? WHERE seq = ?', [JSON.stringify(merged), pending.seq])
     } else {
-      enqueue({ farmId: o.farmId, module: TABLES[o.table].module, method: 'PUT', path: o.path, body: o.body, localId: o.id, tbl: o.table })
+      enqueue({ farmId: o.farmId, module: TABLES[o.table].module, method: 'PUT', path, body: o.body, localId: id, tbl: o.table })
     }
   })
   notifyChange()
+  requestSync()
 }
 
 /** Apaga no aparelho. Registro ainda não enviado some da fila; registro do servidor agenda o DELETE. */
 export function deleteLocal(o: { table: TableName; farmId: string; id: string; path: string }) {
+  const id = currentId(o.id)
+  const path = o.path.split(o.id).join(id)
   transaction(() => {
-    deleteRow(o.table, o.id)
-    if (isLocalId(o.id)) {
-      run('DELETE FROM outbox WHERE localId = ? OR path LIKE ?', [o.id, `%${o.id}%`])
+    deleteRow(o.table, id)
+    if (isLocalId(id)) {
+      run('DELETE FROM outbox WHERE localId = ? OR path LIKE ?', [id, `%${id}%`])
     } else {
       // Alterações pendentes do mesmo registro não fazem mais sentido
-      run("DELETE FROM outbox WHERE localId = ? AND method IN ('PUT', 'PATCH') AND failed = 0", [o.id])
-      enqueue({ farmId: o.farmId, module: TABLES[o.table].module, method: 'DELETE', path: o.path, localId: o.id, tbl: o.table })
+      run("DELETE FROM outbox WHERE localId = ? AND method IN ('PUT', 'PATCH') AND failed = 0", [id])
+      enqueue({ farmId: o.farmId, module: TABLES[o.table].module, method: 'DELETE', path, localId: id, tbl: o.table })
     }
   })
   notifyChange()
+  requestSync()
 }
 
 export function pendingCount(farmId: string): { pending: number; failed: number } {
