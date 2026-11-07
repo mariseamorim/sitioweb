@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { canAccessModule, getSessionUser } from '@/lib/auth'
 import { memberFarms } from '@/lib/farms'
@@ -24,7 +25,9 @@ export default async function Home() {
   const user = await getSessionUser()
   // Quem não usa o Painel recebe uma página que segue para a tela certa, em vez de um redirecionamento do servidor:
   // assim "/" fica guardada no aparelho e o app instalado abre sem internet (o service worker não guarda redirecionamentos).
-  if (!user) return <HomeRedirect href="/inicio" />
+  // Dentro do app Android (identificador definido em capacitor.config.ts) não há página de apresentação: quem não está
+  // logado vai direto para a tela de entrada. No site, segue para a apresentação (/inicio).
+  if (!user) return <HomeRedirect href={((await headers()).get('user-agent') ?? '').includes('AnotaAiAgro/Android') ? '/login' : '/inicio'} />
   if (user.role === 'onboarding') redirect('/criar-conta')
   const home = homeForRole(user.role)
   if (home !== '/') return <HomeRedirect href={home} />
