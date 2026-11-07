@@ -128,7 +128,7 @@ export interface SessionUser {
 /** Token enviado pelo app Android, que não usa cookies: "Authorization: Bearer <token>". */
 async function bearerToken(): Promise<string | undefined> {
   const value = (await headers()).get('authorization')
-  const match = value?.match(/^Bearers+(S+)$/i)
+  const match = value?.match(/^Bearer\s+(\S+)$/i)
   return match?.[1]
 }
 
