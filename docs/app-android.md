@@ -15,7 +15,7 @@ barra de endereço nem o aviso "Executando no Chrome" e não precisa da verifica
 
 - JDK 17 (já instalado em `C:\Program Files\Java\jdk-17`).
 - Android SDK: Android Studio ou só as "command line tools", com `platforms;android-36`, `build-tools;36.0.0` e `platform-tools`.
-  O caminho do SDK vai em `android/local.properties` (`sdk.dir=C:/Users/Admin/AppData/Local/Android/Sdk`).
+  Instalado em `C:UsersAdminAppDataLocalAndroidSdk` (06/11/2026); o caminho fica em `android/local.properties` (`sdk.dir=...`).
 
 ## Gerar o pacote para a loja
 
@@ -24,8 +24,9 @@ npm run android:bundle
 ```
 
 Sai em `android/app/build/outputs/bundle/release/app-release.aab`. Envie no Play Console como uma versão nova.
-Para instalar direto no celular (teste), `npm run android:apk` gera `android/app/build/outputs/apk/release/app-release-unsigned.apk`
-assinado se o `keystore.properties` existir.
+Para testar no celular antes de enviar, `cd android && gradlew.bat assembleDebug` gera
+`android/app/build/outputs/apk/debug/app-debug.apk`, que pode ser copiado e instalado direto (é assinado com a chave de
+depuração, só para teste; a loja só aceita o `.aab` assinado com a chave de envio).
 
 ## Como o site se comporta dentro do app
 
