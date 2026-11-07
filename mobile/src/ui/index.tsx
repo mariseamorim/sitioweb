@@ -8,10 +8,10 @@ import {
 import { colors, font, radius, space } from '@/theme'
 import { brDate } from '@/lib/format'
 
-export function Screen({ children, scroll = true, style }: { children: ReactNode; scroll?: boolean; style?: ViewStyle }) {
+export function Screen({ children, scroll = true, style, background }: { children: ReactNode; scroll?: boolean; style?: ViewStyle; background?: string }) {
   const inner = <View style={[styles.screenInner, style]}>{children}</View>
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[styles.screen, background ? { backgroundColor: background } : null]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {scroll ? <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>{inner}</ScrollView> : inner}
     </KeyboardAvoidingView>
   )

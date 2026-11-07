@@ -1,4 +1,4 @@
-import { all, one, patchRow, transaction } from '@/db'
+import { all, one, patchRow } from '@/db'
 import { createLocal, deleteLocal, updateLocal } from '@/sync/local'
 
 export interface Supply {
@@ -41,8 +41,6 @@ export function removeSupply(farmId: string, id: string) {
 /** Entrada ou saída: ajusta a quantidade local na hora e manda a movimentação para o servidor, que recalcula. */
 export function addMovement(farmId: string, supply: Supply, input: { type: 'Entrada' | 'Saída'; quantity: number; date: string; description: string }) {
   const body = { type: input.type, quantity: input.quantity, date: input.date, description: input.description.trim() || null }
-  transaction(() => {
-    createLocal({ table: 'supply_movements', farmId, path: `/api/estoque/${supply.id}/movimentacao`, body, row: { supplyId: supply.id } })
-    patchRow('supplies', supply.id, { currentQuantity: supply.currentQuantity + (input.type === 'Entrada' ? input.quantity : -input.quantity) })
-  })
+  createLocal({ table: 'supply_movements', farmId, path: `/api/estoque/${supply.id}/movimentacao`, body, row: { supplyId: supply.id } })
+  patchRow('supplies', supply.id, { currentQuantity: supply.currentQuantity + (input.type === 'Entrada' ? input.quantity : -input.quantity) })
 }

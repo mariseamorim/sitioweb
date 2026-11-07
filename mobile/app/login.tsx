@@ -30,7 +30,7 @@ export default function Login() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.greenDark }}>
-      <Screen style={{ backgroundColor: colors.greenDark, justifyContent: 'center' }}>
+      <Screen background={colors.greenDark} style={{ justifyContent: 'center' }}>
         <View style={{ alignItems: 'center', marginBottom: space.xl }}>
           <Image source={require('../assets/splash-icon.png')} style={{ width: 220, height: 64 }} resizeMode="contain" />
           <Text style={{ color: colors.cream, marginTop: space.sm, fontSize: font.md }}>Anote o dia a dia da sua propriedade</Text>

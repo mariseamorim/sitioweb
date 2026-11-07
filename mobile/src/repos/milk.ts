@@ -57,7 +57,7 @@ export interface MilkInput { date: string; quantity: number; cowsMilked: number 
 export function saveMilk(farmId: string, input: MilkInput, id?: string): string {
   const body = {
     date: input.date, quantity: input.quantity, cowsMilked: input.animalId ? null : input.cowsMilked, animalId: input.animalId || null,
-    pricePerLiter: input.pricePerLiter, observations: input.observations.trim() || null,
+    ...(input.pricePerLiter === null ? {} : { pricePerLiter: input.pricePerLiter }), observations: input.observations.trim() || null,
   }
   if (id) {
     updateLocal({ table: 'milk', farmId, id, path: `/api/milk-production/${id}`, body })
