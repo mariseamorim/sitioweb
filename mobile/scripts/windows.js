@@ -8,14 +8,19 @@
 const fs = require('fs')
 const path = require('path')
 const gradle = path.join(__dirname, '..', 'android', 'app', 'build.gradle')
-const BLOCK = `    // Caminho curto e ninja com caminhos longos para o build C++ (limite de 260 caracteres do Windows); ver scripts/windows.js
-    externalNativeBuild { cmake { buildStagingDirectory "D:/x"; version "3.31.0"; arguments "-DCMAKE_MAKE_PROGRAM=D:/dev/ninja/ninja.exe" } }
+const MARK = 'ver scripts/windows.js'
+const ANDROID_BLOCK = `    // Caminho curto para o build C++ (limite de 260 caracteres do Windows); ${MARK}
+    externalNativeBuild { cmake { buildStagingDirectory "D:/x"; version "3.31.0" } }
+`
+const DEFAULT_BLOCK = `        // ninja com caminhos longos; ${MARK}
+        externalNativeBuild { cmake { arguments "-DCMAKE_MAKE_PROGRAM=D:/dev/ninja/ninja.exe" } }
 `
 let s = fs.readFileSync(gradle, 'utf8')
-if (s.includes('buildStagingDirectory')) {
-  s = s.replace(/^.*ver scripts\/windows\.js\n.*buildStagingDirectory.*\n/m, BLOCK)
-} else {
-  s = s.replace(/android \{\n/, 'android {\n' + BLOCK)
-}
+// remove o que uma execução anterior inseriu (comentário com a marca + a linha seguinte)
+s = s.replace(new RegExp(`^.*${MARK.replace('/', '\\/')}\\n.*\\n`, 'gm'), '')
+s = s.replace(/android \{\n/, 'android {\n' + ANDROID_BLOCK)
+s = s.replace(/    defaultConfig \{\n/, '    defaultConfig {\n' + DEFAULT_BLOCK)
 fs.writeFileSync(gradle, s)
-console.log(s.includes('CMAKE_MAKE_PROGRAM') ? 'build C++ configurado em ' + gradle : 'ATENÇÃO: build.gradle não alterado')
+const ok = s.includes('buildStagingDirectory') && s.includes('CMAKE_MAKE_PROGRAM')
+console.log(ok ? 'build C++ configurado em ' + gradle : 'ATENÇÃO: build.gradle não alterado')
+if (!ok) process.exit(1)
