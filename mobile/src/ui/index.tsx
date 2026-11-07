@@ -5,11 +5,14 @@ import {
   ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput,
   View, type TextInputProps, type ViewStyle,
 } from 'react-native'
+import { useSegments } from 'expo-router'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors, font, radius, space } from '@/theme'
 import { brDate } from '@/lib/format'
 
 export function Screen({ children, scroll = true, style, background }: { children: ReactNode; scroll?: boolean; style?: ViewStyle; background?: string }) {
-  const inner = <View style={[styles.screenInner, style]}>{children}</View>
+  const bottom = useBottomInset()
+  const inner = <View style={[styles.screenInner, { paddingBottom: 96 + bottom }, style]}>{children}</View>
   return (
     <KeyboardAvoidingView style={[styles.screen, background ? { backgroundColor: background } : null]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {scroll ? <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>{inner}</ScrollView> : inner}
@@ -74,7 +77,7 @@ export function SelectField({ label, value, options, onChange, placeholder = 'Es
         <Text style={{ fontSize: font.md, color: current ? colors.text : colors.muted }}>{current ? current.label : placeholder}</Text>
       </Pressable>
       <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
-        <View style={styles.modal}>
+        <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{label}</Text>
             <Pressable onPress={() => setOpen(false)} hitSlop={12}><Text style={styles.link}>Fechar</Text></Pressable>
@@ -92,7 +95,7 @@ export function SelectField({ label, value, options, onChange, placeholder = 'Es
             )}
             ListEmptyComponent={<Text style={[styles.muted, { padding: space.lg }]}>Nada encontrado</Text>}
           />
-        </View>
+        </SafeAreaView>
       </Modal>
     </View>
   )
@@ -123,13 +126,13 @@ export function DateField({ label, value, onChange, allowEmpty }: { label: strin
 
 export function Chips<T extends string>({ options, value, onChange }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm, paddingVertical: space.sm }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, paddingVertical: space.sm }}>
       {options.map(o => (
         <Pressable key={o.value} onPress={() => onChange(o.value)} style={[styles.chip, value === o.value && styles.chipOn]}>
           <Text style={[styles.chipText, value === o.value && { color: colors.white }]}>{o.label}</Text>
         </Pressable>
       ))}
-    </ScrollView>
+    </View>
   )
 }
 
@@ -182,9 +185,17 @@ export function Notice({ text, tone = 'amber' }: { text: string; tone?: 'amber' 
   return <View style={[styles.notice, { backgroundColor: bg }]}><Text style={{ color: fg, fontSize: font.sm }}>{text}</Text></View>
 }
 
+/** Recuo inferior da tela (botões de navegação do Android). Dentro das abas a barra de abas já ocupa esse espaço. */
+export function useBottomInset(): number {
+  const insets = useSafeAreaInsets()
+  const segments = useSegments()
+  return segments[0] === '(tabs)' ? 0 : insets.bottom
+}
+
 export function Fab({ label, onPress }: { label: string; onPress: () => void }) {
+  const bottom = useBottomInset()
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.fab, pressed && { opacity: 0.85 }]} accessibilityRole="button">
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.fab, { bottom: space.lg + bottom }, pressed && { opacity: 0.85 }]} accessibilityRole="button">
       <Text style={{ color: colors.white, fontWeight: '700', fontSize: font.md }}>{label}</Text>
     </Pressable>
   )
@@ -205,7 +216,7 @@ export const styles = StyleSheet.create({
   hint: { fontSize: font.sm, color: colors.muted, marginTop: 4 },
   error: { fontSize: font.sm, color: colors.red, marginTop: 4 },
   link: { color: colors.green, fontWeight: '700', fontSize: font.md },
-  modal: { flex: 1, backgroundColor: colors.bg, paddingTop: 48 },
+  modal: { flex: 1, backgroundColor: colors.bg },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: space.lg },
   modalTitle: { fontSize: font.lg, fontWeight: '700', color: colors.text },
   option: { paddingVertical: 14, paddingHorizontal: space.lg, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.white },

@@ -23,7 +23,7 @@ export default function TabsLayout() {
   return (
     <Tabs screenOptions={{
       headerStyle: { backgroundColor: colors.green }, headerTintColor: colors.white, headerTitleStyle: { fontWeight: '700' },
-      tabBarActiveTintColor: colors.green, tabBarInactiveTintColor: colors.muted, tabBarLabelStyle: { fontSize: 12, fontWeight: '600' }, tabBarStyle: { height: 64, paddingBottom: 8, paddingTop: 6 },
+      tabBarActiveTintColor: colors.green, tabBarInactiveTintColor: colors.muted, tabBarLabelStyle: { fontSize: 12, fontWeight: '600' }, tabBarStyle: { paddingTop: 6 }, tabBarItemStyle: { paddingVertical: 4 },
     }}>
       <Tabs.Screen name="index" options={{ title: 'Painel', tabBarIcon: icon('grid-outline') }} />
       <Tabs.Screen name="leite" options={{ title: 'Leite', tabBarIcon: icon('water-outline'), href: canAccess('leite') ? undefined : null }} />
