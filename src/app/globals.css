@@ -91,3 +91,7 @@ html.app-android body{padding-top:env(safe-area-inset-top)}html.app-android .app
 html.app-android #menu-lateral{padding-top:env(safe-area-inset-top)}
 html.app-android .fixed.inset-0.items-end{padding-bottom:calc(1rem + env(safe-area-inset-bottom))}
 @media(display-mode:standalone){#menu-lateral{padding-top:env(safe-area-inset-top)}}
+/* O cabeçalho fixo começa abaixo da barra de status; sem isto a faixa acima dele fica transparente e, ao rolar,
+   o conteúdo aparece por trás do relógio. O pseudo-elemento cobre a faixa com o mesmo fundo branco do cabeçalho. */
+html.app-android .app-workspace header::before{content:'';position:absolute;left:0;right:0;bottom:100%;height:env(safe-area-inset-top);background:#fff}
+@media(display-mode:standalone){.app-workspace header::before{content:'';position:absolute;left:0;right:0;bottom:100%;height:env(safe-area-inset-top);background:#fff}}
