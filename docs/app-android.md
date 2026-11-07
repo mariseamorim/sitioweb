@@ -29,6 +29,6 @@ Tudo fica no disco D: (o C: encheu durante a primeira compilação, em 07/11/202
 
 - JDK 21 em `D:devjdk-21` (`JAVA_HOME`; também em `D:devgradlegradle.properties` por `org.gradle.java.home`).
 - Cache do Gradle em `D:devgradle` (`GRADLE_USER_HOME`).
-- Android SDK em `D:devndroid-sdk` (`ANDROID_HOME`; também em `mobile/android/local.properties`).
+- Android SDK em `D:devandroid-sdk` (`ANDROID_HOME`; também em `mobile/android/local.properties`).
 - As três variáveis estão definidas para o usuário do Windows; um terminal novo já as enxerga.
 - Chave de envio da loja: `signing.keystore` da pasta `Downloads___ - Google Play package (1)`; senhas no `signing-key-info.txt` dela.
