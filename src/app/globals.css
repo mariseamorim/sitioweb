@@ -86,3 +86,8 @@ body {
 @media(display-mode:standalone){body{padding-top:env(safe-area-inset-top)}.app-workspace header{top:env(safe-area-inset-top)}}
 /* App Android (Capacitor): o WebView ocupa a tela toda, inclusive sob a barra de status; a classe vem do script em layout.tsx */
 html.app-android body{padding-top:env(safe-area-inset-top)}html.app-android .app-workspace header{top:env(safe-area-inset-top)}
+/* Camadas fixas de altura inteira não herdam a margem do corpo: o menu lateral começa abaixo da barra de status e as
+   folhas que sobem de baixo (items-end) param acima da barra de gestos. Vale no app Android e no modo standalone. */
+html.app-android #menu-lateral{padding-top:env(safe-area-inset-top)}
+html.app-android .fixed.inset-0.items-end{padding-bottom:calc(1rem + env(safe-area-inset-bottom))}
+@media(display-mode:standalone){#menu-lateral{padding-top:env(safe-area-inset-top)}}
