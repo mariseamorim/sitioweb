@@ -243,7 +243,7 @@ export default function FinanceiroPage() {
       )}
 
       {/* Filter */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-4">
         {['Todas', 'Receita', 'Despesa'].map(s => (
           <button key={s} onClick={() => setFilterType(s)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterType === s ? 'bg-green-700 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
