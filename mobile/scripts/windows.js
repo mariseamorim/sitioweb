@@ -13,7 +13,7 @@ const ANDROID_BLOCK = `    // Caminho curto para o build C++ (limite de 260 cara
     externalNativeBuild { cmake { buildStagingDirectory "D:/x"; version "3.31.0" } }
 `
 const DEFAULT_BLOCK = `        // ninja com caminhos longos; ${MARK}
-        externalNativeBuild { cmake { arguments "-DCMAKE_MAKE_PROGRAM=D:/dev/ninja/ninja.exe" } }
+        externalNativeBuild { cmake { arguments "-DCMAKE_MAKE_PROGRAM=D:/dev/ninja/ninja-j3.bat" } }
 `
 let s = fs.readFileSync(gradle, 'utf8')
 // remove o que uma execução anterior inseriu (comentário com a marca + a linha seguinte)
