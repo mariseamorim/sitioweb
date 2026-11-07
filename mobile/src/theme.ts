@@ -15,6 +15,8 @@ export const colors = {
   redSoft: '#fee2e2',
   blue: '#1d4ed8',
   blueSoft: '#dbeafe',
+  purple: '#6d28d9',
+  purpleSoft: '#ede9fe',
 }
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 }

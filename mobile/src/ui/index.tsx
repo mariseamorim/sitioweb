@@ -141,8 +141,8 @@ export function Chips<T extends string>({ options, value, onChange }: { options:
   )
 }
 
-export function Badge({ label, tone = 'muted' }: { label: string; tone?: 'green' | 'amber' | 'red' | 'blue' | 'muted' }) {
-  const map = { green: [colors.greenSoft, colors.green], amber: [colors.amberSoft, colors.amber], red: [colors.redSoft, colors.red], blue: [colors.blueSoft, colors.blue], muted: [colors.border, colors.muted] } as const
+export function Badge({ label, tone = 'muted' }: { label: string; tone?: 'green' | 'amber' | 'red' | 'blue' | 'purple' | 'muted' }) {
+  const map = { green: [colors.greenSoft, colors.green], amber: [colors.amberSoft, colors.amber], red: [colors.redSoft, colors.red], blue: [colors.blueSoft, colors.blue], purple: [colors.purpleSoft, colors.purple], muted: [colors.border, colors.muted] } as const
   const [bg, fg] = map[tone]
   return <View style={[styles.badge, { backgroundColor: bg }]}><Text style={{ color: fg, fontSize: font.sm, fontWeight: '600' }}>{label}</Text></View>
 }

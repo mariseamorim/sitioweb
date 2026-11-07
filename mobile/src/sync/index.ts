@@ -4,7 +4,7 @@ import NetInfo from '@react-native-community/netinfo'
 import { AppState } from 'react-native'
 import { useEffect, useState } from 'react'
 import { api, HttpError, NetworkError } from '@/api/client'
-import { all, deleteRow, getMeta, one, replaceFromServer, run, setCache, setMeta, transaction, upsert, TABLES, type Row, type TableName } from '@/db'
+import { all, deleteRow, getMeta, one, patchRow, replaceFromServer, run, setCache, setMeta, transaction, upsert, TABLES, type Row, type TableName } from '@/db'
 import { notifyChange } from '@/db/events'
 import { isLocalId, pendingCount, type OutboxRow } from './local'
 import { setSyncTrigger } from './trigger'
@@ -49,7 +49,7 @@ function resolveIds(text: string): { text: string; unresolved: string | null } {
 }
 
 /** Colunas que apontam para outros registros e precisam trocar o id local pelo definitivo. */
-const REF_COLUMNS = ['animalId', 'supplyId', 'motherId']
+const REF_COLUMNS = ['animalId', 'supplyId', 'motherId', 'lotId', 'femaleId', 'calfId']
 
 function adoptServerRow(table: TableName, farmId: string, localId: string, serverRow: Row) {
   const serverId = String(serverRow.id)
@@ -86,7 +86,7 @@ export async function pushOutbox(farmId: string): Promise<boolean> {
         if (res && typeof res === 'object' && 'supply' in res) upsert('supplies', farmId, (res as { supply: Row }).supply)
       } else if (row.tbl && row.localId && res && typeof res === 'object' && 'id' in res && res.id === row.localId) {
         // Alteração (ou subrota de lote) que devolve o registro inteiro: atualiza a cópia local
-        upsert(row.tbl, farmId, res)
+        patchRow(row.tbl, res.id as string, res)
       }
       run('DELETE FROM outbox WHERE seq = ?', [row.seq])
       notifyChange()

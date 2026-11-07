@@ -90,7 +90,7 @@ export function deleteLocal(o: { table: TableName; farmId: string; id: string; p
       run('DELETE FROM outbox WHERE localId = ? OR path LIKE ?', [id, `%${id}%`])
     } else {
       // Alterações pendentes do mesmo registro não fazem mais sentido
-      run("DELETE FROM outbox WHERE localId = ? AND method IN ('PUT', 'PATCH') AND failed = 0", [id])
+      run("DELETE FROM outbox WHERE ((localId = ? AND method IN ('PUT', 'PATCH')) OR path LIKE ?) AND failed = 0", [id, '%/' + id + '/%'])
       enqueue({ farmId: o.farmId, module: TABLES[o.table].module, method: 'DELETE', path, localId: id, tbl: o.table })
     }
   })
