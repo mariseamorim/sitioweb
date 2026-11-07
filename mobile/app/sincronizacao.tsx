@@ -6,7 +6,7 @@ import { syncNow, useSyncState } from '@/sync'
 import { Badge, Button, Card, Muted, Notice, Row, Screen } from '@/ui'
 import { colors, space } from '@/theme'
 
-const MODULOS: Record<string, string> = { leite: 'Leite', animais: 'Animal', vacinacao: 'Vacina', veterinario: 'Tratamento', financeiro: 'Financeiro', estoque: 'Estoque' }
+const MODULOS: Record<string, string> = { leite: 'Leite', animais: 'Animal', vacinacao: 'Vacina', veterinario: 'Tratamento', financeiro: 'Financeiro', estoque: 'Estoque', reproducao: 'Reprodução', usuarios: 'Usuário', fazendas: 'Propriedade', perfil: 'Meu cadastro', ofertas: 'Oferta', pedidos: 'Pedido', fornecedores: 'Fornecedor', admin: 'Administração', '': 'Registro' }
 const ACOES: Record<string, string> = { POST: 'criar', PUT: 'alterar', PATCH: 'alterar', DELETE: 'apagar' }
 
 export default function Sincronizacao() {

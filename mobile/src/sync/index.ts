@@ -4,9 +4,10 @@ import NetInfo from '@react-native-community/netinfo'
 import { AppState } from 'react-native'
 import { useEffect, useState } from 'react'
 import { api, HttpError, NetworkError } from '@/api/client'
-import { all, deleteRow, getMeta, one, replaceFromServer, run, setMeta, transaction, upsert, TABLES, type Row, type TableName } from '@/db'
+import { all, deleteRow, getMeta, one, patchRow, replaceFromServer, run, setCache, setMeta, transaction, upsert, TABLES, type Row, type TableName } from '@/db'
 import { notifyChange } from '@/db/events'
 import { isLocalId, pendingCount, type OutboxRow } from './local'
+import { setSyncTrigger } from './trigger'
 
 export interface SyncState {
   online: boolean
@@ -48,7 +49,7 @@ function resolveIds(text: string): { text: string; unresolved: string | null } {
 }
 
 /** Colunas que apontam para outros registros e precisam trocar o id local pelo definitivo. */
-const REF_COLUMNS = ['animalId', 'supplyId', 'motherId']
+const REF_COLUMNS = ['animalId', 'supplyId', 'motherId', 'lotId', 'femaleId', 'calfId']
 
 function adoptServerRow(table: TableName, farmId: string, localId: string, serverRow: Row) {
   const serverId = String(serverRow.id)
@@ -83,6 +84,9 @@ export async function pushOutbox(farmId: string): Promise<boolean> {
         const created = (res && typeof res === 'object' && 'movement' in res ? (res as { movement: Row }).movement : res) as Row | null
         if (created && created.id) adoptServerRow(row.tbl, farmId, row.localId, created)
         if (res && typeof res === 'object' && 'supply' in res) upsert('supplies', farmId, (res as { supply: Row }).supply)
+      } else if (row.tbl && row.localId && res && typeof res === 'object' && 'id' in res && res.id === row.localId) {
+        // Alteração (ou subrota de lote) que devolve o registro inteiro: atualiza a cópia local
+        patchRow(row.tbl, res.id as string, res)
       }
       run('DELETE FROM outbox WHERE seq = ?', [row.seq])
       notifyChange()
@@ -101,21 +105,55 @@ export async function pushOutbox(farmId: string): Promise<boolean> {
 
 /** Baixa as listas dos módulos permitidos e substitui a cópia local. */
 export async function pullAll(farmId: string, canAccess: (module: string) => boolean) {
+  const admin = canAccess('admin')
+  // Uma rota recusada (403, 500) não impede as outras; só a falta de internet interrompe tudo
+  const tolerant = async (fn: () => Promise<void>) => {
+    try { await fn() } catch (e) { if (e instanceof NetworkError || (e instanceof HttpError && e.status === 401)) throw e }
+  }
   for (const [name, t] of Object.entries(TABLES) as [TableName, (typeof TABLES)[TableName]][]) {
-    if (!t.list || !canAccess(t.module)) continue
-    const rows = await api<Row[]>(t.list)
-    replaceFromServer(name, farmId, rows)
-    if (name === 'supplies') {
-      // A lista de estoque já traz as movimentações de cada produto
-      const movements = rows.flatMap(r => (Array.isArray(r.movements) ? (r.movements as Row[]) : []))
-      replaceFromServer('supply_movements', farmId, movements)
-    }
-    notifyChange()
+    if (!t.list || (t.module && !canAccess(t.module))) continue
+    await tolerant(async () => {
+      const path = name === 'farms' && admin ? '/api/admin/propriedades' : t.list!
+      const res = await api<unknown>(path)
+      let rows: Row[]
+      if (name === 'offers') {
+        const r = res as { offers: Row[]; lowCategories?: string[] }
+        rows = r.offers ?? []
+        setMeta(`lowCategories:${farmId}`, JSON.stringify(r.lowCategories ?? []))
+      } else {
+        rows = Array.isArray(res) ? (res as Row[]) : []
+      }
+      replaceFromServer(name, farmId, rows)
+      if (name === 'supplies') {
+        // A lista de estoque já traz as movimentações de cada produto
+        const movements = rows.flatMap(r => (Array.isArray(r.movements) ? (r.movements as Row[]) : []))
+        replaceFromServer('supply_movements', farmId, movements)
+      }
+      notifyChange()
+    })
+  }
+  if (canAccess('animais')) {
+    // Recria um a um: as pesagens individuais vêm dentro de cada animal
+    await tolerant(async () => {
+      const rearing = await api<Row[]>('/api/recria')
+      const weighings = rearing.flatMap(r => (Array.isArray(r.weighings) ? (r.weighings as Row[]).map(w => ({ ...w, animalId: r.id })) : []))
+      replaceFromServer('animal_weighings', farmId, weighings)
+      notifyChange()
+    })
   }
   if (canAccess('leite')) {
-    const price = await api<{ price: number | null }>('/api/milk-production/price').catch(() => null)
-    if (price) setMeta(`milkPrice:${farmId}`, price.price === null ? '' : String(price.price))
+    await tolerant(async () => {
+      const price = await api<{ price: number | null }>('/api/milk-production/price')
+      setMeta(`milkPrice:${farmId}`, price.price === null ? '' : String(price.price))
+    })
   }
+  await tolerant(async () => setCache('perfil', await api('/api/perfil')))
+  if (admin) {
+    for (const [key, path] of [['admin_accounts', '/api/admin/usuarios'], ['admin_vendors', '/api/fornecedores'], ['admin_orgs', '/api/organizacoes']] as const) {
+      await tolerant(async () => setCache(key, await api(path)))
+    }
+  }
+  notifyChange()
 }
 
 let running: Promise<void> | null = null
@@ -157,9 +195,11 @@ export function startAutoSync(farmId: string, canAccess: (module: string) => boo
     if (online && !was) void syncNow(farmId, canAccess)
   })
   const sub = AppState.addEventListener('change', (st) => { if (st === 'active') void syncNow(farmId, canAccess) })
+  // Cada gravação no aparelho pede o envio logo em seguida (ver sync/local.ts)
+  setSyncTrigger(() => { if (state.online) void syncNow(farmId, canAccess) })
   refreshCounts(farmId)
   void syncNow(farmId, canAccess)
-  return () => { unsubNet(); sub.remove() }
+  return () => { unsubNet(); sub.remove(); setSyncTrigger(null) }
 }
 
 export function clearUnauthorized() {

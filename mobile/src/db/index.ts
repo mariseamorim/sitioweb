@@ -1,15 +1,20 @@
 // Banco local (SQLite) com cópia dos dados da propriedade e a fila de envio (outbox).
 // As colunas têm os mesmos nomes dos campos da API, então uma linha do banco é o mesmo objeto que o servidor devolve.
+// Campos aninhados (listas, objetos) ficam como JSON na coluna; use parseJson() ao ler.
 import * as SQLite from 'expo-sqlite'
 
 export const db = SQLite.openDatabaseSync('anotaai.db')
 
 export type Row = Record<string, unknown>
 
-/** Tabelas sincronizadas: nome local, colunas (além de id e farmId) e a rota da API que lista tudo. */
+/**
+ * Tabelas sincronizadas: nome local, colunas (além de id e farmId) e a rota da API que lista tudo.
+ * `module`: permissão exigida para baixar ('' = qualquer pessoa logada; 'admin' = só administrador da plataforma).
+ * `list: null` = preenchida a partir de outra rota (ver sync/index.ts).
+ */
 export const TABLES = {
   animals: {
-    columns: ['code', 'customCode', 'name', 'species', 'gender', 'birthDate', 'status', 'isCastrated', 'acquisitionType', 'gta', 'observations', 'motherId', 'lowDate', 'lowReason', 'createdAt', 'updatedAt'],
+    columns: ['code', 'customCode', 'name', 'species', 'gender', 'birthDate', 'status', 'isCastrated', 'acquisitionType', 'gta', 'observations', 'motherId', 'lowDate', 'lowReason', 'lotId', 'rearingStart', 'rearingEnd', 'rearingTarget', 'createdAt', 'updatedAt'],
     list: '/api/animals', module: 'animais',
   },
   milk: {
@@ -29,12 +34,51 @@ export const TABLES = {
     list: '/api/financeiro', module: 'financeiro',
   },
   supplies: {
-    columns: ['name', 'category', 'unit', 'currentQuantity', 'minimumQuantity', 'packageKg', 'unitPrice', 'createdAt', 'updatedAt'],
+    columns: ['name', 'category', 'unit', 'currentQuantity', 'minimumQuantity', 'packageKg', 'unitPrice', 'dailyUseKg', 'daysLeft', 'createdAt', 'updatedAt'],
     list: '/api/estoque', module: 'estoque',
   },
   supply_movements: {
     columns: ['supplyId', 'type', 'quantity', 'date', 'description', 'createdAt'],
     list: null, module: 'estoque',
+  },
+  reproductions: {
+    columns: ['femaleId', 'maleName', 'method', 'heatDate', 'semenBatch', 'bullRegistry', 'inseminator', 'coverageDate', 'expectedBirthDate', 'actualBirthDate', 'status', 'calfId', 'observations', 'createdAt', 'updatedAt'],
+    list: '/api/reproducao', module: 'reproducao',
+  },
+  /** Lote de recria/engorda como o servidor devolve (supplies, feedings, weighings e animals em JSON). */
+  lots: {
+    columns: ['name', 'phase', 'startDate', 'endDate', 'targetWeight', 'notes', 'supplies', 'feedings', 'weighings', 'animals', 'createdAt', 'updatedAt'],
+    list: '/api/lotes', module: 'animais',
+  },
+  /** Pesagens individuais (recria um a um); vêm dentro de /api/recria. */
+  animal_weighings: {
+    columns: ['animalId', 'date', 'weight', 'lotWeighingId', 'createdAt'],
+    list: null, module: 'animais',
+  },
+  /** Equipe da propriedade (permissions em JSON). */
+  users: {
+    columns: ['name', 'email', 'phone', 'role', 'permissions', 'createdAt'],
+    list: '/api/users', module: 'usuarios',
+  },
+  /** Propriedades da pessoa (admin: todas, com contagens de /api/admin/propriedades). */
+  farms: {
+    columns: ['name', 'propertyType', 'documentType', 'documentNumber', 'owner', 'phone', 'address', 'city', 'state', 'isActive', 'segments', 'animals', 'members', 'lastActivity', 'createdAt'],
+    list: '/api/farms', module: '',
+  },
+  /** Ofertas visíveis (vendor em JSON); a rota devolve { offers, lowCategories }. */
+  offers: {
+    columns: ['vendorId', 'title', 'description', 'category', 'price', 'unit', 'imageUrl', 'reach', 'validUntil', 'isActive', 'vendor', 'isMyVendor', 'matchesLowStock', 'createdAt'],
+    list: '/api/ofertas', module: '',
+  },
+  /** Pedidos e mensagens aos fornecedores (vendor em JSON). */
+  supply_requests: {
+    columns: ['vendorId', 'supplyId', 'itemName', 'category', 'quantity', 'unit', 'note', 'status', 'reply', 'replyPrice', 'repliedAt', 'createdBy', 'vendor', 'createdAt', 'updatedAt'],
+    list: '/api/pedidos', module: '',
+  },
+  /** Meus fornecedores (id = id do fornecedor). */
+  vendors: {
+    columns: ['companyName', 'contactName', 'city', 'state', 'whatsapp', 'phone', 'status', 'muted', 'shareStock', 'since'],
+    list: '/api/meus-fornecedores', module: '',
   },
 } as const
 
@@ -52,10 +96,21 @@ CREATE TABLE IF NOT EXISTS id_map (localId TEXT PRIMARY KEY, serverId TEXT NOT N
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 `
 
+/** Colunas acrescentadas depois da primeira versão entram com ALTER TABLE (sem perder os dados do aparelho). */
+function ensureColumns() {
+  for (const [name, t] of Object.entries(TABLES)) {
+    const existing = new Set(db.getAllSync<{ name: string }>(`PRAGMA table_info(${name})`).map(c => c.name))
+    for (const col of t.columns) {
+      if (!existing.has(col)) db.execSync(`ALTER TABLE ${name} ADD COLUMN ${col}`)
+    }
+  }
+}
+
 let ready = false
 export function initDb() {
   if (ready) return
   db.execSync(SCHEMA)
+  ensureColumns()
   ready = true
 }
 
@@ -85,6 +140,13 @@ function toCell(value: unknown): SQLite.SQLiteBindValue {
   if (typeof value === 'boolean') return value ? 1 : 0
   if (typeof value === 'number' || typeof value === 'string') return value
   return JSON.stringify(value)
+}
+
+/** Lê uma coluna guardada como JSON (lista ou objeto). */
+export function parseJson<T>(value: unknown, fallback: T): T {
+  if (value === null || value === undefined || value === '') return fallback
+  if (typeof value !== 'string') return value as T
+  try { return JSON.parse(value) as T } catch { return fallback }
 }
 
 export function upsert(table: TableName, farmId: string, row: Row) {
@@ -118,6 +180,15 @@ export function getMeta(key: string): string | null {
 export function setMeta(key: string, value: string | null) {
   if (value === null) run('DELETE FROM meta WHERE key = ?', [key])
   else run('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)', [key, value])
+}
+
+/** Cópia em JSON de uma resposta da API que não é uma tabela por propriedade (perfil, listas do administrador). */
+export function getCache<T>(key: string): T | null {
+  return parseJson<T | null>(getMeta(`cache:${key}`), null)
+}
+
+export function setCache(key: string, value: unknown) {
+  setMeta(`cache:${key}`, JSON.stringify(value))
 }
 
 /** Apaga tudo o que é da propriedade (ao sair da conta). */

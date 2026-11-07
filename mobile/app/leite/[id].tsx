@@ -1,12 +1,13 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { all } from '@/db'
 import { brNumber, isoDay, parseNumber, todayISO } from '@/lib/format'
 import { animalOptions } from '@/repos/animals'
-import { getMilkPrice, removeMilk, saveMilk, type Milk } from '@/repos/milk'
-import { Button, Chips, DateField, Field, Notice, Screen, SelectField } from '@/ui'
+import { getMilkPrice, removeMilk, saveMilk, type Milk, type MilkInput } from '@/repos/milk'
+import { useSyncState } from '@/sync'
+import { Button, Chips, DateField, Field, Muted, Notice, Screen, SelectField } from '@/ui'
 import { VoiceButton } from '@/ui/voice'
 import { space } from '@/theme'
 
@@ -28,23 +29,60 @@ export default function LeiteForm() {
   const [error, setError] = useState('')
   const animals = animalOptions(farmId).filter(a => /vaca/i.test(a.detail ?? ''))
 
-  function save() {
+  // Monta o lançamento a partir dos campos; devolve o texto do erro quando falta algo
+  function validate(): MilkInput | string {
     const q = parseNumber(quantity)
-    if (q === null || !Number.isFinite(q) || q <= 0) { setError('Informe a quantidade de litros'); return }
+    if (q === null || !Number.isFinite(q) || q <= 0) return 'Informe a quantidade de litros'
     const c = mode === 'dia' ? parseNumber(cows) : null
-    if (c !== null && (!Number.isInteger(c) || c <= 0)) { setError('Vacas ordenhadas: número inteiro'); return }
-    if (mode === 'vaca' && !animalId) { setError('Escolha a vaca'); return }
+    if (c !== null && (!Number.isInteger(c) || c <= 0)) return 'Vacas ordenhadas: número inteiro'
+    if (mode === 'vaca' && !animalId) return 'Escolha a vaca'
     const p = parseNumber(price)
-    if (p !== null && (!Number.isFinite(p) || p < 0)) { setError('Preço por litro inválido'); return }
-    saveMilk(farmId, { date, quantity: q, cowsMilked: c, animalId: mode === 'vaca' ? animalId : null, pricePerLiter: p, observations }, editing?.id)
+    if (p !== null && (!Number.isFinite(p) || p < 0)) return 'Preço por litro inválido'
+    return { date, quantity: q, cowsMilked: c, animalId: mode === 'vaca' ? animalId : null, pricePerLiter: p, observations }
+  }
+
+  // Salva sozinho 1,5 s depois da última alteração, como no site: o número falado também grava.
+  // O primeiro salvamento cria o lançamento; os seguintes alteram o mesmo registro.
+  const sync = useSyncState()
+  const [savedAt, setSavedAt] = useState<number | null>(null)
+  const savedIdRef = useRef<string | null>(editing?.id ?? null)
+  const key = [mode, date, quantity, cows, animalId ?? '', price, observations].join('|')
+  const keyRef = useRef(key)
+  keyRef.current = key
+  const savedKeyRef = useRef(key)
+  function persist(): boolean {
+    const v = validate()
+    if (typeof v === 'string') return false
+    savedIdRef.current = saveMilk(farmId, v, savedIdRef.current ?? undefined)
+    savedKeyRef.current = key
+    setSavedAt(Date.now())
+    setError('')
+    return true
+  }
+  const persistRef = useRef(persist)
+  persistRef.current = persist
+  useEffect(() => {
+    if (!canEdit || key === savedKeyRef.current) return
+    const timer = setTimeout(() => persistRef.current(), 1500)
+    return () => clearTimeout(timer)
+  }, [key, canEdit])
+  // Sair da tela no meio da digitação não perde nada
+  useEffect(() => () => { if (keyRef.current !== savedKeyRef.current) persistRef.current() }, [])
+
+  function save() {
+    if (key !== savedKeyRef.current && !persist()) { setError(validate() as string); return }
     router.back()
   }
+
+  const status = savedAt === null ? ''
+    : !sync.online ? 'Salvo no celular. Será enviado quando houver internet.'
+      : sync.pending > 0 || sync.syncing ? 'Salvo no celular. Enviando…' : 'Salvo e enviado.'
 
   function remove() {
     if (!editing) return
     Alert.alert('Apagar lançamento', 'Apagar este lançamento de leite?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Apagar', style: 'destructive', onPress: () => { removeMilk(farmId, editing.id); router.back() } },
+      { text: 'Apagar', style: 'destructive', onPress: () => { savedKeyRef.current = keyRef.current; removeMilk(farmId, savedIdRef.current ?? editing.id); router.back() } },
     ])
   }
 
@@ -63,7 +101,8 @@ export default function LeiteForm() {
       <Field label="Preço por litro (R$)" value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="Ex.: 2,60" hint="Fica guardado no lançamento para calcular o valor" />
       <Field label="Observações" value={observations} onChangeText={setObservations} multiline />
       {error ? <Notice tone="red" text={error} /> : null}
-      <Button label={editing ? 'Salvar alterações' : 'Salvar'} onPress={save} disabled={!canEdit} />
+      <Button label={savedAt ? 'Concluir' : editing ? 'Salvar alterações' : 'Salvar'} onPress={save} disabled={!canEdit} />
+      {status ? <Muted style={{ textAlign: 'center', marginTop: space.sm }}>{status}</Muted> : null}
       {editing && canEdit ? <Button label="Apagar" variant="ghost" onPress={remove} style={{ marginTop: space.sm }} /> : null}
     </Screen>
   )

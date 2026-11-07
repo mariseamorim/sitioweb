@@ -15,6 +15,8 @@ export interface User {
   farmName: string | null
   farms: { id: string; name: string }[]
   permissions: string[] | null
+  /** O servidor tem WhatsApp de suporte configurado */
+  support: boolean
 }
 
 interface MeResponse extends User { token?: string }
@@ -35,7 +37,7 @@ const KEY_TOKEN = 'anotaai_token'
 const KEY_USER = 'anotaai_user'
 
 function pickUser(me: MeResponse): User {
-  return { id: me.id, name: me.name, email: me.email ?? null, phone: me.phone ?? null, role: me.role, farmId: me.farmId ?? null, farmName: me.farmName ?? null, farms: me.farms ?? [], permissions: me.permissions ?? null }
+  return { id: me.id, name: me.name, email: me.email ?? null, phone: me.phone ?? null, role: me.role, farmId: me.farmId ?? null, farmName: me.farmName ?? null, farms: me.farms ?? [], permissions: me.permissions ?? null, support: me.support !== false }
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {

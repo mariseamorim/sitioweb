@@ -16,6 +16,10 @@ Há dois projetos de app Android no repositório. O que vale é o **React Native
   depois envia `Authorization: Bearer <token>`. Admin manda a propriedade aberta em `X-Active-Farm` (ver `src/lib/auth.ts`).
 - **Voz:** em Anotar leite, o botão "Falar o número" usa o reconhecimento do Android (`expo-speech-recognition`); sem internet
   funciona se o celular tiver o pacote de português (Android 13+ oferece baixar pelo próprio app). O parser é cópia de `src/lib/voiceNumber.ts` do site.
+- **Módulos:** os mesmos do menu do site (Painel, Propriedades, Animais, Recria e engorda, Produção de leite, Tratamentos, Vacinação,
+  Reprodução, Financeiro, Estoque, Relatórios, Usuários, Ofertas, Ajuda, Meu cadastro e as três telas do administrador). Todos leem do
+  banco local e gravam na fila; os relatórios são recalculados no aparelho (`mobile/src/lib/reports.ts`). Precisam de internet só:
+  trocar/criar propriedade (não-admin), buscar fornecedor, abrir WhatsApp, trocar senha e o botão "Adicionar" fornecedor.
 - Login só com e-mail/telefone e senha. Conta e login com Google continuam pelo site.
 - Como compilar: `mobile/scripts/README.md`. Resumo: `npx expo prebuild --platform android --clean`, `node scripts/assinatura.js`,
   `cd android && gradlew.bat assembleRelease` (teste) ou `bundleRelease` (loja, com `android/keystore.properties`).
