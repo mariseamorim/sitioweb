@@ -13,7 +13,8 @@ export function InstallAppButton({ className = '' }: { className?: string }) {
 
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone;
-    if (standalone) return;
+    // Dentro do app Android (identificador definido em capacitor.config.ts) o app já está instalado: não oferece de novo
+    if (standalone || navigator.userAgent.includes('AnotaAiAgro/Android')) return;
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const onPrompt = (e: Event) => { e.preventDefault(); setPrompt(e as InstallPrompt); setState('pronto'); };
     const onInstalled = () => { setPrompt(null); setState('oculto'); };

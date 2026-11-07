@@ -41,8 +41,8 @@ export function OwnerGroups({ farms, activeFarmId, onOpen, openingId, onEdit, on
   const visible = useMemo(() => filterOwnerGroups(groups, filter, query), [groups, filter, query])
   const searching = query.trim().length > 0
 
-  // Buscando ou filtrando, os grupos abrem para mostrar o que combinou; sem filtro, o primeiro abre e os outros ficam fechados
-  const isOpen = (g: OwnerGroup, index: number) => openKeys[g.key] ?? (searching || filter !== 'todos' || index === 0)
+  // Grupos começam fechados (a pessoa abre o que quiser); só a busca por texto abre todos, para o resultado aparecer
+  const isOpen = (g: OwnerGroup) => openKeys[g.key] ?? searching
 
   return (
     <div>
@@ -74,8 +74,8 @@ export function OwnerGroups({ farms, activeFarmId, onOpen, openingId, onEdit, on
         </p>
       ) : (
         <div className="flex flex-col gap-3">
-          {visible.map((g, index) => {
-            const open = isOpen(g, index)
+          {visible.map((g) => {
+            const open = isOpen(g)
             const stale = g.farms.some((f) => f.isActive && isStale(f.lastActivity))
             return (
               <section key={g.key} aria-label={g.name} className="overflow-hidden rounded-xl border border-gray-200 bg-white">
