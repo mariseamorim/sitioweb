@@ -40,7 +40,14 @@
           "backgroundColor": "#0f3f2e"
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "O app usa o microfone para você falar a quantidade de leite.",
+          "speechRecognitionPermission": "O app reconhece a sua voz para anotar o leite."
+        }
+      ]
     ],
     "extra": {
       "apiBase": "https://www.anotaaiagro.com.br"

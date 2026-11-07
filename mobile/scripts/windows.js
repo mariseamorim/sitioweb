@@ -24,3 +24,15 @@ fs.writeFileSync(gradle, s)
 const ok = s.includes('buildStagingDirectory') && s.includes('CMAKE_MAKE_PROGRAM')
 console.log(ok ? 'build C++ configurado em ' + gradle : 'ATENÇÃO: build.gradle não alterado')
 if (!ok) process.exit(1)
+
+// Também o que o prebuild --clean apaga: SDK em D: e build leve para a máquina de 8 GB
+const androidDir = path.join(__dirname, '..', 'android')
+fs.writeFileSync(path.join(androidDir, 'local.properties'), 'sdk.dir=D:/dev/android-sdk
+')
+const propsFile = path.join(androidDir, 'gradle.properties')
+let props = fs.readFileSync(propsFile, 'utf8')
+props = props.replace(/^reactNativeArchitectures=.*$/m, 'reactNativeArchitectures=arm64-v8a')
+if (!props.includes('org.gradle.workers.max')) props += '
+org.gradle.workers.max=2
+'
+fs.writeFileSync(propsFile, props)

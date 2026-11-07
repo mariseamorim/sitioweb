@@ -14,6 +14,8 @@ Há dois projetos de app Android no repositório. O que vale é o **React Native
   onde a pessoa descarta ou tenta de novo.
 - **Sessão sem cookies:** o app manda `X-Anota-Client: mobile` e recebe o token no corpo do login e de `/api/auth/me`;
   depois envia `Authorization: Bearer <token>`. Admin manda a propriedade aberta em `X-Active-Farm` (ver `src/lib/auth.ts`).
+- **Voz:** em Anotar leite, o botão "Falar o número" usa o reconhecimento do Android (); sem internet
+  funciona se o celular tiver o pacote de português (Android 13+ oferece baixar pelo próprio app). O parser é cópia de .
 - Login só com e-mail/telefone e senha. Conta e login com Google continuam pelo site.
 - Como compilar: `mobile/scripts/README.md`. Resumo: `npx expo prebuild --platform android --clean`, `node scripts/assinatura.js`,
   `cd android && gradlew.bat assembleRelease` (teste) ou `bundleRelease` (loja, com `android/keystore.properties`).
