@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getSessionUser, renewSession } from '@/lib/auth'
+import { createSessionToken, getSessionUser, renewSession } from '@/lib/auth'
 import { memberFarms } from '@/lib/farms'
 import { hasSupport } from '@/lib/support'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const user = await getSessionUser()
   if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
@@ -27,5 +27,7 @@ export async function GET() {
     permissions: user.permissions,
     // Há suporte pelo WhatsApp configurado no servidor (o número em si não sai daqui)
     support: hasSupport(),
+    // App Android: token renovado no corpo, já que não usa cookies
+    ...(request.headers.get('x-anota-client') === 'mobile' ? { token: createSessionToken(user.id) } : {}),
   }))
 }

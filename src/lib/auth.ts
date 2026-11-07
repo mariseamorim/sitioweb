@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, scrypt, timingSafeEqual } from 'crypto'
 import { promisify } from 'util'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { OrgType } from '@/lib/organizations'
@@ -58,7 +58,8 @@ function sign(payload: string): string {
   return createHmac('sha256', getSecret()).update(payload).digest('base64url')
 }
 
-function createSessionToken(userId: string): string {
+/** Token da sessão: vai no cookie (site) ou no cabeçalho Authorization: Bearer (app Android). */
+export function createSessionToken(userId: string): string {
   const expires = Date.now() + SESSION_MAX_AGE * 1000
   const payload = `${userId}.${expires}`
   return `${payload}.${sign(payload)}`
@@ -124,9 +125,16 @@ export interface SessionUser {
   effectiveFarmId: string | null
 }
 
+/** Token enviado pelo app Android, que não usa cookies: "Authorization: Bearer <token>". */
+async function bearerToken(): Promise<string | undefined> {
+  const value = (await headers()).get('authorization')
+  const match = value?.match(/^Bearers+(S+)$/i)
+  return match?.[1]
+}
+
 export async function getSessionUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies()
-  const userId = readSessionToken(cookieStore.get(SESSION_COOKIE)?.value)
+  const userId = readSessionToken(cookieStore.get(SESSION_COOKIE)?.value) ?? readSessionToken(await bearerToken())
   if (!userId) return null
 
   const user = await prisma.user.findUnique({
@@ -135,8 +143,9 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   })
   if (!user) return null
 
+  // Admin: a propriedade aberta vem do cookie (site) ou do cabeçalho X-Active-Farm (app Android)
   const effectiveFarmId = user.role === 'admin'
-    ? cookieStore.get(ACTIVE_FARM_COOKIE)?.value ?? null
+    ? cookieStore.get(ACTIVE_FARM_COOKIE)?.value ?? (await headers()).get('x-active-farm') ?? null
     : user.farmId
 
   return {

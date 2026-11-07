@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { hashPassword, isLegacyPassword, setSessionCookie, verifyPassword } from '@/lib/auth';
+import { createSessionToken, hashPassword, isLegacyPassword, setSessionCookie, verifyPassword } from '@/lib/auth';
 import { parseLogin } from '@/lib/identity';
 
 // POST { login, password }: entra com e-mail ou telefone (DDD + número) e senha. `email` ainda é aceito no lugar de `login`.
@@ -35,6 +35,8 @@ export async function POST(request: NextRequest) {
     role: user.role,
     farmId: user.farmId,
     farmName: user.farm?.name ?? null,
+    // App Android (cabeçalho X-Anota-Client: mobile): não guarda cookies, recebe o token da sessão no corpo
+    ...(request.headers.get('x-anota-client') === 'mobile' ? { token: createSessionToken(user.id) } : {}),
   });
 
   setSessionCookie(response, user.id);
