@@ -19,6 +19,8 @@ const config: CapacitorConfig = {
   android: {
     backgroundColor: '#0f3f2e',
     allowMixedContent: false,
+    // Zoom de pinça liberado: o texto do app fica em 100% (MainActivity.java) e esta é a forma de ampliar.
+    zoomEnabled: true,
     // O Google recusa login em WebView (erro "disallowed_useragent") quando o identificador traz "; wv".
     // Usa o identificador de um Chrome comum para o fluxo de login funcionar dentro do app.
     overrideUserAgent: 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36 AnotaAiAgro/Android',
