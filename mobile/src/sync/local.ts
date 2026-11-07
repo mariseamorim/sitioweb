@@ -51,21 +51,31 @@ export function createLocal(o: { table: TableName; farmId: string; path: string;
  * Altera um registro no aparelho. Se ele ainda não foi enviado (id local), a alteração entra no próprio POST
  * pendente; senão agenda um PUT. `path` pode conter o id local: é trocado pelo definitivo na hora do envio.
  */
-export function updateLocal(o: { table: TableName; farmId: string; id: string; path: string; body: Row; row?: Row }) {
+export function updateLocal(o: { table: TableName; farmId: string; id: string; path: string; body: Row; row?: Row; method?: OutboxRow['method'] }) {
   const id = currentId(o.id)
   const path = o.path.split(o.id).join(id)
+  const method = o.method ?? 'PUT'
+  // Subrota (ex.: /api/lotes/{id}/pesagens): nunca se mistura ao POST pendente do registro
+  const sub = !path.endsWith(id)
   transaction(() => {
     patchRow(o.table, id, { ...o.body, ...(o.row ?? {}), updatedAt: new Date().toISOString() })
-    const pending = isLocalId(id)
+    const pending = isLocalId(id) && !sub && method !== 'DELETE'
       ? one<OutboxRow>("SELECT * FROM outbox WHERE localId = ? AND method = 'POST' AND failed = 0", [id])
       : null
     if (pending) {
       const merged = { ...(pending.body ? JSON.parse(pending.body) : {}), ...o.body }
       run('UPDATE outbox SET body = ? WHERE seq = ?', [JSON.stringify(merged), pending.seq])
     } else {
-      enqueue({ farmId: o.farmId, module: TABLES[o.table].module, method: 'PUT', path, body: o.body, localId: id, tbl: o.table })
+      enqueue({ farmId: o.farmId, module: TABLES[o.table].module, method, path, body: o.body, localId: id, tbl: o.table })
     }
   })
+  notifyChange()
+  requestSync()
+}
+
+/** Pedido que não é de uma tabela local (perfil, pedidos do administrador...): só entra na fila. */
+export function queueRequest(o: { farmId: string; module: string; method: OutboxRow['method']; path: string; body?: unknown }) {
+  enqueue({ farmId: o.farmId, module: o.module, method: o.method, path: o.path, body: o.body })
   notifyChange()
   requestSync()
 }
