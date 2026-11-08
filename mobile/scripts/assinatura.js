@@ -24,7 +24,11 @@ s = s.replace(/signingConfigs \{\n        debug \{/, `signingConfigs {
             }
         }
         debug {`)
-// o bloco release usa signingConfigs.debug por padrão; troca pela chave da loja quando ela existe
-s = s.replace(/(release \{[\s\S]*?)signingConfig signingConfigs\.debug/, `$1signingConfig keystoreProperties['storeFile'] ? signingConfigs.release : signingConfigs.debug`)
+// o buildType release usa signingConfigs.debug por padrão; troca pela chave da loja quando ela existe.
+// Ancorado no comentário do próprio bloco: um regex em "release {" pegava o signingConfigs.release recém-criado
+// e acabava alterando o buildType debug (o .aab saía com a chave de depuração).
+const antes = s
+s = s.replace(/(signed-apk-android\.\n\s*)signingConfig signingConfigs\.debug/, `$1signingConfig keystoreProperties['storeFile'] ? signingConfigs.release : signingConfigs.debug`)
+if (s === antes) { console.error('não achei o signingConfig do buildType release em', gradle); process.exit(1) }
 fs.writeFileSync(gradle, s)
 console.log('assinatura de release configurada em', gradle)
