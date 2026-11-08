@@ -22,7 +22,8 @@ Há dois projetos de app Android no repositório. O que vale é o **React Native
   trocar/criar propriedade (não-admin), buscar fornecedor, abrir WhatsApp, trocar senha e o botão "Adicionar" fornecedor.
 - Login só com e-mail/telefone e senha. Conta e login com Google continuam pelo site.
 - Como compilar: `mobile/scripts/README.md`. Resumo: `npx expo prebuild --platform android --clean`, `node scripts/assinatura.js`,
-  `cd android && gradlew.bat assembleRelease` (teste) ou `bundleRelease` (loja, com `android/keystore.properties`).
+  `cd android && gradlew.bat assembleRelease` (teste) ou, para a loja, `scripts/chave-loja.ps1` (monta `android/keystore.properties`
+  a partir da pasta da chave em Downloads) e `bundleRelease`. Primeiro `.aab` do app Expo: versionCode 4 (1.2.0), em 08/11/2026.
 
 ## android/ — Capacitor (abandonado)
 
