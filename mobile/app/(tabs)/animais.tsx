@@ -6,6 +6,7 @@ import { useLive } from '@/db/events'
 import { ageText } from '@/lib/format'
 import { listAnimals } from '@/repos/animals'
 import { Badge, Empty, Fab, Row, Search } from '@/ui'
+import { AnimalThumb } from '@/ui/photo'
 import { colors, space } from '@/theme'
 
 export default function Animais() {
@@ -27,6 +28,7 @@ export default function Animais() {
         keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
           <Row title={item.name} detail={`${item.customCode || item.code} · ${item.species} · ${ageText(item.birthDate)}`}
+            left={<AnimalThumb id={item.id} name={item.name} hasPhoto={!!item.hasPhoto} />}
             badge={item.status !== 'Vivo' ? <Badge label={item.status} tone={item.status === 'Doente' ? 'amber' : 'muted'} /> : undefined}
             onPress={() => router.push(`/animais/${item.id}`)} />
         )}

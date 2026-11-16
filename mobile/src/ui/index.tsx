@@ -147,9 +147,10 @@ export function Badge({ label, tone = 'muted' }: { label: string; tone?: 'green'
   return <View style={[styles.badge, { backgroundColor: bg }]}><Text style={{ color: fg, fontSize: font.sm, fontWeight: '600' }}>{label}</Text></View>
 }
 
-export function Row({ title, detail, right, onPress, badge }: { title: string; detail?: string; right?: ReactNode; onPress?: () => void; badge?: ReactNode }) {
+export function Row({ title, detail, right, onPress, badge, left }: { title: string; detail?: string; right?: ReactNode; onPress?: () => void; badge?: ReactNode; left?: ReactNode }) {
   const body = (
     <View style={styles.row}>
+      {left ? <View style={{ marginRight: space.md }}>{left}</View> : null}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={styles.rowTitle} numberOfLines={2}>{title}</Text>
         {detail ? <Text style={styles.muted} numberOfLines={2}>{detail}</Text> : null}

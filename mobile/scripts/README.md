@@ -8,7 +8,12 @@
 4. Teste no celular: `cd android && gradlew.bat assembleRelease` → `android/app/build/outputs/apk/release/app-release.apk`.
    Em `android/gradle.properties`, `reactNativeArchitectures=arm64-v8a` (só a arquitetura dos celulares atuais, para a máquina de 8 GB
    aguentar) e `org.gradle.workers.max=2`. Para a loja, inclua também `armeabi-v7a` se quiser atender celulares bem antigos.
-5. Loja: `cd android && gradlew.bat bundleRelease` → `android/app/build/outputs/bundle/release/app-release.aab`.
+5. Loja: `powershell -ExecutionPolicy Bypass -File scripts\chave-loja.ps1` copia o `signing.keystore` da pasta
+   "... - Google Play package (1)" de Downloads para `android/upload.keystore` e escreve `android/keystore.properties`
+   lendo o `signing-key-info.txt` (sem mostrar senha). Depois `cd android && gradlew.bat bundleRelease` →
+   `android/app/build/outputs/bundle/release/app-release.aab`. Conferir a chave com
+   `keytool -printcert -jarfile app-release.aab` (SHA-256 deve começar com `F8:00:15`).
+   Antes, subir `versionCode` em `app.json` e em `android/app/build.gradle` (o `prebuild` recria o gradle a partir do app.json).
 
 Precisa de JDK 21 (`%USERPROFILE%\.gradle\gradle.properties` aponta `org.gradle.java.home`) e do Android SDK (`ANDROID_HOME`).
 A versão para a loja fica em `app.json` (`android.versionCode`, sempre maior que a anterior).
