@@ -42,6 +42,14 @@
       ],
       "@react-native-community/datetimepicker",
       [
+        "expo-image-picker",
+        {
+          "cameraPermission": "O app usa a câmera para você tirar a foto do animal.",
+          "photosPermission": "O app abre as suas fotos para você escolher a foto do animal.",
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-speech-recognition",
         {
           "microphonePermission": "O app usa o microfone para você falar a quantidade de leite.",

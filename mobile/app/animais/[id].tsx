@@ -4,10 +4,11 @@ import { Alert, Switch, Text, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { brDate, isoDay, todayISO } from '@/lib/format'
-import { ACQUISITIONS, SPECIES, STATUSES, animalOptions, getAnimal, removeAnimal, saveAnimal } from '@/repos/animals'
+import { ACQUISITIONS, SPECIES, STATUSES, animalOptions, getAnimal, getAnimalPhoto, removeAnimal, saveAnimal } from '@/repos/animals'
 import { listVaccinations, vaccStatus } from '@/repos/vaccinations'
 import { listTreatments } from '@/repos/treatments'
 import { Badge, Button, Card, DateField, Field, Muted, Notice, Row, Screen, SelectField } from '@/ui'
+import { PhotoField, PhotoView } from '@/ui/photo'
 import { colors, space } from '@/theme'
 
 export default function AnimalScreen() {
@@ -17,10 +18,11 @@ export default function AnimalScreen() {
   const router = useRouter()
   const isNew = !id || id === 'novo'
   const animal = useLive(() => (isNew ? null : getAnimal(id)), [id])
+  const photo = useLive(() => (isNew ? null : getAnimalPhoto(id)), [id])
   const [editing, setEditing] = useState(isNew)
 
   if (!isNew && !animal) return <Screen><Stack.Screen options={{ title: 'Animal' }} /><Notice text="Animal não encontrado." /></Screen>
-  if (editing) return <AnimalForm farmId={farmId} animal={animal} onDone={(newId) => { if (isNew) router.replace(`/animais/${newId}`); else setEditing(false) }} canEdit={canEdit} />
+  if (editing) return <AnimalForm farmId={farmId} animal={animal} photo={photo} onDone={(newId) => { if (isNew) router.replace(`/animais/${newId}`); else setEditing(false) }} canEdit={canEdit} />
 
   const vacc = listVaccinations(farmId).filter(v => v.animalId === animal!.id)
   const treats = listTreatments(farmId).filter(t => t.animalId === animal!.id)
@@ -29,8 +31,13 @@ export default function AnimalScreen() {
     <Screen>
       <Stack.Screen options={{ title: a.name }} />
       <Card>
-        <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text }}>{a.name}</Text>
-        <Muted>{a.species} · {a.gender} · código {a.customCode || a.code}</Muted>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+          <PhotoView uri={photo} name={a.name} size={72} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text }}>{a.name}</Text>
+            <Muted>{a.species} · {a.gender} · código {a.customCode || a.code}</Muted>
+          </View>
+        </View>
         <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
           <Badge label={a.status} tone={a.status === 'Vivo' ? 'green' : a.status === 'Doente' ? 'amber' : 'muted'} />
           {a.isCastrated ? <Badge label="Castrado" /> : null}
@@ -58,7 +65,7 @@ export default function AnimalScreen() {
   )
 }
 
-function AnimalForm({ farmId, animal, onDone, canEdit }: { farmId: string; animal: ReturnType<typeof getAnimal>; onDone: (id: string) => void; canEdit: boolean }) {
+function AnimalForm({ farmId, animal, photo, onDone, canEdit }: { farmId: string; animal: ReturnType<typeof getAnimal>; photo: string | null; onDone: (id: string) => void; canEdit: boolean }) {
   const router = useRouter()
   const [name, setName] = useState(animal?.name ?? '')
   const [species, setSpecies] = useState<string | null>(animal?.species ?? 'Vaca')
@@ -70,6 +77,7 @@ function AnimalForm({ farmId, animal, onDone, canEdit }: { farmId: string; anima
   const [isCastrated, setIsCastrated] = useState(!!animal?.isCastrated)
   const [motherId, setMotherId] = useState<string | null>(animal?.motherId ?? null)
   const [observations, setObservations] = useState(animal?.observations ?? '')
+  const [imageUrl, setImageUrl] = useState(photo ?? '')
   const [error, setError] = useState('')
   const mothers = animalOptions(farmId).filter(o => /vaca/i.test(o.detail ?? '') && o.value !== animal?.id)
 
@@ -77,7 +85,7 @@ function AnimalForm({ farmId, animal, onDone, canEdit }: { farmId: string; anima
     if (!name.trim()) { setError('Informe o nome'); return }
     if (!species || !gender || !status || !acquisitionType) { setError('Preencha espécie, sexo, situação e origem'); return }
     if (birthDate > todayISO()) { setError('A data de nascimento não pode ser no futuro'); return }
-    const id = saveAnimal(farmId, { name, species, gender, birthDate, status, customCode, acquisitionType, isCastrated, observations, motherId }, animal?.id)
+    const id = saveAnimal(farmId, { name, species, gender, birthDate, status, customCode, acquisitionType, isCastrated, observations, motherId, imageUrl: imageUrl !== (photo ?? '') ? imageUrl : undefined }, animal?.id)
     onDone(id)
   }
 
@@ -92,6 +100,7 @@ function AnimalForm({ farmId, animal, onDone, canEdit }: { farmId: string; anima
   return (
     <Screen>
       <Stack.Screen options={{ title: animal ? 'Editar animal' : 'Cadastrar animal' }} />
+      <PhotoField value={imageUrl} onChange={setImageUrl} name={name} />
       <Field label="Nome" value={name} onChangeText={setName} autoFocus={!animal} />
       <SelectField label="Espécie / categoria" value={species} options={SPECIES.map(s => ({ value: s, label: s }))} onChange={setSpecies} />
       <SelectField label="Sexo" value={gender} options={[{ value: 'Fêmea', label: 'Fêmea' }, { value: 'Macho', label: 'Macho' }]} onChange={setGender} />

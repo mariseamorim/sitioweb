@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS outbox (
   seq INTEGER PRIMARY KEY AUTOINCREMENT, farmId TEXT NOT NULL, module TEXT NOT NULL, method TEXT NOT NULL, path TEXT NOT NULL,
   body TEXT, localId TEXT, tbl TEXT, createdAt TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, lastError TEXT, failed INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS animal_photos (id TEXT PRIMARY KEY, farmId TEXT NOT NULL, imageUrl TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS id_map (localId TEXT PRIMARY KEY, serverId TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 `
@@ -149,7 +150,18 @@ export function parseJson<T>(value: unknown, fallback: T): T {
   try { return JSON.parse(value) as T } catch { return fallback }
 }
 
+/**
+ * Foto do animal (data URL, ~100 kB): fica numa tabela à parte para as muitas consultas `SELECT * FROM animals`
+ * não carregarem as fotos do rebanho inteiro. Só mexe quando o registro traz o campo `imageUrl`.
+ */
+function syncPhoto(table: TableName, farmId: string | null, id: unknown, row: Row) {
+  if (table !== 'animals' || !('imageUrl' in row) || typeof id !== 'string') return
+  if (typeof row.imageUrl === 'string' && row.imageUrl && farmId) run('INSERT OR REPLACE INTO animal_photos (id, farmId, imageUrl) VALUES (?, ?, ?)', [id, farmId, row.imageUrl])
+  else run('DELETE FROM animal_photos WHERE id = ?', [id])
+}
+
 export function upsert(table: TableName, farmId: string, row: Row) {
+  syncPhoto(table, farmId, row.id, row)
   const cols = ['id', 'farmId', ...TABLES[table].columns]
   const values = cols.map(c => (c === 'farmId' ? farmId : toCell(row[c])))
   run(`INSERT OR REPLACE INTO ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`, values)
@@ -159,11 +171,13 @@ export function upsert(table: TableName, farmId: string, row: Row) {
 export function replaceFromServer(table: TableName, farmId: string, rows: Row[]) {
   transaction(() => {
     run(`DELETE FROM ${table} WHERE farmId = ? AND id NOT LIKE 'local_%'`, [farmId])
+    if (table === 'animals') run("DELETE FROM animal_photos WHERE farmId = ? AND id NOT LIKE 'local_%'", [farmId])
     for (const row of rows) upsert(table, farmId, row)
   })
 }
 
 export function patchRow(table: TableName, id: string, patch: Row) {
+  if (table === 'animals' && 'imageUrl' in patch) syncPhoto(table, one<{ farmId: string }>('SELECT farmId FROM animals WHERE id = ?', [id])?.farmId ?? null, id, patch)
   const cols = TABLES[table].columns.filter(c => c in patch)
   if (!cols.length) return
   run(`UPDATE ${table} SET ${cols.map(c => `${c} = ?`).join(', ')} WHERE id = ?`, [...cols.map(c => toCell(patch[c])), id])
@@ -171,6 +185,7 @@ export function patchRow(table: TableName, id: string, patch: Row) {
 
 export function deleteRow(table: TableName, id: string) {
   run(`DELETE FROM ${table} WHERE id = ?`, [id])
+  if (table === 'animals') run('DELETE FROM animal_photos WHERE id = ?', [id])
 }
 
 export function getMeta(key: string): string | null {
@@ -195,6 +210,7 @@ export function setCache(key: string, value: unknown) {
 export function wipeAll() {
   transaction(() => {
     for (const name of Object.keys(TABLES)) run(`DELETE FROM ${name}`)
+    run('DELETE FROM animal_photos')
     run('DELETE FROM outbox')
     run('DELETE FROM id_map')
     run('DELETE FROM meta')

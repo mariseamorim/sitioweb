@@ -48,7 +48,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       status,
       gta: gta || null,
       observations: observations || null,
-      imageUrl: imageUrl || null,
+      // Só muda a foto quando o pedido manda o campo (versões antigas do app não mandam e apagavam a foto)
+      ...(imageUrl !== undefined ? { imageUrl: imageUrl || null } : {}),
       lowDate: lowDate ? new Date(lowDate) : null,
       lowReason: lowReason || null,
       // Só muda a mãe quando o formulário manda o campo

@@ -17,6 +17,8 @@ export interface Animal {
   motherId: string | null
   lowDate: string | null
   lowReason: string | null
+  /** 1 quando há foto guardada (só em listAnimals); a foto em si vem de getAnimalPhoto */
+  hasPhoto?: number
 }
 
 export const SPECIES = ['Vaca', 'Boi', 'Boi de engorda', 'Touro', 'Bezerro', 'Bezerra', 'Cavalo', 'Égua', 'Cabra', 'Bode', 'Ovelha', 'Carneiro', 'Porco', 'Porca', 'Outro']
@@ -26,12 +28,15 @@ export const ACQUISITIONS = [['existente', 'Já estava na propriedade'], ['nasci
 export function listAnimals(farmId: string, q = ''): Animal[] {
   const term = `%${q.trim().toLowerCase()}%`
   return all<Animal>(
-    `SELECT * FROM animals WHERE farmId = ? AND (? = '%%' OR lower(name) LIKE ? OR lower(code) LIKE ? OR lower(coalesce(customCode, '')) LIKE ?) ORDER BY name COLLATE NOCASE`,
+    `SELECT *, EXISTS(SELECT 1 FROM animal_photos p WHERE p.id = animals.id) AS hasPhoto FROM animals WHERE farmId = ? AND (? = '%%' OR lower(name) LIKE ? OR lower(code) LIKE ? OR lower(coalesce(customCode, '')) LIKE ?) ORDER BY name COLLATE NOCASE`,
     [farmId, term, term, term, term],
   )
 }
 
 export const getAnimal = (id: string) => one<Animal>('SELECT * FROM animals WHERE id = ?', [id])
+
+/** Foto do animal (data URL) ou null. Fica fora da tabela animals: ver db/index.ts. */
+export const getAnimalPhoto = (id: string) => one<{ imageUrl: string }>('SELECT imageUrl FROM animal_photos WHERE id = ?', [id])?.imageUrl ?? null
 
 export const animalLabel = (a: Pick<Animal, 'name' | 'code' | 'customCode'> | null | undefined) =>
   a ? `${a.name} (${a.customCode || a.code})` : 'Animal removido'
@@ -45,6 +50,8 @@ export function nextCode(farmId: string): string {
 export interface AnimalInput {
   name: string; species: string; gender: string; birthDate: string; status: string; customCode: string
   acquisitionType: string; isCastrated: boolean; observations: string; motherId: string | null
+  /** Foto em data URL; vazio = tirar a foto; ausente = não mexer na foto */
+  imageUrl?: string
 }
 
 export function saveAnimal(farmId: string, input: AnimalInput, id?: string): string {
@@ -52,6 +59,8 @@ export function saveAnimal(farmId: string, input: AnimalInput, id?: string): str
     name: input.name.trim(), species: input.species, gender: input.gender, birthDate: input.birthDate, status: input.status,
     customCode: input.customCode.trim() || null, acquisitionType: input.acquisitionType, isCastrated: input.isCastrated,
     observations: input.observations.trim() || null, motherId: input.motherId || null,
+    // Só vai quando a foto mudou: o servidor mantém a que tem (e o aparelho pode ainda não ter baixado a foto)
+    ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl || null } : {}),
   }
   const row = { isCastrated: input.isCastrated ? 1 : 0 }
   if (id) {
