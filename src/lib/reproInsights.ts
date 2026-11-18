@@ -25,11 +25,17 @@ export interface Indicators {
   /** Coberturas ainda sem diagnóstico */
   awaiting: number
   insights: string[]
+  /** Os mesmos destaques como modelo em português + variáveis, para a tela traduzir (t(text, vars)).
+   *  Variáveis month, from e to são meses "AAAA-MM": a tela troca pelo nome do mês no idioma dela. */
+  insightItems?: InsightItem[]
 }
+
+export interface InsightItem { text: string; vars?: Record<string, string | number> }
 
 /** A perdida estava prenha quando foi diagnosticada */
 const PREGNANT = ['Prenha', 'Parida', 'Perdida']
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+const MONTHS_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 const DAY = 24 * 60 * 60 * 1000
 /** Depois disso a cobertura já devia ter diagnóstico */
 const LATE_DIAGNOSIS_DAYS = 45
@@ -43,11 +49,11 @@ export function addMonths(month: string, delta: number): string {
   return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}`
 }
 
-/** "2026-11" → "novembro" */
-export const monthName = (month: string) => MONTHS[Number(month.slice(5, 7)) - 1] ?? month
+/** "2026-11" → "novembro" (ou "noviembre" com lang 'es') */
+export const monthName = (month: string, lang: 'pt' | 'es' = 'pt') => (lang === 'es' ? MONTHS_ES : MONTHS)[Number(month.slice(5, 7)) - 1] ?? month
 /** "2026-11" → "nov"; janeiro leva o ano ("jan/27") para marcar a virada */
-export function monthShort(month: string): string {
-  const name = monthName(month).slice(0, 3)
+export function monthShort(month: string, lang: 'pt' | 'es' = 'pt'): string {
+  const name = monthName(month, lang).slice(0, 3)
   return month.endsWith('-01') ? `${name}/${month.slice(2, 4)}` : name
 }
 
@@ -74,16 +80,17 @@ export function buildIndicators(coverages: CoverageRow[], milkByMonth: MonthLite
     ? rateMonths.map((month) => ({ month, liters: Math.round(milkByMonth.find((m) => m.month === month)?.liters ?? 0) }))
     : null
 
-  const insights: string[] = []
+  // Cada destaque é um modelo em português com variáveis: vira o texto pronto (insights) e o item para traduzir
+  const items: InsightItem[] = []
+  const add = (text: string, vars?: InsightItem['vars']) => items.push({ text, vars })
 
   const peak = births.reduce((best, m) => (m.count > best.count ? m : best), births[0])
   if (peak.count > 0) {
     const total = births.reduce((sum, m) => sum + m.count, 0)
-    insights.push(total === peak.count
-      ? `${peak.count} ${peak.count === 1 ? 'parto previsto' : 'partos previstos'} para ${monthName(peak.month)}.`
-      : `Maior concentração de partos em ${monthName(peak.month)}: ${peak.count} dos ${total} previstos nos próximos 6 meses.`)
+    if (total === peak.count) add(peak.count === 1 ? '{n} parto previsto para {month}.' : '{n} partos previstos para {month}.', { n: peak.count, month: peak.month })
+    else add('Maior concentração de partos em {month}: {n} dos {total} previstos nos próximos 6 meses.', { month: peak.month, n: peak.count, total })
   } else {
-    insights.push('Nenhum parto previsto nos próximos 6 meses.')
+    add('Nenhum parto previsto nos próximos 6 meses.')
   }
 
   // Tendência da prenhez: os 3 meses mais recentes com diagnóstico contra os 3 anteriores
@@ -93,12 +100,12 @@ export function buildIndicators(coverages: CoverageRow[], milkByMonth: MonthLite
     const recent = rateOf(withRate.slice(-3))
     const before = rateOf(withRate.slice(-6, -3))
     if (Math.abs(recent - before) >= 10) {
-      insights.push(`A taxa de concepção ${recent < before ? 'caiu' : 'subiu'} de ${before}% para ${recent}% nas coberturas mais recentes.`)
+      add(recent < before ? 'A taxa de concepção caiu de {before}% para {recent}% nas coberturas mais recentes.' : 'A taxa de concepção subiu de {before}% para {recent}% nas coberturas mais recentes.', { before, recent })
     }
   }
 
   const late = waiting.filter((c) => (Date.parse(today) - Date.parse(c.coverageDate.slice(0, 10))) / DAY > LATE_DIAGNOSIS_DAYS).length
-  if (late > 0) insights.push(`${late} ${late === 1 ? 'cobertura com' : 'coberturas com'} mais de ${LATE_DIAGNOSIS_DAYS} dias ainda sem diagnóstico de gestação.`)
+  if (late > 0) add(late === 1 ? '{n} cobertura com mais de {days} dias ainda sem diagnóstico de gestação.' : '{n} coberturas com mais de {days} dias ainda sem diagnóstico de gestação.', { n: late, days: LATE_DIAGNOSIS_DAYS })
 
   // Leite: os dois últimos meses fechados (o mês atual ainda está pela metade)
   if (milk) {
@@ -106,9 +113,17 @@ export function buildIndicators(coverages: CoverageRow[], milkByMonth: MonthLite
     const previous = milk[milk.length - 3]
     if (last && previous && previous.liters > 0 && last.liters > 0) {
       const change = Math.round(((last.liters - previous.liters) / previous.liters) * 100)
-      if (Math.abs(change) >= 10) insights.push(`A produção de leite ${change < 0 ? 'caiu' : 'subiu'} ${Math.abs(change)}% de ${monthName(previous.month)} para ${monthName(last.month)}.`)
+      if (Math.abs(change) >= 10) add(change < 0 ? 'A produção de leite caiu {pct}% de {from} para {to}.' : 'A produção de leite subiu {pct}% de {from} para {to}.', { pct: Math.abs(change), from: previous.month, to: last.month })
     }
   }
 
-  return { births, pregnancy, milk, rate12, awaiting: waiting.length, insights }
+  const insights = items.map((i) => fillInsight(i, (m) => monthName(m)))
+  return { births, pregnancy, milk, rate12, awaiting: waiting.length, insights, insightItems: items }
+}
+
+const MONTH_VARS = ['month', 'from', 'to']
+/** Monta o texto de um destaque: o modelo (já traduzido ou não) com as variáveis, e os meses pelo nome. */
+export function fillInsight(item: InsightItem, month: (m: string) => string, template = item.text): string {
+  const vars = item.vars ?? {}
+  return template.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? (MONTH_VARS.includes(k) ? month(String(vars[k])) : String(vars[k])) : m))
 }

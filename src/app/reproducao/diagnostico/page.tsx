@@ -9,6 +9,7 @@ import { BackLink } from '@/components/BackLink'
 import { useUser } from '@/contexts/UserContext'
 import { cachedGet, HttpError, pendingOf, sendOrQueue, withPending } from '@/lib/offlineData'
 import { useOfflineModule } from '@/lib/useOffline'
+import { useT } from '@/lib/i18n'
 
 interface Coverage {
   id: string
@@ -29,6 +30,7 @@ const MODULE = 'reproducao'
 
 export default function DiagnosticoEmLotePage() {
   const { user } = useUser()
+  const t = useT()
   const [rows, setRows] = useState<Coverage[] | null>(null)
   const [answers, setAnswers] = useState<Record<string, Answer>>({})
   const [saving, setSaving] = useState<string | null>(null)
@@ -81,17 +83,17 @@ export default function DiagnosticoEmLotePage() {
       <BackLink href="/reproducao" className="mb-2 -ml-2" />
       <div className="flex items-start justify-between gap-3 mb-1">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Diagnóstico em lote</h1>
-          <p className="text-gray-500">{user?.farmName} · coberturas sem diagnóstico de gestação</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('Diagnóstico em lote')}</h1>
+          <p className="text-gray-500">{user?.farmName} · {t('coberturas sem diagnóstico de gestação')}</p>
         </div>
-        {rows && rows.length > 0 && <span className="shrink-0 rounded-full bg-gray-900 px-3 py-1 text-sm font-semibold text-white" aria-label={`${done} de ${rows.length} diagnosticadas`}>{done}/{rows.length}</span>}
+        {rows && rows.length > 0 && <span className="shrink-0 rounded-full bg-gray-900 px-3 py-1 text-sm font-semibold text-white" aria-label={t('{done} de {total} diagnosticadas', { done, total: rows.length })}>{done}/{rows.length}</span>}
       </div>
-      {done > 0 && <p role="status" className="text-sm text-gray-600 mb-3">{pregnant} {pregnant === 1 ? 'prenha' : 'prenhas'} · {done - pregnant} {done - pregnant === 1 ? 'vazia' : 'vazias'}</p>}
-      {(fromCache || !net.online || queued > 0) && <p role="status" className="mb-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">{net.online && !fromCache ? 'Sinal fraco.' : 'Sem internet: mostrando as coberturas guardadas neste aparelho.'} O que você marcar fica salvo no aparelho e é enviado quando a conexão voltar.</p>}
-      {error && <p role="alert" className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
+      {done > 0 && <p role="status" className="text-sm text-gray-600 mb-3">{t(pregnant === 1 ? '{n} prenha' : '{n} prenhas', { n: pregnant })} · {t(done - pregnant === 1 ? '{n} vazia' : '{n} vazias', { n: done - pregnant })}</p>}
+      {(fromCache || !net.online || queued > 0) && <p role="status" className="mb-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">{t(net.online && !fromCache ? 'Sinal fraco.' : 'Sem internet: mostrando as coberturas guardadas neste aparelho.')} {t('O que você marcar fica salvo no aparelho e é enviado quando a conexão voltar.')}</p>}
+      {error && <p role="alert" className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{t(error)}</p>}
 
-      {rows === null && !error && <p className="py-12 text-center text-gray-500">Carregando…</p>}
-      {rows?.length === 0 && <p className="mt-4 bg-white rounded-xl border border-gray-200 p-6 text-center text-gray-500">Nenhuma cobertura aguardando diagnóstico nesta propriedade.</p>}
+      {rows === null && !error && <p className="py-12 text-center text-gray-500">{t('Carregando…')}</p>}
+      {rows?.length === 0 && <p className="mt-4 bg-white rounded-xl border border-gray-200 p-6 text-center text-gray-500">{t('Nenhuma cobertura aguardando diagnóstico nesta propriedade.')}</p>}
 
       <ul className="mt-3 flex flex-col gap-3">
         {rows?.map((row) => {
@@ -104,17 +106,17 @@ export default function DiagnosticoEmLotePage() {
                 <div className="min-w-0">
                   <p className="font-semibold text-gray-900 truncate">{row.female.name} <span className="font-normal text-gray-500">({row.female.customCode || row.female.code})</span></p>
                   <p className="text-sm text-gray-600">
-                    {row.method === 'ia' ? 'Inseminada' : 'Coberta'} há {days} {days === 1 ? 'dia' : 'dias'}{row.maleName ? ` · ${row.maleName}` : ''}
-                    {!answer && days < MIN_DAYS ? ' · cedo para diagnosticar' : ''}
+                    {t(row.method === 'ia' ? (days === 1 ? 'Inseminada há {n} dia' : 'Inseminada há {n} dias') : (days === 1 ? 'Coberta há {n} dia' : 'Coberta há {n} dias'), { n: days })}{row.maleName ? ` · ${row.maleName}` : ''}
+                    {!answer && days < MIN_DAYS ? ` · ${t('cedo para diagnosticar')}` : ''}
                   </p>
-                  {answer && <p className={`mt-0.5 text-sm font-semibold ${answer === 'Prenha' ? 'text-green-800' : 'text-red-800'}`}>{answer === 'Prenha' ? '✓ Prenha' : '✓ Vazia · liberada para nova cobertura'}</p>}
+                  {answer && <p className={`mt-0.5 text-sm font-semibold ${answer === 'Prenha' ? 'text-green-800' : 'text-red-800'}`}>{answer === 'Prenha' ? `✓ ${t('Prenha')}` : `✓ ${t('Vazia')} · ${t('liberada para nova cobertura')}`}</p>}
                 </div>
-                {answer && canEdit && <button type="button" disabled={saving === row.id} onClick={() => save(row, 'Coberta')} className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 underline hover:bg-white/60">desfazer</button>}
+                {answer && canEdit && <button type="button" disabled={saving === row.id} onClick={() => save(row, 'Coberta')} className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 underline hover:bg-white/60">{t('desfazer')}</button>}
               </div>
               {!answer && canEdit && (
                 <div className="mt-3 grid grid-cols-2 gap-3">
-                  <button type="button" disabled={saving === row.id} onClick={() => save(row, 'Prenha')} className="rounded-lg bg-green-700 py-3 text-base font-semibold text-white hover:bg-green-600 disabled:opacity-60">✓ Prenha</button>
-                  <button type="button" disabled={saving === row.id} onClick={() => save(row, 'Vazia')} className="rounded-lg bg-red-700 py-3 text-base font-semibold text-white hover:bg-red-600 disabled:opacity-60">✕ Vazia</button>
+                  <button type="button" disabled={saving === row.id} onClick={() => save(row, 'Prenha')} className="rounded-lg bg-green-700 py-3 text-base font-semibold text-white hover:bg-green-600 disabled:opacity-60">✓ {t('Prenha')}</button>
+                  <button type="button" disabled={saving === row.id} onClick={() => save(row, 'Vazia')} className="rounded-lg bg-red-700 py-3 text-base font-semibold text-white hover:bg-red-600 disabled:opacity-60">✕ {t('Vazia')}</button>
                 </div>
               )}
             </li>

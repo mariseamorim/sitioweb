@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react'
 import { countAllPendingOnDevice } from '@/lib/offlineStorage'
 import { pendingModules, syncAll } from '@/lib/offlineData'
+import { useT } from '@/lib/i18n'
 
 // Mostra na barra do topo se o aparelho está sem sinal e quantos registros aguardam envio.
 // Quando a internet volta (e a cada 30 s enquanto houver fila), envia os pedidos guardados de todos os módulos.
 export function SyncStatus() {
   const [online, setOnline] = useState(true)
   const [pending, setPending] = useState(0)
+  const t = useT()
 
   useEffect(() => {
     const refresh = () => {
@@ -36,8 +38,8 @@ export function SyncStatus() {
   if (online && pending === 0) return null
 
   const label = !online
-    ? pending > 0 ? `Sem internet · ${pending} aguardando` : 'Sem internet'
-    : `${pending} para enviar`
+    ? pending > 0 ? t('Sem internet · {n} aguardando', { n: pending }) : t('Sem internet')
+    : t('{n} para enviar', { n: pending })
 
   return (
     <span
@@ -45,7 +47,7 @@ export function SyncStatus() {
       className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${
         online ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
       }`}
-      title={pending > 0 ? 'Os registros estão salvos neste aparelho. Abra a tela correspondente e use Enviar registros quando a internet voltar.' : undefined}
+      title={pending > 0 ? t('Os registros estão salvos neste aparelho. Abra a tela correspondente e use Enviar registros quando a internet voltar.') : undefined}
     >
       <span className={`w-2 h-2 rounded-full ${online ? 'bg-blue-600' : 'bg-amber-600'}`} />
       {label}
