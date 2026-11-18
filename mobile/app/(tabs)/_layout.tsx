@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useSession } from '@/auth/session'
 import { startAutoSync } from '@/sync'
+import { enableBackgroundSync } from '@/sync/background'
 import { colors } from '@/theme'
 
 export default function TabsLayout() {
@@ -14,6 +15,7 @@ export default function TabsLayout() {
   // Sincronização automática enquanto há uma propriedade aberta
   useEffect(() => {
     if (!farmId) return
+    void enableBackgroundSync()
     return startAutoSync(farmId, canAccess)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [farmId])
@@ -22,7 +24,8 @@ export default function TabsLayout() {
   const tabGap = insets.bottom + 12
 
   if (!user) return <Redirect href="/login" />
-  if (!farmId) return <Redirect href="/propriedade" />
+  // Veterinário ainda sem propriedade: o painel de consultoria mostra o código para o produtor liberar
+  if (!farmId) return <Redirect href={user.vet ? '/consultoria' : '/propriedade'} />
 
   const icon = (name: keyof typeof Ionicons.glyphMap) => ({ color, size }: { color?: unknown; size: number }) => <Ionicons name={name} color={color as string} size={size} />
   return (
