@@ -7,15 +7,20 @@ import { GoogleLoginButton } from '@/components/GoogleLoginButton'
 import { FARM_SEGMENTS } from '@/lib/farmSegments'
 import { DOCUMENT_PLACEHOLDER, maskDocument, maskPhone } from '@/lib/masks'
 import { contactLabel } from '@/lib/identity'
-import { useT } from '@/lib/i18n'
+import { useLang, useT } from '@/lib/i18n'
 
 const EMPTY_FARM = { name: '', propertyType: 'Fazenda', documentType: 'CNPJ', documentNumber: '', owner: '', phone: '', address: '', city: '', state: '' }
 
 export default function CadastroPage() {
   const t = useT()
+  const es = useLang() === 'es'
+  // Em espanhol o cadastro é do Paraguai: RUC ou CI; em português, CNPJ ou CPF
+  const docTypes = es ? ['RUC', 'CI'] : ['CNPJ', 'CPF']
+  const phoneHint = es ? '0981 123456' : '(35) 99999-0000'
   const [step, setStep] = useState(1)
   const [ready, setReady] = useState(false)
   const [farm, setFarm] = useState(EMPTY_FARM)
+  const docType = docTypes.includes(farm.documentType) ? farm.documentType : docTypes[0]
   const [segments, setSegments] = useState<string[]>([])
   const [user, setUser] = useState({ name: '', email: '', phone: '', password: '', confirm: '' })
   const [error, setError] = useState('')
@@ -43,7 +48,7 @@ export default function CadastroPage() {
       const inviteCode = new URLSearchParams(window.location.search).get('convite')
       const res = await fetch('/api/auth/register', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(step === 1 ? { user: { name: user.name, email: user.email, phone: user.phone, password: user.password } } : { farm: { ...farm, segments }, inviteCode }),
+        body: JSON.stringify(step === 1 ? { user: { name: user.name, email: user.email, phone: user.phone, password: user.password } } : { farm: { ...farm, documentType: docType, segments }, inviteCode }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ? t(data.error) : t('Não foi possível salvar'))
@@ -65,7 +70,7 @@ export default function CadastroPage() {
           <fieldset disabled={loading} className="flex flex-col gap-4">
             {step === 1 ? <>
               <label>{t('Seu nome')}<input required autoComplete="name" className={input} value={user.name} onChange={e => setUser({ ...user, name: e.target.value })} /></label>
-              <label>{t('Telefone')}<input type="tel" inputMode="tel" autoComplete="tel" placeholder="(35) 99999-0000" className={input} value={user.phone} onChange={e => setUser({ ...user, phone: maskPhone(e.target.value) })} /></label>
+              <label>{t('Telefone')}<input type="tel" inputMode="tel" autoComplete="tel" placeholder={phoneHint} className={input} value={user.phone} onChange={e => setUser({ ...user, phone: maskPhone(e.target.value) })} /></label>
               <label>{t('E-mail')} <span className="text-gray-400">{t('(opcional)')}</span><input type="email" autoComplete="email" className={input} value={user.email} onChange={e => setUser({ ...user, email: e.target.value })} /></label>
               <p className="-mt-2 text-xs text-gray-500">{t('Você entra com o telefone ou com o e-mail. Informe pelo menos um.')}</p>
               <label>{t('Senha')}<input required type="password" minLength={6} autoComplete="new-password" className={input} value={user.password} onChange={e => setUser({ ...user, password: e.target.value })} /></label>
@@ -82,11 +87,11 @@ export default function CadastroPage() {
                 </div>
               </fieldset>
               {Object.entries({ name: 'Nome da propriedade', owner: 'Proprietário', documentNumber: 'CPF/CNPJ', phone: 'Telefone', address: 'Endereço', city: 'Cidade', state: 'Estado' }).map(([key, label]) => <label key={key}>{t(label)}
-                <input required={key === 'name'} className={input} maxLength={key === 'state' ? 2 : undefined} value={farm[key as keyof typeof farm]} inputMode={key === 'phone' ? 'tel' : key === 'documentNumber' ? 'numeric' : undefined}
-                  placeholder={key === 'phone' ? '(35) 99999-0000' : key === 'documentNumber' ? DOCUMENT_PLACEHOLDER[farm.documentType] : undefined}
-                  onChange={e => setFarm({ ...farm, [key]: key === 'phone' ? maskPhone(e.target.value) : key === 'documentNumber' ? maskDocument(e.target.value, farm.documentType) : e.target.value })} />
+                <input required={key === 'name'} className={input} maxLength={key === 'state' ? (es ? 40 : 2) : undefined} value={farm[key as keyof typeof farm]} inputMode={key === 'phone' ? 'tel' : key === 'documentNumber' ? 'numeric' : undefined}
+                  placeholder={key === 'phone' ? phoneHint : key === 'documentNumber' ? DOCUMENT_PLACEHOLDER[docType] : key === 'state' && es ? 'Alto Paraná' : undefined}
+                  onChange={e => setFarm({ ...farm, [key]: key === 'phone' ? maskPhone(e.target.value) : key === 'documentNumber' ? maskDocument(e.target.value, docType) : e.target.value })} />
               </label>)}
-              <label>{t('Tipo de documento')}<select className={input} value={farm.documentType} onChange={e => setFarm({ ...farm, documentType: e.target.value, documentNumber: maskDocument(farm.documentNumber, e.target.value) })}><option>CNPJ</option><option>CPF</option></select></label>
+              <label>{t('Tipo de documento')}<select className={input} value={docType} onChange={e => setFarm({ ...farm, documentType: e.target.value, documentNumber: maskDocument(farm.documentNumber, e.target.value) })}>{docTypes.map(d => <option key={d}>{d}</option>)}</select></label>
             </>}
             {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             <button type="submit" className="rounded-lg bg-green-700 py-3 font-semibold text-white hover:bg-green-600">{t(loading ? 'Salvando...' : step === 1 ? 'Criar conta e continuar' : 'Salvar propriedade e começar')}</button>

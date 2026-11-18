@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { regionOrNull } from '@/lib/identity'
 import { prisma } from '@/lib/prisma'
 import { setSessionCookie } from '@/lib/auth'
 import { registrationIdentity } from '@/lib/registration'
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
           userId: account.id,
           crmv: vet?.crmv ? String(vet.crmv).trim() : null,
           city: vet?.city ? String(vet.city).trim() : null,
-          state: vet?.state ? String(vet.state).trim().toUpperCase() : null,
+          state: regionOrNull(vet?.state),
           inviteCode: newInviteCode(),
         },
       })

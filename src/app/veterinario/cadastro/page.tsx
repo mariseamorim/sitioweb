@@ -6,7 +6,7 @@ import { BackLink } from '@/components/BackLink'
 import { GoogleLoginButton } from '@/components/GoogleLoginButton'
 import { useRegistrationAccount } from '@/lib/useRegistrationAccount'
 import { maskPhone } from '@/lib/masks'
-import { useT } from '@/lib/i18n'
+import { useLang, useT } from '@/lib/i18n'
 import { LanguagePicker } from '@/components/LanguagePicker'
 
 const EMPTY = { name: '', crmv: '', city: '', state: '', phone: '', email: '', password: '', confirm: '' }
@@ -16,6 +16,7 @@ const input = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base fo
 export default function CadastroVeterinarioPage() {
   const { account, ready, error: accountError } = useRegistrationAccount()
   const t = useT()
+  const es = useLang() === 'es'
   const [form, setForm] = useState(EMPTY)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -71,7 +72,7 @@ export default function CadastroVeterinarioPage() {
                   <input value={form.city} onChange={set('city')} className={`mt-1 ${input}`} />
                 </label>
                 <label className="text-sm font-medium text-gray-700">{t('Estado')}
-                  <input value={form.state} onChange={set('state')} maxLength={2} placeholder="MG" className={`mt-1 ${input} uppercase`} />
+                  <input value={form.state} onChange={set('state')} maxLength={es ? 40 : 2} placeholder={es ? 'Central' : 'MG'} className={`mt-1 ${input} ${es ? '' : 'uppercase'}`} />
                 </label>
               </div>
             </fieldset>
@@ -81,7 +82,7 @@ export default function CadastroVeterinarioPage() {
               <p className="text-sm text-gray-500">{t('Informe o telefone, o e-mail ou os dois. Você entra com qualquer um deles.')}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="text-sm font-medium text-gray-700">{t('Telefone')}
-                  <input value={form.phone} onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })} inputMode="tel" placeholder="(35) 99999-0000" className={`mt-1 ${input}`} />
+                  <input value={form.phone} onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })} inputMode="tel" placeholder={es ? '0981 123456' : '(35) 99999-0000'} className={`mt-1 ${input}`} />
                 </label>
                 <label className="text-sm font-medium text-gray-700">{t('E-mail')}
                   <input type="email" value={form.email} onChange={set('email')} className={`mt-1 ${input}`} />

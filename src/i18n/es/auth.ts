@@ -109,4 +109,10 @@ export const auth: Record<string, string> = {
   'Enviando...': 'Enviando...',
   'Criar cadastro': 'Crear registro',
   'Já tem cadastro?': '¿Ya tiene registro?',
+  // Erros do servidor no cadastro (telefone e região do Brasil ou do Paraguai)
+  'Telefone inválido. Use o DDD e o número, como (35) 99999-0000, ou +595 981 123456 no Paraguai': 'Teléfono inválido. Use el número con el código de área, como 0981 123456 o +595 981 123456',
+  'Informe a sigla do estado': 'Departamento inválido',
+  'Informe a sigla do estado com duas letras': 'Departamento inválido',
+  'Tipo de documento inválido': 'Tipo de documento inválido',
+  'E-mail inválido': 'Correo inválido',
 }

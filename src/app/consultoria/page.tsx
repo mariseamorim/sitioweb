@@ -9,7 +9,7 @@ import { Agenda } from './Agenda'
 import { useDialog } from '@/components/DialogProvider'
 import { hasPendingOnDevice, PENDING_MESSAGE, reloadInFarm } from '@/lib/farmSwitch'
 import { maskPhone } from '@/lib/masks'
-import { useLocale, useT } from '@/lib/i18n'
+import { useLang, useLocale, useT } from '@/lib/i18n'
 
 interface Client {
   id: string; farmId: string; name: string; owner: string | null; city: string | null; state: string | null; phone: string | null
@@ -31,6 +31,7 @@ const input = 'mt-1 w-full border border-gray-300 rounded-lg px-3 py-2.5 text-ba
 
 export default function ConsultoriaPage() {
   const { confirm, notify } = useDialog()
+  const lang = useLang()
   const t = useT()
   const locale = useLocale()
   const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(locale, { timeZone: 'UTC' }) : '—')
@@ -212,7 +213,7 @@ export default function ConsultoriaPage() {
             <label className="text-sm font-medium text-gray-700">{t('Telefone do produtor')}<input value={newFarm.phone} onChange={(e) => setNewFarm({ ...newFarm, phone: maskPhone(e.target.value) })} inputMode="tel" className={input} /></label>
             <div className="grid grid-cols-3 gap-3">
               <label className="col-span-2 text-sm font-medium text-gray-700">{t('Cidade')}<input value={newFarm.city} onChange={(e) => setNewFarm({ ...newFarm, city: e.target.value })} className={input} /></label>
-              <label className="text-sm font-medium text-gray-700">{t('Estado')}<input value={newFarm.state} onChange={(e) => setNewFarm({ ...newFarm, state: e.target.value })} maxLength={2} className={`${input} uppercase`} /></label>
+              <label className="text-sm font-medium text-gray-700">{t('Estado')}<input value={newFarm.state} onChange={(e) => setNewFarm({ ...newFarm, state: e.target.value })} maxLength={lang === 'es' ? 40 : 2} className={`${input} ${lang === 'es' ? '' : 'uppercase'}`} /></label>
             </div>
             {formError && <p role="alert" className="text-sm text-red-600">{formError}</p>}
             <button type="submit" disabled={busy === 'form'} className="rounded-lg bg-green-700 py-3 text-base font-semibold text-white hover:bg-green-600 disabled:bg-green-400">{t(busy === 'form' ? 'Salvando…' : 'Cadastrar propriedade')}</button>
