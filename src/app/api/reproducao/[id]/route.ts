@@ -10,7 +10,7 @@ function coverageDetails(body: Record<string, unknown>) {
 }
 
 async function findOwned(id: string, farmId: string) {
-  return prisma.reproduction.findFirst({ where: { id, farmId }, select: { id: true } })
+  return prisma.reproduction.findFirst({ where: { id, farmId }, select: { id: true, status: true } })
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -19,11 +19,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const { id } = await params
-    if (!(await findOwned(id, auth.farmId))) return notFound()
+    const existing = await findOwned(id, auth.farmId)
+    if (!existing) return notFound()
     const body = await request.json()
     const { maleName, coverageDate, status, actualBirthDate, calfId, observations } = body
 
     const data: Record<string, unknown> = { status: status || undefined }
+    // Diagnóstico de gestação: guarda quem deu e quando (o veterinário leva isso com ele se o vínculo acabar)
+    if ((status === 'Prenha' || status === 'Vazia') && status !== existing.status) Object.assign(data, { diagnosedById: auth.user.id, diagnosedAt: new Date() })
     if ('actualBirthDate' in body) data.actualBirthDate = actualBirthDate ? new Date(actualBirthDate) : null
     if ('calfId' in body) data.calfId = calfId || null
     if ('observations' in body) data.observations = observations || null

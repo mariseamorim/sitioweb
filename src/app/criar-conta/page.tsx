@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
-import { EstoqueIcon, LeiteIcon, LojaIcon, PropriedadeIcon, SetaDireitaIcon, SincronizarIcon } from '@/components/ModuleIcons'
+import { EstoqueIcon, LeiteIcon, LojaIcon, PropriedadeIcon, SetaDireitaIcon, SincronizarIcon, TratamentoIcon } from '@/components/ModuleIcons'
 import { BackLink } from '@/components/BackLink'
 
 export const metadata: Metadata = {
@@ -33,6 +33,12 @@ const OPTIONS = [
     Icon: LojaIcon,
     title: 'Fornecedor de insumos',
     text: 'Divulgue ofertas de ração, sal mineral e outros produtos para os produtores.',
+  },
+  {
+    href: '/veterinario/cadastro',
+    Icon: TratamentoIcon,
+    title: 'Veterinário',
+    text: 'Acompanhe a reprodução e o manejo das propriedades que você atende.',
   },
   {
     href: '/organizacao/cadastro?tipo=laticinio',

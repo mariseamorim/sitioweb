@@ -44,6 +44,7 @@ model Farm {
   members         FarmMember[] // quem tem acesso (o dono pode ter várias propriedades)
   lots            Lot[] // lotes de recria e engorda
   offerContacts   OfferContact[] // contatos e compras em ofertas de fornecedores
+  vetClients      VetClient[] // veterinários consultores que atendem a propriedade
 
   @@index([documentNumber])
   @@map("farms")
@@ -76,6 +77,7 @@ model User {
   orgMemberships   OrgMember[] // associações do produtor do Anota Aí Leite (sem propriedade)
   milkSheets       MilkSheet[] // litros da folha do motorista, para conferir
   farmMemberships  FarmMember[] // propriedades a que tem acesso; farmId é a que está aberta
+  vetProfile       VetProfile? // preenchido quando a conta é de veterinário consultor
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -220,6 +222,11 @@ model Reproduction {
   observations      String?
   farmId            String
   farm              Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  /// Conta que anotou a cobertura (para o veterinário guardar o que ele mesmo lançou)
+  createdById       String?
+  /// Conta que deu o diagnóstico de gestação (Prenha ou Vazia) e quando
+  diagnosedById     String?
+  diagnosedAt       DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -810,4 +817,124 @@ model GroupPurchaseOrder {
 
   @@unique([purchaseId, memberId])
   @@map("group_purchase_orders")
+}
+
+/// Veterinário consultor: uma conta de edição (role "editor") que atende várias propriedades.
+model VetProfile {
+  id         String      @id @default(cuid())
+  userId     String      @unique
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  crmv       String?
+  city       String?
+  state      String?
+  /// Código que o produtor informa para liberar a propriedade ao veterinário
+  inviteCode String      @unique
+  createdAt  DateTime    @default(now())
+  clients    VetClient[]
+  visits     VetVisit[]
+  receipts   VetReceipt[]
+  supplies   VetSupply[]
+
+  @@map("vet_profiles")
+}
+
+/// Propriedade atendida pelo veterinário. Enquanto "ativo", ele é membro da propriedade (FarmMember) e lança nela.
+/// Ao encerrar, perde o acesso à propriedade e fica com uma cópia do que ele mesmo lançou (archive), que não muda mais.
+model VetClient {
+  id           String     @id @default(cuid())
+  vetId        String
+  vet          VetProfile @relation(fields: [vetId], references: [id], onDelete: Cascade)
+  farmId       String?
+  farm         Farm?      @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  /// Nome da propriedade quando o vínculo foi criado (fica mesmo se ela for apagada)
+  farmName     String
+  status       String     @default("ativo") // ativo | encerrado
+  /// A propriedade foi cadastrada pelo veterinário, para um produtor que ainda não usava o sistema
+  createdByVet Boolean    @default(false)
+  /// Cópia dos lançamentos do veterinário, feita ao encerrar o vínculo
+  archive      Json?
+  createdAt    DateTime   @default(now())
+  endedAt      DateTime?
+  visits       VetVisit[]
+
+  @@unique([vetId, farmId])
+  @@index([farmId])
+  @@map("vet_clients")
+}
+
+/// Visita do veterinário a uma propriedade: a agenda dele e, depois de feita, as recomendações do relatório de visita.
+model VetVisit {
+  id        String     @id @default(cuid())
+  vetId     String
+  vet       VetProfile @relation(fields: [vetId], references: [id], onDelete: Cascade)
+  clientId  String?
+  client    VetClient? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  /// Nome da propriedade na hora de marcar (fica mesmo se o vínculo acabar)
+  farmName  String
+  /// Dia da visita (meia-noite UTC do dia escolhido)
+  date      DateTime
+  /// Horário combinado, "14:30"
+  time      String?
+  purpose   String?
+  status    String     @default("agendada") // agendada | realizada | cancelada
+  /// Recomendações deixadas para o produtor (saem no relatório de visita)
+  notes     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([vetId, date])
+  @@index([clientId])
+  @@map("vet_visits")
+}
+
+/// Recibo de atendimento emitido pelo veterinário (numeração própria de cada veterinário).
+model VetReceipt {
+  id          String     @id @default(cuid())
+  vetId       String
+  vet         VetProfile @relation(fields: [vetId], references: [id], onDelete: Cascade)
+  number      Int
+  payer       String
+  payerDoc    String?
+  farmName    String?
+  date        DateTime
+  description String
+  amount      Float
+  createdAt   DateTime   @default(now())
+
+  @@unique([vetId, number])
+  @@map("vet_receipts")
+}
+
+/// Estoque do próprio veterinário (medicamentos, sêmen, material), separado do estoque das propriedades.
+model VetSupply {
+  id        String          @id @default(cuid())
+  vetId     String
+  vet       VetProfile      @relation(fields: [vetId], references: [id], onDelete: Cascade)
+  name      String
+  unit      String          @default("un")
+  quantity  Float           @default(0)
+  minimum   Float?
+  expiry    DateTime?
+  moves     VetSupplyMove[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([vetId])
+  @@map("vet_supplies")
+}
+
+model VetSupplyMove {
+  id        String    @id @default(cuid())
+  supplyId  String
+  supply    VetSupply @relation(fields: [supplyId], references: [id], onDelete: Cascade)
+  type      String // entrada | saida
+  quantity  Float
+  date      DateTime
+  /// Propriedade onde foi usado (saída)
+  farmName  String?
+  note      String?
+  createdAt DateTime  @default(now())
+
+  @@index([supplyId])
+  @@map("vet_supply_moves")
 }

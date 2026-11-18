@@ -62,6 +62,8 @@ export async function DELETE(
       });
     } else {
       // Se não tem dados, deletar permanentemente
+      // Veterinário com esta propriedade aberta não é apagado junto: fica sem propriedade aberta
+      await prisma.user.updateMany({ where: { farmId: id, vetProfile: { isNot: null } }, data: { farmId: null } });
       await prisma.farm.delete({
         where: { id },
       });

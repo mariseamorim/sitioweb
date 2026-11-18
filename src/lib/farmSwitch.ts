@@ -12,10 +12,10 @@ export function hasPendingOnDevice() {
   return countAllPendingOnDevice() > 0
 }
 
-/** Depois que o servidor já abriu outra propriedade: limpa o que era da anterior e recarrega no painel. */
-export function reloadInFarm() {
+/** Depois que o servidor já abriu outra propriedade: limpa o que era da anterior e recarrega no painel (ou na tela pedida). */
+export function reloadInFarm(next = '/') {
   try { for (const key of FARM_CACHES) localStorage.removeItem(key) } catch {}
-  window.location.href = '/'
+  window.location.href = next
 }
 
 /** Abre outra propriedade. Devolve a mensagem de erro, se não deu. */

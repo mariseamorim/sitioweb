@@ -14,14 +14,15 @@ import { countAllPendingOnDevice } from '@/lib/offlineStorage';
 import { logoutKeepingDevice } from '@/lib/offlineUnlock';
 import { forgetWarmedPages, warmOfflinePages } from '@/components/PwaRegistration';
 
-type NavLink = { href: string; label: string; module: string | null; adminOnly?: boolean; Icon: (p: { className?: string }) => React.ReactNode };
+type NavLink = { href: string; label: string; module: string | null; adminOnly?: boolean; /** 'only': só para o veterinário consultor; 'hide': some para ele */ vet?: 'only' | 'hide'; Icon: (p: { className?: string }) => React.ReactNode };
 
 // Telas que só aparecem para quem faz aquele trabalho. Sem segmento informado, aparece tudo.
 const SEGMENT_PAGES: Record<string, string[]> = { '/milk-production': ['leite'], '/lite': ['leite'], '/engorda': ['recria', 'engorda'] };
 
 const groups: { label: string; links: NavLink[] }[] = [
   { label: 'Visão geral', links: [
-    { href: '/', label: 'Painel', module: null, Icon: PainelIcon },
+    { href: '/consultoria', label: 'Consultoria', module: null, vet: 'only', Icon: UsuariosIcon },
+    { href: '/', label: 'Painel', module: null, vet: 'hide', Icon: PainelIcon },
     { href: '/fazendas', label: 'Propriedades', module: 'fazendas', Icon: PropriedadeIcon },
   ] },
   { label: 'Rebanho e produção', links: [
@@ -37,6 +38,7 @@ const groups: { label: string; links: NavLink[] }[] = [
     { href: '/estoque', label: 'Estoque', module: 'estoque', Icon: EstoqueIcon },
     { href: '/relatorios', label: 'Relatórios', module: null, Icon: RelatorioIcon },
     { href: '/usuarios', label: 'Usuários', module: 'usuarios', Icon: UsuariosIcon },
+    { href: '/meu-veterinario', label: 'Meu veterinário', module: 'reproducao', vet: 'hide', Icon: TratamentoIcon },
   ] },
   { label: 'Fornecedores', links: [
     { href: '/ofertas', label: 'Ofertas', module: null, Icon: EtiquetaIcon },
@@ -81,15 +83,15 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   const bottomTabs = panelRole
     ? [{ href: panelRole.href, label: 'Painel', Icon: panelRole.Icon }, { href: '/perfil', label: 'Cadastro', Icon: UsuariosIcon }, { href: '/ajuda', label: 'Ajuda', Icon: AjudaIcon }]
     : [
-        { href: '/', label: 'Painel', module: null, Icon: PainelIcon },
+        user?.vet ? { href: '/consultoria', label: 'Consultoria', module: null, Icon: UsuariosIcon } : { href: '/', label: 'Painel', module: null, Icon: PainelIcon },
         { href: '/lite', label: 'Anotar', module: 'leite', Icon: LeiteIcon },
         { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },
         { href: '/vacinacao', label: 'Vacinas', module: 'vacinacao', Icon: VacinaIcon },
       ].filter((tab) => (!tab.module || canAccess(tab.module)) && fitsSegment(tab.href));
   const isTabActive = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/'));
-  const visibleGroups = (isVendor ? vendorGroups : groups).map(group => ({ ...group, links: group.links.filter(link => (!link.module || canAccess(link.module)) && (!link.adminOnly || user?.role === 'admin') && fitsSegment(link.href)) })).filter(group => group.links.length);
+  const visibleGroups = (isVendor ? vendorGroups : groups).map(group => ({ ...group, links: group.links.filter(link => (!link.module || canAccess(link.module)) && (!link.adminOnly || user?.role === 'admin') && (!link.vet || (link.vet === 'only') === !!user?.vet) && fitsSegment(link.href)) })).filter(group => group.links.length);
   const activeLink = visibleGroups.flatMap(group => group.links).find(link => link.href === '/' ? pathname === '/' : pathname === link.href || pathname.startsWith(link.href + '/'));
-  const role = user?.role === 'admin' ? 'Administrador' : user?.role === 'editor' ? 'Editor' : panelRole ? panelRole.label : 'Leitor';
+  const role = user?.role === 'admin' ? 'Administrador' : user?.vet ? 'Veterinário' : user?.role === 'editor' ? 'Editor' : panelRole ? panelRole.label : 'Leitor';
 
   useEffect(() => {
     if (!drawerOpen) return;

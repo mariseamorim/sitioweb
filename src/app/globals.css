@@ -98,3 +98,12 @@ html.app-android .fixed.inset-0.items-end{padding-bottom:calc(1rem + env(safe-ar
    o conteúdo aparece por trás do relógio. O pseudo-elemento cobre a faixa com o mesmo fundo branco do cabeçalho. */
 html.app-android .app-workspace header::before{content:'';position:absolute;left:0;right:0;bottom:100%;height:env(safe-area-inset-top);background:#fff}
 @media(display-mode:standalone){.app-workspace header::before{content:'';position:absolute;left:0;right:0;bottom:100%;height:env(safe-area-inset-top);background:#fff}}
+
+/* Impressão de uma folha só (relatório de visita, recibo): some tudo menos o bloco marcado com .print-area */
+@media print {
+  body * { visibility: hidden !important; }
+  .print-area, .print-area * { visibility: visible !important; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 0; border: 0 !important; box-shadow: none !important; }
+  .print-area .no-print, .print-area .no-print * { display: none !important; }
+  .app-workspace #conteudo { padding: 0 !important; }
+}

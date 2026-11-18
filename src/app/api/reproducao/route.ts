@@ -61,6 +61,9 @@ export async function POST(request: NextRequest) {
       data: {
         femaleId,
         farmId: auth.farmId,
+        createdById: auth.user.id,
+        // Já anotada como prenha ou vazia: quem anotou também deu o diagnóstico
+        ...(status === 'Prenha' || status === 'Vazia' ? { diagnosedById: auth.user.id, diagnosedAt: new Date() } : {}),
         maleName: maleName || null,
         ...coverageDetails(body),
         coverageDate: coverage,
