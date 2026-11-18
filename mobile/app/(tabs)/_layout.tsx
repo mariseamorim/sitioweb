@@ -6,11 +6,13 @@ import { useSession } from '@/auth/session'
 import { startAutoSync } from '@/sync'
 import { enableBackgroundSync } from '@/sync/background'
 import { colors } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 export default function TabsLayout() {
   const { user, canAccess } = useSession()
   const farmId = user?.farmId ?? null
   const insets = useSafeAreaInsets()
+  const t = useT()
 
   // Sincronização automática enquanto há uma propriedade aberta
   useEffect(() => {
@@ -33,11 +35,11 @@ export default function TabsLayout() {
       headerStyle: { backgroundColor: colors.green }, headerTintColor: colors.white, headerTitleStyle: { fontWeight: '700' },
       tabBarActiveTintColor: colors.green, tabBarInactiveTintColor: colors.muted, tabBarLabelStyle: { fontSize: 12, fontWeight: '600' }, tabBarStyle: { height: 62 + tabGap, paddingBottom: tabGap, paddingTop: 6 }, tabBarItemStyle: { paddingVertical: 4 },
     }}>
-      <Tabs.Screen name="index" options={{ title: 'Painel', tabBarIcon: icon('grid-outline') }} />
-      <Tabs.Screen name="leite" options={{ title: 'Leite', tabBarIcon: icon('water-outline'), href: canAccess('leite') ? undefined : null }} />
-      <Tabs.Screen name="animais" options={{ title: 'Animais', tabBarIcon: icon('paw-outline'), href: canAccess('animais') ? undefined : null }} />
-      <Tabs.Screen name="vacinas" options={{ title: 'Vacinas', tabBarIcon: icon('medkit-outline'), href: canAccess('vacinacao') ? undefined : null }} />
-      <Tabs.Screen name="mais" options={{ title: 'Mais', tabBarIcon: icon('menu-outline') }} />
+      <Tabs.Screen name="index" options={{ title: t('Painel'), tabBarIcon: icon('grid-outline') }} />
+      <Tabs.Screen name="leite" options={{ title: t('Leite'), tabBarIcon: icon('water-outline'), href: canAccess('leite') ? undefined : null }} />
+      <Tabs.Screen name="animais" options={{ title: t('Animais'), tabBarIcon: icon('paw-outline'), href: canAccess('animais') ? undefined : null }} />
+      <Tabs.Screen name="vacinas" options={{ title: t('Vacinas'), tabBarIcon: icon('medkit-outline'), href: canAccess('vacinacao') ? undefined : null }} />
+      <Tabs.Screen name="mais" options={{ title: t('Mais'), tabBarIcon: icon('menu-outline') }} />
     </Tabs>
   )
 }
