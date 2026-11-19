@@ -70,8 +70,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const token = await SecureStore.getItemAsync(KEY_TOKEN)
-      const raw = await SecureStore.getItemAsync(KEY_USER)
+      // Sessão guardada ilegível (cofre do Android recriado, dado corrompido): segue para a tela de entrada
+      let token: string | null = null
+      let raw: string | null = null
+      try {
+        token = await SecureStore.getItemAsync(KEY_TOKEN)
+        raw = await SecureStore.getItemAsync(KEY_USER)
+        if (raw) JSON.parse(raw)
+      } catch {
+        token = null
+        raw = null
+        await SecureStore.deleteItemAsync(KEY_TOKEN).catch(() => undefined)
+        await SecureStore.deleteItemAsync(KEY_USER).catch(() => undefined)
+      }
       if (token && raw) {
         const u = JSON.parse(raw) as User
         setAuth({ token, farmId: u.farmId })

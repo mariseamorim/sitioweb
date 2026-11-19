@@ -7,6 +7,7 @@ import { Button, Field, Screen } from '@/ui'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 import { LanguagePicker } from '@/ui/LanguagePicker'
+import { clearCrash, readCrash } from '@/lib/crashLog'
 
 export default function Login() {
   const { login, enterDemo } = useSession()
@@ -16,6 +17,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [crash, setCrash] = useState(readCrash)
 
   async function enter() {
     setError('')
@@ -66,6 +68,13 @@ export default function Login() {
           </Text>
         </View>
         <View style={{ marginTop: space.lg }}><LanguagePicker dark /></View>
+        {crash ? (
+          <View style={{ backgroundColor: colors.white, borderRadius: 16, padding: space.md, marginTop: space.md }}>
+            <Text style={{ fontWeight: '700', color: colors.text }}>{t('O app fechou com erro da última vez. Tire um print e mande para o suporte:')}</Text>
+            <Text selectable style={{ fontFamily: 'monospace', fontSize: 11, color: colors.muted, marginTop: space.xs }}>{crash}</Text>
+            <Text onPress={() => { clearCrash(); setCrash(null) }} style={{ color: colors.green, fontWeight: '700', marginTop: space.sm }}>{t('Fechar')}</Text>
+          </View>
+        ) : null}
       </Screen>
     </SafeAreaView>
   )

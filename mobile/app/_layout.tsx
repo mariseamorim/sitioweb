@@ -1,4 +1,7 @@
-import { Stack } from 'expo-router'
+// Primeiro de tudo: guarda o erro grave que acontecer na abertura (ver src/lib/crashLog.ts)
+import { saveCrash, describeError } from '@/lib/crashLog'
+import { Stack, type ErrorBoundaryProps } from 'expo-router'
+import { ScrollView, Text, Pressable } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { SessionProvider } from '@/auth/session'
@@ -9,6 +12,21 @@ import { colors } from '@/theme'
 import { useT } from '@/lib/i18n'
 
 initDb()
+
+/** Erro em qualquer tela: mostra a mensagem (em vez de fechar ou ficar parado) e deixa tentar de novo. */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  saveCrash(error)
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 24, paddingTop: 64 }}>
+      <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text }}>Algo deu errado / Algo salió mal</Text>
+      <Text style={{ marginTop: 12, color: colors.muted }}>Tire um print desta tela e mande para o suporte.</Text>
+      <Text selectable style={{ marginTop: 16, fontFamily: 'monospace', fontSize: 12, color: colors.text }}>{describeError(error)}</Text>
+      <Pressable onPress={retry} style={{ marginTop: 24, backgroundColor: colors.green, borderRadius: 10, padding: 14, alignItems: 'center' }}>
+        <Text style={{ color: colors.white, fontWeight: '700' }}>Tentar de novo</Text>
+      </Pressable>
+    </ScrollView>
+  )
+}
 
 export default function RootLayout() {
   const t = useT()
