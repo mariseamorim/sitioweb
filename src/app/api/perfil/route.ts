@@ -20,6 +20,7 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   const me = await getSessionUser()
   if (!me) return NextResponse.json({ error: 'Faça login para continuar' }, { status: 401 })
+  if (me.isDemo) return NextResponse.json({ error: 'Na demonstração não dá para fazer isto. Crie sua conta para usar de verdade.' }, { status: 403 })
   let body
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 }) }
   const fail = (error: string) => NextResponse.json({ error }, { status: 400 })

@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
   const link = await prisma.$transaction(async (tx) => {
     const farm = await tx.farm.create({
-      data: { name, owner: text(body.owner), phone: text(body.phone), city: text(body.city), state: regionOrNull(body.state) },
+      data: { name, owner: text(body.owner), phone: text(body.phone), city: text(body.city), state: regionOrNull(body.state), isDemo: user.isDemo },
     })
     await addFarmMember(tx, user.id, farm.id)
     // Sem nenhuma propriedade aberta, esta já fica aberta

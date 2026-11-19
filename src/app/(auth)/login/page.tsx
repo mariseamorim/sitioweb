@@ -11,6 +11,7 @@ import { readCachedUser, writeCachedUser, type UserData } from '@/contexts/UserC
 import { canUnlockOffline, offlineCredentialFor, saveOfflineCredential, unlockOffline } from '@/lib/offlineUnlock'
 import { homeForRole } from '@/lib/organizations'
 import { useT } from '@/lib/i18n'
+import { DemoVetButton } from '@/components/DemoVet'
 import { LanguagePicker } from '@/components/LanguagePicker'
 import { PasswordInput } from '@/components/PasswordInput'
 
@@ -171,6 +172,7 @@ export default function LoginPage() {
               {t('Criar conta')}
             </Link>
           </p>
+          <DemoVetButton className="mt-6 border-t border-gray-100 pt-5" />
           <p className="text-center text-sm text-gray-500 mt-3">
             {t('Não consegue entrar?')} <Link href="/ajuda" className="text-green-700 font-medium hover:underline">{t('Peça ajuda')}</Link>
           </p>

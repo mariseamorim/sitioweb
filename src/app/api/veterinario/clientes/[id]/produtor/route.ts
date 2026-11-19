@@ -12,6 +12,7 @@ import { requireVet } from '@/lib/vets'
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireVet()
   if ('error' in auth) return auth.error
+  if (auth.user.isDemo) return NextResponse.json({ error: 'Na demonstração não dá para fazer isto. Crie sua conta para usar de verdade.' }, { status: 403 })
 
   const { id } = await params
   const link = await prisma.vetClient.findFirst({ where: { id, vetId: auth.vet.id, status: 'ativo' } })

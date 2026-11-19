@@ -10,6 +10,7 @@ const later = (a: string | null, b: string | null) => (!a ? b : !b ? a : a >= b 
 export async function adminFarmSummaries(): Promise<AdminFarmSummary[]> {
   const [farms, animals, members, milk, transactions, reproductions, animalChanges, lots] = await Promise.all([
     prisma.farm.findMany({
+      where: { isDemo: false },
       orderBy: { name: 'asc' },
       select: {
         id: true, name: true, propertyType: true, documentType: true, documentNumber: true, owner: true,

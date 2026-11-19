@@ -123,6 +123,8 @@ export interface SessionUser {
   organizationId: string | null
   /** Fazenda em uso: a do usuário ou, para admin, a escolhida no seletor. */
   effectiveFarmId: string | null
+  /** Conta da demonstração do veterinário (dados fictícios, apagada em 24 h) */
+  isDemo: boolean
 }
 
 /** Token enviado pelo app Android, que não usa cookies: "Authorization: Bearer <token>". */
@@ -139,7 +141,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, name: true, email: true, phone: true, role: true, permissions: true, farmId: true, vendorId: true, organizationId: true },
+    select: { id: true, name: true, email: true, phone: true, role: true, permissions: true, farmId: true, vendorId: true, organizationId: true, isDemo: true },
   })
   if (!user) return null
 
