@@ -6,23 +6,25 @@ import { brDate } from '@/lib/format'
 import { listTreatments, milkBlockedToday, withdrawalUntil } from '@/repos/treatments'
 import { Badge, Empty, Fab, Row } from '@/ui'
 import { colors, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 export default function Tratamentos() {
   const farmId = useFarmId()
   const { canEdit } = useSession()
   const router = useRouter()
+  const t = useT()
   const items = useLive(() => listTreatments(farmId), [farmId])
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <FlatList
         data={items}
-        keyExtractor={t => t.id}
+        keyExtractor={x => x.id}
         contentContainerStyle={{ padding: space.lg, paddingBottom: 96 }}
         renderItem={({ item }) => {
           const until = withdrawalUntil(item, item.milkWithdrawalDays)
           return (
-            <Row title={`${item.medicine} · ${item.animalName ?? 'animal'}`}
-              detail={`${brDate(item.startDate)}${item.endDate ? ' a ' + brDate(item.endDate) : ''}${until ? ` · leite liberado após ${brDate(until)}` : ''}`}
+            <Row title={`${item.medicine} · ${item.animalName ?? t('animal')}`}
+              detail={`${brDate(item.startDate)}${item.endDate ? ` ${t('a')} ${brDate(item.endDate)}` : ''}${until ? ` · ${t('leite liberado após {date}', { date: brDate(until) })}` : ''}`}
               badge={milkBlockedToday(item) ? <Badge label="Leite em carência" tone="red" /> : undefined}
               onPress={() => router.push(`/tratamentos/${item.id}`)} />
           )

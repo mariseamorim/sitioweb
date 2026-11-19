@@ -7,6 +7,7 @@ import { animalOptions } from '@/repos/animals'
 import { getVaccination, removeVaccination, saveVaccination } from '@/repos/vaccinations'
 import { Button, DateField, Field, Notice, Screen, SelectField } from '@/ui'
 import { space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 const COMMON = ['Febre Aftosa', 'Brucelose (B19)', 'Raiva', 'Clostridiose', 'Carbúnculo', 'IBR/BVD', 'Leptospirose', 'Botulismo']
 
@@ -15,6 +16,7 @@ export default function VacinaForm() {
   const farmId = useFarmId()
   const { canEdit } = useSession()
   const router = useRouter()
+  const t = useT()
   const editing = id && id !== 'nova' ? getVaccination(id) : null
 
   const [animalId, setAnimalId] = useState<string | null>(editing?.animalId ?? presetAnimal ?? null)
@@ -35,15 +37,15 @@ export default function VacinaForm() {
 
   function remove() {
     if (!editing) return
-    Alert.alert('Apagar vacina', 'Apagar este registro de vacina?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Apagar', style: 'destructive', onPress: () => { removeVaccination(farmId, editing.id); router.back() } },
+    Alert.alert(t('Apagar vacina'), t('Apagar este registro de vacina?'), [
+      { text: t('Cancelar'), style: 'cancel' },
+      { text: t('Apagar'), style: 'destructive', onPress: () => { removeVaccination(farmId, editing.id); router.back() } },
     ])
   }
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: editing ? 'Vacina' : 'Registrar vacina' }} />
+      <Stack.Screen options={{ title: t(editing ? 'Vacina' : 'Registrar vacina') }} />
       <SelectField label="Animal" value={animalId} options={animalOptions(farmId)} onChange={setAnimalId} searchable placeholder="Escolher o animal" />
       <SelectField label="Vacina" value={COMMON.includes(vaccineName) ? vaccineName : vaccineName ? '__outra' : null} options={[...COMMON.map(v => ({ value: v, label: v })), { value: '__outra', label: 'Outra (digitar)' }]} onChange={v => setVaccineName(v === '__outra' ? ' ' : v ?? '')} />
       {vaccineName && !COMMON.includes(vaccineName) ? <Field label="Nome da vacina" value={vaccineName.trim()} onChangeText={setVaccineName} autoFocus /> : null}

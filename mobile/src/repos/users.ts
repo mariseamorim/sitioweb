@@ -1,5 +1,6 @@
 // Equipe da propriedade (tabela local `users`, lista de /api/users).
 import { all, one, parseJson, type Row } from '@/db'
+import { tr } from '@/lib/i18n'
 import { phoneDigits } from '@/lib/masks'
 import { createLocal, deleteLocal, updateLocal } from '@/sync/local'
 
@@ -36,9 +37,9 @@ export function getUser(id: string): TeamUser | null {
 
 /** "Todos os módulos" / "N módulo(s)" / "Sem acesso", como na lista do site */
 export function modulesLabel(u: Pick<TeamUser, 'role' | 'permissions'>): string {
-  if (u.role === 'admin') return 'Todos os módulos'
-  if (u.permissions.length > 0) return `${u.permissions.length} módulo${u.permissions.length > 1 ? 's' : ''}`
-  return 'Sem acesso'
+  if (u.role === 'admin') return tr('Todos os módulos')
+  if (u.permissions.length > 0) return u.permissions.length > 1 ? tr('{n} módulos', { n: u.permissions.length }) : tr('1 módulo')
+  return tr('Sem acesso')
 }
 
 export interface NewUserInput { name: string; email: string; phone: string; password: string; role: string; permissions: string[] }

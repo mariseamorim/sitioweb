@@ -7,6 +7,7 @@ import { addDays, brDate, brMoney, todayISO } from '@/lib/format'
 import { listTransactions, removeTransaction, totals } from '@/repos/transactions'
 import { Badge, Chips, Empty, Fab, Row, Screen, Stat } from '@/ui'
 import { colors, space } from '@/theme'
+import { useT, useLocale } from '@/lib/i18n'
 
 type Period = 'mes' | '30' | '90'
 type Kind = 'Todas' | 'Receita' | 'Despesa'
@@ -15,18 +16,19 @@ export default function Financeiro() {
   const farmId = useFarmId()
   const { canEdit } = useSession()
   const router = useRouter()
+  const t = useT()
   const [period, setPeriod] = useState<Period>('mes')
   const [kind, setKind] = useState<Kind>('Todas')
   const today = todayISO()
   const from = period === 'mes' ? today.slice(0, 8) + '01' : addDays(today, -Number(period))
   const items = useLive(() => listTransactions(farmId, from, today), [farmId, from, today])
   const sum = totals(items)
-  const shown = kind === 'Todas' ? items : items.filter(t => t.type === kind)
+  const shown = kind === 'Todas' ? items : items.filter(tx => tx.type === kind)
 
   function remove(id: string, label: string) {
-    Alert.alert('Apagar lançamento', `Apagar "${label}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Apagar', style: 'destructive', onPress: () => removeTransaction(farmId, id) },
+    Alert.alert(t('Apagar lançamento'), t('Apagar "{label}"?', { label }), [
+      { text: t('Cancelar'), style: 'cancel' },
+      { text: t('Apagar'), style: 'destructive', onPress: () => removeTransaction(farmId, id) },
     ])
   }
 
@@ -41,11 +43,11 @@ export default function Financeiro() {
         <Stat label="saldo do período" value={brMoney(sum.balance)} tone={sum.balance >= 0 ? 'green' : 'red'} />
         <View style={{ height: space.sm }} />
         <Chips options={(['Todas', 'Receita', 'Despesa'] as Kind[]).map(k => ({ value: k, label: k === 'Receita' ? 'Entradas' : k === 'Despesa' ? 'Saídas' : k }))} value={kind} onChange={setKind} />
-        {shown.length === 0 ? <Empty title="Nenhum lançamento no período" /> : shown.map(t => (
-          <Row key={t.id} title={t.category + (t.animalName ? ` · ${t.animalName}` : '')} detail={`${brDate(t.date)}${t.description ? ' · ' + t.description : ''}`}
-            badge={<Badge label={t.type === 'Receita' ? 'Entrada' : 'Saída'} tone={t.type === 'Receita' ? 'green' : 'red'} />}
-            right={<Text style={{ fontWeight: '700', color: t.type === 'Receita' ? colors.green : colors.red }}>{t.type === 'Receita' ? '+' : '-'}{brMoney(t.amount)}</Text>}
-            onPress={canEdit ? () => remove(t.id, `${t.category} ${brMoney(t.amount)}`) : undefined} />
+        {shown.length === 0 ? <Empty title="Nenhum lançamento no período" /> : shown.map(tx => (
+          <Row key={tx.id} title={t(tx.category) + (tx.animalName ? ` · ${tx.animalName}` : '')} detail={`${brDate(tx.date)}${tx.description ? ' · ' + tx.description : ''}`}
+            badge={<Badge label={tx.type === 'Receita' ? 'Entrada' : 'Saída'} tone={tx.type === 'Receita' ? 'green' : 'red'} />}
+            right={<Text style={{ fontWeight: '700', color: tx.type === 'Receita' ? colors.green : colors.red }}>{tx.type === 'Receita' ? '+' : '-'}{brMoney(tx.amount)}</Text>}
+            onPress={canEdit ? () => remove(tx.id, `${t(tx.category)} ${brMoney(tx.amount)}`) : undefined} />
         ))}
       </Screen>
       {canEdit ? <Fab label="+ Anotar" onPress={() => router.push('/financeiro/novo')} /> : null}

@@ -10,6 +10,7 @@ import { useLive } from '@/db/events'
 import { getAnimalPhoto } from '@/repos/animals'
 import { colors, font, radius, space } from '@/theme'
 import { Button, styles } from './index'
+import { tr, useT } from '@/lib/i18n'
 
 const MAX_SIDE = 800
 const QUALITY = 0.82
@@ -19,9 +20,9 @@ async function pickPhoto(source: 'camera' | 'library'): Promise<string | null> {
   if (source === 'camera') {
     const permission = await ImagePicker.requestCameraPermissionsAsync()
     if (!permission.granted) {
-      Alert.alert('Câmera bloqueada', 'Permita o uso da câmera nas configurações do celular para tirar a foto do animal.', [
-        { text: 'Agora não', style: 'cancel' },
-        { text: 'Abrir configurações', onPress: () => { void Linking.openSettings() } },
+      Alert.alert(tr('Câmera bloqueada'), tr('Permita o uso da câmera nas configurações do celular para tirar a foto do animal.'), [
+        { text: tr('Agora não'), style: 'cancel' },
+        { text: tr('Abrir configurações'), onPress: () => { void Linking.openSettings() } },
       ])
       return null
     }
@@ -51,10 +52,11 @@ function Placeholder({ size }: { size: number }) {
 /** Foto em tela cheia; toque em qualquer lugar fecha. */
 function PhotoModal({ uri, name, onClose }: { uri: string; name: string; onClose: () => void }) {
   const insets = useSafeAreaInsets()
+  const t = useT()
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable onPress={onClose} accessibilityLabel={`Fechar foto de ${name}`} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center' }}>
-        <Image source={{ uri }} resizeMode="contain" style={{ width: '100%', height: '80%' }} accessibilityLabel={`Foto de ${name}`} />
+      <Pressable onPress={onClose} accessibilityLabel={t('Fechar foto de {name}', { name })} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center' }}>
+        <Image source={{ uri }} resizeMode="contain" style={{ width: '100%', height: '80%' }} accessibilityLabel={t('Foto de {name}', { name })} />
         <View style={{ position: 'absolute', top: insets.top + space.md, right: space.lg, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center' }}>
           <MaterialCommunityIcons name="close" size={26} color={colors.text} />
         </View>
@@ -66,10 +68,11 @@ function PhotoModal({ uri, name, onClose }: { uri: string; name: string; onClose
 /** Foto do animal no tamanho pedido; tocar amplia. Sem foto, mostra o desenho do animal. */
 export function PhotoView({ uri, name, size }: { uri: string | null; name: string; size: number }) {
   const [open, setOpen] = useState(false)
+  const t = useT()
   if (!uri) return <Placeholder size={size} />
   return (
     <>
-      <Pressable onPress={() => setOpen(true)} accessibilityRole="imagebutton" accessibilityLabel={`Ampliar foto de ${name}`} hitSlop={4}>
+      <Pressable onPress={() => setOpen(true)} accessibilityRole="imagebutton" accessibilityLabel={t('Ampliar foto de {name}', { name })} hitSlop={4}>
         <Image source={{ uri }} style={{ width: size, height: size, borderRadius: radius.md, backgroundColor: colors.border }} />
       </Pressable>
       {open ? <PhotoModal uri={uri} name={name} onClose={() => setOpen(false)} /> : null}
@@ -87,6 +90,7 @@ export function AnimalThumb({ id, name, hasPhoto }: { id: string; name: string; 
 export function PhotoField({ value, onChange, name }: { value: string; onChange: (dataUrl: string) => void; name: string }) {
   const [busy, setBusy] = useState<'camera' | 'library' | null>(null)
   const [error, setError] = useState('')
+  const t = useT()
 
   async function pick(source: 'camera' | 'library') {
     setError('')
@@ -103,9 +107,9 @@ export function PhotoField({ value, onChange, name }: { value: string; onChange:
 
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>Foto</Text>
+      <Text style={styles.label}>{t('Foto')}</Text>
       <View style={{ flexDirection: 'row', gap: space.md, alignItems: 'flex-start' }}>
-        <PhotoView uri={value || null} name={name || 'animal'} size={96} />
+        <PhotoView uri={value || null} name={name || t('animal')} size={96} />
         <View style={{ flex: 1, gap: space.sm }}>
           <Button label="Tirar foto" variant="secondary" onPress={() => { void pick('camera') }} loading={busy === 'camera'} disabled={busy !== null} />
           <Button label="Escolher da galeria" variant="secondary" onPress={() => { void pick('library') }} loading={busy === 'library'} disabled={busy !== null} />
