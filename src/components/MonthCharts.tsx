@@ -16,7 +16,8 @@ export interface MonthPoint {
 const W = 360
 const H = 190
 const PAD = { top: 18, right: 18, bottom: 26, left: 46 }
-const PLOT_W = W - PAD.left - PAD.right
+/** Largura útil do gráfico; `width` maior deixa o gráfico mais largo sem aumentar letras e altura */
+const plotWidth = (width = W) => width - PAD.left - PAD.right
 const PLOT_H = H - PAD.top - PAD.bottom
 const SERIES = '#15803d'
 const GRID = '#e5e7eb'
@@ -34,18 +35,18 @@ export function niceMax(max: number): number {
 // "mil" é igual em português e espanhol; o separador de milhar segue o idioma
 const compact = (n: number, locale: string) => (n >= 10000 ? `${Math.round(n / 1000)} mil` : n.toLocaleString(locale))
 
-export function Frame({ max, unit, labels, name, children }: { max: number; unit: string; labels: string[]; name: string; children: React.ReactNode }) {
-  const band = PLOT_W / labels.length
+export function Frame({ max, unit, labels, name, children, width = W }: { max: number; unit: string; labels: string[]; name: string; children: React.ReactNode; width?: number }) {
+  const band = plotWidth(width) / labels.length
   // Com 12 meses, rótulo em meses alternados para não encostar
   const every = labels.length > 8 ? 2 : 1
   const locale = useLocale()
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={name} className="w-full h-auto">
+    <svg viewBox={`0 0 ${width} ${H}`} role="img" aria-label={name} className="w-full h-auto">
       {[0, 0.5, 1].map((t) => {
         const y = PAD.top + PLOT_H * (1 - t)
         return (
           <g key={t}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={y} y2={y} stroke={GRID} strokeWidth={1} />
+            <line x1={PAD.left} x2={width - PAD.right} y1={y} y2={y} stroke={GRID} strokeWidth={1} />
             <text x={PAD.left - 6} y={y + 3.5} textAnchor="end" fontSize={10} fill={TEXT}>{compact(Math.round(max * t), locale)}{unit}</text>
           </g>
         )
@@ -68,27 +69,27 @@ function labeled(points: MonthPoint[]): Set<number> {
   return set
 }
 
-export function ColumnChart({ points, name, unit = '' }: { points: MonthPoint[]; name: string; unit?: string }) {
+export function ColumnChart({ points, name, unit = '', width }: { points: MonthPoint[]; name: string; unit?: string; width?: number }) {
   const max = niceMax(Math.max(0, ...points.map((p) => p.value ?? 0)))
-  const band = PLOT_W / points.length
-  const width = Math.min(24, band - 4)
+  const band = plotWidth(width) / points.length
+  const barWidth = Math.min(24, band - 4)
   const base = PAD.top + PLOT_H
   const marks = labeled(points)
   const locale = useLocale()
   return (
-    <Frame max={max} unit={unit} labels={points.map((p) => p.label)} name={name}>
+    <Frame max={max} unit={unit} labels={points.map((p) => p.label)} name={name} width={width}>
       {points.map((p, i) => {
         const value = p.value ?? 0
         const h = (value / max) * PLOT_H
-        const x = PAD.left + band * (i + 0.5) - width / 2
+        const x = PAD.left + band * (i + 0.5) - barWidth / 2
         const r = Math.min(4, h)
         return (
           <g key={i} tabIndex={0} aria-label={p.title} className="outline-none [&:focus-visible>rect:first-of-type]:fill-green-100 [&:hover>rect:first-of-type]:fill-gray-100">
             <title>{p.title}</title>
             {/* Alvo do toque: a faixa inteira do mês, maior que a coluna */}
             <rect x={PAD.left + band * i} y={PAD.top} width={band} height={PLOT_H} fill="transparent" />
-            {h > 0 && <path d={`M${x},${base} V${base - h + r} Q${x},${base - h} ${x + r},${base - h} H${x + width - r} Q${x + width},${base - h} ${x + width},${base - h + r} V${base} Z`} fill={SERIES} />}
-            {marks.has(i) && <text x={x + width / 2} y={base - h - 5} textAnchor="middle" fontSize={11} fontWeight={600} fill={INK}>{compact(value, locale)}{unit}</text>}
+            {h > 0 && <path d={`M${x},${base} V${base - h + r} Q${x},${base - h} ${x + r},${base - h} H${x + barWidth - r} Q${x + barWidth},${base - h} ${x + barWidth},${base - h + r} V${base} Z`} fill={SERIES} />}
+            {marks.has(i) && <text x={x + barWidth / 2} y={base - h - 5} textAnchor="middle" fontSize={11} fontWeight={600} fill={INK}>{compact(value, locale)}{unit}</text>}
           </g>
         )
       })}
@@ -96,9 +97,9 @@ export function ColumnChart({ points, name, unit = '' }: { points: MonthPoint[];
   )
 }
 
-export function LineChart({ points, name, unit = '', max: fixedMax }: { points: MonthPoint[]; name: string; unit?: string; max?: number }) {
+export function LineChart({ points, name, unit = '', max: fixedMax, width }: { points: MonthPoint[]; name: string; unit?: string; max?: number; width?: number }) {
   const max = fixedMax ?? niceMax(Math.max(0, ...points.map((p) => p.value ?? 0)))
-  const band = PLOT_W / points.length
+  const band = plotWidth(width) / points.length
   const xy = (i: number, value: number) => [PAD.left + band * (i + 0.5), PAD.top + PLOT_H * (1 - value / max)] as const
   // Mês sem dado não tem ponto; a linha liga os meses que têm, para a tendência ficar legível
   let d = ''
@@ -112,7 +113,7 @@ export function LineChart({ points, name, unit = '', max: fixedMax }: { points: 
   const marks = labeled(points)
   const locale = useLocale()
   return (
-    <Frame max={max} unit={unit} labels={points.map((p) => p.label)} name={name}>
+    <Frame max={max} unit={unit} labels={points.map((p) => p.label)} name={name} width={width}>
       <path d={d} fill="none" stroke={SERIES} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
       {points.map((p, i) => {
         if (p.value === null) return null
@@ -123,6 +124,60 @@ export function LineChart({ points, name, unit = '', max: fixedMax }: { points: 
             <rect x={PAD.left + band * i} y={PAD.top} width={band} height={PLOT_H} fill="transparent" />
             <circle cx={x} cy={y} r={4} fill={SERIES} stroke="#ffffff" strokeWidth={2} />
             {marks.has(i) && <text x={x} y={y - 9} textAnchor="middle" fontSize={11} fontWeight={600} fill={INK}>{compact(p.value, locale)}{unit}</text>}
+          </g>
+        )
+      })}
+    </Frame>
+  )
+}
+
+// Paleta categórica validada (ordem fixa; a cor segue a entidade, não a posição no gráfico).
+// Da 8ª série em diante, todas entram juntas em "Outras", em cinza.
+export const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6']
+export const OTHER = '#9ca3af'
+/** Espaço branco entre as partes empilhadas */
+const GAP = 2
+
+export interface Series { key: string; name: string; color: string; counts: number[] }
+
+/** Colunas empilhadas, uma cor por série; o total vai em cima de cada coluna */
+export function StackedColumns({ months, series, totals, label, title, name }: {
+  months: string[]; series: Series[]; totals: number[]
+  label: (month: string) => string
+  title: (month: string, series: string | null, n: number) => string
+  name: string
+}) {
+  const max = niceMax(Math.max(0, ...totals))
+  const band = plotWidth() / months.length
+  const width = Math.min(28, band - 6)
+  const base = PAD.top + PLOT_H
+  return (
+    <Frame max={max} unit="" labels={months.map(label)} name={name}>
+      {months.map((month, i) => {
+        const x = PAD.left + band * (i + 0.5) - width / 2
+        const parts = series.filter((s) => s.counts[i] > 0)
+        let y = base
+        return (
+          <g key={month} tabIndex={0} aria-label={title(month, null, totals[i])} className="outline-none [&:focus-visible>rect:first-of-type]:fill-green-100 [&:hover>rect:first-of-type]:fill-gray-100">
+            <title>{title(month, null, totals[i])}</title>
+            {/* Alvo do toque: a faixa inteira do mês */}
+            <rect x={PAD.left + band * i} y={PAD.top} width={band} height={PLOT_H} fill="transparent" />
+            {parts.map((s, j) => {
+              const h = (s.counts[i] / max) * PLOT_H
+              const top = y - h
+              y = top
+              const last = j === parts.length - 1
+              // Folga branca entre as partes; a de cima tem os cantos arredondados
+              const visible = Math.max(1, h - (j > 0 ? GAP : 0))
+              const bottom = top + visible
+              const r = last ? Math.min(4, visible) : 0
+              return (
+                <path key={s.key} fill={s.color} d={`M${x},${bottom} V${top + r} Q${x},${top} ${x + r},${top} H${x + width - r} Q${x + width},${top} ${x + width},${top + r} V${bottom} Z`}>
+                  <title>{title(month, s.name, s.counts[i])}</title>
+                </path>
+              )
+            })}
+            {totals[i] > 0 && <text x={x + width / 2} y={y - 5} textAnchor="middle" fontSize={11} fontWeight={600} fill={INK}>{totals[i]}</text>}
           </g>
         )
       })}

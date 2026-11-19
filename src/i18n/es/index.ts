@@ -13,4 +13,5 @@ import { sanidade } from './sanidade'
 import { gestao } from './gestao'
 import { engorda } from './engorda'
 import { lite } from './lite'
-export const es: Record<string, string> = { ...common, ...auth, ...reproducao, ...consultoria, ...animais, ...painel, ...ajuda, ...componentes, ...leite, ...sanidade, ...gestao, ...engorda, ...lite }
+import { dashboard } from './dashboard'
+export const es: Record<string, string> = { ...common, ...auth, ...reproducao, ...consultoria, ...animais, ...painel, ...ajuda, ...componentes, ...leite, ...sanidade, ...gestao, ...engorda, ...lite, ...dashboard }

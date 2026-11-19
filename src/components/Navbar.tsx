@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
-import { PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon, SetaDireitaIcon, BalancaIcon, AjudaIcon, CadeadoIcon } from '@/components/ModuleIcons';import { SyncStatus } from '@/components/SyncStatus';
+import { GraficoIcon, PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon, SetaDireitaIcon, BalancaIcon, AjudaIcon, CadeadoIcon } from '@/components/ModuleIcons';import { SyncStatus } from '@/components/SyncStatus';
 import { TaskBell } from '@/components/TaskBell';
 import { FarmSwitcher } from '@/components/FarmSwitcher';
 import { useDialog } from '@/components/DialogProvider';
@@ -25,6 +25,7 @@ const groups: { label: string; links: NavLink[] }[] = [
   { label: 'Visão geral', links: [
     { href: '/consultoria', label: 'Consultoria', module: null, vet: 'only', Icon: UsuariosIcon },
     { href: '/', label: 'Painel', module: null, vet: 'hide', Icon: PainelIcon },
+    { href: '/dashboard', label: 'Dashboard', module: null, Icon: GraficoIcon },
     { href: '/fazendas', label: 'Propriedades', module: 'fazendas', Icon: PropriedadeIcon },
   ] },
   { label: 'Rebanho e produção', links: [
@@ -77,7 +78,7 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   const isVendor = !!panelRole;
   const homeHref = panelRole?.href ?? '/';
   const vendorGroups: { label: string; links: NavLink[] }[] = panelRole
-    ? [{ label: panelRole.label, links: [{ href: panelRole.href, label: 'Meu painel', module: null, Icon: panelRole.Icon }] }, { label: 'Ajuda', links: [{ href: '/ajuda', label: 'Ajuda e suporte', module: null, Icon: AjudaIcon }] }]
+    ? [{ label: panelRole.label, links: [{ href: panelRole.href, label: 'Meu painel', module: null, Icon: panelRole.Icon }, { href: '/dashboard', label: 'Dashboard', module: null, Icon: GraficoIcon }] }, { label: 'Ajuda', links: [{ href: '/ajuda', label: 'Ajuda e suporte', module: null, Icon: AjudaIcon }] }]
     : [];
   const segments = user?.farmSegments ?? [];
   const fitsSegment = (href: string) => !segments.length || !SEGMENT_PAGES[href] || SEGMENT_PAGES[href].some(s => segments.includes(s));

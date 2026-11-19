@@ -3,7 +3,7 @@
 // - partos previstos por mês, em colunas empilhadas (uma cor por propriedade, sempre na mesma ordem do painel);
 // - concepção por propriedade, em barras deitadas, da maior para a menor; tocar abre os indicadores da propriedade.
 // O valor de cada parte aparece ao passar o mouse ou focar, e "Ver em tabela" traz todos os números.
-import { ChartTable, Frame, niceMax } from '@/components/MonthCharts'
+import { ChartTable, OTHER, PALETTE, StackedColumns, type Series } from '@/components/MonthCharts'
 import { monthName, monthShort } from '@/lib/reproInsights'
 import { useLang, useT } from '@/lib/i18n'
 
@@ -14,21 +14,6 @@ export interface ChartClient {
   pregnancyRate: number | null
   birthsByMonth?: { month: string; count: number }[]
 }
-
-// Paleta categórica validada (ordem fixa; a cor segue a propriedade, não a posição no gráfico).
-// Da 8ª propriedade em diante, todas entram juntas em "Outras", em cinza.
-const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6']
-const OTHER = '#9ca3af'
-const INK = '#111827'
-const W = 360
-const H = 190
-const PAD = { top: 18, right: 18, bottom: 26, left: 46 }
-const PLOT_W = W - PAD.left - PAD.right
-const PLOT_H = H - PAD.top - PAD.bottom
-/** Espaço branco entre as partes empilhadas */
-const GAP = 2
-
-interface Series { key: string; name: string; color: string; counts: number[] }
 
 export function VetCharts<C extends ChartClient>({ clients, busy, onOpen }: { clients: C[]; busy: string; onOpen: (client: C) => void }) {
   const t = useT()
@@ -89,49 +74,6 @@ function BirthsChart({ clients }: { clients: ChartClient[] }) {
   )
 }
 
-function StackedColumns({ months, series, totals, label, title, name }: {
-  months: string[]; series: Series[]; totals: number[]
-  label: (month: string) => string
-  title: (month: string, series: string | null, n: number) => string
-  name: string
-}) {
-  const max = niceMax(Math.max(0, ...totals))
-  const band = PLOT_W / months.length
-  const width = Math.min(28, band - 6)
-  const base = PAD.top + PLOT_H
-  return (
-    <Frame max={max} unit="" labels={months.map(label)} name={name}>
-      {months.map((month, i) => {
-        const x = PAD.left + band * (i + 0.5) - width / 2
-        const parts = series.filter((s) => s.counts[i] > 0)
-        let y = base
-        return (
-          <g key={month} tabIndex={0} aria-label={title(month, null, totals[i])} className="outline-none [&:focus-visible>rect:first-of-type]:fill-green-100 [&:hover>rect:first-of-type]:fill-gray-100">
-            <title>{title(month, null, totals[i])}</title>
-            {/* Alvo do toque: a faixa inteira do mês */}
-            <rect x={PAD.left + band * i} y={PAD.top} width={band} height={PLOT_H} fill="transparent" />
-            {parts.map((s, j) => {
-              const h = (s.counts[i] / max) * PLOT_H
-              const top = y - h
-              y = top
-              const last = j === parts.length - 1
-              // Folga branca entre as partes; a de cima tem os cantos arredondados
-              const visible = Math.max(1, h - (j > 0 ? GAP : 0))
-              const bottom = top + visible
-              const r = last ? Math.min(4, visible) : 0
-              return (
-                <path key={s.key} fill={s.color} d={`M${x},${bottom} V${top + r} Q${x},${top} ${x + r},${top} H${x + width - r} Q${x + width},${top} ${x + width},${top + r} V${bottom} Z`}>
-                  <title>{title(month, s.name, s.counts[i])}</title>
-                </path>
-              )
-            })}
-            {totals[i] > 0 && <text x={x + width / 2} y={y - 5} textAnchor="middle" fontSize={11} fontWeight={600} fill={INK}>{totals[i]}</text>}
-          </g>
-        )
-      })}
-    </Frame>
-  )
-}
 
 function RateBars<C extends ChartClient>({ clients, busy, onOpen }: { clients: C[]; busy: string; onOpen: (client: C) => void }) {
   const t = useT()

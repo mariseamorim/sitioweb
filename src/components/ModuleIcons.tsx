@@ -14,6 +14,18 @@ export function PainelIcon({ className = 'w-6 h-6' }: IconProps) {
   )
 }
 
+/** Dashboard: colunas de gráfico sobre a linha de base */
+export function GraficoIcon({ className = 'w-6 h-6' }: IconProps) {
+  return (
+    <svg className={className} {...base}>
+      <path d="M3 21h18" strokeLinecap="round" />
+      <rect x="5" y="11" width="3" height="7" rx="1" />
+      <rect x="10.5" y="5" width="3" height="13" rx="1" />
+      <rect x="16" y="8" width="3" height="10" rx="1" />
+    </svg>
+  )
+}
+
 export function PropriedadeIcon({ className = 'w-6 h-6' }: IconProps) {
   return (
     <svg className={className} {...base}>
