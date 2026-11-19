@@ -44,6 +44,7 @@ export default function RootLayout() {
           <Stack.Screen name="admin/fornecedores" options={{ title: 'Fornecedores' }} />
           <Stack.Screen name="admin/organizacoes" options={{ title: 'Laticínios e associações' }} />
           <Stack.Screen name="ajuda" options={{ title: 'Ajuda e suporte' }} />
+          <Stack.Screen name="manual" options={{ title: 'Manual do usuário' }} />
         </Stack>
       </SessionProvider>
     </SafeAreaProvider>

@@ -93,6 +93,22 @@ export function AjudaView({ support, loggedIn }: { support: boolean; loggedIn: b
             </div>
           </section>
         )}
+
+        <section aria-labelledby="ajuda-manual" className="rounded-xl border border-gray-200 bg-white p-5 md:col-span-2">
+          <span aria-hidden="true" className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-700 text-xl font-bold">📖</span>
+          <h2 id="ajuda-manual" className="text-lg font-bold text-gray-900">Manual do usuário ilustrado</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Veja o passo a passo completo com imagens das telas do sistema para produtor (Anota Aí Leite e propriedade completa), motorista, laticínio (incluindo criação de rotas), associação e fornecedor. Você também pode imprimir ou salvar em PDF.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Link href="/manual" className={BUTTON}>
+              Abrir manual ilustrado
+            </Link>
+            <a href="/manual-usuario.html" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-green-700 hover:underline">
+              Abrir em tela cheia / Imprimir PDF
+            </a>
+          </div>
+        </section>
       </div>
 
       {user && screens.length > 0 && (

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Image from 'next/image';
 import { InstallAppButton } from '@/components/InstallAppButton';
@@ -49,6 +49,7 @@ const groups: { label: string; links: NavLink[] }[] = [
   ] },
   { label: 'Ajuda', links: [
     { href: '/ajuda', label: 'Ajuda e suporte', module: null, Icon: AjudaIcon },
+    { href: '/manual', label: 'Manual do usuário', module: null, Icon: RelatorioIcon },
   ] },
 ];
 
@@ -72,7 +73,7 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   const isVendor = !!panelRole;
   const homeHref = panelRole?.href ?? '/';
   const vendorGroups: { label: string; links: NavLink[] }[] = panelRole
-    ? [{ label: panelRole.label, links: [{ href: panelRole.href, label: 'Meu painel', module: null, Icon: panelRole.Icon }] }, { label: 'Ajuda', links: [{ href: '/ajuda', label: 'Ajuda e suporte', module: null, Icon: AjudaIcon }] }]
+    ? [{ label: panelRole.label, links: [{ href: panelRole.href, label: 'Meu painel', module: null, Icon: panelRole.Icon }] }, { label: 'Ajuda', links: [{ href: '/ajuda', label: 'Ajuda e suporte', module: null, Icon: AjudaIcon }, { href: '/manual', label: 'Manual do usuário', module: null, Icon: RelatorioIcon }] }]
     : [];
   const segments = user?.farmSegments ?? [];
   const fitsSegment = (href: string) => !segments.length || !SEGMENT_PAGES[href] || SEGMENT_PAGES[href].some(s => segments.includes(s));

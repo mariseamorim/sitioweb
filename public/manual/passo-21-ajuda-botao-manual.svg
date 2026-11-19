@@ -1,54 +1,56 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 880" width="420" height="880">
-  <foreignObject width="420" height="880">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 650 880" width="650" height="880">
+  <foreignObject width="650" height="880">
     <div xmlns="http://www.w3.org/1999/xhtml">
       <style>
-  .real-screen-canvas { width: 420px; height: 880px;  transform-origin: top left; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  .real-screen-canvas .main { padding: 18px 16px 80px; }
-  .real-screen-canvas h1 { font-size: 24px; font-weight: 800; color: #111827; letter-spacing: -0.02em; margin: 0; }
-  .real-screen-canvas .sub { font-size: 13.5px; color: #6b7280; margin-top: 4px; margin-bottom: 16px; line-height: 1.4; }
-  .real-screen-canvas .card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
-  .real-screen-canvas .card-green { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
-  .real-screen-canvas .card-amber { background: #fffbeb; border: 1px solid #fde68a; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
-  .real-screen-canvas .card-red { background: #fef2f2; border: 1px solid #fecaca; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
-  .real-screen-canvas .label { display: block; font-size: 12.5px; font-weight: 600; color: #374151; margin-bottom: 5px; }
-  .real-screen-canvas .input { width: 100%; border: 1px solid #d1d5db; border-radius: 12px; padding: 11px 13px; font-size: 14.5px; color: #111827; background: #ffffff; margin-bottom: 12px; font-weight: 500; }
-  .real-screen-canvas .input-focus { border: 2px solid #15803d; background: #f0fdf4; font-weight: 700; }
-  .real-screen-canvas .btn-primary { width: 100%; background: #14532d; color: #ffffff; border: none; border-radius: 12px; padding: 13px 16px; font-size: 14.5px; font-weight: 700; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
-  .real-screen-canvas .btn-outline { width: 100%; background: #ffffff; color: #14532d; border: 1.5px solid #14532d; border-radius: 12px; padding: 11px 16px; font-size: 13.5px; font-weight: 700; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
-  .real-screen-canvas .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
-  .real-screen-canvas .pill-green { background: #dcfce7; color: #166534; }
-  .real-screen-canvas .pill-amber { background: #fef3c7; color: #92400e; }
-  .real-screen-canvas .pill-red { background: #fee2e2; color: #991b1b; }
-  .real-screen-canvas .pill-blue { background: #dbeafe; color: #1e40af; }
-  .real-screen-canvas .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .annotated-stage { width: 650px; height: 880px;  transform-origin: top left; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .annotated-stage .main { padding: 18px 16px 80px; }
+  .annotated-stage h1 { font-size: 24px; font-weight: 800; color: #111827; letter-spacing: -0.02em; margin: 0; }
+  .annotated-stage .sub { font-size: 13.5px; color: #6b7280; margin-top: 4px; margin-bottom: 16px; line-height: 1.4; }
+  .annotated-stage .card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .annotated-stage .card-green { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .annotated-stage .card-amber { background: #fffbeb; border: 1px solid #fde68a; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .annotated-stage .card-red { background: #fef2f2; border: 1px solid #fecaca; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .annotated-stage .label { display: block; font-size: 12.5px; font-weight: 600; color: #374151; margin-bottom: 5px; }
+  .annotated-stage .input { width: 100%; border: 1px solid #d1d5db; border-radius: 12px; padding: 11px 13px; font-size: 14.5px; color: #111827; background: #ffffff; margin-bottom: 12px; font-weight: 500; }
+  .annotated-stage .input-focus { border: 2px solid #15803d; background: #f0fdf4; font-weight: 700; }
+  .annotated-stage .btn-primary { width: 100%; background: #14532d; color: #ffffff; border: none; border-radius: 12px; padding: 13px 16px; font-size: 14.5px; font-weight: 700; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .annotated-stage .btn-outline { width: 100%; background: #ffffff; color: #14532d; border: 1.5px solid #14532d; border-radius: 12px; padding: 11px 16px; font-size: 13.5px; font-weight: 700; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .annotated-stage .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+  .annotated-stage .pill-green { background: #dcfce7; color: #166534; }
+  .annotated-stage .pill-amber { background: #fef3c7; color: #92400e; }
+  .annotated-stage .pill-red { background: #fee2e2; color: #991b1b; }
+  .annotated-stage .pill-blue { background: #dbeafe; color: #1e40af; }
+  .annotated-stage .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 </style>
-      <div class="real-screen-canvas" style="width:420px;height:880px;overflow:hidden;background:#f9fafb;color:#111827;position:relative;text-align:left;">
-    
-    <div style="height:64px;border-bottom:1px solid #e5e7eb;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div style="width:42px;height:42px;border-radius:12px;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;color:#374151;"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></div>
-        <div style="width:42px;height:42px;border-radius:12px;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;color:#374151;"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg></div>
-        <div>
-          <div style="font-size:14.5px;font-weight:700;color:#111827;line-height:1.2;">Ajuda e suporte</div>
-          <div style="font-size:12px;color:#6b7280;">Sítio Boa Vista</div>
+      <div class="annotated-stage" style="width:650px;height:880px;position:relative;text-align:left;user-select:none;">
+    <!-- Real Phone Screen (Left 420px) -->
+    <div style="position:absolute;left:0;top:0;width:420px;height:880px;border-radius:24px;border:5px solid #1e293b;overflow:hidden;background:#f9fafb;color:#111827;box-shadow:0 10px 25px rgba(15,23,42,0.14);">
+      
+      
+      <div style="height:64px;border-bottom:1px solid #e5e7eb;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:42px;height:42px;border-radius:12px;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;color:#374151;"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></div>
+          <div style="width:42px;height:42px;border-radius:12px;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;color:#374151;"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg></div>
+          <div>
+            <div style="font-size:14.5px;font-weight:700;color:#111827;line-height:1.2;">Ajuda e suporte</div>
+            <div style="font-size:12px;color:#6b7280;">Sítio Boa Vista</div>
+          </div>
         </div>
+        
+          <div style="position:relative;color:#4b5563;padding:6px;">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1112 0c0 7 3 8.5 3 8.5H3S6 15 6 8z"/><path d="M10 20a2 2 0 004 0"/></svg>
+            <span style="position:absolute;top:0;right:0;background:#dc2626;color:#fff;font-size:10.5px;font-weight:800;width:19px;height:19px;border-radius:999px;display:flex;align-items:center;justify-content:center;">9</span>
+          </div>
+        
       </div>
-      
-        <div style="position:relative;color:#4b5563;padding:6px;">
-          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1112 0c0 7 3 8.5 3 8.5H3S6 15 6 8z"/><path d="M10 20a2 2 0 004 0"/></svg>
-          <span style="position:absolute;top:0;right:0;background:#dc2626;color:#fff;font-size:10.5px;font-weight:800;width:19px;height:19px;border-radius:999px;display:flex;align-items:center;justify-content:center;">9</span>
-        </div>
-      
-    </div>
-  
-    <div class="main">
-      
+    
+      <div class="main">
         <h1>Ajuda e suporte</h1>
         <p class="sub">Dúvida, erro ou ajuda para começar: fale com a gente.</p>
         <div class="card">
           <div style="font-size:16px;font-weight:800;margin-bottom:4px;">💬 Falar com o suporte</div>
           <div style="font-size:12.5px;color:#4b5563;margin-bottom:12px;">Abre o WhatsApp com a mensagem pronta, já com o seu nome e a propriedade.</div>
-          <div class="btn-primary"><svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a10 10 0 00-8.66 15l-1.14 4.16 4.27-1.12A10 10 0 1012 2zm5.46 14.12c-.23.65-1.34 1.24-1.86 1.32-.48.07-1.08.1-1.75-.11-.41-.13-.93-.31-1.6-.6-2.81-1.21-4.65-4.05-4.79-4.24-.14-.19-1.14-1.52-1.14-2.9s.72-2.06.98-2.34c.25-.28.55-.35.73-.35h.53c.17 0 .4-.06.62.48.23.55.78 1.9.85 2.04.07.14.11.3.02.49-.09.19-.14.3-.28.46-.14.16-.29.36-.41.48-.14.14-.28.29-.12.57.16.28.72 1.19 1.55 1.93 1.07.95 1.97 1.25 2.25 1.39.28.14.44.12.6-.07.16-.19.69-.81.88-1.09.19-.28.37-.23.62-.14.26.09 1.62.76 1.9.9.28.14.46.21.53.32.07.12.07.67-.16 1.32z"/></svg> Chamar no WhatsApp</div>
+          <div class="btn-primary"><svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a10 10 0 00-8.66 15l-1.14 4.16 4.27-1.12A10 10 0 1012 2zm5.46 14.12c-.23.65-1.34 1.24-1.86 1.32-.48.07-1.08.1-1.75-.11-.41-.13-.93-.31-1.6-.6-2.81-1.21-4.65-4.05-4.79-4.24-.14-.19-1.14-1.52-1.14-2.9s.72-2.06.98-2.34c.25-.28.55-.35.73-.35h.53c.17 0 .4-.06.62.48.23.55.78 1.9.85 2.04.07.14.11.3.02.49-.09.19-.14.3-.28.46-.14.16-.29.36-.41.48-.14.14-.28.29-.12.57.16.28.72 1.19 1.55 1.93 1.07.95 1.97 1.25 2.25 1.39.28.14.44.12.6-.07.16-.19.69-.81.88-1.09.19-.28.37-.23.62-.14.26.09 1.62.76 1.9.9.28.14.46.21.53.32.07.12.07.67-.16 1.32z"/></svg> Chamar no WhatsApp</div>
         </div>
         <div class="card">
           <div style="font-size:16px;font-weight:800;margin-bottom:4px;">1 · Configuração inicial</div>
@@ -60,44 +62,67 @@
           <div style="font-size:12.5px;color:#166534;margin-bottom:12px;">Veja o passo a passo completo com imagens das telas do sistema para todos os perfis. Você também pode imprimir ou salvar em PDF.</div>
           <div class="btn-primary">Abrir manual ilustrado</div>
         </div>
+      </div>
       
-    </div>
+      <div style="position:absolute;bottom:0;left:0;right:0;height:66px;border-top:1px solid #e5e7eb;background:#fff;display:grid;grid-template-columns:repeat(5,1fr);z-index:50;">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#6b7280;">
+            <span style="width:46px;height:30px;border-radius:999px;background:transparent;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+            <span>Painel</span>
+          </div><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#6b7280;">
+            <span style="width:46px;height:30px;border-radius:999px;background:transparent;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l1 5H7L8 3z"/><path d="M7 8l-2 12h14L17 8"/><circle cx="12" cy="13" r="2"/></svg></span>
+            <span>Anotar</span>
+          </div><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#6b7280;">
+            <span style="width:46px;height:30px;border-radius:999px;background:transparent;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="14" width="14" height="7" rx="3"/><circle cx="9" cy="17.5" r="0.75" fill="currentColor"/><circle cx="15" cy="17.5" r="0.75" fill="currentColor"/><path d="M7 14V9.5C7 6.5 9 5 12 5c3 0 5 1.5 5 4.5V14"/></svg></span>
+            <span>Animais</span>
+          </div><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#6b7280;">
+            <span style="width:46px;height:30px;border-radius:999px;background:transparent;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3.5l5 5m-2-2l-9.5 9.5-4-4 9.5-9.5zM4.5 17l-1.5 3.5 3.5-1.5"/></svg></span>
+            <span>Vacinas</span>
+          </div><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#166534;">
+            <span style="width:46px;height:30px;border-radius:999px;background:#dcfce7;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>
+            <span>Mais</span>
+          </div>
+      </div>
     
-    <div style="position:absolute;bottom:0;left:0;right:0;height:66px;border-top:1px solid #e5e7eb;background:#fff;display:grid;grid-template-columns:repeat(5,1fr);z-index:50;">
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#6b7280;">
-          <span style="width:46px;height:30px;border-radius:999px;background:transparent;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
-          <span>Painel</span>
-        </div><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#6b7280;">
-          <span style="width:46px;height:30px;border-radius:999px;background:transparent;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l1 5H7L8 3z"/><path d="M7 8l-2 12h14L17 8"/><circle cx="12" cy="13" r="2"/></svg></span>
-          <span>Anotar</span>
-        </div><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#6b7280;">
-          <span style="width:46px;height:30px;border-radius:999px;background:transparent;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="14" width="14" height="7" rx="3"/><circle cx="9" cy="17.5" r="0.75" fill="currentColor"/><circle cx="15" cy="17.5" r="0.75" fill="currentColor"/><path d="M7 14V9.5C7 6.5 9 5 12 5c3 0 5 1.5 5 4.5V14"/></svg></span>
-          <span>Animais</span>
-        </div><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#6b7280;">
-          <span style="width:46px;height:30px;border-radius:999px;background:transparent;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3.5l5 5m-2-2l-9.5 9.5-4-4 9.5-9.5zM4.5 17l-1.5 3.5 3.5-1.5"/></svg></span>
-          <span>Vacinas</span>
-        </div><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#166534;">
-          <span style="width:46px;height:30px;border-radius:999px;background:#dcfce7;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>
-          <span>Mais</span>
-        </div>
-    </div>
-  
     
-    <div style="position:absolute;left:24px;top:215px;z-index:9999;display:inline-flex;align-items:center;gap:7px;background:rgba(15,23,42,0.95);color:#fff;padding:5px 12px 5px 6px;border-radius:999px;border:2px solid #fff;box-shadow:0 8px 20px rgba(0,0,0,0.35);font-size:12.5px;font-weight:700;">
-      <span style="width:23px;height:23px;border-radius:999px;background:#dc2626;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:12.5px;">1</span>
-      <span>Suporte direto no WhatsApp</span>
     </div>
-  
-    <div style="position:absolute;left:24px;top:375px;z-index:9999;display:inline-flex;align-items:center;gap:7px;background:rgba(15,23,42,0.95);color:#fff;padding:5px 12px 5px 6px;border-radius:999px;border:2px solid #fff;box-shadow:0 8px 20px rgba(0,0,0,0.35);font-size:12.5px;font-weight:700;">
-      <span style="width:23px;height:23px;border-radius:999px;background:#dc2626;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:12.5px;">2</span>
-      <span>Configuração inicial assistida</span>
-    </div>
-  
-    <div style="position:absolute;left:24px;top:555px;z-index:9999;display:inline-flex;align-items:center;gap:7px;background:rgba(15,23,42,0.95);color:#fff;padding:5px 12px 5px 6px;border-radius:999px;border:2px solid #fff;box-shadow:0 8px 20px rgba(0,0,0,0.35);font-size:12.5px;font-weight:700;">
-      <span style="width:23px;height:23px;border-radius:999px;background:#dc2626;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:12.5px;">3</span>
-      <span>NOVO: Botão Abrir manual ilustrado!</span>
-    </div>
-  
+    <!-- Non-overlapping Highlights + External Gutter Callouts -->
+    
+      <!-- Transparent outline box around key area (does not cover content!) -->
+      <div style="position:absolute;left:28px;top:224px;width:354px;height:48px;border:2.5px solid #dc2626;border-radius:12px;background:rgba(220,38,38,0.03);pointer-events:none;z-index:80;box-shadow:0 0 0 2px rgba(255,255,255,0.75);"></div>
+      <!-- Small anchor dot on the right edge of the outline box -->
+      <div style="position:absolute;left:378px;top:244px;width:8px;height:8px;border-radius:999px;background:#dc2626;border:1.5px solid #fff;z-index:85;pointer-events:none;"></div>
+      <!-- Horizontal leader line to outside gutter -->
+      <div style="position:absolute;left:382px;top:247px;width:52px;height:2.5px;background:#dc2626;z-index:82;pointer-events:none;"></div>
+      <!-- Callout badge completely OUTSIDE the phone screen in the right gutter -->
+      <div style="position:absolute;left:434px;top:228px;width:210px;z-index:90;display:flex;align-items:center;gap:8px;background:#0f172a;color:#ffffff;padding:7px 11px 7px 7px;border-radius:12px;border:2px solid #dc2626;box-shadow:0 6px 16px rgba(15,23,42,0.18);font-size:12px;font-weight:700;line-height:1.25;pointer-events:none;">
+        <span style="flex-shrink:0;width:24px;height:24px;border-radius:999px;background:#dc2626;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:12.5px;">1</span>
+        <span>Suporte direto no WhatsApp</span>
+      </div>
+    
+      <!-- Transparent outline box around key area (does not cover content!) -->
+      <div style="position:absolute;left:28px;top:372px;width:354px;height:48px;border:2.5px solid #dc2626;border-radius:12px;background:rgba(220,38,38,0.03);pointer-events:none;z-index:80;box-shadow:0 0 0 2px rgba(255,255,255,0.75);"></div>
+      <!-- Small anchor dot on the right edge of the outline box -->
+      <div style="position:absolute;left:378px;top:392px;width:8px;height:8px;border-radius:999px;background:#dc2626;border:1.5px solid #fff;z-index:85;pointer-events:none;"></div>
+      <!-- Horizontal leader line to outside gutter -->
+      <div style="position:absolute;left:382px;top:395px;width:52px;height:2.5px;background:#dc2626;z-index:82;pointer-events:none;"></div>
+      <!-- Callout badge completely OUTSIDE the phone screen in the right gutter -->
+      <div style="position:absolute;left:434px;top:376px;width:210px;z-index:90;display:flex;align-items:center;gap:8px;background:#0f172a;color:#ffffff;padding:7px 11px 7px 7px;border-radius:12px;border:2px solid #dc2626;box-shadow:0 6px 16px rgba(15,23,42,0.18);font-size:12px;font-weight:700;line-height:1.25;pointer-events:none;">
+        <span style="flex-shrink:0;width:24px;height:24px;border-radius:999px;background:#dc2626;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:12.5px;">2</span>
+        <span>Configuração inicial assistida</span>
+      </div>
+    
+      <!-- Transparent outline box around key area (does not cover content!) -->
+      <div style="position:absolute;left:28px;top:535px;width:354px;height:48px;border:2.5px solid #dc2626;border-radius:12px;background:rgba(220,38,38,0.03);pointer-events:none;z-index:80;box-shadow:0 0 0 2px rgba(255,255,255,0.75);"></div>
+      <!-- Small anchor dot on the right edge of the outline box -->
+      <div style="position:absolute;left:378px;top:555px;width:8px;height:8px;border-radius:999px;background:#dc2626;border:1.5px solid #fff;z-index:85;pointer-events:none;"></div>
+      <!-- Horizontal leader line to outside gutter -->
+      <div style="position:absolute;left:382px;top:558px;width:52px;height:2.5px;background:#dc2626;z-index:82;pointer-events:none;"></div>
+      <!-- Callout badge completely OUTSIDE the phone screen in the right gutter -->
+      <div style="position:absolute;left:434px;top:539px;width:210px;z-index:90;display:flex;align-items:center;gap:8px;background:#0f172a;color:#ffffff;padding:7px 11px 7px 7px;border-radius:12px;border:2px solid #dc2626;box-shadow:0 6px 16px rgba(15,23,42,0.18);font-size:12px;font-weight:700;line-height:1.25;pointer-events:none;">
+        <span style="flex-shrink:0;width:24px;height:24px;border-radius:999px;background:#dc2626;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:12.5px;">3</span>
+        <span>NOVO: Abrir manual ilustrado</span>
+      </div>
+    
   </div>
     </div>
   </foreignObject>
