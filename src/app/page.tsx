@@ -14,6 +14,7 @@ import { HomeRedirect } from '@/components/HomeRedirect'
 import { homeForRole } from '@/lib/organizations'
 import { isVet } from '@/lib/vets'
 import { SetupHelpCard } from '@/components/SetupHelpCard'
+import { T } from '@/components/T'
 import { PeriodSummary } from '@/components/PeriodSummary'
 import { loadPeriodSummary } from '@/lib/periodSummaryData'
 import { BOVINE_CATEGORIES, CALF_AT_FOOT_DAYS, canAddCalf } from '@/lib/animalRules'
@@ -143,9 +144,9 @@ export default async function Home() {
       <div className="mb-8">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Painel</h1>
+            <h1 className="text-2xl font-bold text-gray-900"><T k="Painel" /></h1>
             <p className="text-gray-500 text-sm mt-1">
-              Bem-vindo de volta, <span className="font-medium text-gray-700">{user.name}</span>
+              <T k="Bem-vindo de volta," /> <span className="font-medium text-gray-700">{user.name}</span>
               <span className="mx-1.5 text-gray-300">·</span>
               {farm?.name}
             </p>
@@ -161,15 +162,15 @@ export default async function Home() {
       {totalAnimals === 0 && user.role !== 'admin' && <SetupHelpCard farmId={effectiveFarmId!} />}
 
       {quickActions.length > 0 && <section aria-labelledby="daily-actions" className="mb-8">
-        <h2 id="daily-actions" className="text-lg font-bold text-gray-900">O que você quer fazer?</h2>
-        <p className="mt-1 mb-4 text-sm text-gray-600">Escolha uma tarefa para abrir a tela correspondente.</p>
+        <h2 id="daily-actions" className="text-lg font-bold text-gray-900"><T k="O que você quer fazer?" /></h2>
+        <p className="mt-1 mb-4 text-sm text-gray-600"><T k="Escolha uma tarefa para abrir a tela correspondente." /></p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{quickActions.map(({ href, title, detail, Icon }) => <Link key={href} href={href} className="flex items-start gap-3 rounded-xl border border-green-200 bg-white p-4 hover:bg-green-50">
           <span aria-hidden="true" className="rounded-lg bg-green-50 p-2 text-green-700"><Icon className="h-6 w-6" /></span>
-          <span><span className="block text-base font-semibold text-green-900">{title}</span><span className="mt-1 block text-sm text-gray-600">{detail}</span></span>
+          <span><span className="block text-base font-semibold text-green-900"><T k={title} /></span><span className="mt-1 block text-sm text-gray-600"><T k={detail} /></span></span>
         </Link>)}</div>
       </section>}
       {showPeriod && <PeriodSummary summary={period.summary} show={period.show} />}
-      <h2 className="mb-4 text-lg font-bold text-gray-900">Resumo da propriedade</h2>
+      <h2 className="mb-4 text-lg font-bold text-gray-900"><T k="Resumo da propriedade" /></h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {stats.map(({ href, label, value, Icon, tone }) => (
           <Link
@@ -179,7 +180,7 @@ export default async function Home() {
           >
             <div className="flex items-center gap-2 text-gray-500">
               <Icon className="w-5 h-5 shrink-0 text-gray-400" />
-              <p className="text-sm font-medium leading-tight">{label}</p>
+              <p className="text-sm font-medium leading-tight"><T k={label} /></p>
             </div>
             <p className={`mt-3 font-bold ${typeof value === 'number' ? 'text-3xl' : 'text-xl'} ${STAT_TONE[tone]}`}>{value}</p>
           </Link>
@@ -188,8 +189,8 @@ export default async function Home() {
 
       {matrices.length > 0 && does('cria', 'leite') && (
         <section aria-labelledby="cria" className="mt-8">
-          <h2 id="cria" className="text-lg font-bold text-gray-900">Matrizes</h2>
-          <p className="mt-1 mb-4 text-sm text-gray-600">Vacas a partir de 2 anos e meio. Com bezerro ao pé: cria viva de até 8 meses cadastrada como filha dela.</p>
+          <h2 id="cria" className="text-lg font-bold text-gray-900"><T k="Matrizes" /></h2>
+          <p className="mt-1 mb-4 text-sm text-gray-600"><T k="Vacas a partir de 2 anos e meio. Com bezerro ao pé: cria viva de até 8 meses cadastrada como filha dela." /></p>
           <div className="grid grid-cols-3 gap-3 sm:gap-4">
             {[
               ['Matrizes', matrices.length, 'text-gray-900', 'matrizes'],
@@ -197,7 +198,7 @@ export default async function Home() {
               ['Solteiras', matrices.length - withCalf, 'text-gray-900', 'solteiras'],
             ].map(([label, value, tone, filter]) => (
               <Link key={label} href={`/animais?filtro=${filter}`} className="rounded-xl border border-gray-200 bg-white p-4 hover:border-gray-300 sm:p-5">
-                <p className="text-sm font-medium leading-tight text-gray-500">{label}</p>
+                <p className="text-sm font-medium leading-tight text-gray-500"><T k={String(label)} /></p>
                 <p className={`mt-3 text-3xl font-bold ${tone}`}>{value}</p>
               </Link>
             ))}
@@ -223,11 +224,11 @@ function FarmsOverview({ farms, activeId, fmtBRL }: {
   const alerts = farms.reduce((s, f) => s + f.tasks.length, 0)
   return (
     <section aria-labelledby="todas" className="mb-8">
-      <h2 id="todas" className="text-lg font-bold text-gray-900">Suas {farms.length} propriedades</h2>
+      <h2 id="todas" className="text-lg font-bold text-gray-900"><T k="Suas {n} propriedades" vars={{ n: farms.length }} /></h2>
       <p className="mt-1 mb-4 text-sm text-gray-600">
-        {alive} animais cadastrados{lotHeads ? ` e ${lotHeads} cabeças em lotes` : ''}
-        {balances.length ? <> · saldo do mês somado: <strong className={balance >= 0 ? 'text-green-700' : 'text-red-600'}>{fmtBRL(balance)}</strong></> : null}
-        {` · ${alerts} aviso${alerts === 1 ? '' : 's'}`}
+        <T k="{n} animais cadastrados" vars={{ n: alive }} />{lotHeads ? <> <T k="e {n} cabeças em lotes" vars={{ n: lotHeads }} /></> : null}
+        {balances.length ? <> · <T k="saldo do mês somado:" /> <strong className={balance >= 0 ? 'text-green-700' : 'text-red-600'}>{fmtBRL(balance)}</strong></> : null}
+        {' · '}<T k={alerts === 1 ? '{n} aviso' : '{n} avisos'} vars={{ n: alerts }} />
       </p>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {farms.map(f => (
@@ -235,21 +236,21 @@ function FarmsOverview({ farms, activeId, fmtBRL }: {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="truncate font-bold text-gray-900">{f.name}</h3>
-                {f.segments.length > 0 && <p className="text-xs text-gray-500">{FARM_SEGMENTS.filter(s => f.segments.includes(s.key)).map(s => s.label).join(' · ')}</p>}
+                {f.segments.length > 0 && <p className="text-xs text-gray-500">{FARM_SEGMENTS.filter(s => f.segments.includes(s.key)).map((s, i) => <span key={s.key}>{i ? ' · ' : ''}<T k={s.label} /></span>)}</p>}
               </div>
               {f.id === activeId
-                ? <span className="shrink-0 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-800">Aberta</span>
+                ? <span className="shrink-0 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-800"><T k="Aberta" /></span>
                 : <OpenFarmButton farmId={f.id} className="shrink-0 rounded-lg border border-green-700 px-3 py-1.5 text-sm font-semibold text-green-800 hover:bg-green-50 disabled:opacity-60" />}
             </div>
             <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
-              <div><dt className="text-xs text-gray-500">{f.openLots ? 'Animais / em lotes' : 'Animais'}</dt><dd className="font-semibold text-gray-900">{f.alive}{f.openLots ? ` / ${f.lotHeads}` : ''}</dd></div>
-              {f.monthBalance !== null && <div><dt className="text-xs text-gray-500">Saldo do mês</dt><dd className={`font-semibold ${f.monthBalance >= 0 ? 'text-green-700' : 'text-red-600'}`}>{fmtBRL(f.monthBalance)}</dd></div>}
+              <div><dt className="text-xs text-gray-500"><T k={f.openLots ? 'Animais / em lotes' : 'Animais'} /></dt><dd className="font-semibold text-gray-900">{f.alive}{f.openLots ? ` / ${f.lotHeads}` : ''}</dd></div>
+              {f.monthBalance !== null && <div><dt className="text-xs text-gray-500"><T k="Saldo do mês" /></dt><dd className={`font-semibold ${f.monthBalance >= 0 ? 'text-green-700' : 'text-red-600'}`}>{fmtBRL(f.monthBalance)}</dd></div>}
             </dl>
             {f.tasks.length === 0
-              ? <p className="mt-3 text-sm text-gray-500">Nenhum aviso hoje.</p>
+              ? <p className="mt-3 text-sm text-gray-500"><T k="Nenhum aviso hoje." /></p>
               : <ul className="mt-3 space-y-1 text-sm">
-                  {f.tasks.slice(0, 3).map(t => <li key={t.title} className={TASK_TONE[t.tone]}>{t.title}</li>)}
-                  {f.tasks.length > 3 && <li className="text-gray-500">e mais {f.tasks.length - 3}</li>}
+                  {f.tasks.slice(0, 3).map(t => <li key={t.title} className={TASK_TONE[t.tone]}><T k={t.title} /></li>)}
+                  {f.tasks.length > 3 && <li className="text-gray-500"><T k="e mais {n}" vars={{ n: f.tasks.length - 3 }} /></li>}
                 </ul>}
           </article>
         ))}

@@ -6,11 +6,13 @@ import { useUser } from '@/contexts/UserContext'
 import { useDialog } from '@/components/DialogProvider'
 import { CheckIcon } from '@/components/ModuleIcons'
 import { switchFarm } from '@/lib/farmSwitch'
+import { useT } from '@/lib/i18n'
 
 /** Nome da propriedade no topo. Com mais de uma propriedade, vira um seletor para trocar. */
 export function FarmSwitcher({ fallback }: { fallback: string }) {
   const { user } = useUser()
   const { notify } = useDialog()
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const box = useRef<HTMLDivElement>(null)
@@ -34,7 +36,7 @@ export function FarmSwitcher({ fallback }: { fallback: string }) {
     setBusy(id)
     const error = await switchFarm(id)
     setBusy(null)
-    if (error) { setOpen(false); await notify('Não foi possível trocar', error) }
+    if (error) { setOpen(false); await notify(t('Não foi possível trocar'), t(error)) }
   }
 
   return (
@@ -46,20 +48,20 @@ export function FarmSwitcher({ fallback }: { fallback: string }) {
       </button>
       {open && (
         <div className="absolute left-0 top-full z-50 mt-2 w-64 rounded-xl border border-gray-200 bg-white p-1 shadow-lg">
-          <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Trocar de propriedade</p>
-          <ul role="listbox" aria-label="Propriedades">
+          <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t('Trocar de propriedade')}</p>
+          <ul role="listbox" aria-label={t('Propriedades')}>
             {farms.map((f) => (
               <li key={f.id}>
                 <button type="button" role="option" aria-selected={f.id === user?.farmId} onClick={() => void choose(f.id)} disabled={!!busy}
                   className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 text-left text-sm text-gray-800 hover:bg-green-50 disabled:opacity-60">
-                  <span className="truncate">{busy === f.id ? 'Abrindo...' : f.name}</span>
+                  <span className="truncate">{busy === f.id ? t('Abrindo...') : f.name}</span>
                   {f.id === user?.farmId && <CheckIcon className="h-4 w-4 shrink-0 text-green-700" />}
                 </button>
               </li>
             ))}
           </ul>
           <Link href="/fazendas" onClick={() => setOpen(false)} className="mt-1 flex min-h-11 items-center rounded-lg border-t border-gray-100 px-3 text-sm font-semibold text-green-700 hover:bg-green-50">
-            + Cadastrar outra propriedade
+            + {t('Cadastrar outra propriedade')}
           </Link>
         </div>
       )}

@@ -7,6 +7,7 @@ import { listReproductions, undoDiagnosis, updateStatus, type Reproduction } fro
 import { useSyncState } from '@/sync'
 import { Empty, Muted, useBottomInset } from '@/ui'
 import { colors, font, radius, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 type Answer = 'Prenha' | 'Vazia'
 /** Antes disso o toque ou o ultrassom ainda não confirmam a gestação */
@@ -21,6 +22,7 @@ export default function DiagnosticoEmLote() {
   const { canEdit, user } = useSession()
   const sync = useSyncState()
   const bottom = useBottomInset()
+  const t = useT()
   // O que foi respondido nesta visita continua na lista (com "desfazer"); guarda o parto previsto de antes
   const [answered, setAnswered] = useState<Record<string, { answer: Answer; expected: string | null }>>({})
   const rows = useLive(
@@ -51,14 +53,14 @@ export default function DiagnosticoEmLote() {
         ListHeaderComponent={(
           <View style={{ marginBottom: space.md }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md }}>
-              <Muted style={{ flex: 1 }}>{user?.farmName} · coberturas sem diagnóstico de gestação</Muted>
+              <Muted style={{ flex: 1 }}>{user?.farmName} · {t('coberturas sem diagnóstico de gestação')}</Muted>
               {rows.length > 0 ? (
-                <View style={{ backgroundColor: colors.text, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 }} accessibilityLabel={`${done} de ${rows.length} diagnosticadas`}>
+                <View style={{ backgroundColor: colors.text, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 }} accessibilityLabel={t('{done} de {total} diagnosticadas', { done, total: rows.length })}>
                   <Text style={{ color: colors.white, fontWeight: '700', fontSize: font.sm }}>{done}/{rows.length}</Text>
                 </View>
               ) : null}
             </View>
-            {done > 0 ? <Text style={{ color: colors.text, fontSize: font.sm, marginTop: space.xs }}>{pregnant} {pregnant === 1 ? 'prenha' : 'prenhas'} · {done - pregnant} {done - pregnant === 1 ? 'vazia' : 'vazias'}</Text> : null}
+            {done > 0 ? <Text style={{ color: colors.text, fontSize: font.sm, marginTop: space.xs }}>{pregnant} {t(pregnant === 1 ? 'prenha' : 'prenhas')} · {done - pregnant} {t(done - pregnant === 1 ? 'vazia' : 'vazias')}</Text> : null}
           </View>
         )}
         renderItem={({ item: r }) => {
@@ -70,29 +72,29 @@ export default function DiagnosticoEmLote() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={{ fontSize: font.md, fontWeight: '700', color: colors.text }} numberOfLines={2}>
-                    {r.femaleName ?? 'Animal removido'} <Text style={{ fontWeight: '400', color: colors.muted }}>({r.femaleCustomCode || r.femaleCode})</Text>
+                    {r.femaleName ?? t('Animal removido')} <Text style={{ fontWeight: '400', color: colors.muted }}>({r.femaleCustomCode || r.femaleCode})</Text>
                   </Text>
                   <Text style={{ fontSize: font.sm, color: colors.muted }}>
-                    {r.method === 'ia' ? 'Inseminada' : 'Coberta'} há {days} {days === 1 ? 'dia' : 'dias'}{r.maleName ? ` · ${r.maleName}` : ''}{!given && days < MIN_DAYS ? ' · cedo para diagnosticar' : ''}
+                    {t(r.method === 'ia' ? (days === 1 ? 'Inseminada há {n} dia' : 'Inseminada há {n} dias') : (days === 1 ? 'Coberta há {n} dia' : 'Coberta há {n} dias'), { n: days })}{r.maleName ? ` · ${r.maleName}` : ''}{!given && days < MIN_DAYS ? ` · ${t('cedo para diagnosticar')}` : ''}
                   </Text>
-                  {given ? <Text style={{ fontSize: font.sm, fontWeight: '700', marginTop: 2, color: given === 'Prenha' ? colors.green : colors.red }}>{given === 'Prenha' ? '✓ Prenha' : '✓ Vazia · liberada para nova cobertura'}</Text> : null}
+                  {given ? <Text style={{ fontSize: font.sm, fontWeight: '700', marginTop: 2, color: given === 'Prenha' ? colors.green : colors.red }}>{given === 'Prenha' ? `✓ ${t('Prenha')}` : `✓ ${t('Vazia · liberada para nova cobertura')}`}</Text> : null}
                 </View>
                 {given && canEdit ? (
                   <Pressable onPress={() => undo(r)} hitSlop={8} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: space.sm }}>
-                    <Text style={{ color: colors.text, fontWeight: '600', textDecorationLine: 'underline' }}>desfazer</Text>
+                    <Text style={{ color: colors.text, fontWeight: '600', textDecorationLine: 'underline' }}>{t('desfazer')}</Text>
                   </Pressable>
                 ) : null}
               </View>
               {!given && canEdit ? (
                 <View style={{ flexDirection: 'row', gap: space.md, marginTop: space.md }}>
-                  <BigButton label="✓ Prenha" color={colors.green} onPress={() => answer(r, 'Prenha')} />
-                  <BigButton label="✕ Vazia" color={colors.red} onPress={() => answer(r, 'Vazia')} />
+                  <BigButton label={`✓ ${t('Prenha')}`} color={colors.green} onPress={() => answer(r, 'Prenha')} />
+                  <BigButton label={`✕ ${t('Vazia')}`} color={colors.red} onPress={() => answer(r, 'Vazia')} />
                 </View>
               ) : null}
             </View>
           )
         }}
-        ListEmptyComponent={<Empty title={sync.syncing ? 'Baixando os dados da propriedade…' : 'Nenhuma cobertura aguardando diagnóstico'} text={sync.syncing ? undefined : 'As coberturas anotadas em Reprodução aparecem aqui até receberem o diagnóstico.'} />}
+        ListEmptyComponent={<Empty title={t(sync.syncing ? 'Baixando os dados da propriedade…' : 'Nenhuma cobertura aguardando diagnóstico')} text={sync.syncing ? undefined : t('As coberturas anotadas em Reprodução aparecem aqui até receberem o diagnóstico.')} />}
       />
     </View>
   )

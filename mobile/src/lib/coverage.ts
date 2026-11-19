@@ -1,6 +1,7 @@
 // Cobertura (Reprodução), porte de src/lib/coverage.ts do site: como foi feita, o que se repete de uma fêmea
 // para a outra e as contas da gestação. Regra pura, sem banco.
 
+import { tr } from '@/lib/i18n'
 export const COVERAGE_METHODS = [
   { key: 'ia', label: 'Inseminação', hint: 'cio observado' },
   { key: 'iatf', label: 'IATF', hint: 'tempo fixo' },
@@ -12,7 +13,7 @@ export type CoverageMethod = (typeof COVERAGE_METHODS)[number]['key']
 
 export const isCoverageMethod = (v: unknown): v is CoverageMethod => COVERAGE_METHODS.some(m => m.key === v)
 
-export const methodLabel = (m: string | null | undefined) => COVERAGE_METHODS.find(x => x.key === m)?.label ?? 'Cobertura'
+export const methodLabel = (m: string | null | undefined) => tr(COVERAGE_METHODS.find(x => x.key === m)?.label ?? 'Cobertura')
 
 /** Inseminação (com ou sem protocolo): tem partida de sêmen e inseminador. Monta e repasse são o touro. */
 export const isInsemination = (m: string | null | undefined) => m === 'ia' || m === 'iatf'
@@ -77,11 +78,11 @@ export function repeatCoverage(form: CoverageForm): CoverageForm {
 
 /** O que foi mantido para a próxima fêmea, para a tela avisar */
 export function repeatedFields(form: CoverageForm): string[] {
-  const kept: string[] = ['data']
+  const kept: string[] = [tr('data')]
   if (form.method) kept.push(methodLabel(form.method).toLowerCase())
-  if (form.maleName) kept.push(`touro ${form.maleName}`)
-  if (form.semenBatch && isInsemination(form.method)) kept.push(`partida ${form.semenBatch}`)
-  if (form.inseminator && isInsemination(form.method)) kept.push(`inseminador ${form.inseminator}`)
+  if (form.maleName) kept.push(`${tr('touro')} ${form.maleName}`)
+  if (form.semenBatch && isInsemination(form.method)) kept.push(`${tr('partida')} ${form.semenBatch}`)
+  if (form.inseminator && isInsemination(form.method)) kept.push(`${tr('inseminador')} ${form.inseminator}`)
   return kept
 }
 

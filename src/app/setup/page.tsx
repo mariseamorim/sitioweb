@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { PasswordInput } from '@/components/PasswordInput'
 
 export default function SetupPage() {
   const router = useRouter();
@@ -112,8 +113,7 @@ export default function SetupPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Senha *</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })}
                 required
@@ -124,8 +124,7 @@ export default function SetupPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar senha *</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={form.confirm}
                 onChange={e => setForm({ ...form, confirm: e.target.value })}
                 required

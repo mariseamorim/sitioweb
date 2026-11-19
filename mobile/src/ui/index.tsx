@@ -9,6 +9,8 @@ import { useSegments } from 'expo-router'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors, font, radius, space } from '@/theme'
 import { brDate } from '@/lib/format'
+import { Ionicons } from '@expo/vector-icons'
+import { useT } from '@/lib/i18n'
 
 /** Tela com rolagem. `header`: há cabeçalho de navegação acima (para calcular o espaço do teclado). */
 export function Screen({ children, scroll = true, style, background, header = true }: { children: ReactNode; scroll?: boolean; style?: ViewStyle; background?: string; header?: boolean }) {
@@ -56,11 +58,23 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
   )
 }
 
-export function Field({ label, hint, error, style, ...props }: TextInputProps & { label: string; hint?: string; error?: string | null }) {
+/** Campo de texto. Com secureTextEntry (senha) ganha o olho para mostrar ou esconder; noReveal tira o olho. */
+export function Field({ label, hint, error, style, noReveal, ...props }: TextInputProps & { label: string; hint?: string; error?: string | null; noReveal?: boolean }) {
+  const t = useT()
+  const [show, setShow] = useState(false)
+  const reveal = !!props.secureTextEntry && !noReveal
   return (
     <View style={[styles.field, style]}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput placeholderTextColor={colors.muted} {...props} style={[styles.input, props.multiline && { minHeight: 88, textAlignVertical: 'top' }]} />
+      <View>
+        <TextInput placeholderTextColor={colors.muted} {...props} secureTextEntry={reveal ? !show : props.secureTextEntry} style={[styles.input, props.multiline && { minHeight: 88, textAlignVertical: 'top' }, reveal && { paddingRight: 52 }]} />
+        {reveal ? (
+          <Pressable onPress={() => setShow(s => !s)} accessibilityRole="button" accessibilityLabel={t(show ? 'Esconder senha' : 'Mostrar senha')} accessibilityState={{ selected: show }}
+            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 52, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={show ? 'eye-off-outline' : 'eye-outline'} size={22} color={colors.muted} />
+          </Pressable>
+        ) : null}
+      </View>
       {error ? <Text style={styles.error}>{error}</Text> : hint ? <Text style={styles.hint}>{hint}</Text> : null}
     </View>
   )

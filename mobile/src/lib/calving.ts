@@ -1,4 +1,5 @@
 // Contas de crias e partos (porte de src/lib/calving.ts do site): usadas no painel da Reprodução e nos relatórios.
+import { tr } from '@/lib/i18n'
 import { animalToday, canAddCalf } from './animalRules'
 
 /** Crias nascidas com até estes dias de diferença são do mesmo parto (gêmeos) */
@@ -143,5 +144,5 @@ export function pregnancyChecks(herd: CowLike[], reproductions: ReproductionLike
   return checks.sort((a, b) => b.daysSince - a.daysSince)
 }
 
-export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
-export const monthsLabel = (n: number) => (n < 1 ? 'menos de 1 mês' : plural(n, 'mês', 'meses'))
+export const plural = (n: number, one: string, many: string) => `${n} ${tr(n === 1 ? one : many)}`
+export const monthsLabel = (n: number) => (n < 1 ? tr('menos de 1 mês') : plural(n, 'mês', 'meses'))

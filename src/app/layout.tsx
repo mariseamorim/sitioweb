@@ -39,6 +39,7 @@ export default function RootLayout({
             liga as regras de margem em globals.css. Script inline para valer antes da primeira pintura. O identificador
             "AnotaAiAgro/Android" é definido em capacitor.config.ts. */}
         <script dangerouslySetInnerHTML={{ __html: "if(navigator.userAgent.indexOf('AnotaAiAgro/Android')!==-1)document.documentElement.className+=' app-android'" }} />
+        <script dangerouslySetInnerHTML={{ __html: "try{var l=localStorage.getItem('lang')||(navigator.language||'').slice(0,2);if(l==='es')document.documentElement.lang='es'}catch(e){}" }} />
       </head>
       <body className={`${geistSans.variable} antialiased bg-gray-50 min-h-screen`}>
         <PwaRegistration />

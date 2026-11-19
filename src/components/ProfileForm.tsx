@@ -9,6 +9,7 @@ import { maskPhone } from '@/lib/masks'
 import { useDialog } from '@/components/DialogProvider'
 import { wipeDevice } from '@/lib/offlineUnlock'
 import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
+import { PasswordInput } from '@/components/PasswordInput'
 
 interface Profile {
   name: string
@@ -101,9 +102,9 @@ export function ProfileForm() {
           <fieldset className="flex flex-col gap-4">
             <legend className="mb-2 font-semibold">Segurança</legend>
             <p className="text-sm text-gray-500">{profile.hasPassword ? 'Para alterar o e-mail ou a senha, informe sua senha atual. Deixe a nova senha vazia para manter a atual.' : 'Você usa o Google para entrar. Pode criar uma senha para também entrar com e-mail e senha.'}</p>
-            {profile.hasPassword && <label>Senha atual<input type="password" autoComplete="current-password" className={input} value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} /></label>}
-            <label>Nova senha<input type="password" autoComplete="new-password" minLength={6} className={input} value={password} onChange={e => setPassword(e.target.value)} /></label>
-            <label>Confirmar nova senha<input type="password" autoComplete="new-password" className={input} value={confirmation} onChange={e => setConfirmation(e.target.value)} /></label>
+            {profile.hasPassword && <label>Senha atual<PasswordInput autoComplete="current-password" className={input} value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} /></label>}
+            <label>Nova senha<PasswordInput autoComplete="new-password" minLength={6} className={input} value={password} onChange={e => setPassword(e.target.value)} /></label>
+            <label>Confirmar nova senha<PasswordInput autoComplete="new-password" className={input} value={confirmation} onChange={e => setConfirmation(e.target.value)} /></label>
           </fieldset>
           {profile.googleConnected ? <p className="text-sm text-green-700">Conta Google conectada.</p> : <GoogleLoginButton link next={home === '/lite' ? '/lite/perfil' : '/perfil'} />}
           <button type="submit" className="rounded-lg bg-green-700 py-3 font-semibold text-white hover:bg-green-600">{saving ? 'Salvando...' : 'Salvar alterações'}</button>

@@ -2,9 +2,12 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { Alert, Text, View } from 'react-native'
 import { useSession } from '@/auth/session'
+import { isDemo } from '@/api/client'
 import { useSyncState } from '@/sync'
-import { Card, Muted, Row, Screen } from '@/ui'
+import { Card, Muted, Notice, Row, Screen } from '@/ui'
 import { colors, font, space } from '@/theme'
+import { useT } from '@/lib/i18n'
+import { LanguagePicker } from '@/ui/LanguagePicker'
 
 type Item = { title: string; detail?: string; href: string; module?: string; adminOnly?: boolean; /** Só para o veterinário consultor */ vetOnly?: boolean; icon: keyof typeof Ionicons.glyphMap }
 
@@ -50,12 +53,13 @@ export default function Mais() {
   const router = useRouter()
   const icon = (name: keyof typeof Ionicons.glyphMap) => <Ionicons name={name} size={22} color={colors.muted} />
   const isAdmin = user?.role === 'admin'
+  const t = useT()
 
   function sair() {
-    const aviso = sync.pending > 0 ? `Há ${sync.pending} registro(s) ainda não enviados ao servidor. Se sair agora, eles serão perdidos. ` : ''
-    Alert.alert('Sair da conta', aviso + 'Os dados guardados neste aparelho serão apagados.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive', onPress: async () => { await logout(); router.replace('/login') } },
+    const aviso = sync.pending > 0 ? t('Há {n} registro(s) ainda não enviados ao servidor. Se sair agora, eles serão perdidos.', { n: sync.pending }) + ' ' : ''
+    Alert.alert(t('Sair da conta'), aviso + t('Os dados guardados neste aparelho serão apagados.'), [
+      { text: t('Cancelar'), style: 'cancel' },
+      { text: t('Sair'), style: 'destructive', onPress: async () => { await logout(); router.replace('/login') } },
     ])
   }
 
@@ -63,24 +67,26 @@ export default function Mais() {
 
   return (
     <Screen>
+      {isDemo() ? <Notice tone="blue" text={t('Demonstração: dados fictícios, guardados só neste celular. Nada é enviado ao servidor. Para sair, use "Sair da conta" em Mais.')} /> : null}
       <Card onPress={() => router.push('/perfil')}>
         <Text style={{ fontWeight: '700', fontSize: 18, color: colors.text }}>{user?.name}</Text>
-        <Muted>{user?.farmName ?? 'Sem propriedade aberta'}</Muted>
-        <Text style={{ color: colors.green, fontWeight: '600', fontSize: font.sm, marginTop: space.xs }}>Meu cadastro ›</Text>
+        <Muted>{user?.farmName ?? t('Sem propriedade aberta')}</Muted>
+        <Text style={{ color: colors.green, fontWeight: '600', fontSize: font.sm, marginTop: space.xs }}>{t('Meu cadastro')} ›</Text>
       </Card>
       {groups.map(g => (
         <View key={g.label}>
-          <Text style={{ fontSize: font.sm, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', marginBottom: space.xs, marginLeft: space.xs }}>{g.label}</Text>
+          <Text style={{ fontSize: font.sm, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', marginBottom: space.xs, marginLeft: space.xs }}>{t(g.label)}</Text>
           <Card style={{ paddingVertical: 4 }}>
-            {g.items.map(i => <Row key={i.href} title={i.title} detail={i.detail} right={icon(i.icon)} onPress={() => router.push(i.href as never)} />)}
+            {g.items.map(i => <Row key={i.href} title={t(i.title)} detail={i.detail && t(i.detail)} right={icon(i.icon)} onPress={() => router.push(i.href as never)} />)}
           </Card>
         </View>
       ))}
       <Card style={{ paddingVertical: 4 }}>
-        <Row title="Sincronização" detail={sync.pending ? `${sync.pending} para enviar` : sync.online ? 'Em dia' : 'Sem internet'} right={icon('sync-outline')} onPress={() => router.push('/sincronizacao')} />
-        {(user?.farms.length ?? 0) > 1 || isAdmin ? <Row title="Trocar de propriedade" right={icon('swap-horizontal-outline')} onPress={() => router.push('/propriedade')} /> : null}
-        <Row title="Sair da conta" right={icon('log-out-outline')} onPress={sair} />
+        <Row title={t('Sincronização')} detail={sync.pending ? t('{n} para enviar', { n: sync.pending }) : t(sync.online ? 'Em dia' : 'Sem internet')} right={icon('sync-outline')} onPress={() => router.push('/sincronizacao')} />
+        {(user?.farms.length ?? 0) > 1 || isAdmin ? <Row title={t('Trocar de propriedade')} right={icon('swap-horizontal-outline')} onPress={() => router.push('/propriedade')} /> : null}
+        <Row title={t('Sair da conta')} right={icon('log-out-outline')} onPress={sair} />
       </Card>
+      <LanguagePicker />
       <View style={{ alignItems: 'center', marginTop: 8 }}><Muted>Anota Aí Agro · app Android</Muted></View>
     </Screen>
   )

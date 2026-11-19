@@ -8,6 +8,7 @@ import { BackLink } from '@/components/BackLink'
 import { GoogleLoginButton } from '@/components/GoogleLoginButton'
 import { useRegistrationAccount } from '@/lib/useRegistrationAccount'
 import { maskPhone } from '@/lib/masks'
+import { PasswordInput } from '@/components/PasswordInput'
 
 type Profile = 'produtor' | 'motorista'
 
@@ -91,7 +92,7 @@ export default function LiteCadastroPage() {
             <span className="mt-1 block text-xs font-normal text-gray-500">Você entra com o telefone ou com o e-mail. Informe pelo menos um.</span>
           </label>
           <label className="text-sm font-medium text-gray-700">Senha
-            <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required className={input} />
+            <PasswordInput value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required className={input} />
           </label></>}
 
           {driver ? (

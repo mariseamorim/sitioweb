@@ -1,6 +1,8 @@
 // Indicadores de reprodução de uma propriedade: partos previstos por mês, taxa de prenhez por mês da cobertura,
 // leite por mês e as frases de destaque. Só contas, sem banco: o site calcula no servidor e o aplicativo no aparelho
-// (cópia idêntica de src/lib/reproInsights.ts do site — ao mudar um, mude o outro).
+// (cópia de src/lib/reproInsights.ts do site — ao mudar um, mude o outro; aqui os textos passam por tr() para o
+// idioma escolhido no app).
+import { tr } from '@/lib/i18n'
 
 export interface CoverageRow {
   coverageDate: string
@@ -44,7 +46,7 @@ export function addMonths(month: string, delta: number): string {
 }
 
 /** "2026-11" → "novembro" */
-export const monthName = (month: string) => MONTHS[Number(month.slice(5, 7)) - 1] ?? month
+export const monthName = (month: string) => { const m = MONTHS[Number(month.slice(5, 7)) - 1]; return m ? tr(m) : month }
 /** "2026-11" → "nov"; janeiro leva o ano ("jan/27") para marcar a virada */
 export function monthShort(month: string): string {
   const name = monthName(month).slice(0, 3)
@@ -80,10 +82,10 @@ export function buildIndicators(coverages: CoverageRow[], milkByMonth: MonthLite
   if (peak.count > 0) {
     const total = births.reduce((sum, m) => sum + m.count, 0)
     insights.push(total === peak.count
-      ? `${peak.count} ${peak.count === 1 ? 'parto previsto' : 'partos previstos'} para ${monthName(peak.month)}.`
-      : `Maior concentração de partos em ${monthName(peak.month)}: ${peak.count} dos ${total} previstos nos próximos 6 meses.`)
+      ? tr(peak.count === 1 ? '{n} parto previsto para {month}.' : '{n} partos previstos para {month}.', { n: peak.count, month: monthName(peak.month) })
+      : tr('Maior concentração de partos em {month}: {n} dos {total} previstos nos próximos 6 meses.', { month: monthName(peak.month), n: peak.count, total }))
   } else {
-    insights.push('Nenhum parto previsto nos próximos 6 meses.')
+    insights.push(tr('Nenhum parto previsto nos próximos 6 meses.'))
   }
 
   // Tendência da prenhez: os 3 meses mais recentes com diagnóstico contra os 3 anteriores
@@ -93,12 +95,12 @@ export function buildIndicators(coverages: CoverageRow[], milkByMonth: MonthLite
     const recent = rateOf(withRate.slice(-3))
     const before = rateOf(withRate.slice(-6, -3))
     if (Math.abs(recent - before) >= 10) {
-      insights.push(`A taxa de concepção ${recent < before ? 'caiu' : 'subiu'} de ${before}% para ${recent}% nas coberturas mais recentes.`)
+      insights.push(tr(recent < before ? 'A taxa de concepção caiu de {before}% para {recent}% nas coberturas mais recentes.' : 'A taxa de concepção subiu de {before}% para {recent}% nas coberturas mais recentes.', { before, recent }))
     }
   }
 
   const late = waiting.filter((c) => (Date.parse(today) - Date.parse(c.coverageDate.slice(0, 10))) / DAY > LATE_DIAGNOSIS_DAYS).length
-  if (late > 0) insights.push(`${late} ${late === 1 ? 'cobertura com' : 'coberturas com'} mais de ${LATE_DIAGNOSIS_DAYS} dias ainda sem diagnóstico de gestação.`)
+  if (late > 0) insights.push(tr(late === 1 ? '{n} cobertura com mais de {days} dias ainda sem diagnóstico de gestação.' : '{n} coberturas com mais de {days} dias ainda sem diagnóstico de gestação.', { n: late, days: LATE_DIAGNOSIS_DAYS }))
 
   // Leite: os dois últimos meses fechados (o mês atual ainda está pela metade)
   if (milk) {
@@ -106,7 +108,7 @@ export function buildIndicators(coverages: CoverageRow[], milkByMonth: MonthLite
     const previous = milk[milk.length - 3]
     if (last && previous && previous.liters > 0 && last.liters > 0) {
       const change = Math.round(((last.liters - previous.liters) / previous.liters) * 100)
-      if (Math.abs(change) >= 10) insights.push(`A produção de leite ${change < 0 ? 'caiu' : 'subiu'} ${Math.abs(change)}% de ${monthName(previous.month)} para ${monthName(last.month)}.`)
+      if (Math.abs(change) >= 10) insights.push(tr(change < 0 ? 'A produção de leite caiu {n}% de {from} para {to}.' : 'A produção de leite subiu {n}% de {from} para {to}.', { n: Math.abs(change), from: monthName(previous.month), to: monthName(last.month) }))
     }
   }
 

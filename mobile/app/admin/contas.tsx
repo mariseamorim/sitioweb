@@ -147,7 +147,7 @@ function EditAccount({ account, onClose, onPassword }: { account: Account; onClo
           <Field label="E-mail" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" editable={!saving}
             hint="A pessoa entra com o telefone ou com o e-mail. Pelo menos um precisa ficar." />
           <View style={{ backgroundColor: colors.amberSoft, borderRadius: 12, padding: space.md, marginBottom: space.md }}>
-            <Field label="Nova senha (deixe vazio para manter a atual)" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} autoCapitalize="none" autoCorrect={false} editable={!saving} style={{ marginBottom: 0 }} />
+            <Field label="Nova senha (deixe vazio para manter a atual)" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} noReveal autoCapitalize="none" autoCorrect={false} editable={!saving} style={{ marginBottom: 0 }} />
             <View style={{ flexDirection: 'row', gap: space.md }}>
               <TextButton label="Gerar senha" onPress={() => { setPassword(suggestPassword()); setShowPassword(true) }} />
               <TextButton label={showPassword ? 'Ocultar' : 'Mostrar'} tone="muted" onPress={() => setShowPassword(v => !v)} />

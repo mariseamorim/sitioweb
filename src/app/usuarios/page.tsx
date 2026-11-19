@@ -11,6 +11,7 @@ import { SortTh } from '@/components/SortTh'
 import { contactLabel } from '@/lib/identity'
 import { maskPhone } from '@/lib/masks'
 import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
+import { PasswordInput } from '@/components/PasswordInput'
 
 interface User {
   id: string
@@ -288,7 +289,7 @@ export default function UsuariosPage() {
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-600">Senha *</label>
-                    <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required
+                    <PasswordInput value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                   <div>

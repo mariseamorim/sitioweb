@@ -1,6 +1,7 @@
 // Chamadas ao servidor do site (as mesmas rotas /api/* que o site usa). O app não usa cookies: manda o token da
 // sessão no cabeçalho Authorization e identifica-se com X-Anota-Client para o servidor devolver o token no corpo.
 import Constants from 'expo-constants'
+import { DEMO_TOKEN, demoApi } from '@/demo'
 
 export const API_BASE: string = Constants.expoConfig?.extra?.apiBase ?? 'https://www.anotaaiagro.com.br'
 export const NET_TIMEOUT_MS = 15000
@@ -30,6 +31,11 @@ export function getToken() {
   return token
 }
 
+/** Sessão de demonstração (dados fictícios, nada vai ao servidor; ver src/demo). */
+export function isDemo() {
+  return token === DEMO_TOKEN
+}
+
 export interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
@@ -37,6 +43,11 @@ export interface ApiOptions {
 }
 
 export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Promise<T> {
+  if (isDemo()) {
+    const res = demoApi(path, opts.method ?? 'GET', opts.body ?? null)
+    if (res === undefined) throw new NetworkError('Sem conexão')
+    return res as T
+  }
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? NET_TIMEOUT_MS)
   let response: Response

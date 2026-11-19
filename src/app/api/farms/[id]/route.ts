@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { canAccessModule, canEdit, getSessionUser } from '@/lib/auth'
 import { isFarmMember, parseSegments } from '@/lib/farms'
+import { normalizeRegion } from '@/lib/identity'
+import { DOCUMENT_TYPES } from '@/lib/masks'
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const me = await getSessionUser()
@@ -38,10 +40,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
   if ('name' in data && !data.name) return NextResponse.json({ error: 'Nome é obrigatório' }, { status: 400 })
   if ('propertyType' in data && !['Fazenda', 'Sítio'].includes(String(data.propertyType ?? ''))) return NextResponse.json({ error: 'Tipo de propriedade inválido' }, { status: 400 })
-  if (data.documentType && !['CPF', 'CNPJ'].includes(String(data.documentType))) return NextResponse.json({ error: 'Tipo de documento inválido' }, { status: 400 })
+  if (data.documentType && !(DOCUMENT_TYPES as readonly string[]).includes(String(data.documentType))) return NextResponse.json({ error: 'Tipo de documento inválido' }, { status: 400 })
   if (data.state) {
-    data.state = String(data.state).toUpperCase()
-    if (!/^[A-Z]{2}$/.test(data.state)) return NextResponse.json({ error: 'Informe a sigla do estado com duas letras' }, { status: 400 })
+    const region = normalizeRegion(data.state)
+    if (region === 'invalid') return NextResponse.json({ error: 'Informe a sigla do estado com duas letras' }, { status: 400 })
+    data.state = region
   }
 
   try {

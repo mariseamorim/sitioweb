@@ -1,6 +1,8 @@
+'use client'
 // Gráficos por mês, de uma série só (o título do cartão diz o que é, então não há legenda).
 // Colunas para quantidades, linha para taxa ao longo do tempo. Rótulos só no maior valor e no último ponto;
 // o valor de cada mês aparece ao passar o mouse ou focar, e a tabela abaixo do gráfico traz todos.
+import { useLocale, useT } from '@/lib/i18n'
 
 export interface MonthPoint {
   /** Rótulo do eixo: "nov", "jan/27" */
@@ -29,12 +31,14 @@ function niceMax(max: number): number {
   return step * power
 }
 
-const compact = (n: number) => (n >= 10000 ? `${Math.round(n / 1000)} mil` : n.toLocaleString('pt-BR'))
+// "mil" é igual em português e espanhol; o separador de milhar segue o idioma
+const compact = (n: number, locale: string) => (n >= 10000 ? `${Math.round(n / 1000)} mil` : n.toLocaleString(locale))
 
 function Frame({ max, unit, labels, name, children }: { max: number; unit: string; labels: string[]; name: string; children: React.ReactNode }) {
   const band = PLOT_W / labels.length
   // Com 12 meses, rótulo em meses alternados para não encostar
   const every = labels.length > 8 ? 2 : 1
+  const locale = useLocale()
   return (
     <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={name} className="w-full h-auto">
       {[0, 0.5, 1].map((t) => {
@@ -42,7 +46,7 @@ function Frame({ max, unit, labels, name, children }: { max: number; unit: strin
         return (
           <g key={t}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y} y2={y} stroke={GRID} strokeWidth={1} />
-            <text x={PAD.left - 6} y={y + 3.5} textAnchor="end" fontSize={10} fill={TEXT}>{compact(Math.round(max * t))}{unit}</text>
+            <text x={PAD.left - 6} y={y + 3.5} textAnchor="end" fontSize={10} fill={TEXT}>{compact(Math.round(max * t), locale)}{unit}</text>
           </g>
         )
       })}
@@ -70,6 +74,7 @@ export function ColumnChart({ points, name, unit = '' }: { points: MonthPoint[];
   const width = Math.min(24, band - 4)
   const base = PAD.top + PLOT_H
   const marks = labeled(points)
+  const locale = useLocale()
   return (
     <Frame max={max} unit={unit} labels={points.map((p) => p.label)} name={name}>
       {points.map((p, i) => {
@@ -83,7 +88,7 @@ export function ColumnChart({ points, name, unit = '' }: { points: MonthPoint[];
             {/* Alvo do toque: a faixa inteira do mês, maior que a coluna */}
             <rect x={PAD.left + band * i} y={PAD.top} width={band} height={PLOT_H} fill="transparent" />
             {h > 0 && <path d={`M${x},${base} V${base - h + r} Q${x},${base - h} ${x + r},${base - h} H${x + width - r} Q${x + width},${base - h} ${x + width},${base - h + r} V${base} Z`} fill={SERIES} />}
-            {marks.has(i) && <text x={x + width / 2} y={base - h - 5} textAnchor="middle" fontSize={11} fontWeight={600} fill={INK}>{compact(value)}{unit}</text>}
+            {marks.has(i) && <text x={x + width / 2} y={base - h - 5} textAnchor="middle" fontSize={11} fontWeight={600} fill={INK}>{compact(value, locale)}{unit}</text>}
           </g>
         )
       })}
@@ -105,6 +110,7 @@ export function LineChart({ points, name, unit = '', max: fixedMax }: { points: 
     pen = true
   })
   const marks = labeled(points)
+  const locale = useLocale()
   return (
     <Frame max={max} unit={unit} labels={points.map((p) => p.label)} name={name}>
       <path d={d} fill="none" stroke={SERIES} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
@@ -116,7 +122,7 @@ export function LineChart({ points, name, unit = '', max: fixedMax }: { points: 
             <title>{p.title}</title>
             <rect x={PAD.left + band * i} y={PAD.top} width={band} height={PLOT_H} fill="transparent" />
             <circle cx={x} cy={y} r={4} fill={SERIES} stroke="#ffffff" strokeWidth={2} />
-            {marks.has(i) && <text x={x} y={y - 9} textAnchor="middle" fontSize={11} fontWeight={600} fill={INK}>{compact(p.value)}{unit}</text>}
+            {marks.has(i) && <text x={x} y={y - 9} textAnchor="middle" fontSize={11} fontWeight={600} fill={INK}>{compact(p.value, locale)}{unit}</text>}
           </g>
         )
       })}
@@ -126,9 +132,10 @@ export function LineChart({ points, name, unit = '', max: fixedMax }: { points: 
 
 /** Os mesmos números em tabela, para quem não lê o gráfico (leitor de tela, impressão) ou quer o valor exato de cada mês */
 export function ChartTable({ caption, columns, rows }: { caption: string; columns: string[]; rows: (string | number)[][] }) {
+  const t = useT()
   return (
     <details className="mt-2 text-sm">
-      <summary className="cursor-pointer text-gray-600 hover:text-gray-900">Ver em tabela</summary>
+      <summary className="cursor-pointer text-gray-600 hover:text-gray-900">{t('Ver em tabela')}</summary>
       <table className="mt-2 w-full text-left">
         <caption className="sr-only">{caption}</caption>
         <thead><tr>{columns.map((c) => <th key={c} scope="col" className="border-b border-gray-200 py-1.5 pr-3 font-medium text-gray-600">{c}</th>)}</tr></thead>

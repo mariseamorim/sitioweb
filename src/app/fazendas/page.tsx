@@ -306,10 +306,12 @@ export default function PropriedadesPage() {
                     >
                       <option value="CNPJ">CNPJ</option>
                       <option value="CPF">CPF</option>
+                      <option value="RUC">RUC (Paraguay)</option>
+                      <option value="CI">CI (Paraguay)</option>
                     </select>
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="text-xs font-medium text-gray-600">Documento (CPF/CNPJ)</label>
+                    <label className="text-xs font-medium text-gray-600">Documento</label>
                     <input
                       value={form.documentNumber}
                       onChange={(e) => setForm({ ...form, documentNumber: maskDocument(e.target.value, form.documentType) })}
