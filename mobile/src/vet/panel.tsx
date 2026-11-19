@@ -15,6 +15,8 @@ import { colors, font, space } from '@/theme'
 export interface VetClient {
   id: string; farmId: string; name: string; owner: string | null; city: string | null; state: string | null
   animals: number; awaitingDiagnosis: number; pregnancyRate: number | null; birthsSoon: number
+  /** Partos previstos por mês ("AAAA-MM"): o mês atual e os 5 seguintes */
+  birthsByMonth?: { month: string; count: number }[]
 }
 export interface VetVisit { id: string; clientId: string | null; farmName: string; date: string; time: string | null; purpose: string | null }
 export interface VetTask { farmId: string; title: string; detail?: string; n: number; late?: number; href: string; tone: 'red' | 'amber' | 'blue' }

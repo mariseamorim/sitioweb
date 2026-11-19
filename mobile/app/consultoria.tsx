@@ -6,6 +6,7 @@ import { Button, Card, Empty, Muted, Notice, Screen, Stat } from '@/ui'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 import { useOpenFarm, useVetPanel, VetAgenda, VetTasks, type VetClient } from '@/vet/panel'
+import { VetCharts } from '@/vet/charts'
 
 // Painel do veterinário consultor (como src/app/consultoria/page.tsx do site): o que fazer em cada propriedade, a
 // agenda de visitas e as propriedades atendidas com os números de reprodução. Os números vêm do servidor; sem internet
@@ -39,6 +40,7 @@ export default function Consultoria() {
 
       <VetTasks panel={panel} onOpen={(farmId, href) => void open(farmId, href)} busy={busy} />
       <VetAgenda panel={panel} onChanged={reload} />
+      <VetCharts panel={panel} onOpen={(farmId, href) => void open(farmId, href)} busy={busy} />
 
       <Card style={{ backgroundColor: colors.greenSoft, borderColor: colors.green }}>
         <Text style={{ fontWeight: '700', color: colors.greenDark }}>{t('Seu código de veterinário')}</Text>

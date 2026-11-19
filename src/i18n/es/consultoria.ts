@@ -207,4 +207,12 @@ export const consultoria: Record<string, string> = {
   '{n} já passaram da data': '{n} ya pasaron la fecha',
   'Mostrar menos': 'Mostrar menos',
   'Ver todas ({n})': 'Ver todas ({n})',
+  // Gráficos do painel do veterinário
+  'Concepção por propriedade': 'Concepción por establecimiento',
+  'Das diagnosticadas nos últimos 12 meses, quantas ficaram prenhas. Toque para ver os indicadores.': 'De las diagnosticadas en los últimos 12 meses, cuántas quedaron preñadas. Toque para ver los indicadores.',
+  'Outras ({n})': 'Otros ({n})',
+  'Todas as propriedades, pelas coberturas em aberto': 'Todos los establecimientos, según los servicios abiertos',
+  'Partos previstos por mês nos próximos 6 meses, por propriedade': 'Partos previstos por mes en los próximos 6 meses, por establecimiento',
+  'Partos previstos por mês, por propriedade': 'Partos previstos por mes, por establecimiento',
+  '— ainda sem diagnóstico de gestação nos últimos 12 meses': '— todavía sin diagnóstico de preñez en los últimos 12 meses',
 }

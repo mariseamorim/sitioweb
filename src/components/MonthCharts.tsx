@@ -24,7 +24,7 @@ const TEXT = '#6b7280'
 const INK = '#111827'
 
 /** Topo do eixo arredondado para um número limpo cuja metade também é limpa (4 → 4, 13 → 20, 870 → 1000) */
-function niceMax(max: number): number {
+export function niceMax(max: number): number {
   if (max <= 4) return 4
   const power = 10 ** Math.floor(Math.log10(max))
   const step = [1, 2, 4, 5, 10].find((s) => s * power >= max) ?? 10
@@ -34,7 +34,7 @@ function niceMax(max: number): number {
 // "mil" é igual em português e espanhol; o separador de milhar segue o idioma
 const compact = (n: number, locale: string) => (n >= 10000 ? `${Math.round(n / 1000)} mil` : n.toLocaleString(locale))
 
-function Frame({ max, unit, labels, name, children }: { max: number; unit: string; labels: string[]; name: string; children: React.ReactNode }) {
+export function Frame({ max, unit, labels, name, children }: { max: number; unit: string; labels: string[]; name: string; children: React.ReactNode }) {
   const band = PLOT_W / labels.length
   // Com 12 meses, rótulo em meses alternados para não encostar
   const every = labels.length > 8 ? 2 : 1
