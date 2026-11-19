@@ -8,6 +8,7 @@ import { FARM_SEGMENTS } from '@/lib/farmSegments'
 import { DOCUMENT_PLACEHOLDER, maskDocument, maskPhone } from '@/lib/masks'
 import { contactLabel } from '@/lib/identity'
 import { useLang, useT } from '@/lib/i18n'
+import { PasswordInput } from '@/components/PasswordInput'
 
 const EMPTY_FARM = { name: '', propertyType: 'Fazenda', documentType: 'CNPJ', documentNumber: '', owner: '', phone: '', address: '', city: '', state: '' }
 
@@ -73,8 +74,8 @@ export default function CadastroPage() {
               <label>{t('Telefone')}<input type="tel" inputMode="tel" autoComplete="tel" placeholder={phoneHint} className={input} value={user.phone} onChange={e => setUser({ ...user, phone: maskPhone(e.target.value) })} /></label>
               <label>{t('E-mail')} <span className="text-gray-400">{t('(opcional)')}</span><input type="email" autoComplete="email" className={input} value={user.email} onChange={e => setUser({ ...user, email: e.target.value })} /></label>
               <p className="-mt-2 text-xs text-gray-500">{t('Você entra com o telefone ou com o e-mail. Informe pelo menos um.')}</p>
-              <label>{t('Senha')}<input required type="password" minLength={6} autoComplete="new-password" className={input} value={user.password} onChange={e => setUser({ ...user, password: e.target.value })} /></label>
-              <label>{t('Confirmar senha')}<input required type="password" minLength={6} autoComplete="new-password" className={input} value={user.confirm} onChange={e => setUser({ ...user, confirm: e.target.value })} /></label>
+              <label>{t('Senha')}<PasswordInput required minLength={6} autoComplete="new-password" className={input} value={user.password} onChange={e => setUser({ ...user, password: e.target.value })} /></label>
+              <label>{t('Confirmar senha')}<PasswordInput required minLength={6} autoComplete="new-password" className={input} value={user.confirm} onChange={e => setUser({ ...user, confirm: e.target.value })} /></label>
             </> : <>
               <label>{t('Tipo de propriedade')}<select className={input} value={farm.propertyType} onChange={e => setFarm({ ...farm, propertyType: e.target.value })}><option value="Fazenda">{t('Fazenda')}</option><option value="Sítio">{t('Sítio')}</option></select></label>
               <fieldset><legend>{t('O que a propriedade faz? (pode marcar mais de um)')}</legend>

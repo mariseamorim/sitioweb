@@ -8,6 +8,7 @@ import { useRegistrationAccount } from '@/lib/useRegistrationAccount'
 import { maskPhone } from '@/lib/masks'
 import { useLang, useT } from '@/lib/i18n'
 import { LanguagePicker } from '@/components/LanguagePicker'
+import { PasswordInput } from '@/components/PasswordInput'
 
 const EMPTY = { name: '', crmv: '', city: '', state: '', phone: '', email: '', password: '', confirm: '' }
 
@@ -88,10 +89,10 @@ export default function CadastroVeterinarioPage() {
                   <input type="email" value={form.email} onChange={set('email')} className={`mt-1 ${input}`} />
                 </label>
                 <label className="text-sm font-medium text-gray-700">{t('Senha')} *
-                  <input type="password" value={form.password} onChange={set('password')} required className={`mt-1 ${input}`} />
+                  <PasswordInput value={form.password} onChange={set('password')} required className={`mt-1 ${input}`} />
                 </label>
                 <label className="text-sm font-medium text-gray-700">{t('Repita a senha')} *
-                  <input type="password" value={form.confirm} onChange={set('confirm')} required className={`mt-1 ${input}`} />
+                  <PasswordInput value={form.confirm} onChange={set('confirm')} required className={`mt-1 ${input}`} />
                 </label>
               </div>
             </fieldset>}

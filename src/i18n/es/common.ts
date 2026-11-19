@@ -78,4 +78,6 @@ export const common: Record<string, string> = {
   'Observações': 'Observaciones',
   'Sem internet': 'Sin internet',
   'Tentar de novo': 'Intentar de nuevo',
+  'Mostrar senha': 'Mostrar contraseña',
+  'Esconder senha': 'Ocultar contraseña',
 }

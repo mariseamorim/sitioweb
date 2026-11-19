@@ -12,6 +12,7 @@ import { canUnlockOffline, offlineCredentialFor, saveOfflineCredential, unlockOf
 import { homeForRole } from '@/lib/organizations'
 import { useT } from '@/lib/i18n'
 import { LanguagePicker } from '@/components/LanguagePicker'
+import { PasswordInput } from '@/components/PasswordInput'
 
 export default function LoginPage() {
   const t = useT();
@@ -140,8 +141,7 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">{t('Senha')}</label>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

@@ -125,4 +125,6 @@ export const common: Record<string, string> = {
   'Tempo esgotado': 'Tiempo agotado',
   'Use a mesma conta do site www.anotaaiagro.com.br. Para criar uma conta ou entrar com Google, use o site.': 'Use la misma cuenta del sitio www.anotaaiagro.com.br. Para crear una cuenta o ingresar con Google, use el sitio.',
   'O app fechou com erro da última vez. Tire um print e mande para o suporte:': 'La app se cerró con un error la última vez. Haga una captura y envíela al soporte:',
+  'Mostrar senha': 'Mostrar contraseña',
+  'Esconder senha': 'Ocultar contraseña',
 }

@@ -7,6 +7,7 @@ import { GoogleLoginButton } from '@/components/GoogleLoginButton'
 import { useRegistrationAccount } from '@/lib/useRegistrationAccount'
 import { ORG_TYPES, type OrgType } from '@/lib/organizations'
 import { maskDocument, maskPhone } from '@/lib/masks'
+import { PasswordInput } from '@/components/PasswordInput'
 
 const EMPTY = { name: '', document: '', contactName: '', phone: '', city: '', state: '', email: '', password: '', confirm: '' }
 const input = 'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
@@ -96,10 +97,10 @@ export function OrgSignupForm({ type }: { type: OrgType }) {
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label className="text-sm font-medium text-gray-700">Senha *
-                    <input type="password" value={form.password} onChange={set('password')} required className={`mt-1 ${input}`} />
+                    <PasswordInput value={form.password} onChange={set('password')} required className={`mt-1 ${input}`} />
                   </label>
                   <label className="text-sm font-medium text-gray-700">Repita a senha *
-                    <input type="password" value={form.confirm} onChange={set('confirm')} required className={`mt-1 ${input}`} />
+                    <PasswordInput value={form.confirm} onChange={set('confirm')} required className={`mt-1 ${input}`} />
                   </label>
                 </div>
               </fieldset>

@@ -6,6 +6,7 @@ import { BackLink } from '@/components/BackLink'
 import { GoogleLoginButton } from '@/components/GoogleLoginButton'
 import { useRegistrationAccount } from '@/lib/useRegistrationAccount'
 import { maskDocument, maskPhone } from '@/lib/masks'
+import { PasswordInput } from '@/components/PasswordInput'
 
 const EMPTY = {
   companyName: '', document: '', contactName: '', phone: '', whatsapp: '',
@@ -106,10 +107,10 @@ export default function CadastroFornecedorPage() {
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <label className="text-sm font-medium text-gray-700">Senha *
-                <input type="password" value={form.password} onChange={set('password')} required className={`mt-1 ${input}`} />
+                <PasswordInput value={form.password} onChange={set('password')} required className={`mt-1 ${input}`} />
               </label>
               <label className="text-sm font-medium text-gray-700">Repita a senha *
-                <input type="password" value={form.confirm} onChange={set('confirm')} required className={`mt-1 ${input}`} />
+                <PasswordInput value={form.confirm} onChange={set('confirm')} required className={`mt-1 ${input}`} />
               </label>
             </div>
           </fieldset>}
