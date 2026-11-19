@@ -3,10 +3,12 @@
 import { useState } from 'react'
 import { useDialog } from '@/components/DialogProvider'
 import { switchFarm } from '@/lib/farmSwitch'
+import { useT } from '@/lib/i18n'
 
 /** Abre outra propriedade do produtor (com a mesma proteção do seletor do topo) */
 export function OpenFarmButton({ farmId, className = '' }: { farmId: string; className?: string }) {
   const { notify } = useDialog()
+  const t = useT()
   const [busy, setBusy] = useState(false)
 
   async function open() {
@@ -18,7 +20,7 @@ export function OpenFarmButton({ farmId, className = '' }: { farmId: string; cla
 
   return (
     <button type="button" onClick={() => void open()} disabled={busy} className={className}>
-      {busy ? 'Abrindo...' : 'Abrir'}
+      {t(busy ? 'Abrindo...' : 'Abrir')}
     </button>
   )
 }

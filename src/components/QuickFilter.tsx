@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useT } from '@/lib/i18n'
 
 // Filtro vindo de um cartão do Painel (?filtro=...): a tela abre já filtrada e mostra uma etiqueta para limpar
 
@@ -21,13 +22,14 @@ export function useQuickFilter<T extends string>(allowed: readonly T[]): [T | nu
 }
 
 export function QuickFilterChip({ label, count, onClear }: { label: string; count?: number; onClear: () => void }) {
+  const t = useT()
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
       <span className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 py-1 pl-3 pr-1 text-sm font-semibold text-green-900">
-        Mostrando: {label}{count !== undefined ? ` (${count})` : ''}
-        <button type="button" onClick={onClear} aria-label={`Limpar filtro ${label}`} className="flex h-7 w-7 items-center justify-center rounded-full text-green-800 hover:bg-green-100">✕</button>
+        {t('Mostrando:')} {t(label)}{count !== undefined ? ` (${count})` : ''}
+        <button type="button" onClick={onClear} aria-label={t('Limpar filtro {name}', { name: t(label) })} className="flex h-7 w-7 items-center justify-center rounded-full text-green-800 hover:bg-green-100">✕</button>
       </span>
-      <button type="button" onClick={onClear} className="text-sm font-medium text-gray-600 underline">Ver todos</button>
+      <button type="button" onClick={onClear} className="text-sm font-medium text-gray-600 underline">{t('Ver todos')}</button>
     </div>
   )
 }

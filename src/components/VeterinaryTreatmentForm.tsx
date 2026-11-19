@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useT } from '@/lib/i18n'
 
 interface VeterinaryTreatmentFormProps {
   animalId: string
@@ -8,6 +9,7 @@ interface VeterinaryTreatmentFormProps {
 }
 
 export function VeterinaryTreatmentForm({ animalId, onSuccess }: VeterinaryTreatmentFormProps) {
+  const t = useT()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -36,12 +38,12 @@ export function VeterinaryTreatmentForm({ animalId, onSuccess }: VeterinaryTreat
         body: JSON.stringify(data),
       })
 
-      if (!response.ok) throw new Error('Failed to add veterinary treatment')
+      if (!response.ok) throw new Error('Erro ao adicionar tratamento')
 
       formEl.reset()
       onSuccess?.()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao adicionar tratamento')
+      setError(err instanceof Error ? t(err.message) : t('Erro ao adicionar tratamento'))
     } finally {
       setLoading(false)
     }
@@ -49,7 +51,7 @@ export function VeterinaryTreatmentForm({ animalId, onSuccess }: VeterinaryTreat
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <h2 className="text-lg font-semibold text-gray-800 mb-4">Registrar Tratamento</h2>
+      <h2 className="text-lg font-semibold text-gray-800 mb-4">{t('Registrar Tratamento')}</h2>
 
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">{error}</p>
@@ -57,7 +59,7 @@ export function VeterinaryTreatmentForm({ animalId, onSuccess }: VeterinaryTreat
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="text-xs font-medium text-gray-600">Data Início *</label>
+          <label className="text-xs font-medium text-gray-600">{t('Data Início')} *</label>
           <input
             type="date"
             name="startDate"
@@ -67,7 +69,7 @@ export function VeterinaryTreatmentForm({ animalId, onSuccess }: VeterinaryTreat
         </div>
 
         <div>
-          <label className="text-xs font-medium text-gray-600">Data Fim</label>
+          <label className="text-xs font-medium text-gray-600">{t('Data Fim')}</label>
           <input
             type="date"
             name="endDate"
@@ -76,48 +78,48 @@ export function VeterinaryTreatmentForm({ animalId, onSuccess }: VeterinaryTreat
         </div>
 
         <div>
-          <label className="text-xs font-medium text-gray-600">Medicamento *</label>
+          <label className="text-xs font-medium text-gray-600">{t('Medicamento')} *</label>
           <input
             type="text"
             name="medicine"
             required
-            placeholder="Ex: Amoxicilina"
+            placeholder={t('Ex: Amoxicilina')}
             className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
           />
         </div>
 
         <div>
-          <label className="text-xs font-medium text-gray-600">Lote</label>
+          <label className="text-xs font-medium text-gray-600">{t('Lote')}</label>
           <input
             type="text"
             name="batch"
-            placeholder="Ex: 123456"
+            placeholder={t('Ex: 123456')}
             className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
           />
         </div>
 
         <div>
-          <label className="text-xs font-medium text-gray-600">Fabricante</label>
+          <label className="text-xs font-medium text-gray-600">{t('Fabricante')}</label>
           <input
             type="text"
             name="manufacturer"
-            placeholder="Ex: Laboratório X"
+            placeholder={t('Ex: Laboratório X')}
             className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
           />
         </div>
 
         <div className="md:col-span-2">
-          <label className="text-xs font-medium text-gray-600">Descrição</label>
+          <label className="text-xs font-medium text-gray-600">{t('Descrição')}</label>
           <textarea
             name="description"
             rows={2}
-            placeholder="Descrição do tratamento"
+            placeholder={t('Descrição do tratamento')}
             className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none"
           />
         </div>
 
         <div className="md:col-span-2">
-          <label className="text-xs font-medium text-gray-600">Observações</label>
+          <label className="text-xs font-medium text-gray-600">{t('Observações')}</label>
           <textarea
             name="observations"
             rows={3}
@@ -131,7 +133,7 @@ export function VeterinaryTreatmentForm({ animalId, onSuccess }: VeterinaryTreat
         disabled={loading}
         className="mt-4 w-full bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg transition-colors"
       >
-        {loading ? 'Salvando...' : 'Adicionar Tratamento'}
+        {t(loading ? 'Salvando...' : 'Adicionar Tratamento')}
       </button>
     </form>
   )

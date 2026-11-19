@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useUser } from '@/contexts/UserContext'
 import { screenLabel, supportHref, type SupportKind } from '@/lib/support'
+import { useT } from '@/lib/i18n'
 
 // Botão "Fale com o suporte pelo WhatsApp". Aponta para /api/suporte, que monta a mensagem no servidor (quem é, de onde,
 // em que tela; genérica sem login) e redireciona para o WhatsApp. Só aparece quando há número configurado.
@@ -51,17 +52,18 @@ export function SupportWhatsApp({ kind = 'ajuda', enabled, variant = 'link', lab
   const pathname = usePathname()
   const { user } = useUser()
   const online = useOnline()
+  const t = useT()
   if (!(enabled ?? user?.support)) return null
 
   const icon = <span aria-hidden="true" className={variant === 'menu' ? 'text-gray-400' : ''}><WhatsAppIcon className={variant === 'link' ? 'h-4 w-4' : 'h-5 w-5'} /></span>
   const classes = `${STYLE[variant]} ${className}`.trim()
 
   if (!online) {
-    return <span role="link" aria-disabled="true" title={OFFLINE} className={`${classes} cursor-not-allowed opacity-50`}>{icon}<span>{label}</span></span>
+    return <span role="link" aria-disabled="true" title={t(OFFLINE)} className={`${classes} cursor-not-allowed opacity-50`}>{icon}<span>{t(label)}</span></span>
   }
   return (
     <a href={supportHref(kind, kind === 'ajuda' ? screenLabel(pathname) : null)} target="_blank" rel="noopener noreferrer" onClick={onClick} className={classes}>
-      {icon}<span>{label}</span>
+      {icon}<span>{t(label)}</span>
     </a>
   )
 }

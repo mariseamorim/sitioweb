@@ -9,6 +9,7 @@ import { todayISO } from '@/lib/utils'
 import { HttpError, cachedGet } from '@/lib/offlineData'
 import { loadHerd as fetchHerd } from '@/lib/herdCache'
 import { useOfflineModule } from '@/lib/useOffline'
+import { useT } from '@/lib/i18n'
 import { SemSinalIcon, SincronizarIcon } from '@/components/ModuleIcons'
 import { LotDetail } from './LotDetail'
 import { RearingAnimals } from './RearingAnimals'
@@ -21,6 +22,7 @@ type Tab = 'todos' | 'recria' | 'engorda'
 
 export default function EngordaPage() {
   const { user, canAccess, loading: userLoading } = useUser()
+  const t = useT()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const [lots, setLots] = useState<Lot[] | null>(null)
   const [herd, setHerd] = useState<HerdAnimal[]>([])
@@ -51,10 +53,10 @@ export default function EngordaPage() {
       .then((r) => { setLots(r.data); setFromCache(r.fromCache); setError('') })
       // 5xx sem cópia: o servidor falhou (banco sem as migrations, por exemplo); sem status, foi a rede e não há cópia
       .catch((err) => setError(err instanceof HttpError
-        ? (err.status >= 500 ? 'O servidor não conseguiu carregar os lotes. Se o app acabou de ser atualizado, aplique as migrations do banco (npx prisma migrate deploy).' : err.message)
-        : 'Não foi possível carregar os lotes. Confira a internet. Depois do primeiro acesso com sinal, eles ficam guardados neste aparelho.'))
+        ? (err.status >= 500 ? t('O servidor não conseguiu carregar os lotes. Se o app acabou de ser atualizado, aplique as migrations do banco (npx prisma migrate deploy).') : t(err.message))
+        : t('Não foi possível carregar os lotes. Confira a internet. Depois do primeiro acesso com sinal, eles ficam guardados neste aparelho.')))
     loadHerd()
-  }, [fid, loadHerd])
+  }, [fid, loadHerd, t])
   const reload = useCallback(() => { load(); loadSupplies() }, [load, loadSupplies])
   // Fila dos lotes: contagem, "Enviar agora" e recarga quando a barra do topo terminar de enviar
   const net = useOfflineModule(LOTS_MODULE, reload)
@@ -93,32 +95,32 @@ export default function EngordaPage() {
     <PermissionGuard module="animais">
       <div>
         <div className="page-toolbar mb-2 flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-gray-800">Recria e engorda</h1>
-          {canEdit && <button type="button" onClick={() => setCreating(true)} className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600">Novo lote</button>}
+          <h1 className="text-2xl font-bold text-gray-800">{t('Recria e engorda')}</h1>
+          {canEdit && <button type="button" onClick={() => setCreating(true)} className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600">{t('Novo lote')}</button>}
         </div>
-        <p className="mb-4 text-sm text-gray-600">Na recria, acompanhe cada bezerro sozinho (desmama, pesagens, cobertura da novilha) ou em lote. Na engorda, junte os animais em lotes, pese e veja o ganho por dia, o trato e quando chegam ao peso de saída.</p>
+        <p className="mb-4 text-sm text-gray-600">{t('Na recria, acompanhe cada bezerro sozinho (desmama, pesagens, cobertura da novilha) ou em lote. Na engorda, junte os animais em lotes, pese e veja o ganho por dia, o trato e quando chegam ao peso de saída.')}</p>
 
         {(!net.online || fromCache) && (
           <p className="mb-3 flex items-center gap-2 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
             <SemSinalIcon className="h-5 w-5 shrink-0" />
-            <span>{net.online ? 'Sinal fraco: mostrando a última cópia dos lotes guardada neste aparelho.' : 'Sem internet: mostrando a última cópia dos lotes guardada neste aparelho.'} O que você registrar fica na fila e é enviado quando a conexão voltar; o lote na tela só muda depois do envio.</span>
+            <span>{t(net.online ? 'Sinal fraco: mostrando a última cópia dos lotes guardada neste aparelho.' : 'Sem internet: mostrando a última cópia dos lotes guardada neste aparelho.')} {t('O que você registrar fica na fila e é enviado quando a conexão voltar; o lote na tela só muda depois do envio.')}</span>
           </p>
         )}
         {net.online && net.pendingCount > 0 && (
           <div className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-            <span className="flex items-center gap-2"><SincronizarIcon className="h-5 w-5 shrink-0" />{net.pendingCount} registro{net.pendingCount === 1 ? '' : 's'} de lotes para enviar</span>
-            <button type="button" onClick={() => void net.sync()} disabled={net.syncing} className="shrink-0 rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600 disabled:bg-blue-400">{net.syncing ? 'Enviando...' : 'Enviar agora'}</button>
+            <span className="flex items-center gap-2"><SincronizarIcon className="h-5 w-5 shrink-0" />{net.pendingCount === 1 ? t('1 registro de lotes para enviar') : t('{n} registros de lotes para enviar', { n: net.pendingCount })}</span>
+            <button type="button" onClick={() => void net.sync()} disabled={net.syncing} className="shrink-0 rounded-lg bg-blue-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-600 disabled:bg-blue-400">{t(net.syncing ? 'Enviando...' : 'Enviar agora')}</button>
           </div>
         )}
         {notice && (
           <p role="status" className="mb-3 flex items-center justify-between gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
             <span>{notice}</span>
-            <button type="button" onClick={() => setNotice('')} className="shrink-0 text-xs font-semibold hover:underline">Fechar</button>
+            <button type="button" onClick={() => setNotice('')} className="shrink-0 text-xs font-semibold hover:underline">{t('Fechar')}</button>
           </p>
         )}
 
-        <nav aria-label="Fase" className="mb-5 inline-flex rounded-xl border border-gray-200 bg-white p-1">
-          {([['todos', 'Todos'], ['recria', `Recria (${count('recria')})`], ['engorda', `Engorda (${count('engorda')})`]] as const).map(([key, text]) => (
+        <nav aria-label={t('Fase')} className="mb-5 inline-flex rounded-xl border border-gray-200 bg-white p-1">
+          {([['todos', t('Todos')], ['recria', `${t('Recria')} (${count('recria')})`], ['engorda', `${t('Engorda')} (${count('engorda')})`]] as const).map(([key, text]) => (
             <button key={key} type="button" onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined}
               className={`rounded-lg px-4 py-2 text-sm font-semibold ${tab === key ? 'bg-green-700 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>{text}</button>
           ))}
@@ -129,10 +131,10 @@ export default function EngordaPage() {
         {openLots.length > 0 && (
           <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[
-              ['Lotes abertos', String(openLots.length), 'text-gray-900'],
-              ['Cabeças nos lotes', String(totals.heads), 'text-gray-900'],
-              ['Peso médio', totals.avgWeight !== null ? kg(totals.avgWeight) : '—', 'text-gray-900'],
-              ['Ganho por dia (média)', totals.gmd !== null ? `${fmtNumber(totals.gmd, 3)} kg` : '—', 'text-green-700'],
+              [t('Lotes abertos'), String(openLots.length), 'text-gray-900'],
+              [t('Cabeças nos lotes'), String(totals.heads), 'text-gray-900'],
+              [t('Peso médio'), totals.avgWeight !== null ? kg(totals.avgWeight) : '—', 'text-gray-900'],
+              [t('Ganho por dia (média)'), totals.gmd !== null ? `${fmtNumber(totals.gmd, 3)} kg` : '—', 'text-green-700'],
             ].map(([title, value, tone]) => (
               <div key={title} className="rounded-xl border border-gray-200 bg-white p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
@@ -143,10 +145,10 @@ export default function EngordaPage() {
         )}
 
         {error && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}
-        {!lots ? <p className="text-sm text-gray-400">Carregando...</p> : visible.length === 0 ? (
+        {!lots ? <p className="text-sm text-gray-400">{t('Carregando...')}</p> : visible.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-600">
-            <p className="font-semibold text-gray-800">{tab === 'todos' ? 'Nenhum lote ainda' : `Nenhum lote de ${phaseLabel(tab).toLowerCase()}`}</p>
-            <p className="mt-1 text-sm">{tab === 'recria' ? 'Para acompanhar um animal sozinho, use “Acompanhar um animal”. Para um grupo, crie um lote de recria.' : 'Crie um lote com os animais cadastrados (ou só a quantidade e o peso médio). A cada pesagem, o app mostra quanto o lote ganhou.'}</p>
+            <p className="font-semibold text-gray-800">{tab === 'todos' ? t('Nenhum lote ainda') : t(tab === 'recria' ? 'Nenhum lote de recria' : 'Nenhum lote de engorda')}</p>
+            <p className="mt-1 text-sm">{t(tab === 'recria' ? 'Para acompanhar um animal sozinho, use “Acompanhar um animal”. Para um grupo, crie um lote de recria.' : 'Crie um lote com os animais cadastrados (ou só a quantidade e o peso médio). A cada pesagem, o app mostra quanto o lote ganhou.')}</p>
           </div>
         ) : (
           <>
@@ -155,7 +157,7 @@ export default function EngordaPage() {
             </div>
             {closed.length > 0 && (
               <section className="mt-8">
-                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">Encerrados</h2>
+                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">{t('Encerrados')}</h2>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {closed.map((l) => <LotCard key={l.id} lot={l} today={today} canEdit={false} onOpen={() => setOpen({ id: l.id })} />)}
                 </div>
@@ -166,7 +168,7 @@ export default function EngordaPage() {
 
         {creating && <LotForm supplies={supplies} herd={herd} lotNames={lotNames} defaultPhase={tab === 'recria' ? 'recria' : 'engorda'} onClose={() => setCreating(false)}
           onSaved={(lot) => { setCreating(false); setLots((list) => [lot, ...(list ?? [])]); replace(lot) }}
-          onQueued={() => { setCreating(false); queued(`${QUEUED_MESSAGE} O lote aparece na lista depois do envio.`) }} />}
+          onQueued={() => { setCreating(false); queued(`${t(QUEUED_MESSAGE)} ${t('O lote aparece na lista depois do envio.')}`) }} />}
         {current && <LotDetail key={current.id} lot={current} supplies={supplies} herd={herd} lotNames={lotNames} canEdit={canEdit}
           canBreed={canEdit && canAccess('reproducao')} today={today} focus={open?.focus} onClose={() => setOpen(null)} onChanged={replace} onReload={load} onQueued={net.refresh}
           onDeleted={() => { setLots((list) => (list ?? []).filter((l) => l.id !== current.id)); setOpen(null); loadHerd(); loadSupplies() }} />}
@@ -178,6 +180,7 @@ export default function EngordaPage() {
 // ── Cartão do lote ──────────────────────────────────────────────────────
 
 function LotCard({ lot, today, canEdit, onOpen }: { lot: Lot; today: string; canEdit: boolean; onOpen: (focus?: 'pesar' | 'animais') => void }) {
+  const t = useT()
   const s = lotSummary(lot.weighings, today, lot.endDate)
   const projection = lot.endDate ? null : projectTarget(s, lot.targetWeight)
   const covered = lot.phase === 'recria' ? lot.animals.filter((a) => a.reproductions[0] && ['Coberta', 'Prenha'].includes(a.reproductions[0].status)).length : 0
@@ -187,28 +190,28 @@ function LotCard({ lot, today, canEdit, onOpen }: { lot: Lot; today: string; can
       <button type="button" onClick={() => onOpen()} className="flex w-full items-start justify-between gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3 text-left hover:bg-green-50">
         <span className="min-w-0">
           <span className="block truncate text-lg font-bold text-gray-800">{lot.name}</span>
-          <span className="block text-xs text-gray-500">{s.days} dia{s.days === 1 ? '' : 's'} no lote{lot.endDate ? ` · saiu em ${fmtDate(lot.endDate)}` : ''}</span>
+          <span className="block text-xs text-gray-500">{s.days === 1 ? t('1 dia no lote') : t('{n} dias no lote', { n: s.days })}{lot.endDate ? ` · ${t('saiu em {date}', { date: fmtDate(lot.endDate) })}` : ''}</span>
         </span>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${lot.phase === 'recria' ? 'bg-sky-100 text-sky-800' : 'bg-amber-100 text-amber-800'}`}>{phaseLabel(lot.phase)}</span>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${lot.phase === 'recria' ? 'bg-sky-100 text-sky-800' : 'bg-amber-100 text-amber-800'}`}>{t(phaseLabel(lot.phase))}</span>
       </button>
       <div className="p-4">
         <div className="grid grid-cols-3 gap-2">
-          <Stat title="Animais" value={String(lot.animals.length || s.last?.headCount || 0)} />
-          <Stat title="Peso médio" value={s.last ? kg(s.last.avgWeight) : '—'} />
-          <Stat title="Ganho/dia" value={s.gmd !== null ? `${s.gmd >= 0 ? '+' : ''}${fmtNumber(s.gmd, 3)}` : '—'} tone="text-green-700" />
+          <Stat title={t('Animais')} value={String(lot.animals.length || s.last?.headCount || 0)} />
+          <Stat title={t('Peso médio')} value={s.last ? kg(s.last.avgWeight) : '—'} />
+          <Stat title={t('Ganho/dia')} value={s.gmd !== null ? `${s.gmd >= 0 ? '+' : ''}${fmtNumber(s.gmd, 3)}` : '—'} tone="text-green-700" />
         </div>
-        {s.gainKg !== null && <p className="mt-3 text-sm text-gray-700">Ganhou <strong>{kg(s.gainKg)}</strong> por cabeça desde a entrada.</p>}
-        {projection && <p className="mt-1 text-sm text-gray-700">Chega a {kg(lot.targetWeight!)} em <strong>{projection.days} dias</strong> ({fmtDate(projection.date)}).</p>}
-        {females > 0 && lot.phase === 'recria' && <p className="mt-1 text-sm text-gray-700">{covered} de {females} novilha{females === 1 ? '' : 's'} coberta{covered === 1 ? '' : 's'}.</p>}
+        {s.gainKg !== null && <p className="mt-3 text-sm text-gray-700">{t('Ganhou')} <strong>{kg(s.gainKg)}</strong> {t('por cabeça desde a entrada.')}</p>}
+        {projection && <p className="mt-1 text-sm text-gray-700">{t('Chega a {weight} em', { weight: kg(lot.targetWeight!) })} <strong>{t('{n} dias', { n: projection.days })}</strong> ({fmtDate(projection.date)}).</p>}
+        {females > 0 && lot.phase === 'recria' && <p className="mt-1 text-sm text-gray-700">{females === 1 ? t('{covered} de 1 novilha coberta.', { covered }) : t('{covered} de {females} novilhas cobertas.', { covered, females })}</p>}
         {productLines(lot).filter((p) => p.perDay).map((p) => (
           <p key={p.id} className={`mt-1 text-xs ${p.days !== null && p.days <= STOCK_WARNING_DAYS ? 'font-semibold text-amber-700' : 'text-gray-500'}`}>
-            {p.supply.name}: {kg(p.perDay!)}/dia{p.days !== null ? ` · estoque para ${p.days} dia${p.days === 1 ? '' : 's'}` : ''}
+            {p.supply.name}: {kg(p.perDay!)}/{t('dia')}{p.days !== null ? ` · ${p.days === 1 ? t('estoque para 1 dia') : t('estoque para {n} dias', { n: p.days })}` : ''}
           </p>
         ))}
         {canEdit && (
           <div className="mt-4 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3">
-            <button type="button" onClick={() => onOpen('animais')} className="rounded-lg border border-gray-200 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">+ Animais</button>
-            <button type="button" onClick={() => onOpen('pesar')} className="rounded-lg border border-green-200 bg-green-50 py-2 text-sm font-semibold text-green-800 hover:bg-green-100">Pesar</button>
+            <button type="button" onClick={() => onOpen('animais')} className="rounded-lg border border-gray-200 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">+ {t('Animais')}</button>
+            <button type="button" onClick={() => onOpen('pesar')} className="rounded-lg border border-green-200 bg-green-50 py-2 text-sm font-semibold text-green-800 hover:bg-green-100">{t('Pesar')}</button>
           </div>
         )}
       </div>
@@ -228,6 +231,7 @@ function LotForm({ supplies, herd, lotNames, defaultPhase, onClose, onSaved, onQ
   /** Sem internet ou sinal fraco: o lote ficou na fila do aparelho */
   onQueued: () => void
 }) {
+  const t = useT()
   const [mode, setMode] = useState<'animais' | 'quantidade'>(herd.length ? 'animais' : 'quantidade')
   const [form, setForm] = useState({ name: '', phase: defaultPhase, startDate: todayISO(), headCount: '', avgWeight: '', targetWeight: '' })
   const [animalIds, setAnimalIds] = useState<string[]>([])
@@ -240,8 +244,8 @@ function LotForm({ supplies, herd, lotNames, defaultPhase, onClose, onSaved, onQ
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (mode === 'animais' && !animalIds.length) return setError('Escolha os animais do lote')
-    if (mode === 'animais' && avg === null && !parseKg(form.avgWeight)) return setError('Informe o peso de entrada dos animais ou o peso médio do lote')
+    if (mode === 'animais' && !animalIds.length) return setError(t('Escolha os animais do lote'))
+    if (mode === 'animais' && avg === null && !parseKg(form.avgWeight)) return setError(t('Informe o peso de entrada dos animais ou o peso médio do lote'))
     setSaving(true)
     setError('')
     try {
@@ -252,32 +256,32 @@ function LotForm({ supplies, herd, lotNames, defaultPhase, onClose, onSaved, onQ
       onSaved(await send('/api/lotes', 'POST', body))
     } catch (err) {
       if (isQueued(err)) onQueued()
-      else setError(offlineMessage(err))
+      else setError(t(offlineMessage(err)))
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Modal title="Novo lote" onClose={onClose}>
+    <Modal title={t('Novo lote')} onClose={onClose}>
       <form onSubmit={submit} className="flex flex-col gap-3">
-        <label className={label}>Nome do lote
-          <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex.: Garrotes de julho" className={input} />
+        <label className={label}>{t('Nome do lote')}
+          <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t('Ex.: Garrotes de julho')} className={input} />
         </label>
         <div className="grid grid-cols-2 gap-2">
           {LOT_PHASES.map((p) => (
             <button key={p.key} type="button" aria-pressed={form.phase === p.key} onClick={() => setForm({ ...form, phase: p.key })}
-              className={`rounded-xl border-2 py-2.5 text-sm font-semibold ${form.phase === p.key ? 'border-green-700 bg-green-50 text-green-800' : 'border-gray-200 text-gray-600'}`}>{p.label}</button>
+              className={`rounded-xl border-2 py-2.5 text-sm font-semibold ${form.phase === p.key ? 'border-green-700 bg-green-50 text-green-800' : 'border-gray-200 text-gray-600'}`}>{t(p.label)}</button>
           ))}
         </div>
-        <label className={label}>Data de entrada
+        <label className={label}>{t('Data de entrada')}
           <input type="date" required max={todayISO()} value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className={input} />
         </label>
 
         <fieldset>
-          <legend className={label}>Como você acompanha este lote?</legend>
+          <legend className={label}>{t('Como você acompanha este lote?')}</legend>
           <div className="mt-1 grid grid-cols-2 gap-2">
-            {([['animais', 'Animais cadastrados', 'Peso de cada um'], ['quantidade', 'Só a quantidade', 'Peso médio do lote']] as const).map(([key, title, hint]) => (
+            {([['animais', t('Animais cadastrados'), t('Peso de cada um')], ['quantidade', t('Só a quantidade'), t('Peso médio do lote')]] as const).map(([key, title, hint]) => (
               <button key={key} type="button" aria-pressed={mode === key} onClick={() => setMode(key)}
                 className={`rounded-xl border-2 px-3 py-2 text-left ${mode === key ? 'border-green-700 bg-green-50' : 'border-gray-200'}`}>
                 <span className={`block text-sm font-semibold ${mode === key ? 'text-green-800' : 'text-gray-700'}`}>{title}</span>
@@ -292,35 +296,35 @@ function LotForm({ supplies, herd, lotNames, defaultPhase, onClose, onSaved, onQ
             <AnimalPicker herd={herd} lotNames={lotNames} selected={animalIds} onChange={setAnimalIds} />
             {chosen.length > 0 && (
               <div>
-                <p className={label}>Peso de entrada (opcional, mas é com ele que o app calcula o ganho de cada animal)</p>
+                <p className={label}>{t('Peso de entrada (opcional, mas é com ele que o app calcula o ganho de cada animal)')}</p>
                 <div className="mt-1"><WeightList animals={chosen} weights={weights} onChange={setWeights} /></div>
                 {avg !== null
-                  ? <p className="mt-1 text-sm text-gray-700">Peso médio de entrada: <strong>{kg(avg)}</strong></p>
-                  : <label className={`${label} mt-2`}>Sem pesar agora? Informe o peso médio estimado (kg)
-                      <input inputMode="decimal" value={form.avgWeight} onChange={(e) => setForm({ ...form, avgWeight: decimal(e.target.value) })} placeholder="Ex.: 250" className={input} />
+                  ? <p className="mt-1 text-sm text-gray-700">{t('Peso médio de entrada:')} <strong>{kg(avg)}</strong></p>
+                  : <label className={`${label} mt-2`}>{t('Sem pesar agora? Informe o peso médio estimado (kg)')}
+                      <input inputMode="decimal" value={form.avgWeight} onChange={(e) => setForm({ ...form, avgWeight: decimal(e.target.value) })} placeholder={t('Ex.: 250')} className={input} />
                     </label>}
               </div>
             )}
           </>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            <label className={label}>Cabeças
+            <label className={label}>{t('Cabeças')}
               <input required inputMode="numeric" value={form.headCount} onChange={(e) => setForm({ ...form, headCount: e.target.value.replace(/\D/g, '') })} className={input} />
             </label>
-            <label className={label}>Peso médio de entrada (kg)
-              <input required inputMode="decimal" value={form.avgWeight} onChange={(e) => setForm({ ...form, avgWeight: decimal(e.target.value) })} placeholder="Ex.: 300" className={input} />
+            <label className={label}>{t('Peso médio de entrada (kg)')}
+              <input required inputMode="decimal" value={form.avgWeight} onChange={(e) => setForm({ ...form, avgWeight: decimal(e.target.value) })} placeholder={t('Ex.: 300')} className={input} />
             </label>
           </div>
         )}
 
-        <label className={label}>{form.phase === 'recria' ? 'Peso-alvo da recria por cabeça (kg, opcional)' : 'Peso de saída desejado por cabeça (kg, opcional)'}
-          <input inputMode="decimal" value={form.targetWeight} onChange={(e) => setForm({ ...form, targetWeight: decimal(e.target.value) })} placeholder={form.phase === 'recria' ? 'Ex.: 320' : 'Ex.: 540'} className={input} />
+        <label className={label}>{t(form.phase === 'recria' ? 'Peso-alvo da recria por cabeça (kg, opcional)' : 'Peso de saída desejado por cabeça (kg, opcional)')}
+          <input inputMode="decimal" value={form.targetWeight} onChange={(e) => setForm({ ...form, targetWeight: decimal(e.target.value) })} placeholder={t(form.phase === 'recria' ? 'Ex.: 320' : 'Ex.: 540')} className={input} />
         </label>
         <ProductsEditor supplies={supplies} value={products} onChange={setProducts} />
         {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         <div className="flex gap-2 pt-1">
-          <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-300 py-3 font-semibold text-gray-700">Cancelar</button>
-          <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-green-700 py-3 font-semibold text-white disabled:bg-gray-300">{saving ? 'Salvando...' : 'Criar lote'}</button>
+          <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-300 py-3 font-semibold text-gray-700">{t('Cancelar')}</button>
+          <button type="submit" disabled={saving} className="flex-1 rounded-xl bg-green-700 py-3 font-semibold text-white disabled:bg-gray-300">{t(saving ? 'Salvando...' : 'Criar lote')}</button>
         </div>
       </form>
     </Modal>
