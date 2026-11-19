@@ -205,4 +205,6 @@ export const consultoria: Record<string, string> = {
   '{n} tratamentos em andamento': '{n} tratamientos en curso',
   '{n} já passou da data': '{n} ya pasó la fecha',
   '{n} já passaram da data': '{n} ya pasaron la fecha',
+  'Mostrar menos': 'Mostrar menos',
+  'Ver todas ({n})': 'Ver todas ({n})',
 }
