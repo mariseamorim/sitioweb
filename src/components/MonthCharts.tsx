@@ -136,11 +136,16 @@ export function ChartTable({ caption, columns, rows }: { caption: string; column
   return (
     <details className="mt-2 text-sm">
       <summary className="cursor-pointer text-gray-600 hover:text-gray-900">{t('Ver em tabela')}</summary>
-      <table className="mt-2 w-full text-left">
+      {/* Com muitas colunas (uma por propriedade) a tabela rola para o lado em vez de quebrar os meses */}
+      <div className="mt-2 overflow-x-auto">
+      <table className="w-full text-left">
         <caption className="sr-only">{caption}</caption>
-        <thead><tr>{columns.map((c) => <th key={c} scope="col" className="border-b border-gray-200 py-1.5 pr-3 font-medium text-gray-600">{c}</th>)}</tr></thead>
-        <tbody>{rows.map((row, i) => <tr key={i}>{row.map((cell, j) => <td key={j} className="border-b border-gray-100 py-1.5 pr-3 text-gray-800">{cell}</td>)}</tr>)}</tbody>
+        <thead><tr>{columns.map((c, j) => <th key={c} scope="col" className={`border-b border-gray-200 py-1.5 pr-3 align-bottom font-medium text-gray-600 ${j ? 'text-right' : 'whitespace-nowrap'}`}>{c}</th>)}</tr></thead>
+        <tbody>{rows.map((row, i) => <tr key={i}>{row.map((cell, j) => j
+          ? <td key={j} className="border-b border-gray-100 py-1.5 pr-3 text-right tabular-nums text-gray-800">{cell}</td>
+          : <th key={j} scope="row" className="whitespace-nowrap border-b border-gray-100 py-1.5 pr-3 font-normal text-gray-800">{cell}</th>)}</tr>)}</tbody>
       </table>
+      </div>
     </details>
   )
 }
