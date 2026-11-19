@@ -11,6 +11,7 @@ import { listRearing, type RearingRow } from '@/repos/rearing'
 import { Badge, Button, Card, Chips, Empty, Fab, Muted, Screen, Stat } from '@/ui'
 import { MiniStat, Section, StatGrid, TextButton, coverageLine, kg, phaseLabel, plural, tag } from '@/ui/lots'
 import { colors, font, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 type Tab = 'todos' | 'recria' | 'engorda'
 
@@ -19,6 +20,7 @@ export default function Engorda() {
   const farmId = useFarmId()
   const { canEdit } = useSession()
   const router = useRouter()
+  const t = useT()
   const today = todayISO()
   const [tab, setTab] = useState<Tab>('todos')
   const lots = useLive(() => listLots(farmId), [farmId])
@@ -42,8 +44,8 @@ export default function Engorda() {
   return (
     <View style={{ flex: 1 }}>
       <Screen>
-        <Muted style={{ marginBottom: space.sm }}>Na recria, acompanhe cada bezerro sozinho (desmama, pesagens, cobertura da novilha) ou em lote. Na engorda, junte os animais em lotes, pese e veja o ganho por dia, o trato e quando chegam ao peso de saída.</Muted>
-        <Chips value={tab} onChange={setTab} options={[{ value: 'todos', label: 'Todos' }, { value: 'recria', label: `Recria (${count('recria')})` }, { value: 'engorda', label: `Engorda (${count('engorda')})` }]} />
+        <Muted style={{ marginBottom: space.sm }}>{t('Na recria, acompanhe cada bezerro sozinho (desmama, pesagens, cobertura da novilha) ou em lote. Na engorda, junte os animais em lotes, pese e veja o ganho por dia, o trato e quando chegam ao peso de saída.')}</Muted>
+        <Chips value={tab} onChange={setTab} options={[{ value: 'todos', label: 'Todos' }, { value: 'recria', label: `${t('Recria')} (${count('recria')})` }, { value: 'engorda', label: `${t('Engorda')} (${count('engorda')})` }]} />
 
         {tab !== 'engorda' ? <RearingSection list={rearing} today={today} canEdit={canEdit} /> : null}
 
@@ -61,7 +63,7 @@ export default function Engorda() {
         ) : null}
 
         {visible.length === 0 ? (
-          <Empty title={tab === 'todos' ? 'Nenhum lote ainda' : `Nenhum lote de ${phaseLabel(tab).toLowerCase()}`}
+          <Empty title={tab === 'todos' ? t('Nenhum lote ainda') : t('Nenhum lote de {phase}', { phase: phaseLabel(tab).toLowerCase() })}
             text={tab === 'recria' ? 'Para acompanhar um animal sozinho, use “Acompanhar um animal”. Para um grupo, crie um lote de recria.' : 'Crie um lote com os animais cadastrados (ou só a quantidade e o peso médio). A cada pesagem, o app mostra quanto o lote ganhou.'} />
         ) : (
           <>
@@ -83,6 +85,7 @@ export default function Engorda() {
 
 function LotCard({ lot, today, canEdit }: { lot: Lot; today: string; canEdit: boolean }) {
   const router = useRouter()
+  const t = useT()
   const s = lotSummary(lot.weighings, today, lot.endDate)
   const projection = lot.endDate ? null : projectTarget(s, lot.targetWeight)
   const covered = lot.phase === 'recria' ? lot.animals.filter(a => a.reproductions[0] && ['Coberta', 'Prenha'].includes(a.reproductions[0].status)).length : 0
@@ -93,7 +96,7 @@ function LotCard({ lot, today, canEdit }: { lot: Lot; today: string; canEdit: bo
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: space.sm }}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text }} numberOfLines={1}>{lot.name}</Text>
-          <Muted>{plural(s.days, 'dia', 'dias')} no lote{lot.endDate ? ` · saiu em ${brDate(lot.endDate)}` : ''}</Muted>
+          <Muted>{plural(s.days, 'dia', 'dias')} {t('no lote')}{lot.endDate ? ` · ${t('saiu em {date}', { date: brDate(lot.endDate) })}` : ''}</Muted>
         </View>
         <Badge label={phaseLabel(lot.phase)} tone={lot.phase === 'recria' ? 'blue' : 'amber'} />
       </View>
@@ -104,12 +107,12 @@ function LotCard({ lot, today, canEdit }: { lot: Lot; today: string; canEdit: bo
           { title: 'Ganho/dia', value: s.gmd !== null ? `${s.gmd >= 0 ? '+' : ''}${brNumber(s.gmd, 3)}` : '—', tone: 'green' },
         ]} />
       </View>
-      {s.gainKg !== null ? <Text style={{ marginTop: space.md, color: colors.text, fontSize: font.sm }}>Ganhou <Text style={{ fontWeight: '700' }}>{kg(s.gainKg)}</Text> por cabeça desde a entrada.</Text> : null}
-      {projection ? <Text style={{ marginTop: 4, color: colors.text, fontSize: font.sm }}>Chega a {kg(lot.targetWeight!)} em <Text style={{ fontWeight: '700' }}>{plural(projection.days, 'dia', 'dias')}</Text> ({brDate(projection.date)}).</Text> : null}
-      {females > 0 && lot.phase === 'recria' ? <Text style={{ marginTop: 4, color: colors.text, fontSize: font.sm }}>{covered} de {plural(females, 'novilha', 'novilhas')} {covered === 1 ? 'coberta' : 'cobertas'}.</Text> : null}
+      {s.gainKg !== null ? <Text style={{ marginTop: space.md, color: colors.text, fontSize: font.sm }}>{t('Ganhou {kg} por cabeça desde a entrada.', { kg: kg(s.gainKg) })}</Text> : null}
+      {projection ? <Text style={{ marginTop: 4, color: colors.text, fontSize: font.sm }}>{t('Chega a {kg} em {days} ({date}).', { kg: kg(lot.targetWeight!), days: plural(projection.days, 'dia', 'dias'), date: brDate(projection.date) })}</Text> : null}
+      {females > 0 && lot.phase === 'recria' ? <Text style={{ marginTop: 4, color: colors.text, fontSize: font.sm }}>{covered} {t('de')} {plural(females, 'novilha', 'novilhas')} {t(covered === 1 ? 'coberta' : 'cobertas')}.</Text> : null}
       {productLines(lot, today).filter(p => p.perDay).map(p => {
         const warn = p.days !== null && p.days <= STOCK_WARNING_DAYS
-        return <Text key={p.id} style={{ marginTop: 4, fontSize: font.sm, color: warn ? colors.amber : colors.muted, fontWeight: warn ? '700' : '400' }}>{p.supply.name}: {kg(p.perDay!)}/dia{p.days !== null ? ` · estoque para ${plural(p.days, 'dia', 'dias')}` : ''}</Text>
+        return <Text key={p.id} style={{ marginTop: 4, fontSize: font.sm, color: warn ? colors.amber : colors.muted, fontWeight: warn ? '700' : '400' }}>{p.supply.name}: {kg(p.perDay!)}/{t('dia')}{p.days !== null ? ` · ${t('estoque para {days}', { days: plural(p.days, 'dia', 'dias') })}` : ''}</Text>
       })}
       {canEdit ? (
         <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: space.md }}>
@@ -126,6 +129,7 @@ function LotCard({ lot, today, canEdit }: { lot: Lot; today: string; canEdit: bo
 function RearingSection({ list, today, canEdit }: { list: RearingRow[]; today: string; canEdit: boolean }) {
   const router = useRouter()
   const [showEnded, setShowEnded] = useState(false)
+  const t = useT()
   const active = list.filter(isInRearing)
   const ended = list.filter(a => !isInRearing(a))
   return (
@@ -133,13 +137,13 @@ function RearingSection({ list, today, canEdit }: { list: RearingRow[]; today: s
       right={canEdit ? <TextButton label="Acompanhar um animal" onPress={() => router.push('/recria/novo')} /> : undefined}>
       {active.length === 0 ? (
         <Muted style={{ padding: space.md, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed', borderRadius: 12 }}>
-          Nenhum animal acompanhado sozinho. Em “Acompanhar um animal”, informe a desmama e o peso: o app passa a mostrar o ganho por dia e, nas novilhas, a cobertura.
+          {t('Nenhum animal acompanhado sozinho. Em “Acompanhar um animal”, informe a desmama e o peso: o app passa a mostrar o ganho por dia e, nas novilhas, a cobertura.')}
         </Muted>
       ) : active.map(a => <RearingCard key={a.id} animal={a} today={today} canEdit={canEdit} />)}
       {ended.length > 0 ? (
         <View>
           <Pressable onPress={() => setShowEnded(v => !v)} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button">
-            <Text style={{ color: colors.muted, fontWeight: '700', fontSize: font.sm }}>{showEnded ? '▾' : '▸'} Saíram da recria ({ended.length})</Text>
+            <Text style={{ color: colors.muted, fontWeight: '700', fontSize: font.sm }}>{showEnded ? '▾' : '▸'} {t('Saíram da recria')} ({ended.length})</Text>
           </Pressable>
           {showEnded ? (
             <Card style={{ paddingVertical: 4 }}>
@@ -149,9 +153,9 @@ function RearingSection({ list, today, canEdit }: { list: RearingRow[]; today: s
                   <Pressable key={a.id} onPress={() => router.push(`/recria/${a.id}`)} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: colors.text }}><Text style={{ fontWeight: '700' }}>{tag(a)}</Text> {a.name}</Text>
-                      <Muted>{brDate(a.rearingStart)} a {brDate(a.rearingEnd)} · {plural(s.days, 'dia', 'dias')}{s.gainKg !== null ? ` · ganhou ${kg(s.gainKg)}` : ''}</Muted>
+                      <Muted>{brDate(a.rearingStart)} {t('a')} {brDate(a.rearingEnd)} · {plural(s.days, 'dia', 'dias')}{s.gainKg !== null ? ` · ${t('ganhou {kg}', { kg: kg(s.gainKg) })}` : ''}</Muted>
                     </View>
-                    <Text style={{ color: colors.green, fontWeight: '700', fontSize: font.sm }}>Abrir</Text>
+                    <Text style={{ color: colors.green, fontWeight: '700', fontSize: font.sm }}>{t('Abrir')}</Text>
                   </Pressable>
                 )
               })}
@@ -165,6 +169,7 @@ function RearingSection({ list, today, canEdit }: { list: RearingRow[]; today: s
 
 function RearingCard({ animal, today, canEdit }: { animal: RearingRow; today: string; canEdit: boolean }) {
   const router = useRouter()
+  const t = useT()
   const s = rearingSummary(animal, today)
   const open = () => router.push(`/recria/${animal.id}`)
   return (
@@ -172,7 +177,7 @@ function RearingCard({ animal, today, canEdit }: { animal: RearingRow; today: st
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: space.sm }}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text }} numberOfLines={1}>{tag(animal)} {animal.name}</Text>
-          <Muted>{animal.species} · {s.months} meses · {plural(s.days, 'dia', 'dias')} na recria</Muted>
+          <Muted>{t(animal.species)} · {s.months} {t('meses')} · {plural(s.days, 'dia', 'dias')} {t('na recria')}</Muted>
         </View>
         <Badge label="Recria" tone="blue" />
       </View>
@@ -181,9 +186,9 @@ function RearingCard({ animal, today, canEdit }: { animal: RearingRow; today: st
         <MiniStat title="Ganho/dia" value={s.gmd !== null ? `${s.gmd >= 0 ? '+' : ''}${brNumber(s.gmd, 3)}` : '—'} tone="green" />
         <MiniStat title="Alvo" value={animal.rearingTarget ? kg(animal.rearingTarget) : '—'} />
       </View>
-      {s.gainKg !== null ? <Text style={{ marginTop: space.md, color: colors.text, fontSize: font.sm }}>Ganhou <Text style={{ fontWeight: '700' }}>{kg(s.gainKg)}</Text> desde a desmama.</Text> : null}
-      {s.projection ? <Text style={{ marginTop: 4, color: colors.text, fontSize: font.sm }}>Chega a {kg(animal.rearingTarget!)} em <Text style={{ fontWeight: '700' }}>{plural(s.projection.days, 'dia', 'dias')}</Text> ({brDate(s.projection.date)}).</Text> : null}
-      {!s.last ? <Muted style={{ marginTop: space.md }}>Sem pesagem ainda. Pese para o app calcular o ganho.</Muted> : null}
+      {s.gainKg !== null ? <Text style={{ marginTop: space.md, color: colors.text, fontSize: font.sm }}>{t('Ganhou {kg} desde a desmama.', { kg: kg(s.gainKg) })}</Text> : null}
+      {s.projection ? <Text style={{ marginTop: 4, color: colors.text, fontSize: font.sm }}>{t('Chega a {kg} em {days} ({date}).', { kg: kg(animal.rearingTarget!), days: plural(s.projection.days, 'dia', 'dias'), date: brDate(s.projection.date) })}</Text> : null}
+      {!s.last ? <Muted style={{ marginTop: space.md }}>{t('Sem pesagem ainda. Pese para o app calcular o ganho.')}</Muted> : null}
       {animal.gender === 'Fêmea' ? <Muted style={{ marginTop: 4 }}>{coverageLine(animal.reproductions[0])}</Muted> : null}
       {canEdit ? <Button label="Pesar" variant="secondary" onPress={open} style={{ marginTop: space.md }} /> : null}
     </Card>

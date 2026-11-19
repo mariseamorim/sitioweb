@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { Pressable, Text, View } from 'react-native'
 import { styles } from '@/ui'
 import { colors, font, radius, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 export interface CheckOption { key: string; label: string }
 
@@ -16,12 +17,13 @@ export function CheckGroup({ label, hint, options, value, onChange, disabled, al
   /** Opções que podem ser marcadas (undefined = todas); as outras aparecem travadas */
   allowed?: string[]
 }) {
+  const t = useT()
   function toggle(key: string) {
     onChange(value.includes(key) ? value.filter(k => k !== key) : [...value, key])
   }
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>{t(label)}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
         {options.map(o => {
           const on = value.includes(o.key)
@@ -33,12 +35,12 @@ export function CheckGroup({ label, hint, options, value, onChange, disabled, al
                 borderColor: on ? colors.green : colors.border, backgroundColor: on ? colors.greenSoft : colors.white, opacity: locked ? 0.4 : pressed ? 0.8 : 1,
               }]}>
               <Ionicons name={on ? 'checkbox' : 'square-outline'} size={20} color={on ? colors.green : colors.muted} />
-              <Text style={{ fontSize: font.sm, fontWeight: '600', color: on ? colors.greenDark : colors.text }}>{o.label}</Text>
+              <Text style={{ fontSize: font.sm, fontWeight: '600', color: on ? colors.greenDark : colors.text }}>{t(o.label)}</Text>
             </Pressable>
           )
         })}
       </View>
-      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+      {hint ? <Text style={styles.hint}>{t(hint)}</Text> : null}
     </View>
   )
 }

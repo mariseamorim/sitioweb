@@ -7,12 +7,14 @@ import { ROLE_LABEL } from '@/lib/modules'
 import { listUsers, modulesLabel, type TeamUser } from '@/repos/users'
 import { Badge, Empty, Fab, Muted, Row } from '@/ui'
 import { colors, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 // Equipe da propriedade: a mesma lista do site (src/app/usuarios/page.tsx), lida da cópia local.
 export default function Usuarios() {
   const farmId = useFarmId()
   const { user: me, canAccess } = useSession()
   const router = useRouter()
+  const t = useT()
   const users = useLive(() => listUsers(farmId), [farmId])
 
   // O admin e o dono da propriedade (editor com o módulo Usuários) gerenciam a equipe
@@ -28,12 +30,12 @@ export default function Usuarios() {
         data={users}
         keyExtractor={u => u.id}
         contentContainerStyle={{ padding: space.lg, paddingBottom: 96 }}
-        ListHeaderComponent={<Muted style={{ marginBottom: space.sm }}>Gerencie acesso e permissões por módulo</Muted>}
+        ListHeaderComponent={<Muted style={{ marginBottom: space.sm }}>{t('Gerencie acesso e permissões por módulo')}</Muted>}
         renderItem={({ item }) => (
           <Row title={item.name}
             detail={[contactLabel(item), modulesLabel(item)].filter(Boolean).join(' · ')}
             badge={<Badge label={ROLE_LABEL[item.role] || item.role} tone={roleTone(item.role)} />}
-            right={canTouch(item) ? <Muted>Editar ›</Muted> : undefined}
+            right={canTouch(item) ? <Muted>{t('Editar')} ›</Muted> : undefined}
             onPress={canTouch(item) ? () => router.push(`/usuarios/${item.id}`) : undefined} />
         )}
         ListEmptyComponent={<Empty title="Nenhum usuário cadastrado" text={canManage ? 'Toque em “Novo Usuário” para cadastrar alguém da equipe.' : undefined} />}

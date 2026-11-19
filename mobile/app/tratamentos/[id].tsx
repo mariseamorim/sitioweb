@@ -7,12 +7,14 @@ import { animalOptions } from '@/repos/animals'
 import { getTreatment, removeTreatment, saveTreatment } from '@/repos/treatments'
 import { Button, DateField, Field, Notice, Screen, SelectField } from '@/ui'
 import { space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 export default function TratamentoForm() {
   const { id, animalId: presetAnimal } = useLocalSearchParams<{ id: string; animalId?: string }>()
   const farmId = useFarmId()
   const { canEdit } = useSession()
   const router = useRouter()
+  const t = useT()
   const editing = id && id !== 'novo' ? getTreatment(id) : null
 
   const [animalId, setAnimalId] = useState<string | null>(editing?.animalId ?? presetAnimal ?? null)
@@ -40,15 +42,15 @@ export default function TratamentoForm() {
 
   function remove() {
     if (!editing) return
-    Alert.alert('Apagar tratamento', 'Apagar este tratamento?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Apagar', style: 'destructive', onPress: () => { removeTreatment(farmId, editing.id); router.back() } },
+    Alert.alert(t('Apagar tratamento'), t('Apagar este tratamento?'), [
+      { text: t('Cancelar'), style: 'cancel' },
+      { text: t('Apagar'), style: 'destructive', onPress: () => { removeTreatment(farmId, editing.id); router.back() } },
     ])
   }
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: editing ? 'Tratamento' : 'Registrar tratamento' }} />
+      <Stack.Screen options={{ title: t(editing ? 'Tratamento' : 'Registrar tratamento') }} />
       <SelectField label="Animal" value={animalId} options={animalOptions(farmId)} onChange={setAnimalId} searchable placeholder="Escolher o animal" />
       <Field label="Medicamento" value={medicine} onChangeText={setMedicine} autoFocus={!editing} />
       <DateField label="Início" value={startDate} onChange={setStartDate} />

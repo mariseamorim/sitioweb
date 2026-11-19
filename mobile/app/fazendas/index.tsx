@@ -11,6 +11,7 @@ import { pendingCount } from '@/sync/local'
 import { useSyncState } from '@/sync'
 import { Badge, Button, Card, Chips, Empty, Fab, Muted, Notice, Screen, Search, Stat } from '@/ui'
 import { colors, font, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 // As mesmas mensagens do site (src/lib/farmSwitch.ts e a tela de propriedades)
 const PENDING_MESSAGE = 'Ainda há anotações salvas só no celular. Conecte-se à internet e espere o "Tudo enviado" antes de trocar de propriedade.'
@@ -31,19 +32,20 @@ export default function Fazendas() {
   const [opening, setOpening] = useState<string | null>(null)
   const [error, setError] = useState('')
   const isAdmin = user?.role === 'admin'
+  const t = useT()
 
   async function openFarm(id: string) {
     setError('')
     if (pendingCount(farmId).pending > 0) { setError(PENDING_MESSAGE); return }
     if (!sync.online) { setError(OFFLINE_SWITCH); return }
     setOpening(id)
-    try { await switchFarm(id); router.replace('/(tabs)') } catch (e) { setError(e instanceof Error ? e.message : 'Não foi possível abrir esta propriedade.') } finally { setOpening(null) }
+    try { await switchFarm(id); router.replace('/(tabs)') } catch (e) { setError(e instanceof Error ? t(e.message) : t('Não foi possível abrir esta propriedade.')) } finally { setOpening(null) }
   }
 
   function confirmDelete(farm: Farm) {
-    Alert.alert('Excluir esta propriedade?', 'Se ela já tiver registros, será apenas desativada e nada se perde.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Excluir', style: 'destructive', onPress: () => void deleteFarm(farm) },
+    Alert.alert(t('Excluir esta propriedade?'), t('Se ela já tiver registros, será apenas desativada e nada se perde.'), [
+      { text: t('Cancelar'), style: 'cancel' },
+      { text: t('Excluir'), style: 'destructive', onPress: () => void deleteFarm(farm) },
     ])
   }
 
@@ -92,18 +94,18 @@ export default function Fazendas() {
               {f.propertyType ? <Badge label={f.propertyType} tone={f.propertyType === 'Sítio' ? 'amber' : 'green'} /> : null}
             </View>
             {f.documentType || f.documentNumber ? <Muted>{f.documentType}: {f.documentNumber}</Muted> : null}
-            {f.owner ? <Muted>Proprietário: {f.owner}</Muted> : null}
+            {f.owner ? <Muted>{t('Proprietário:')} {f.owner}</Muted> : null}
             {f.address ? <Muted>{f.address}</Muted> : null}
             {f.city || f.state ? <Muted>{[f.city, f.state].filter(Boolean).join(' — ')}</Muted> : null}
             {f.phone ? <Muted style={{ marginTop: space.xs }}>{f.phone}</Muted> : null}
             {f.segments.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: space.sm }}>{segmentBadges(f.segments)}</View> : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm, marginTop: space.md }}>
               {f.id === farmId
-                ? <Text style={{ fontSize: font.sm, fontWeight: '700', color: colors.muted, paddingHorizontal: space.sm }}>Aberta agora</Text>
+                ? <Text style={{ fontSize: font.sm, fontWeight: '700', color: colors.muted, paddingHorizontal: space.sm }}>{t('Aberta agora')}</Text>
                 : <Button label={opening === f.id ? 'Abrindo…' : 'Abrir esta propriedade'} variant="secondary" onPress={() => void openFarm(f.id)} disabled={!!opening} />}
               {canEdit ? <Button label="Editar cadastro" variant="ghost" onPress={() => router.push(`/fazendas/${f.id}`)} /> : null}
               {canEdit ? (
-                <Pressable onPress={() => confirmDelete(f)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Excluir propriedade ${f.name}`} style={{ marginLeft: 'auto', padding: space.sm }}>
+                <Pressable onPress={() => confirmDelete(f)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('Excluir propriedade {name}', { name: f.name })} style={{ marginLeft: 'auto', padding: space.sm }}>
                   <Ionicons name="trash-outline" size={22} color={colors.muted} />
                 </Pressable>
               ) : null}
@@ -123,6 +125,7 @@ function AdminGroups({ farms, activeFarmId, header, opening, onOpen, onEdit, onD
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<OwnerFilter>('todos')
   const [openKeys, setOpenKeys] = useState<Record<string, boolean>>({})
+  const t = useT()
 
   const groups = useMemo(() => groupFarmsByOwner(farms), [farms])
   const totals = useMemo(() => ownerTotals(groups), [groups])
@@ -130,7 +133,7 @@ function AdminGroups({ farms, activeFarmId, header, opening, onOpen, onEdit, onD
   const searching = query.trim().length > 0
   // Grupos começam fechados; só a busca por texto abre todos, para o resultado aparecer
   const isOpen = (g: OwnerGroup) => openKeys[g.key] ?? searching
-  const filters = OWNER_FILTERS.filter(f => f.key !== 'inativas' || totals.inactive > 0).map(f => ({ value: f.key, label: f.key === 'inativas' ? `${f.label} (${totals.inactive})` : f.label }))
+  const filters = OWNER_FILTERS.filter(f => f.key !== 'inativas' || totals.inactive > 0).map(f => ({ value: f.key, label: f.key === 'inativas' ? `${t(f.label)} (${totals.inactive})` : f.label }))
 
   return (
     <Screen>
@@ -140,13 +143,13 @@ function AdminGroups({ farms, activeFarmId, header, opening, onOpen, onEdit, onD
         <Stat label="propriedades ativas" value={String(totals.farms)} />
       </View>
       <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.md }}>
-        <Pressable style={{ flex: 1 }} onPress={() => totals.stale && setFilter('paradas')}><Stat label={`sem lançamento há ${STALE_DAYS} dias`} value={String(totals.stale)} tone={totals.stale ? 'red' : undefined} /></Pressable>
+        <Pressable style={{ flex: 1 }} onPress={() => totals.stale && setFilter('paradas')}><Stat label={t('sem lançamento há {n} dias', { n: STALE_DAYS })} value={String(totals.stale)} tone={totals.stale ? 'red' : undefined} /></Pressable>
         <Pressable style={{ flex: 1 }} onPress={() => totals.unknown && setFilter('semdono')}><Stat label="sem proprietário informado" value={String(totals.unknown)} tone={totals.unknown ? 'amber' : undefined} /></Pressable>
       </View>
       <Search value={query} onChange={setQuery} placeholder="Proprietário, CPF/CNPJ, propriedade ou cidade" />
       <Chips options={filters} value={filter} onChange={setFilter} />
       {visible.length === 0 ? (
-        <Empty title={searching ? `Nenhum proprietário ou propriedade com "${query.trim()}".` : 'Nenhuma propriedade neste filtro.'} />
+        <Empty title={searching ? t('Nenhum proprietário ou propriedade com "{q}".', { q: query.trim() }) : t('Nenhuma propriedade neste filtro.')} />
       ) : visible.map(g => {
         const open = isOpen(g)
         const stale = g.farms.some(f => f.isActive && isStale(f.lastActivity))
@@ -163,13 +166,13 @@ function AdminGroups({ farms, activeFarmId, header, opening, onOpen, onEdit, onD
                 <Text style={{ fontWeight: '700', color: colors.text }} numberOfLines={2}>{g.name}</Text>
                 <Muted style={{ fontSize: 12 }}>
                   {g.unknown
-                    ? 'Cadastros sem nome nem CPF/CNPJ do dono'
-                    : [g.document, g.city, g.animals ? `${g.animals} ${g.animals === 1 ? 'animal' : 'animais'}` : null, activityLabel(g.lastActivity)].filter(Boolean).join(' · ')}
+                    ? t('Cadastros sem nome nem CPF/CNPJ do dono')
+                    : [g.document, g.city, g.animals ? `${g.animals} ${t(g.animals === 1 ? 'animal' : 'animais')}` : null, t(activityLabel(g.lastActivity))].filter(Boolean).join(' · ')}
                 </Muted>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text }}>{g.farms.length}</Text>
-                <Muted style={{ fontSize: 11 }}>{g.farms.length === 1 ? 'propriedade' : 'propriedades'}</Muted>
+                <Muted style={{ fontSize: 11 }}>{t(g.farms.length === 1 ? 'propriedade' : 'propriedades')}</Muted>
               </View>
               <Ionicons name={open ? 'chevron-down' : 'chevron-forward'} size={18} color={colors.muted} />
             </Pressable>
@@ -189,13 +192,14 @@ function AdminFarmRow({ farm, active, unknownOwner, opening, onOpen, onEdit, onD
   farm: Farm; active: boolean; unknownOwner: boolean; opening: boolean
   onOpen: (f: Farm) => void; onEdit: (f: Farm) => void; onDelete: (f: Farm) => void
 }) {
+  const t = useT()
   const stale = farm.isActive && isStale(farm.lastActivity)
   const place = [farm.city, farm.state].filter(Boolean).join(', ')
   const detail = [
     place || null,
-    `${farm.animals} ${farm.animals === 1 ? 'animal' : 'animais'}`,
-    `${farm.members} ${farm.members === 1 ? 'pessoa' : 'pessoas'}`,
-    farm.isActive ? activityLabel(farm.lastActivity) : 'inativa',
+    `${farm.animals} ${t(farm.animals === 1 ? 'animal' : 'animais')}`,
+    `${farm.members} ${t(farm.members === 1 ? 'pessoa' : 'pessoas')}`,
+    t(farm.isActive ? activityLabel(farm.lastActivity) : 'inativa'),
   ].filter(Boolean).join(' · ')
   return (
     <View style={{ paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: colors.border }}>
@@ -209,7 +213,7 @@ function AdminFarmRow({ farm, active, unknownOwner, opening, onOpen, onEdit, onD
       ) : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.sm }}>
         <Button label={unknownOwner ? 'Completar' : 'Editar'} variant={unknownOwner ? 'secondary' : 'ghost'} onPress={() => onEdit(farm)} style={{ minHeight: 40 }} />
-        <Pressable onPress={() => onDelete(farm)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Excluir propriedade ${farm.name}`} style={{ padding: space.sm }}>
+        <Pressable onPress={() => onDelete(farm)} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('Excluir propriedade {name}', { name: farm.name })} style={{ padding: space.sm }}>
           <Ionicons name="trash-outline" size={22} color={colors.muted} />
         </Pressable>
         <View style={{ flex: 1 }} />

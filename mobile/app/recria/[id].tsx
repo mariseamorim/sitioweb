@@ -11,6 +11,7 @@ import { addRearingWeighing, eligibleForRearing, enterRearing, getRearing, isPen
 import { Badge, Button, Card, DateField, Field, Muted, Notice, Screen, Search } from '@/ui'
 import { Section, StatGrid, TextButton, coverageLine, kg, plural, tag } from '@/ui/lots'
 import { colors, font, radius, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 /** Recria um a um: "Acompanhar um animal" (id = novo) ou a ficha de um animal (porte de RearingAnimals.tsx do site) */
 export default function RecriaScreen() {
@@ -20,9 +21,10 @@ export default function RecriaScreen() {
   const today = todayISO()
   const isNew = !id || id === 'novo'
   const animal = useLive(() => (isNew ? null : getRearing(id)), [id])
+  const t = useT()
 
   if (isNew) return <AddScreen farmId={farmId} canEdit={canEdit} today={today} />
-  if (!animal || !animal.rearingStart) return <Screen><Stack.Screen options={{ title: 'Recria' }} /><Notice text="Animal não encontrado na recria." /></Screen>
+  if (!animal || !animal.rearingStart) return <Screen><Stack.Screen options={{ title: t('Recria') }} /><Notice text="Animal não encontrado na recria." /></Screen>
   return <RearingDetail animal={animal} farmId={farmId} today={today} canEdit={canEdit} canBreed={canEdit && canAccess('reproducao')} />
 }
 
@@ -38,6 +40,7 @@ function RearingDetail({ animal, farmId, today, canEdit, canBreed }: { animal: R
   const [endDate, setEndDate] = useState(today)
   const [error, setError] = useState('')
   const weighings = [...animal.weighings].reverse()
+  const t = useT()
 
   function saveWeighing() {
     const w = parseKg(weight)
@@ -51,9 +54,9 @@ function RearingDetail({ animal, farmId, today, canEdit, canBreed }: { animal: R
   }
   const removeWeighing = (w: { id?: string; date: string; weight: number }) => {
     if (!w.id) return
-    Alert.alert(`Apagar a pesagem de ${brDate(w.date)} (${kg(w.weight)})?`, undefined, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Apagar', style: 'destructive', onPress: () => removeRearingWeighing(farmId, animal.id, w.id!) },
+    Alert.alert(t('Apagar a pesagem de {date} ({kg})?', { date: brDate(w.date), kg: kg(w.weight) }), undefined, [
+      { text: t('Cancelar'), style: 'cancel' },
+      { text: t('Apagar'), style: 'destructive', onPress: () => removeRearingWeighing(farmId, animal.id, w.id!) },
     ])
   }
   function saveTarget() {
@@ -65,9 +68,9 @@ function RearingDetail({ animal, farmId, today, canEdit, canBreed }: { animal: R
   function leave() {
     if (endDate > today) return setError('A saída não pode ser no futuro')
     if (endDate < animal.rearingStart!) return setError('A saída não pode ser antes da entrada')
-    Alert.alert(`${animal.name} sai da recria?`, 'Use quando vendeu, foi para a engorda ou virou matriz. O histórico fica guardado.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair da recria', onPress: () => { setError(''); setRearingEnd(farmId, animal.id, endDate) } },
+    Alert.alert(t('{name} sai da recria?', { name: animal.name }), t('Use quando vendeu, foi para a engorda ou virou matriz. O histórico fica guardado.'), [
+      { text: t('Cancelar'), style: 'cancel' },
+      { text: t('Sair da recria'), onPress: () => { setError(''); setRearingEnd(farmId, animal.id, endDate) } },
     ])
   }
 
@@ -78,7 +81,7 @@ function RearingDetail({ animal, farmId, today, canEdit, canBreed }: { animal: R
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: space.sm }}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text }}>{tag(animal)} {animal.name}</Text>
-            <Muted>{animal.species} · {s.months} meses · desmama em {brDate(animal.rearingStart)}{animal.rearingEnd ? ` · saiu em ${brDate(animal.rearingEnd)}` : ''}</Muted>
+            <Muted>{t(animal.species)} · {s.months} {t('meses')} · {t('desmama em {date}', { date: brDate(animal.rearingStart) })}{animal.rearingEnd ? ` · ${t('saiu em {date}', { date: brDate(animal.rearingEnd) })}` : ''}</Muted>
           </View>
           <Badge label={inRearing ? 'Recria' : 'Saiu da recria'} tone={inRearing ? 'blue' : 'muted'} />
         </View>
@@ -90,7 +93,7 @@ function RearingDetail({ animal, farmId, today, canEdit, canBreed }: { animal: R
             { title: 'Ganho/dia', value: s.gmd !== null ? `${brNumber(s.gmd, 3)} kg` : '—', tone: 'green' },
           ]} />
         </View>
-        {s.projection ? <Text style={{ marginTop: space.sm, color: colors.text, fontSize: font.sm }}>No ritmo atual chega a {kg(animal.rearingTarget!)} em <Text style={{ fontWeight: '700' }}>{plural(s.projection.days, 'dia', 'dias')}</Text> ({brDate(s.projection.date)}).</Text> : null}
+        {s.projection ? <Text style={{ marginTop: space.sm, color: colors.text, fontSize: font.sm }}>{t('No ritmo atual chega a {kg} em {days} ({date}).', { kg: kg(animal.rearingTarget!), days: plural(s.projection.days, 'dia', 'dias'), date: brDate(s.projection.date) })}</Text> : null}
         <TextButton label="Abrir a ficha do animal" onPress={() => router.push(`/animais/${animal.id}`)} />
       </Card>
 
@@ -101,7 +104,7 @@ function RearingDetail({ animal, farmId, today, canEdit, canBreed }: { animal: R
           <View style={{ backgroundColor: colors.greenSoft, borderRadius: radius.md, padding: space.md }}>
             <View style={{ flexDirection: 'row', gap: space.sm }}>
               <View style={{ flex: 1 }}><DateField label="Data" value={date} onChange={setDate} /></View>
-              <Field label="Peso (kg)" value={weight} onChangeText={v => setWeight(decimal(v))} keyboardType="decimal-pad" placeholder={s.last ? `Antes: ${brNumber(s.last.weight, 0)}` : 'Ex.: 200'} style={{ flex: 1 }} />
+              <Field label="Peso (kg)" value={weight} onChangeText={v => setWeight(decimal(v))} keyboardType="decimal-pad" placeholder={s.last ? `${t('Antes:')} ${brNumber(s.last.weight, 0)}` : 'Ex.: 200'} style={{ flex: 1 }} />
             </View>
             <Button label="Salvar pesagem" onPress={saveWeighing} />
           </View>
@@ -116,7 +119,7 @@ function RearingDetail({ animal, farmId, today, canEdit, canBreed }: { animal: R
               const pending = isPendingWeighing(w.id)
               return (
                 <View key={w.id ?? `${w.date}-${w.weight}`} style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-                  <Text style={{ flex: 1, color: colors.text }}>{brDate(w.date)}{w.lotWeighingId ? <Muted> lote</Muted> : null}</Text>
+                  <Text style={{ flex: 1, color: colors.text }}>{brDate(w.date)}{w.lotWeighingId ? <Muted> {t('lote')}</Muted> : null}</Text>
                   <Text style={{ fontWeight: '700', color: colors.text }}>{kg(w.weight)}</Text>
                   {before ? <Muted>{w.weight - before.weight >= 0 ? '+' : ''}{brNumber(w.weight - before.weight)} kg</Muted> : null}
                   {pending ? <Badge label="na fila" tone="amber" /> : canEdit && w.id && !w.lotWeighingId ? <TextButton label="Apagar" tone="red" onPress={() => removeWeighing(w)} /> : null}
@@ -153,7 +156,7 @@ function RearingDetail({ animal, farmId, today, canEdit, canBreed }: { animal: R
               <Button label="Sair da recria" variant="secondary" onPress={leave} />
             </View>
           ) : <Button label="Voltar para a recria" variant="secondary" onPress={() => setRearingEnd(farmId, animal.id, null)} />}
-          <Muted style={{ marginTop: space.sm }}>Para engordar em grupo, crie um lote de engorda com este animal: ele sai da recria sozinho.</Muted>
+          <Muted style={{ marginTop: space.sm }}>{t('Para engordar em grupo, crie um lote de engorda com este animal: ele sai da recria sozinho.')}</Muted>
         </View>
       ) : null}
     </Screen>
@@ -166,16 +169,17 @@ function AddScreen({ farmId, canEdit, today }: { farmId: string; canEdit: boolea
   const [q, setQ] = useState('')
   const [chosen, setChosen] = useState<HerdAnimal | null>(null)
   const eligible = useLive(() => eligibleForRearing(farmId, today), [farmId, today])
+  const t = useT()
   const term = q.trim().toLowerCase()
-  const list = eligible.filter(a => !term || [a.code, a.customCode, a.name, a.species].some(v => v?.toLowerCase().includes(term)))
+  const list = eligible.filter(a => !term || [a.code, a.customCode, a.name, a.species, t(a.species)].some(v => v?.toLowerCase().includes(term)))
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: 'Acompanhar um animal' }} />
-      <Muted style={{ marginBottom: space.md }}>Bezerros, bezerras e bois jovens que não estão em lote</Muted>
+      <Stack.Screen options={{ title: t('Acompanhar um animal') }} />
+      <Muted style={{ marginBottom: space.md }}>{t('Bezerros, bezerras e bois jovens que não estão em lote')}</Muted>
       {!canEdit ? <Notice tone="red" text="Sua conta só pode consultar." /> : null}
       {chosen ? <RearingEntryForm animal={chosen} farmId={farmId} today={today} canEdit={canEdit} onCancel={() => setChosen(null)} /> : eligible.length === 0 ? (
-        <Muted style={{ padding: space.md, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md }}>Nenhum animal disponível: cadastre o bezerro em Animais (ou registre a cria na ficha da vaca) e volte aqui.</Muted>
+        <Muted style={{ padding: space.md, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md }}>{t('Nenhum animal disponível: cadastre o bezerro em Animais (ou registre a cria na ficha da vaca) e volte aqui.')}</Muted>
       ) : (
         <View>
           <Search value={q} onChange={setQ} placeholder="Buscar por brinco, nome ou categoria" />
@@ -184,12 +188,12 @@ function AddScreen({ farmId, canEdit, today }: { farmId: string; canEdit: boolea
               <Pressable key={a.id} onPress={() => setChosen(a)} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 48, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: colors.border, opacity: pressed ? 0.6 : 1 })}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: colors.text, fontSize: font.md }}><Text style={{ fontWeight: '700' }}>{tag(a)}</Text> {a.name}</Text>
-                  <Muted>{a.species}</Muted>
+                  <Muted>{t(a.species)}</Muted>
                 </View>
-                <Text style={{ color: colors.blue, fontWeight: '700', fontSize: font.sm }}>Escolher</Text>
+                <Text style={{ color: colors.blue, fontWeight: '700', fontSize: font.sm }}>{t('Escolher')}</Text>
               </Pressable>
             ))}
-            {list.length === 0 ? <Muted style={{ paddingVertical: space.md }}>Nenhum animal encontrado.</Muted> : null}
+            {list.length === 0 ? <Muted style={{ paddingVertical: space.md }}>{t('Nenhum animal encontrado.')}</Muted> : null}
           </Card>
         </View>
       )}
@@ -204,20 +208,21 @@ function RearingEntryForm({ animal, farmId, today, canEdit, onCancel }: { animal
   const [weight, setWeight] = useState('')
   const [target, setTarget] = useState('')
   const [error, setError] = useState('')
+  const t = useT()
   const kgOf = (v: string) => (v.trim() ? parseKg(v) ?? NaN : null)
 
   function submit() {
     const w = kgOf(weight)
-    const t = kgOf(target)
-    const ruleError = rearingEntryError({ start, birthDate: isoDay(animal.birthDate), today, weight: w, target: t })
+    const tg = kgOf(target)
+    const ruleError = rearingEntryError({ start, birthDate: isoDay(animal.birthDate), today, weight: w, target: tg })
     if (ruleError) return setError(ruleError)
-    enterRearing(farmId, animal.id, { start, weight: w, target: t })
+    enterRearing(farmId, animal.id, { start, weight: w, target: tg })
     router.replace(`/recria/${animal.id}`)
   }
 
   return (
     <View style={{ backgroundColor: colors.blueSoft, borderRadius: radius.md, padding: space.md }}>
-      <Text style={{ color: colors.text, marginBottom: space.md }}><Text style={{ fontWeight: '700' }}>{animal.name}</Text> entra na recria. A partir daqui o app acompanha o peso, o ganho por dia{animal.gender === 'Fêmea' ? ' e a cobertura' : ''}.</Text>
+      <Text style={{ color: colors.text, marginBottom: space.md }}>{t(animal.gender === 'Fêmea' ? '{name} entra na recria. A partir daqui o app acompanha o peso, o ganho por dia e a cobertura.' : '{name} entra na recria. A partir daqui o app acompanha o peso e o ganho por dia.', { name: animal.name })}</Text>
       <DateField label="Data da desmama" value={start} onChange={setStart} />
       <Field label="Peso na desmama (kg)" value={weight} onChangeText={v => setWeight(decimal(v))} keyboardType="decimal-pad" placeholder="Ex.: 180" />
       <Field label="Peso-alvo (kg, opcional)" value={target} onChangeText={v => setTarget(decimal(v))} keyboardType="decimal-pad" placeholder={animal.gender === 'Fêmea' ? 'Ex.: 320 para cobrir' : 'Ex.: 360 para a engorda'} />
@@ -226,7 +231,7 @@ function RearingEntryForm({ animal, farmId, today, canEdit, onCancel }: { animal
         <Button label="Cancelar" variant="secondary" onPress={onCancel} style={{ flex: 1 }} />
         <Button label="Entrar na recria" onPress={submit} disabled={!canEdit} style={{ flex: 1 }} />
       </View>
-      <Muted style={{ marginTop: space.sm }}>Sem internet, fica guardado no aparelho e sobe quando o sinal voltar.</Muted>
+      <Muted style={{ marginTop: space.sm }}>{t('Sem internet, fica guardado no aparelho e sobe quando o sinal voltar.')}</Muted>
     </View>
   )
 }
