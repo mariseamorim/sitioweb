@@ -9,7 +9,7 @@ import { useT } from '@/lib/i18n'
 import { LanguagePicker } from '@/ui/LanguagePicker'
 
 export default function Login() {
-  const { login } = useSession()
+  const { login, enterDemo } = useSession()
   const router = useRouter()
   const t = useT()
   const [user, setUser] = useState('')
@@ -31,6 +31,19 @@ export default function Login() {
     }
   }
 
+  async function demo() {
+    setError('')
+    setLoading(true)
+    try {
+      await enterDemo()
+      router.replace('/consultoria')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('Não foi possível entrar'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.greenDark }}>
       <Screen background={colors.greenDark} style={{ justifyContent: 'center' }} header={false}>
@@ -44,6 +57,12 @@ export default function Login() {
           <Button label={t('Entrar')} onPress={enter} loading={loading} />
           <Text style={{ color: colors.muted, fontSize: font.sm, marginTop: space.md, textAlign: 'center' }}>
             {t('Use a mesma conta do site www.anotaaiagro.com.br. Para criar uma conta ou entrar com Google, use o site.')}
+          </Text>
+        </View>
+        <View style={{ backgroundColor: colors.white, borderRadius: 16, padding: space.lg, marginTop: space.md }}>
+          <Button label={t('Ver demonstração do veterinário')} variant="secondary" onPress={demo} disabled={loading} />
+          <Text style={{ color: colors.muted, fontSize: font.sm, marginTop: space.sm, textAlign: 'center' }}>
+            {t('Três propriedades com dados fictícios, só neste celular. Não precisa de conta nem de internet.')}
           </Text>
         </View>
         <View style={{ marginTop: space.lg }}><LanguagePicker dark /></View>

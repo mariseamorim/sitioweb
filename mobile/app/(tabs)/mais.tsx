@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons'
 import { useRouter } from 'expo-router'
 import { Alert, Text, View } from 'react-native'
 import { useSession } from '@/auth/session'
+import { isDemo } from '@/api/client'
 import { useSyncState } from '@/sync'
-import { Card, Muted, Row, Screen } from '@/ui'
+import { Card, Muted, Notice, Row, Screen } from '@/ui'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 import { LanguagePicker } from '@/ui/LanguagePicker'
@@ -66,6 +67,7 @@ export default function Mais() {
 
   return (
     <Screen>
+      {isDemo() ? <Notice tone="blue" text={t('Demonstração: dados fictícios, guardados só neste celular. Nada é enviado ao servidor. Para sair, use "Sair da conta" em Mais.')} /> : null}
       <Card onPress={() => router.push('/perfil')}>
         <Text style={{ fontWeight: '700', fontSize: 18, color: colors.text }}>{user?.name}</Text>
         <Muted>{user?.farmName ?? t('Sem propriedade aberta')}</Muted>

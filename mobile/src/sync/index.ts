@@ -3,7 +3,7 @@
 import NetInfo from '@react-native-community/netinfo'
 import { AppState } from 'react-native'
 import { useEffect, useState } from 'react'
-import { api, HttpError, NetworkError } from '@/api/client'
+import { api, HttpError, isDemo, NetworkError } from '@/api/client'
 import { all, deleteRow, getMeta, one, patchRow, replaceFromServer, run, setCache, setMeta, transaction, upsert, TABLES, type Row, type TableName } from '@/db'
 import { notifyChange } from '@/db/events'
 import { isLocalId, pendingCount, type OutboxRow } from './local'
@@ -69,6 +69,18 @@ function adoptServerRow(table: TableName, farmId: string, localId: string, serve
 /** Envia a fila. Devolve false se parou por falta de internet. */
 export async function pushOutbox(farmId: string): Promise<boolean> {
   const rows = all<OutboxRow>('SELECT * FROM outbox WHERE farmId = ? AND failed = 0 ORDER BY seq', [farmId])
+  if (isDemo()) {
+    // Demonstração: a fila é aceita na hora e o registro fica com o id do aparelho
+    transaction(() => {
+      for (const row of rows) {
+        if (row.localId && isLocalId(row.localId)) run('INSERT OR REPLACE INTO id_map (localId, serverId) VALUES (?, ?)', [row.localId, row.localId])
+        run('DELETE FROM outbox WHERE seq = ?', [row.seq])
+      }
+    })
+    refreshCounts(farmId)
+    notifyChange()
+    return true
+  }
   for (const row of rows) {
     const path = resolveIds(row.path)
     const body = row.body ? resolveIds(row.body) : { text: null, unresolved: null }
@@ -105,6 +117,8 @@ export async function pushOutbox(farmId: string): Promise<boolean> {
 
 /** Baixa as listas dos módulos permitidos e substitui a cópia local. */
 export async function pullAll(farmId: string, canAccess: (module: string) => boolean) {
+  // Demonstração: os dados do aparelho são a única cópia
+  if (isDemo()) return
   const admin = canAccess('admin')
   // Uma rota recusada (403, 500) não impede as outras; só a falta de internet interrompe tudo
   const tolerant = async (fn: () => Promise<void>) => {

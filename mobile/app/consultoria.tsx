@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { Share, Text, View } from 'react-native'
-import { api, API_BASE, NetworkError } from '@/api/client'
+import { api, API_BASE, isDemo, NetworkError } from '@/api/client'
 import { useSession } from '@/auth/session'
 import { getCache, setCache } from '@/db'
 import { pendingCount } from '@/sync/local'
@@ -82,6 +82,7 @@ export default function Consultoria() {
 
   return (
     <Screen>
+      {isDemo() ? <Notice tone="blue" text={t('Demonstração: dados fictícios, guardados só neste celular. Nada é enviado ao servidor. Para sair, use "Sair da conta" em Mais.')} /> : null}
       {offline ? <Notice text={t('Sem internet: mostrando os números da última vez que o painel carregou.')} /> : null}
       {error ? <Notice tone="red" text={error} /> : null}
       <Muted style={{ marginBottom: space.md }}>{panel.clients.length} {panel.clients.length === 1 ? t('propriedade atendida') : t('propriedades atendidas')} · {total(c => c.animals)} {t('animais')}</Muted>
