@@ -20,10 +20,16 @@ interface ArchivedRecord {
   animal: string; code: string; coverageDate: string; method: string | null; maleName: string | null; status: string
   expectedBirthDate: string | null; covered: boolean; diagnosed: boolean; diagnosedAt: string | null
 }
+interface Task { farmId: string; title: string; detail?: string; n: number; late?: number; href: string; tone: 'red' | 'amber' | 'blue' }
+
+const TONE_DOT = { red: 'bg-red-600', amber: 'bg-amber-500', blue: 'bg-blue-600' } as const
+
 interface Panel {
   vet: { name: string; crmv: string | null; city: string | null; state: string | null; inviteCode: string }
   openFarmId: string | null
   clients: Client[]
+  /** O que fazer em cada propriedade */
+  tasks?: Task[]
   ended: Ended[]
 }
 
@@ -136,6 +142,35 @@ export default function ConsultoriaPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-4"><p className="text-2xl font-bold text-green-700">{averageRate === null ? '—' : `${averageRate}%`}</p><p className="text-sm text-gray-500">{t('concepção média')}</p></div>
         <div className="bg-white rounded-xl border border-gray-200 p-4"><p className="text-2xl font-bold text-gray-800">{panel.clients.reduce((sum, c) => sum + c.birthsSoon, 0)}</p><p className="text-sm text-gray-500">{t('partos em 30 dias')}</p></div>
       </div>
+
+      <section className="mb-6" aria-labelledby="vet-tasks">
+        <h2 id="vet-tasks" className="text-lg font-semibold text-gray-800 mb-3">{t('O que fazer nas propriedades')}</h2>
+        {!panel.tasks?.length ? (
+          <p className="bg-white rounded-xl border border-gray-200 p-4 text-sm text-gray-500">{t('Nada pendente nas propriedades que você atende.')}</p>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            {panel.clients.filter((c) => panel.tasks!.some((k) => k.farmId === c.farmId)).map((c) => (
+              <div key={c.id} className="bg-white rounded-xl border border-gray-200">
+                <p className="px-4 pt-3 pb-1 font-semibold text-gray-900">{c.name}</p>
+                <ul className="divide-y divide-gray-100">
+                  {panel.tasks!.filter((k) => k.farmId === c.farmId).map((k) => (
+                    <li key={k.title}>
+                      <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, k.href)} className="flex w-full items-start gap-3 px-4 py-2.5 text-left hover:bg-gray-50 disabled:opacity-60">
+                        <span aria-hidden="true" className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${TONE_DOT[k.tone]}`} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-medium text-gray-800">{t(k.title, { n: k.n })}</span>
+                          {(k.late || k.detail) && <span className="block text-sm text-gray-500">{[k.late ? t(k.late === 1 ? '{n} já passou da data' : '{n} já passaram da data', { n: k.late }) : null, k.detail ? t(k.detail) : null].filter(Boolean).join(' · ')}</span>}
+                        </span>
+                        <span aria-hidden="true" className="text-gray-400">›</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       <Agenda clients={panel.clients.map((c) => ({ id: c.id, name: c.name }))} />
 

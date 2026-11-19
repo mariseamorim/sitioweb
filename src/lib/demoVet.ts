@@ -73,6 +73,7 @@ export async function createDemoVet(): Promise<string> {
   const reproductions: Prisma.ReproductionCreateManyInput[] = []
   const milk: Prisma.MilkProductionCreateManyInput[] = []
   const vaccinations: Prisma.VaccinationCreateManyInput[] = []
+  const treatments: Prisma.VeterinaryTreatmentCreateManyInput[] = []
 
   FARMS.forEach((farm, fi) => {
     const farmId = farmIds[fi]
@@ -109,8 +110,8 @@ export async function createDemoVet(): Promise<string> {
           coverage({ femaleId: cow, coverageDate: ago(225), expectedBirthDate: ago(225 - GESTATION), status: 'Vazia' })
           coverage({ femaleId: cow, coverageDate: ago(200), expectedBirthDate: ahead(GESTATION - 200), status: 'Prenha' })
           break
-        case 1: { // parto em menos de 30 dias
-          const d = 262 + (i % 3) * 4
+        case 1: { // parto em menos de 30 dias (a primeira de cada propriedade, nesta semana: entra nas tarefas)
+          const d = i === 1 ? 279 : 262 + (i % 3) * 4
           coverage({ femaleId: cow, coverageDate: ago(d), expectedBirthDate: ahead(GESTATION - d), status: 'Prenha' })
           break
         }
@@ -125,6 +126,8 @@ export async function createDemoVet(): Promise<string> {
           break
         }
         case 4:
+          // Em tratamento (aparece nas tarefas e na carência do leite)
+          if (i === 4) treatments.push({ animalId: cow, medicine: 'Oxitetraciclina', startDate: ago(2), endDate: ahead(3), milkWithdrawalDays: 4, meatWithdrawalDays: 28, description: 'Mastite no quarto posterior direito' })
           coverage({ femaleId: cow, coverageDate: ago(75), expectedBirthDate: ahead(GESTATION - 75), status: 'Vazia', method: 'ia' })
           break
         default:
@@ -132,7 +135,8 @@ export async function createDemoVet(): Promise<string> {
       }
 
       vaccinations.push({ animalId: cow, vaccineName: 'Febre aftosa', scheduledDate: ago(150), appliedDate: ago(150), batch: 'AF-2291', manufacturer: 'Ourofino' })
-      if (i % 3 === 0) vaccinations.push({ animalId: cow, vaccineName: 'Brucelose (reforço)', scheduledDate: ahead(10 + i) })
+      // Uma vacina atrasada por propriedade (tarefa em vermelho) e as outras marcadas para as próximas semanas
+      if (i % 3 === 0) vaccinations.push({ animalId: cow, vaccineName: 'Brucelose (reforço)', scheduledDate: i === 0 ? ago(3) : ahead(10 + i) })
     }
     for (let i = 0; i < 3; i++) {
       const heifer = animal({ name: `${CALF_NAMES[(i + 3 + fi) % CALF_NAMES.length]} II`, species: 'Bezerra', gender: 'Fêmea', birthDate: ago(480 + i * 40) })
@@ -155,9 +159,11 @@ export async function createDemoVet(): Promise<string> {
     prisma.animal.createMany({ data: animals }),
     prisma.reproduction.createMany({ data: reproductions }),
     prisma.vaccination.createMany({ data: vaccinations }),
+    prisma.veterinaryTreatment.createMany({ data: treatments }),
     prisma.milkProduction.createMany({ data: milk }),
     prisma.vetVisit.createMany({
       data: [
+        { vetId: vet.id, clientId: clientIds[1], farmName: FARMS[1].name, date: ahead(0), time: '15:00', purpose: 'Retorno — vaca com mastite' },
         { vetId: vet.id, clientId: clientIds[0], farmName: FARMS[0].name, date: ahead(2), time: '07:30', purpose: 'Diagnóstico de gestação' },
         { vetId: vet.id, clientId: clientIds[2], farmName: FARMS[2].name, date: ahead(6), time: '08:00', purpose: 'IATF — lote de vacas paridas' },
         { vetId: vet.id, clientId: clientIds[1], farmName: FARMS[1].name, date: ahead(13), time: '14:00', purpose: 'Exame de novilhas' },
