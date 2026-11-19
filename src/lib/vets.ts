@@ -6,6 +6,8 @@ import { NextResponse } from 'next/server'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getSessionUser } from '@/lib/auth'
+import { animalToday } from '@/lib/animalRules'
+import { pregnancyChecks } from '@/lib/calving'
 
 /** Módulos que o veterinário usa nas propriedades que atende (sem financeiro, estoque, usuários e cadastro da propriedade). */
 export const VET_MODULES = ['animais', 'reproducao', 'vacinacao', 'veterinario', 'leite'] as const
@@ -129,4 +131,63 @@ export async function endVetLink(clientId: string) {
     }
     return link
   })
+}
+
+/** Dias depois da cobertura a partir dos quais já dá para diagnosticar a gestação (como em /reproducao/diagnostico) */
+const DIAGNOSIS_DAYS = 28
+
+export interface VetTask {
+  farmId: string
+  /** Texto em português com {n}; a tela traduz com t(title, { n }) */
+  title: string
+  detail?: string
+  n: number
+  /** Quantos já passaram da data (vai no detalhe) */
+  late?: number
+  /** Tela da propriedade que resolve a tarefa */
+  href: string
+  tone: 'red' | 'amber' | 'blue'
+}
+
+/**
+ * O que o veterinário tem a fazer nas propriedades que atende: gestações a diagnosticar, partos e vacinas da semana,
+ * vacas paridas sem diagnóstico e tratamentos em andamento. Uma linha por assunto e por propriedade.
+ */
+export async function vetTasks(farmIds: string[]): Promise<VetTask[]> {
+  if (!farmIds.length) return []
+  const todayStr = animalToday()
+  const today = new Date(`${todayStr}T00:00:00.000Z`)
+  const in7 = new Date(today.getTime() + 7 * DAY)
+  const diagnosable = new Date(today.getTime() - DIAGNOSIS_DAYS * DAY)
+  const farms = { farmId: { in: farmIds } }
+  const [covered, births, vaccines, treatments, herd, reproductions] = await Promise.all([
+    prisma.reproduction.groupBy({ by: ['farmId'], where: { ...farms, status: 'Coberta', coverageDate: { lte: diagnosable } }, _count: { _all: true } }),
+    prisma.reproduction.findMany({ where: { ...farms, actualBirthDate: null, status: { in: ['Coberta', 'Prenha'] }, expectedBirthDate: { lte: in7 } }, select: { farmId: true, expectedBirthDate: true } }),
+    prisma.vaccination.findMany({ where: { animal: farms, appliedDate: null, scheduledDate: { lte: in7 } }, select: { scheduledDate: true, animal: { select: { farmId: true } } } }),
+    prisma.veterinaryTreatment.findMany({ where: { animal: farms, startDate: { lte: today }, endDate: { gte: today } }, select: { animal: { select: { farmId: true } } } }),
+    prisma.animal.findMany({ where: farms, select: { id: true, farmId: true, code: true, name: true, species: true, gender: true, status: true, birthDate: true, motherId: true } }),
+    prisma.reproduction.findMany({ where: farms, select: { id: true, farmId: true, femaleId: true, coverageDate: true, status: true } }),
+  ])
+
+  const tasks: VetTask[] = []
+  for (const farmId of farmIds) {
+    const diagnose = covered.find((c) => c.farmId === farmId)?._count._all ?? 0
+    if (diagnose) tasks.push({ farmId, n: diagnose, title: diagnose === 1 ? '{n} vaca para diagnosticar' : '{n} vacas para diagnosticar', detail: 'Cobertas há mais de 28 dias', href: '/reproducao/diagnostico', tone: 'amber' })
+
+    const own = births.filter((b) => b.farmId === farmId)
+    const lateBirths = own.filter((b) => b.expectedBirthDate! < today).length
+    if (own.length) tasks.push({ farmId, n: own.length, late: lateBirths, title: own.length === 1 ? '{n} parto previsto até a semana que vem' : '{n} partos previstos até a semana que vem', href: '/reproducao?filtro=partos', tone: lateBirths ? 'red' : 'amber' })
+
+    const shots = vaccines.filter((v) => v.animal.farmId === farmId)
+    const lateShots = shots.filter((v) => v.scheduledDate! < today).length
+    if (shots.length) tasks.push({ farmId, n: shots.length, late: lateShots, title: shots.length === 1 ? '{n} vacina para aplicar' : '{n} vacinas para aplicar', href: '/vacinacao?filtro=pendentes', tone: lateShots ? 'red' : 'amber' })
+
+    // Paridas há mais de 2 meses sem cobertura nem diagnóstico (as cobertas já entram em "para diagnosticar")
+    const checks = pregnancyChecks(herd.filter((a) => a.farmId === farmId), reproductions.filter((r) => r.farmId === farmId)).filter((c) => !c.openCoverage)
+    if (checks.length) tasks.push({ farmId, n: checks.length, title: checks.length === 1 ? '{n} vaca parida sem diagnóstico' : '{n} vacas paridas sem diagnóstico', detail: 'Pariram há mais de 2 meses', href: '/reproducao#confirmar-prenhez', tone: 'amber' })
+
+    const care = treatments.filter((t) => t.animal.farmId === farmId).length
+    if (care) tasks.push({ farmId, n: care, title: care === 1 ? '{n} tratamento em andamento' : '{n} tratamentos em andamento', href: '/veterinary-treatment', tone: 'blue' })
+  }
+  return tasks
 }

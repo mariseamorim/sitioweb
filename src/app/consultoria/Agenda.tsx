@@ -66,11 +66,12 @@ export function Agenda({ clients }: { clients: { id: string; name: string }[] })
         <ul className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
           {upcoming.map((v) => {
             const late = v.date.slice(0, 10) < today
+            const isToday = v.date.slice(0, 10) === today
             return (
               <li key={v.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
                 <div className="min-w-0">
                   <p className="font-medium text-gray-900">
-                    <span className={late ? 'text-amber-700' : 'text-green-800'}>{weekday(v.date)}{v.time ? ` · ${v.time}` : ''}</span> · {v.farmName}
+                    <span className={late ? 'text-amber-700' : 'text-green-800'}>{isToday ? t('Hoje') : weekday(v.date)}{v.time ? ` · ${v.time}` : ''}</span> · {v.farmName}
                   </p>
                   <p className="text-sm text-gray-500">{[v.purpose, late ? t('já passou: conclua ou remarque') : null].filter(Boolean).join(' · ') || t('Sem motivo anotado')}</p>
                 </div>

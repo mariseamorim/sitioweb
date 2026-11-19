@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { farmOverviews, requireVet } from '@/lib/vets'
+import { farmOverviews, requireVet, vetTasks } from '@/lib/vets'
 import { animalToday } from '@/lib/animalRules'
 
 // GET: painel do veterinário — o cadastro dele, as propriedades que atende (com os números de cada uma)
-// as que já encerraram (com a cópia do que ele lançou) e as próximas visitas da agenda.
+// as que já encerraram (com a cópia do que ele lançou), as próximas visitas da agenda e as tarefas de cada propriedade.
 export async function GET() {
   const auth = await requireVet()
   if ('error' in auth) return auth.error
@@ -16,8 +16,10 @@ export async function GET() {
     orderBy: { createdAt: 'desc' },
   })
   const active = links.filter((l) => l.status === 'ativo' && l.farm?.isActive)
-  const [overviews, visits] = await Promise.all([
-    farmOverviews(active.map((l) => l.farmId!)),
+  const farmIds = active.map((l) => l.farmId!)
+  const [overviews, tasks, visits] = await Promise.all([
+    farmOverviews(farmIds),
+    vetTasks(farmIds),
     prisma.vetVisit.findMany({
       where: { vetId: vet.id, status: 'agendada', date: { gte: new Date(`${animalToday()}T00:00:00.000Z`) } },
       select: { id: true, clientId: true, farmName: true, date: true, time: true, purpose: true },
@@ -42,6 +44,8 @@ export async function GET() {
       ...overviews.get(l.farmId!)!,
     })),
     visits,
+    // O que fazer em cada propriedade (diagnósticos, partos, vacinas, tratamentos)
+    tasks,
     ended: links.filter((l) => l.status === 'encerrado').map((l) => ({
       id: l.id,
       name: l.farmName,

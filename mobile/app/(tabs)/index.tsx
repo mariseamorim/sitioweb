@@ -11,6 +11,7 @@ import { useSyncState } from '@/sync'
 import { Button, Card, Muted, Notice, Row, Screen, Stat, Title } from '@/ui'
 import { colors, space } from '@/theme'
 import { useLocale, useT } from '@/lib/i18n'
+import { VetToday } from '@/vet/panel'
 
 export default function Painel() {
   const { user, canAccess } = useSession()
@@ -39,6 +40,8 @@ export default function Painel() {
       {sync.pending > 0 ? <Notice tone="blue" text={t(sync.pending === 1 ? '{n} registro para enviar ao servidor.' : '{n} registros para enviar ao servidor.', { n: sync.pending })} /> : null}
       {sync.failed > 0 ? <Notice tone="red" text={t(sync.failed === 1 ? '{n} envio foi recusado pelo servidor. Veja em Mais › Sincronização.' : '{n} envios foram recusados pelo servidor. Veja em Mais › Sincronização.', { n: sync.failed })} /> : null}
       {sync.unauthorized ? <Notice tone="red" text={t('A sessão expirou. Saia e entre de novo em Mais › Sair da conta.')} /> : null}
+      {/* Veterinário: tarefas das propriedades que atende e a agenda, antes dos números da propriedade aberta */}
+      {user?.vet ? <VetToday /> : null}
 
       <View style={{ flexDirection: 'row', gap: space.md, marginBottom: space.md }}>
         <Stat label={t('animais no rebanho')} value={String(data.animals)} />
