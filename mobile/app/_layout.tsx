@@ -3,6 +3,8 @@ import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { SessionProvider } from '@/auth/session'
 import { initDb } from '@/db'
+// Define a tarefa de envio em segundo plano na carga do JavaScript (em segundo plano nenhuma tela é montada)
+import '@/sync/background'
 import { colors } from '@/theme'
 
 initDb()
@@ -35,6 +37,9 @@ export default function RootLayout() {
           <Stack.Screen name="recria/[id]" options={{ title: 'Recria' }} />
           <Stack.Screen name="reproducao/index" options={{ title: 'Reprodução' }} />
           <Stack.Screen name="reproducao/[id]" options={{ title: 'Reprodução' }} />
+          <Stack.Screen name="reproducao/diagnostico" options={{ title: 'Diagnóstico em lote' }} />
+          <Stack.Screen name="reproducao/indicadores" options={{ title: 'Indicadores de reprodução' }} />
+          <Stack.Screen name="consultoria" options={{ title: 'Consultoria' }} />
           <Stack.Screen name="relatorios/index" options={{ title: 'Relatórios' }} />
           <Stack.Screen name="usuarios/index" options={{ title: 'Usuários' }} />
           <Stack.Screen name="usuarios/[id]" options={{ title: 'Usuário' }} />

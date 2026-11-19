@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { createSessionToken, getSessionUser, renewSession } from '@/lib/auth'
 import { memberFarms } from '@/lib/farms'
 import { hasSupport } from '@/lib/support'
+import { isVet } from '@/lib/vets'
 
 export async function GET(request: NextRequest) {
   const user = await getSessionUser()
@@ -12,7 +13,9 @@ export async function GET(request: NextRequest) {
     ? await prisma.farm.findUnique({ where: { id: user.effectiveFarmId }, select: { name: true, segments: true } })
     : null
   // Produtor com mais de uma propriedade troca pelo topo da tela (admin usa o seletor próprio)
-  const farms = user.role === 'admin' || !user.farmId ? [] : await memberFarms(user.id)
+  // Veterinário consultor: conta de edição que atende várias propriedades (pode estar sem nenhuma aberta)
+  const vet = user.role === 'editor' && await isVet(user.id)
+  const farms = user.role === 'admin' || (!user.farmId && !vet) ? [] : await memberFarms(user.id)
 
   return renewSession(NextResponse.json({
     id: user.id,
@@ -25,6 +28,7 @@ export async function GET(request: NextRequest) {
     farmSegments: farm?.segments ?? [],
     farms: farms.map((f) => ({ id: f.id, name: f.name })),
     permissions: user.permissions,
+    vet,
     // Há suporte pelo WhatsApp configurado no servidor (o número em si não sai daqui)
     support: hasSupport(),
     // App Android: token renovado no corpo, já que não usa cookies

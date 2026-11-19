@@ -158,11 +158,49 @@ export async function pullAll(farmId: string, canAccess: (module: string) => boo
 
 let running: Promise<void> | null = null
 
+// Nova tentativa enquanto há fila: o Android avisa quando a rede muda, não quando o sinal melhora. Com sinal fraco
+// o celular segue "conectado", o envio falha e nenhum aviso novo chega; sem isto a fila ficava parada até a pessoa
+// sair e voltar ao app. Espera 30 s e dobra até 5 min; só com o app na tela (fechado, ver sync/background.ts).
+const RETRY_MIN_MS = 30_000
+const RETRY_MAX_MS = 300_000
+let retryDelay = RETRY_MIN_MS
+let retryTimer: ReturnType<typeof setTimeout> | undefined
+let auto: { farmId: string; canAccess: (module: string) => boolean } | null = null
+
+function clearRetry() {
+  clearTimeout(retryTimer)
+  retryTimer = undefined
+}
+
+function scheduleRetry() {
+  if (!auto || retryTimer || state.unauthorized || AppState.currentState !== 'active') return
+  if (pendingCount(auto.farmId).pending === 0) return
+  const delay = retryDelay
+  retryDelay = Math.min(retryDelay * 2, RETRY_MAX_MS)
+  retryTimer = setTimeout(() => {
+    retryTimer = undefined
+    if (auto) void syncNow(auto.farmId, auto.canAccess)
+  }, delay)
+}
+
+/** Só envia a fila, sem baixar as listas: usado com o app fechado (sync/background.ts). Devolve false se faltou internet. */
+export async function pushInBackground(farmId: string): Promise<boolean> {
+  // Uma sincronização em andamento no mesmo processo já está enviando: não manda duas vezes
+  if (running) { await running; return true }
+  let sent = false
+  running = (async () => {
+    try { sent = await pushOutbox(farmId) } finally { running = null }
+  })()
+  await running
+  return sent
+}
+
 /** Sincroniza (envia e baixa). Chamadas simultâneas esperam a mesma execução. */
 export function syncNow(farmId: string, canAccess: (module: string) => boolean): Promise<void> {
   if (running) return running
   running = (async () => {
     setState({ syncing: true, error: null })
+    let done = false
     try {
       const sent = await pushOutbox(farmId)
       if (sent && !state.unauthorized) {
@@ -170,6 +208,7 @@ export function syncNow(farmId: string, canAccess: (module: string) => boolean):
         const now = new Date().toISOString()
         setMeta(`lastSync:${farmId}`, now)
         setState({ lastSyncAt: now, online: true })
+        done = true
       } else if (!sent && !state.unauthorized) {
         setState({ online: false })
       }
@@ -181,6 +220,7 @@ export function syncNow(farmId: string, canAccess: (module: string) => boolean):
       refreshCounts(farmId)
       setState({ syncing: false })
       running = null
+      if (done) { retryDelay = RETRY_MIN_MS; clearRetry() } else scheduleRetry()
     }
   })()
   return running
@@ -194,12 +234,17 @@ export function startAutoSync(farmId: string, canAccess: (module: string) => boo
     setState({ online })
     if (online && !was) void syncNow(farmId, canAccess)
   })
-  const sub = AppState.addEventListener('change', (st) => { if (st === 'active') void syncNow(farmId, canAccess) })
-  // Cada gravação no aparelho pede o envio logo em seguida (ver sync/local.ts)
-  setSyncTrigger(() => { if (state.online) void syncNow(farmId, canAccess) })
+  auto = { farmId, canAccess }
+  retryDelay = RETRY_MIN_MS
+  const sub = AppState.addEventListener('change', (st) => {
+    // Fora da tela o temporizador não é confiável: ao voltar, tenta na hora e recomeça a contagem
+    if (st === 'active') { clearRetry(); retryDelay = RETRY_MIN_MS; void syncNow(farmId, canAccess) } else clearRetry()
+  })
+  // Cada gravação no aparelho pede o envio logo em seguida (ver sync/local.ts); sem conexão, agenda a nova tentativa
+  setSyncTrigger(() => { if (state.online) void syncNow(farmId, canAccess); else scheduleRetry() })
   refreshCounts(farmId)
   void syncNow(farmId, canAccess)
-  return () => { unsubNet(); sub.remove(); setSyncTrigger(null) }
+  return () => { unsubNet(); sub.remove(); setSyncTrigger(null); clearRetry(); auto = null }
 }
 
 export function clearUnauthorized() {

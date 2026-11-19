@@ -12,6 +12,7 @@ import { FarmPicker } from '@/components/FarmPicker'
 import { AdminFarmBanner } from '@/components/AdminFarmBanner'
 import { HomeRedirect } from '@/components/HomeRedirect'
 import { homeForRole } from '@/lib/organizations'
+import { isVet } from '@/lib/vets'
 import { SetupHelpCard } from '@/components/SetupHelpCard'
 import { PeriodSummary } from '@/components/PeriodSummary'
 import { loadPeriodSummary } from '@/lib/periodSummaryData'
@@ -31,6 +32,8 @@ export default async function Home() {
   if (user.role === 'onboarding') redirect('/criar-conta')
   const home = homeForRole(user.role)
   if (home !== '/') return <HomeRedirect href={home} />
+  // Veterinário consultor: a tela inicial é o painel das propriedades que ele atende
+  if (user.role === 'editor' && await isVet(user.id)) return <HomeRedirect href="/consultoria" />
 
   const effectiveFarmId = user.effectiveFarmId
 

@@ -246,9 +246,14 @@ export default function ReproducaoPage() {
           <h1 className="text-2xl font-bold text-gray-800">Reprodução</h1>
           <p className="text-gray-500 text-sm mt-1">Coberturas, prenhez e partos</p>
         </div>
-        <button onClick={openRegister} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
-          + Registrar
-        </button>
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <a href="/reproducao/indicadores" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-gray-300 text-gray-700 hover:bg-gray-50">Indicadores</a>
+          <a href="/reproducao/relatorio-visita" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-gray-300 text-gray-700 hover:bg-gray-50">Relatório de visita</a>
+          <a href="/reproducao/diagnostico" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-green-700 text-green-800 hover:bg-green-50">Diagnóstico em lote</a>
+          <button onClick={openRegister} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
+            + Registrar
+          </button>
+        </div>
       </div>
 
       {/* Sem internet / fila / aviso */}

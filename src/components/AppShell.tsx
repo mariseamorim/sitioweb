@@ -5,7 +5,7 @@ import { PageHelp } from '@/components/PageHelp'
 import { Navbar } from '@/components/Navbar'
 import { useUser } from '@/contexts/UserContext'
 const FULL_BLEED_PATHS = ['/inicio']
-const AUTH_PATHS = ['/login', '/cadastro', '/criar-conta', '/setup', '/fornecedor/cadastro', '/organizacao/cadastro']
+const AUTH_PATHS = ['/login', '/cadastro', '/criar-conta', '/setup', '/fornecedor/cadastro', '/organizacao/cadastro', '/veterinario/cadastro']
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { user } = useUser()
