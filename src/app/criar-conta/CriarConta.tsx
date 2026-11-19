@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { EstoqueIcon, LeiteIcon, LojaIcon, PropriedadeIcon, SetaDireitaIcon, SincronizarIcon, TratamentoIcon } from '@/components/ModuleIcons'
 import { BackLink } from '@/components/BackLink'
 import { LanguagePicker } from '@/components/LanguagePicker'
+import { DemoVetButton } from '@/components/DemoVet'
 import { useT } from '@/lib/i18n'
 
 const OPTIONS = [
@@ -76,6 +77,8 @@ export function CriarConta() {
             </li>
           ))}
         </ul>
+
+        <DemoVetButton className="mt-6" />
 
         <p className="mt-6 text-center text-sm text-gray-600">
           {t('Já tem conta?')} <Link href="/login" className="font-semibold text-green-700 hover:underline">{t('Entrar')}</Link>

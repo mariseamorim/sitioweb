@@ -8,6 +8,7 @@ import { todayISO } from '@/lib/utils'
 import { fmtNumber } from '@/lib/reports'
 import { OfflineVoiceSetup, VoiceButton } from '@/components/VoiceButton'
 import { milkNumber, milkPrice } from '@/lib/milkValidation'
+import { useT } from '@/lib/i18n'
 
 interface Props {
   defaultPrice?: number | null
@@ -26,6 +27,7 @@ const toQuantity = milkNumber
 
 // Lançamento do leite do dia todo, sem separar por vaca (comum em sítio pequeno)
 export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCancel, defaultPrice = null }: Props) {
+  const t = useT()
   const [date, setDate] = useState(todayISO())
   const [liters, setLiters] = useState('')
   const [cows, setCows] = useState('')
@@ -67,7 +69,7 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCance
     if (!(quantity > 0) || saving) return
     setError('')
     const pricePerLiter = milkPrice(price)
-    if (pricePerLiter === undefined) { setError('Informe um preço por litro válido, por exemplo 2,50'); return }
+    if (pricePerLiter === undefined) { setError(t('Informe um preço por litro válido, por exemplo 2,50')); return }
     const record = { date, quantity, cowsMilked: cows ? parseInt(cows, 10) : undefined, observations, pricePerLiter }
 
     // Sozinho: limpa os campos para a próxima ordenha e continua aberto
@@ -76,7 +78,7 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCance
       setLiters('')
       setCows('')
       setObservations('')
-      setSavedNote(`Salvo: ${fmtNumber(quantity)} L${result.pending ? ' no celular (envia quando houver internet)' : ''}. Pode fechar ou anotar outra ordenha.`)
+      setSavedNote(t(result.pending ? 'Salvo: {n} L no celular (envia quando houver internet). Pode fechar ou anotar outra ordenha.' : 'Salvo: {n} L. Pode fechar ou anotar outra ordenha.', { n: fmtNumber(quantity) }))
       onSaved(result)
     }
 
@@ -94,7 +96,7 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCance
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        setError(data.error || 'Não foi possível salvar. Tente de novo.')
+        setError(data.error ? t(data.error) : t('Não foi possível salvar. Tente de novo.'))
         return
       }
       finish({ pending: 0 })
@@ -109,7 +111,7 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCance
   return (
     <form ref={formRef} onSubmit={handleSave} className="flex flex-col gap-4">
       <div>
-        <label className="text-sm font-medium text-gray-700 block mb-1">Data</label>
+        <label className="text-sm font-medium text-gray-700 block mb-1">{t('Data')}</label>
         <input
           type="date"
           value={date}
@@ -120,13 +122,13 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCance
         />
         {already !== undefined && (
           <p className="mt-1 text-sm text-amber-700">
-            Já há {fmtNumber(already)} L lançados neste dia. O novo valor será somado (ex.: ordenha da tarde).
+            {t('Já há {n} L lançados neste dia. O novo valor será somado (ex.: ordenha da tarde).', { n: fmtNumber(already) })}
           </p>
         )}
       </div>
 
       <div>
-        <label className="text-sm font-medium text-gray-700 block mb-1">Litros de leite</label>
+        <label className="text-sm font-medium text-gray-700 block mb-1">{t('Litros de leite')}</label>
         <div className="flex items-center gap-2">
           <MilkDecimalInput
             type="text"
@@ -145,22 +147,22 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCance
         )}
         {countdown !== null && !saving && (
           <div role="status" className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-green-50 px-3 py-2.5 text-sm text-green-900">
-            <span>Salvando sozinho em {countdown} s...</span>
-            <button type="button" onClick={() => setCountdown(null)} className="shrink-0 font-semibold underline">Não salvar ainda</button>
+            <span>{t('Salvando sozinho em {n} s...', { n: countdown })}</span>
+            <button type="button" onClick={() => setCountdown(null)} className="shrink-0 font-semibold underline">{t('Não salvar ainda')}</button>
           </div>
         )}
-        <VoiceButton label="os litros do dia" onNumber={(v) => { const t = String(v).replace('.', ','); setLiters(t); restartAutoSave(t) }} />
+        <VoiceButton label={t('os litros do dia')} onNumber={(v) => { const text = String(v).replace('.', ','); setLiters(text); restartAutoSave(text) }} />
         <OfflineVoiceSetup online={isOnline} />
       </div>
 
       <div>
         <label className="text-sm font-medium text-gray-700 block mb-1">
-          Vacas ordenhadas <span className="font-normal text-gray-400">(opcional)</span>
+          {t('Vacas ordenhadas')} <span className="font-normal text-gray-400">{t('(opcional)')}</span>
         </label>
         <input
           type="text"
           inputMode="numeric"
-          placeholder="Ex.: 6"
+          placeholder={t('Ex.: 6')}
           value={cows}
           onChange={(e) => setCows(e.target.value.replace(/\D/g, ''))}
           onFocus={() => setCountdown(null)}
@@ -171,11 +173,11 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCance
 
       <div>
         <label className="text-sm font-medium text-gray-700 block mb-1">
-          Observações <span className="font-normal text-gray-400">(opcional)</span>
+          {t('Observações')} <span className="font-normal text-gray-400">{t('(opcional)')}</span>
         </label>
         <input
           type="text"
-          placeholder="Ex.: ordenha da manhã"
+          placeholder={t('Ex.: ordenha da manhã')}
           value={observations}
           onChange={(e) => setObservations(e.target.value)}
           onFocus={() => setCountdown(null)}
@@ -184,8 +186,8 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCance
         />
       </div>
 
-      <label className="text-sm font-medium text-gray-700">Preço por litro (R$) <span className="font-normal text-gray-400">(opcional)</span>
-        <MilkDecimalInput decimals={2} inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} onFocus={() => setCountdown(null)} onBlur={() => restartAutoSave()} placeholder="Ex.: 2,50" className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-3 text-base" />
+      <label className="text-sm font-medium text-gray-700">{t('Preço por litro (R$)')} <span className="font-normal text-gray-400">{t('(opcional)')}</span>
+        <MilkDecimalInput decimals={2} inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} onFocus={() => setCountdown(null)} onBlur={() => restartAutoSave()} placeholder={t('Ex.: 2,50')} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-3 text-base" />
       </label>
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -195,14 +197,14 @@ export function MilkTotalEntry({ totalsByDay, isOnline, onDone, onSaved, onCance
           onClick={onCancel}
           className="flex-1 border border-gray-200 text-gray-600 text-base font-medium py-3 rounded-lg hover:bg-gray-50"
         >
-          Cancelar
+          {t('Cancelar')}
         </button>
         <button
           type="submit"
           disabled={saving || !(quantity > 0)}
           className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white text-base font-semibold py-3 rounded-lg"
         >
-          {saving ? 'Salvando...' : isOnline ? 'Salvar' : 'Salvar no celular'}
+          {t(saving ? 'Salvando...' : isOnline ? 'Salvar' : 'Salvar no celular')}
         </button>
       </div>
     </form>

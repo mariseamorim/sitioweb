@@ -14,6 +14,7 @@ import { loadHerd } from '@/lib/herdCache'
 import { useDialog } from '@/components/DialogProvider'
 import { currentMonthRange, inDayRange, todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
+import { useLocale, useT, type Vars } from '@/lib/i18n'
 
 interface Animal {
   id: string
@@ -66,6 +67,8 @@ const legacyRequest = (r: OfflineRecord): QueuedRequest => {
 export default function VeterinaryTreatmentPage() {
   const { confirm } = useDialog()
   const { user } = useUser()
+  const t = useT()
+  const locale = useLocale()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const farmId = user?.farmId ?? ''
   const [treatments, setTreatments] = useState<Treatment[]>([])
@@ -142,21 +145,21 @@ export default function VeterinaryTreatmentPage() {
 
   // Depois de guardar ou enviar: a lista mostra na hora e a barra do topo atualiza a contagem
   const afterChange = (queued: boolean) => {
-    setNotice(queued ? net.queuedMessage : '')
+    setNotice(queued ? t(net.queuedMessage) : '')
     net.refresh()
     reload()
   }
 
   async function handleDelete(id: string) {
     if (!canEdit) return
-    if (!(await confirm({ title: 'Excluir este tratamento?', confirmLabel: 'Excluir', danger: true }))) return
+    if (!(await confirm({ title: t('Excluir este tratamento?'), confirmLabel: t('Excluir'), danger: true }))) return
     if (isPendingId(id)) {
       // Ainda não foi enviado: sai da fila do aparelho
       removePendingRecord(MODULE, pendingIdOf(id))
       return afterChange(false)
     }
     const r = await sendOrQueue(MODULE, { type: 'delete', id, url: `/api/veterinary-treatment/${id}`, method: 'DELETE', local: { farmId } })
-    if (r.status === 'rejected') setNotice(r.error)
+    if (r.status === 'rejected') setNotice(t(r.error))
     else afterChange(r.status === 'queued')
   }
 
@@ -179,14 +182,14 @@ export default function VeterinaryTreatmentPage() {
     const animal = allAnimals.find(a => a.id === form.animalId)
     const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/veterinary-treatment', method: 'POST', body, local: { farmId, animal } })
     setSaving(false)
-    if (r.status === 'rejected') return setSaveError(r.error)
+    if (r.status === 'rejected') return setSaveError(t(r.error))
     setShowRegister(false)
     setForm(EMPTY_FORM)
     afterChange(r.status === 'queued')
   }
 
   function fmt(date: string) {
-    return new Date(date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+    return new Date(date).toLocaleDateString(locale, { timeZone: 'UTC' })
   }
 
   return (
@@ -195,8 +198,8 @@ export default function VeterinaryTreatmentPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Tratamentos Veterinários</h1>
-          <p className="text-gray-500 text-sm mt-1">Resumo por animal no período selecionado</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('Tratamentos Veterinários')}</h1>
+          <p className="text-gray-500 text-sm mt-1">{t('Resumo por animal no período selecionado')}</p>
         </div>
         <button
           onClick={() => setShowRegister(true)}
@@ -207,7 +210,7 @@ export default function VeterinaryTreatmentPage() {
               : 'bg-gray-400 cursor-not-allowed'
           }`}
         >
-          + Registrar
+          + {t('Registrar')}
         </button>
       </div>
 
@@ -215,25 +218,25 @@ export default function VeterinaryTreatmentPage() {
       {(!net.online || fromCache) && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />
-          <span>{net.online ? 'Sinal fraco: mostrando a última cópia guardada neste aparelho.' : 'Sem internet.'} O que você registrar fica salvo no aparelho e é enviado quando a conexão voltar.</span>
+          <span>{t(net.online ? 'Sinal fraco: mostrando a última cópia guardada neste aparelho.' : 'Sem internet.')} {t('O que você registrar fica salvo no aparelho e é enviado quando a conexão voltar.')}</span>
         </div>
       )}
       {net.online && net.pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{net.pendingCount} registro{net.pendingCount > 1 ? 's' : ''} para enviar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{net.pendingCount > 1 ? t('{n} registros para enviar', { n: net.pendingCount }) : t('1 registro para enviar')}</span>
           <button
             onClick={() => void net.sync()}
             disabled={net.syncing}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {net.syncing ? 'Enviando...' : 'Enviar agora'}
+            {t(net.syncing ? 'Enviando...' : 'Enviar agora')}
           </button>
         </div>
       )}
       {notice && (
         <div role="status" className="bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
           <span>{notice}</span>
-          <button onClick={() => setNotice('')} className="text-green-700 hover:text-green-900 p-1" aria-label="Fechar aviso"><FecharIcon /></button>
+          <button onClick={() => setNotice('')} className="text-green-700 hover:text-green-900 p-1" aria-label={t('Fechar aviso')}><FecharIcon /></button>
         </div>
       )}
 
@@ -241,46 +244,46 @@ export default function VeterinaryTreatmentPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-end">
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">De</label>
+            <label className="text-xs font-medium text-gray-600 block mb-1">{t('De')}</label>
             <input
               type="date" value={from} onChange={(e) => setFrom(e.target.value)}
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Até</label>
+            <label className="text-xs font-medium text-gray-600 block mb-1">{t('Até')}</label>
             <input
               type="date" value={to} onChange={(e) => setTo(e.target.value)}
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
             />
           </div>
           <div className="ml-auto text-right">
-            <p className="text-xs text-gray-500">Total no período</p>
-            <p className="text-2xl font-bold text-green-700">{filtered.length} <span className="text-base font-medium">tratamentos</span></p>
+            <p className="text-xs text-gray-500">{t('Total no período')}</p>
+            <p className="text-2xl font-bold text-green-700">{filtered.length} <span className="text-base font-medium">{t(filtered.length === 1 ? 'tratamento' : 'tratamentos')}</span></p>
           </div>
         </div>
       </div>
 
       {/* Animals table */}
-      <label className="mb-4 block text-xs font-medium text-gray-600">Buscar animal por nome, código ou brinco
+      <label className="mb-4 block text-xs font-medium text-gray-600">{t('Buscar animal por nome, código ou brinco')}
         <input type="search" value={animalSearch} onChange={e => setAnimalSearch(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
       </label>
       {loading ? (
-        <p className="text-gray-400 text-sm">Carregando...</p>
+        <p className="text-gray-400 text-sm">{t('Carregando...')}</p>
       ) : summary.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          <p className="text-lg">Nenhum tratamento registrado no período</p>
-          <p className="text-sm mt-1">Ajuste o período ou clique em &quot;+ Registrar&quot;</p>
+          <p className="text-lg">{t('Nenhum tratamento registrado no período')}</p>
+          <p className="text-sm mt-1">{t('Ajuste o período ou clique em "+ Registrar"')}</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <SortTh label="Animal" sortKey="name" sort={sort} className="px-4 py-3 text-left" />
-                <SortTh label="Código" sortKey="code" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
-                <SortTh label="Tratamentos" sortKey="count" sort={sort} align="right" className="px-4 py-3 text-right" />
-                <SortTh label="Último" sortKey="last" sort={sort} align="right" className="hidden sm:table-cell px-4 py-3 text-right" />
+                <SortTh label={t('Animal')} sortKey="name" sort={sort} className="px-4 py-3 text-left" />
+                <SortTh label={t('Código')} sortKey="code" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label={t('Tratamentos')} sortKey="count" sort={sort} align="right" className="px-4 py-3 text-right" />
+                <SortTh label={t('Último')} sortKey="last" sort={sort} align="right" className="hidden sm:table-cell px-4 py-3 text-right" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -290,7 +293,7 @@ export default function VeterinaryTreatmentPage() {
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => setDetailAnimalId(animal.id)}
                 >
-                  <td className="px-4 py-3 font-medium text-gray-800">{animal.name}{pending > 0 && <span className="ml-2 text-xs font-normal text-blue-700">{pending} a enviar</span>}</td>
+                  <td className="px-4 py-3 font-medium text-gray-800">{animal.name}{pending > 0 && <span className="ml-2 text-xs font-normal text-blue-700">{t('{n} a enviar', { n: pending })}</span>}</td>
                   <td className="hidden sm:table-cell px-4 py-3 font-mono text-gray-500 text-xs">{animal.code}</td>
                   <td className="px-4 py-3 text-right font-semibold text-green-700">{count}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-right text-gray-500">{fmt(last)}</td>
@@ -299,7 +302,7 @@ export default function VeterinaryTreatmentPage() {
             </tbody>
             <tfoot className="border-t-2 border-gray-200 bg-gray-50">
               <tr>
-                <td colSpan={2} className="px-4 py-3 text-xs font-bold text-gray-600 uppercase">Total Geral</td>
+                <td colSpan={2} className="px-4 py-3 text-xs font-bold text-gray-600 uppercase">{t('Total Geral')}</td>
                 <td className="px-4 py-3 text-right font-bold text-green-700">{filtered.length}</td>
                 <td className="hidden sm:table-cell px-4 py-3" />
               </tr>
@@ -316,29 +319,30 @@ export default function VeterinaryTreatmentPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-lg font-bold text-gray-800">{detailAnimal.name}</h2>
-                  <p className="text-xs text-gray-500">Código: {detailAnimal.code}</p>
+                  <p className="text-xs text-gray-500">{t('Código: {code}', { code: detailAnimal.code })}</p>
                 </div>
-                <button onClick={() => setDetailAnimalId(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
+                <button onClick={() => setDetailAnimalId(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
               </div>
 
               <div className="bg-green-50 border border-green-100 rounded-lg px-4 py-3 mb-4 text-sm flex justify-between">
-                <span className="text-gray-600">Tratamentos no período selecionado</span>
+                <span className="text-gray-600">{t('Tratamentos no período selecionado')}</span>
                 <span className="font-bold text-green-700">{detailPeriodCount}</span>
               </div>
 
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">Histórico completo</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('Histórico completo')}</h3>
 
               {detailTreatments.length === 0 ? (
-                <p className="text-center py-6 text-gray-400 text-sm">Nenhum registro</p>
+                <p className="text-center py-6 text-gray-400 text-sm">{t('Nenhum registro')}</p>
               ) : (
                 <div className="space-y-3">
-                  {detailTreatments.map((t) => (
-                    <div key={t.id} className="border border-gray-100 rounded-xl p-4 hover:bg-gray-50 relative">
+                  {detailTreatments.map((item) => (
+                    <div key={item.id} className="border border-gray-100 rounded-xl p-4 hover:bg-gray-50 relative">
                       <button
-                        onClick={() => handleDelete(t.id)}
+                        onClick={() => handleDelete(item.id)}
                         disabled={!canEdit}
                         className={`absolute top-3 right-3 p-1 ${canEdit ? 'text-red-400 hover:text-red-600' : 'text-gray-300 cursor-not-allowed'}`}
-                        title="Excluir"
+                        title={t('Excluir')}
+                        aria-label={t('Excluir')}
                       >
                         <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
@@ -347,43 +351,43 @@ export default function VeterinaryTreatmentPage() {
 
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm pr-6">
                         <div>
-                          <p className="text-xs text-gray-500">Medicamento</p>
-                          <p className="font-semibold text-gray-800">{t.medicine}{isPendingId(t.id) && <span className="ml-2 text-xs font-normal text-blue-700">a enviar</span>}</p>
+                          <p className="text-xs text-gray-500">{t('Medicamento')}</p>
+                          <p className="font-semibold text-gray-800">{item.medicine}{isPendingId(item.id) && <span className="ml-2 text-xs font-normal text-blue-700">{t('a enviar')}</span>}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500">Período</p>
+                          <p className="text-xs text-gray-500">{t('Período')}</p>
                           <p className="font-medium text-gray-700">
-                            {fmt(t.startDate)}{t.endDate ? ` → ${fmt(t.endDate)}` : ''}
+                            {fmt(item.startDate)}{item.endDate ? ` → ${fmt(item.endDate)}` : ''}
                           </p>
                         </div>
-                        {withdrawalText(t) && (
+                        {withdrawalText(item, t, locale) && (
                           <div className="col-span-2">
-                            <p className="text-xs text-gray-500">Carência</p>
-                            <p className={`font-medium ${withdrawalText(t)!.active ? 'text-red-700' : 'text-gray-700'}`}>{withdrawalText(t)!.text}</p>
+                            <p className="text-xs text-gray-500">{t('Carência')}</p>
+                            <p className={`font-medium ${withdrawalText(item, t, locale)!.active ? 'text-red-700' : 'text-gray-700'}`}>{withdrawalText(item, t, locale)!.text}</p>
                           </div>
                         )}
-                        {t.manufacturer && (
+                        {item.manufacturer && (
                           <div>
-                            <p className="text-xs text-gray-500">Fabricante</p>
-                            <p className="text-gray-700">{t.manufacturer}</p>
+                            <p className="text-xs text-gray-500">{t('Fabricante')}</p>
+                            <p className="text-gray-700">{item.manufacturer}</p>
                           </div>
                         )}
-                        {t.batch && (
+                        {item.batch && (
                           <div>
-                            <p className="text-xs text-gray-500">Lote</p>
-                            <p className="text-gray-700">{t.batch}</p>
+                            <p className="text-xs text-gray-500">{t('Lote')}</p>
+                            <p className="text-gray-700">{item.batch}</p>
                           </div>
                         )}
-                        {t.description && (
+                        {item.description && (
                           <div className="sm:col-span-2">
-                            <p className="text-xs text-gray-500">Descrição</p>
-                            <p className="text-gray-700">{t.description}</p>
+                            <p className="text-xs text-gray-500">{t('Descrição')}</p>
+                            <p className="text-gray-700">{item.description}</p>
                           </div>
                         )}
-                        {t.observations && (
+                        {item.observations && (
                           <div className="sm:col-span-2">
-                            <p className="text-xs text-gray-500">Observações</p>
-                            <p className="text-gray-700">{t.observations}</p>
+                            <p className="text-xs text-gray-500">{t('Observações')}</p>
+                            <p className="text-gray-700">{item.observations}</p>
                           </div>
                         )}
                       </div>
@@ -402,8 +406,8 @@ export default function VeterinaryTreatmentPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">Registrar Tratamento</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
+                <h2 className="text-lg font-bold text-gray-800">{t('Registrar Tratamento')}</h2>
+                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
               </div>
 
               <form onSubmit={handleSave} className="flex flex-col gap-3">
@@ -411,62 +415,62 @@ export default function VeterinaryTreatmentPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Data Início *</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Data Início')} *</label>
                     <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} required
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Data Fim</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Data Fim')}</label>
                     <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Medicamento *</label>
+                  <label className="text-xs font-medium text-gray-600">{t('Medicamento')} *</label>
                   <input type="text" value={form.medicine} onChange={(e) => setForm({ ...form, medicine: e.target.value })} required
-                    placeholder="Ex: Amoxicilina"
+                    placeholder={t('Ex: Amoxicilina')}
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Carência do leite (dias)</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Carência do leite (dias)')}</label>
                     <input inputMode="numeric" value={form.milkWithdrawalDays} onChange={(e) => setForm({ ...form, milkWithdrawalDays: e.target.value.replace(/\D/g, '').slice(0, 3) })}
-                      placeholder="Ex.: 4" className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                      placeholder={t('Ex.: 4')} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Carência da carne (dias)</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Carência da carne (dias)')}</label>
                     <input inputMode="numeric" value={form.meatWithdrawalDays} onChange={(e) => setForm({ ...form, meatWithdrawalDays: e.target.value.replace(/\D/g, '').slice(0, 3) })}
-                      placeholder="Ex.: 30" className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                      placeholder={t('Ex.: 30')} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                 </div>
-                <p className="-mt-1 text-xs text-gray-500">Está na bula. Conta a partir do fim do tratamento. O app avisa até quando o leite não pode ir para o tanque e o animal não pode ir para o abate.</p>
+                <p className="-mt-1 text-xs text-gray-500">{t('Está na bula. Conta a partir do fim do tratamento. O app avisa até quando o leite não pode ir para o tanque e o animal não pode ir para o abate.')}</p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Fabricante</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Fabricante')}</label>
                     <input type="text" value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
-                      placeholder="Ex: Laboratório X"
+                      placeholder={t('Ex: Laboratório X')}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Lote</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Lote')}</label>
                     <input type="text" value={form.batch} onChange={(e) => setForm({ ...form, batch: e.target.value })}
-                      placeholder="Ex: 123456"
+                      placeholder={t('Ex: 123456')}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Descrição</label>
+                  <label className="text-xs font-medium text-gray-600">{t('Descrição')}</label>
                   <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2}
-                    placeholder="Descrição do tratamento"
+                    placeholder={t('Descrição do tratamento')}
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none" />
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Observações</label>
+                  <label className="text-xs font-medium text-gray-600">{t('Observações')}</label>
                   <textarea value={form.observations} onChange={(e) => setForm({ ...form, observations: e.target.value })} rows={2}
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none" />
                 </div>
@@ -475,11 +479,11 @@ export default function VeterinaryTreatmentPage() {
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setShowRegister(false)}
                     className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
-                    Cancelar
+                    {t('Cancelar')}
                   </button>
                   <button type="submit" disabled={saving}
                     className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">
-                    {saving ? 'Salvando...' : 'Salvar'}
+                    {t(saving ? 'Salvando...' : 'Salvar')}
                   </button>
                 </div>
               </form>
@@ -493,24 +497,24 @@ export default function VeterinaryTreatmentPage() {
 }
 
 /** Até quando vale a carência do leite e da carne (a partir do fim do tratamento, ou do início sem fim) */
-function withdrawalText(t: Treatment): { text: string; active: boolean } | null {
-  const base = t.endDate ?? t.startDate
+function withdrawalText(item: Treatment, t: (text: string, vars?: Vars) => string, locale: string): { text: string; active: boolean } | null {
+  const base = item.endDate ?? item.startDate
   const until = (days?: number | null) => {
     if (!days) return null
     const d = new Date(base)
     d.setUTCDate(d.getUTCDate() + days)
     return d
   }
-  const milk = until(t.milkWithdrawalDays)
-  const meat = until(t.meatWithdrawalDays)
+  const milk = until(item.milkWithdrawalDays)
+  const meat = until(item.meatWithdrawalDays)
   if (!milk && !meat) return null
   const today = new Date(todayISO())
-  const fmtDay = (d: Date) => d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+  const fmtDay = (d: Date) => d.toLocaleDateString(locale, { timeZone: 'UTC' })
   const parts = [
-    milk && `leite fora do tanque até ${fmtDay(milk)}`,
-    meat && `abate liberado depois de ${fmtDay(meat)}`,
+    milk && t('leite fora do tanque até {date}', { date: fmtDay(milk) }),
+    meat && t('abate liberado depois de {date}', { date: fmtDay(meat) }),
   ].filter(Boolean) as string[]
   const active = (!!milk && milk >= today) || (!!meat && meat >= today)
   const text = parts.join(' · ')
-  return { text: (active ? '' : 'Encerrada: ') + text.charAt(0).toUpperCase() + text.slice(1), active }
+  return { text: (active ? '' : t('Encerrada:') + ' ') + text.charAt(0).toUpperCase() + text.slice(1), active }
 }

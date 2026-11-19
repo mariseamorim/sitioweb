@@ -115,4 +115,14 @@ export const auth: Record<string, string> = {
   'Informe a sigla do estado com duas letras': 'Departamento inválido',
   'Tipo de documento inválido': 'Tipo de documento inválido',
   'E-mail inválido': 'Correo inválido',
+  // Demonstração do veterinário
+  'Ver demonstração do veterinário': 'Ver demostración del veterinario',
+  'Preparando a demonstração...': 'Preparando la demostración...',
+  'Três propriedades com dados fictícios. Não precisa de conta.': 'Tres establecimientos con datos ficticios. No necesita cuenta.',
+  'Não foi possível abrir a demonstração. Tente de novo.': 'No fue posible abrir la demostración. Intente de nuevo.',
+  'Muitas demonstrações ao mesmo tempo. Tente de novo em um minuto.': 'Demasiadas demostraciones al mismo tiempo. Intente de nuevo en un minuto.',
+  'Demonstração.': 'Demostración.',
+  'Os dados são fictícios e somem em 24 horas. Pode anotar, diagnosticar e imprimir à vontade.': 'Los datos son ficticios y se borran en 24 horas. Puede anotar, diagnosticar e imprimir libremente.',
+  'Criar minha conta': 'Crear mi cuenta',
+  'Na demonstração não dá para fazer isto. Crie sua conta para usar de verdade.': 'En la demostración no se puede hacer esto. Cree su cuenta para usarlo de verdad.',
 }

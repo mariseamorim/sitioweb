@@ -8,6 +8,7 @@ import { Feeding, LOT_PHASES, Weighing, dailySupplyKg, daysOfStock, lotSummary, 
 import { fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
 import { sendOrQueue, type Method } from '@/lib/offlineData'
+import { useT } from '@/lib/i18n'
 
 export interface SupplyRef { id: string; name: string; unit: string; currentQuantity: number; packageKg: number | null; unitPrice?: number | null }
 export interface Coverage {
@@ -106,6 +107,7 @@ export function Stat({ title, value, tone = 'text-gray-900' }: { title: string; 
 }
 
 export function Modal({ title, subtitle, onClose, children }: { title: string; subtitle?: string; onClose: () => void; children: React.ReactNode }) {
+  const t = useT()
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
       <div role="dialog" aria-modal="true" aria-label={title} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
@@ -114,7 +116,7 @@ export function Modal({ title, subtitle, onClose, children }: { title: string; s
             <h2 className="text-lg font-bold text-gray-800">{title}</h2>
             {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="p-1 text-gray-400 hover:text-gray-600"><FecharIcon /></button>
+          <button type="button" onClick={onClose} aria-label={t('Fechar')} className="p-1 text-gray-400 hover:text-gray-600"><FecharIcon /></button>
         </div>
         {children}
       </div>
@@ -132,6 +134,7 @@ export function AnimalPicker({ herd, lotNames, exclude = [], selected, onChange 
   selected: string[]
   onChange: (ids: string[]) => void
 }) {
+  const t = useT()
   const [q, setQ] = useState('')
   const term = q.trim().toLowerCase()
   const available = herd.filter((a) => !exclude.includes(a.id))
@@ -140,13 +143,13 @@ export function AnimalPicker({ herd, lotNames, exclude = [], selected, onChange 
   const allIds = list.map((a) => a.id)
   const allOn = allIds.length > 0 && allIds.every((id) => selected.includes(id))
 
-  if (available.length === 0) return <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">Nenhum animal disponível. Cadastre os animais na tela Animais.</p>
+  if (available.length === 0) return <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">{t('Nenhum animal disponível. Cadastre os animais na tela Animais.')}</p>
   return (
     <div>
       <div className="flex gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por brinco, nome ou categoria" aria-label="Buscar animal" className={`${input} mt-0`} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Buscar por brinco, nome ou categoria')} aria-label={t('Buscar animal')} className={`${input} mt-0`} />
         <button type="button" onClick={() => onChange(allOn ? selected.filter((id) => !allIds.includes(id)) : [...new Set([...selected, ...allIds])])}
-          className="shrink-0 rounded-xl border border-gray-300 px-3 text-sm font-semibold text-gray-700">{allOn ? 'Desmarcar' : 'Marcar todos'}</button>
+          className="shrink-0 rounded-xl border border-gray-300 px-3 text-sm font-semibold text-gray-700">{t(allOn ? 'Desmarcar' : 'Marcar todos')}</button>
       </div>
       <ul className="mt-2 max-h-64 divide-y divide-gray-100 overflow-y-auto rounded-xl border border-gray-200">
         {list.map((a) => (
@@ -155,14 +158,14 @@ export function AnimalPicker({ herd, lotNames, exclude = [], selected, onChange 
               <input type="checkbox" checked={selected.includes(a.id)} onChange={() => toggle(a.id)} className="h-5 w-5 accent-green-700" />
               <span className="min-w-0 flex-1">
                 <span className="font-semibold text-gray-900">{tag(a)}</span> <span className="text-gray-700">{a.name}</span>
-                <span className="block text-xs text-gray-500">{a.species}{a.lotId && lotNames.get(a.lotId) ? ` · está no lote ${lotNames.get(a.lotId)} (muda para este)` : ''}</span>
+                <span className="block text-xs text-gray-500">{t(a.species)}{a.lotId && lotNames.get(a.lotId) ? ` · ${t('está no lote {lot} (muda para este)', { lot: lotNames.get(a.lotId)! })}` : ''}</span>
               </span>
             </label>
           </li>
         ))}
-        {list.length === 0 && <li className="px-3 py-3 text-sm text-gray-500">Nenhum animal encontrado.</li>}
+        {list.length === 0 && <li className="px-3 py-3 text-sm text-gray-500">{t('Nenhum animal encontrado.')}</li>}
       </ul>
-      <p className="mt-1 text-xs text-gray-500">{selected.length} selecionado{selected.length === 1 ? '' : 's'}</p>
+      <p className="mt-1 text-xs text-gray-500">{selected.length === 1 ? t('1 selecionado') : t('{n} selecionados', { n: selected.length })}</p>
     </div>
   )
 }
@@ -174,10 +177,11 @@ export function WeightList({ animals, weights, onChange, previous }: {
   onChange: (w: Record<string, string>) => void
   previous?: Map<string, number>
 }) {
+  const t = useT()
   const done = animals.filter((a) => parseKg(weights[a.id] ?? '') !== null).length
   return (
     <div>
-      <p className="mb-2 text-sm text-gray-600"><strong className="text-green-800">{done} de {animals.length}</strong> pesados{done < animals.length ? ` · ${animals.length - done} pendente${animals.length - done === 1 ? '' : 's'}` : ''}</p>
+      <p className="mb-2 text-sm text-gray-600"><strong className="text-green-800">{t('{done} de {total}', { done, total: animals.length })}</strong> {t('pesados')}{done < animals.length ? ` · ${animals.length - done === 1 ? t('1 pendente') : t('{n} pendentes', { n: animals.length - done })}` : ''}</p>
       <ul className="max-h-80 divide-y divide-gray-100 overflow-y-auto rounded-xl border border-gray-200">
         {animals.map((a) => {
           const before = previous?.get(a.id)
@@ -186,10 +190,10 @@ export function WeightList({ animals, weights, onChange, previous }: {
             <li key={a.id} className={`flex items-center gap-3 px-3 py-2 ${now !== null ? 'bg-green-50/60' : ''}`}>
               <span className="min-w-0 flex-1">
                 <span className="font-semibold text-gray-900">{tag(a)}</span> <span className="text-gray-700">{a.name}</span>
-                {before !== undefined && <span className="block text-xs text-gray-500">Antes: {kg(before)}{now !== null ? ` · ${now - before >= 0 ? '+' : ''}${fmtNumber(now - before)} kg` : ''}</span>}
+                {before !== undefined && <span className="block text-xs text-gray-500">{t('Antes:')} {kg(before)}{now !== null ? ` · ${now - before >= 0 ? '+' : ''}${fmtNumber(now - before)} kg` : ''}</span>}
               </span>
               <label className="flex shrink-0 items-center gap-1.5">
-                <span className="sr-only">Peso de {a.name}</span>
+                <span className="sr-only">{t('Peso de {name}', { name: a.name })}</span>
                 <input inputMode="decimal" value={weights[a.id] ?? ''} onChange={(e) => onChange({ ...weights, [a.id]: decimal(e.target.value) })} placeholder="0"
                   className="w-24 rounded-lg border border-gray-300 px-2 py-2 text-right text-base font-semibold focus:outline-none focus:ring-2 focus:ring-green-600" />
                 <span className="text-sm text-gray-500">kg</span>
@@ -216,38 +220,39 @@ export const productsFromLot = (lot: Lot): ProductForm[] =>
 
 /** Escolher os produtos que o lote recebe, cada um com o consumo em % do peso vivo */
 export function ProductsEditor({ supplies, value, onChange }: { supplies: SupplyRef[]; value: ProductForm[]; onChange: (v: ProductForm[]) => void }) {
+  const t = useT()
   const chosen = new Set(value.map((p) => p.supplyId))
   const free = supplies.filter((s) => !chosen.has(s.id))
   const set = (i: number, patch: Partial<ProductForm>) => onChange(value.map((p, j) => (j === i ? { ...p, ...patch } : p)))
 
   if (supplies.length === 0) {
-    return <p className="rounded-xl border border-gray-200 p-3 text-sm text-gray-500">Cadastre os produtos (suplemento, sal, ração) no Estoque para o app calcular o consumo, dar baixa no trato e avisar antes de acabar.</p>
+    return <p className="rounded-xl border border-gray-200 p-3 text-sm text-gray-500">{t('Cadastre os produtos (suplemento, sal, ração) no Estoque para o app calcular o consumo, dar baixa no trato e avisar antes de acabar.')}</p>
   }
   return (
     <fieldset className="rounded-xl border border-gray-200 p-3">
-      <legend className="px-1 text-sm font-medium text-gray-700">Produtos do lote (opcional)</legend>
-      {value.length === 0 && <p className="text-sm text-gray-500">Nenhum produto. Adicione o que o lote recebe no cocho.</p>}
+      <legend className="px-1 text-sm font-medium text-gray-700">{t('Produtos do lote (opcional)')}</legend>
+      {value.length === 0 && <p className="text-sm text-gray-500">{t('Nenhum produto. Adicione o que o lote recebe no cocho.')}</p>}
       <ul className="space-y-3">
         {value.map((p, i) => {
           const supply = supplies.find((s) => s.id === p.supplyId)
-          const unit = supply?.unit === 'sacos' ? 'saco' : supply?.unit ?? 'unidade'
+          const unit = t(supply?.unit === 'sacos' ? 'saco' : supply?.unit ?? 'unidade')
           return (
             <li key={p.supplyId} className="rounded-lg bg-gray-50 p-3">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-semibold text-gray-900">{supply?.name ?? 'Produto'} <span className="text-xs font-normal text-gray-500">({fmtNumber(supply?.currentQuantity ?? 0, 0)} {supply?.unit} no estoque)</span></p>
-                <button type="button" onClick={() => onChange(value.filter((_, j) => j !== i))} className="text-xs font-semibold text-red-700 hover:underline">Tirar</button>
+                <p className="font-semibold text-gray-900">{supply?.name ?? t('Produto')} <span className="text-xs font-normal text-gray-500">({fmtNumber(supply?.currentQuantity ?? 0, 0)} {t(supply?.unit ?? '')} {t('no estoque')})</span></p>
+                <button type="button" onClick={() => onChange(value.filter((_, j) => j !== i))} className="text-xs font-semibold text-red-700 hover:underline">{t('Tirar')}</button>
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                <label className="text-xs font-medium text-gray-600">Consumo (% do peso vivo)
-                  <input inputMode="decimal" value={p.percent} onChange={(e) => set(i, { percent: decimal(e.target.value) })} placeholder="Ex.: 0,1" className={input} />
+                <label className="text-xs font-medium text-gray-600">{t('Consumo (% do peso vivo)')}
+                  <input inputMode="decimal" value={p.percent} onChange={(e) => set(i, { percent: decimal(e.target.value) })} placeholder={t('Ex.: 0,1')} className={input} />
                 </label>
                 {supply?.unit === 'sacos' && (
-                  <label className="text-xs font-medium text-gray-600">Peso do saco (kg)
-                    <input inputMode="decimal" value={p.packageKg} onChange={(e) => set(i, { packageKg: decimal(e.target.value) })} placeholder={supply.packageKg ? fmtNumber(supply.packageKg, 0) : 'Ex.: 25'} className={input} />
+                  <label className="text-xs font-medium text-gray-600">{t('Peso do saco (kg)')}
+                    <input inputMode="decimal" value={p.packageKg} onChange={(e) => set(i, { packageKg: decimal(e.target.value) })} placeholder={supply.packageKg ? fmtNumber(supply.packageKg, 0) : t('Ex.: 25')} className={input} />
                   </label>
                 )}
-                <label className="text-xs font-medium text-gray-600">Preço por {unit} (R$, opcional)
-                  <input inputMode="decimal" value={p.unitPrice} onChange={(e) => set(i, { unitPrice: decimal(e.target.value) })} placeholder={supply?.unitPrice ? fmtNumber(supply.unitPrice, 2) : 'Ex.: 85,00'} className={input} />
+                <label className="text-xs font-medium text-gray-600">{t('Preço por {unit} (R$, opcional)', { unit })}
+                  <input inputMode="decimal" value={p.unitPrice} onChange={(e) => set(i, { unitPrice: decimal(e.target.value) })} placeholder={supply?.unitPrice ? fmtNumber(supply.unitPrice, 2) : t('Ex.: 85,00')} className={input} />
                 </label>
               </div>
             </li>
@@ -255,14 +260,14 @@ export function ProductsEditor({ supplies, value, onChange }: { supplies: Supply
         })}
       </ul>
       {free.length > 0 && (
-        <label className="mt-3 block text-sm font-medium text-gray-700">+ Adicionar produto
+        <label className="mt-3 block text-sm font-medium text-gray-700">+ {t('Adicionar produto')}
           <select value="" onChange={(e) => e.target.value && onChange([...value, { supplyId: e.target.value, percent: '', packageKg: '', unitPrice: '' }])} className={`${input} bg-white`}>
-            <option value="">Escolha um produto do estoque</option>
-            {free.map((s) => <option key={s.id} value={s.id}>{s.name} ({fmtNumber(s.currentQuantity, 0)} {s.unit})</option>)}
+            <option value="">{t('Escolha um produto do estoque')}</option>
+            {free.map((s) => <option key={s.id} value={s.id}>{s.name} ({fmtNumber(s.currentQuantity, 0)} {t(s.unit)})</option>)}
           </select>
         </label>
       )}
-      <p className="mt-2 text-xs text-gray-500">Exemplo: a 0,1% do peso vivo, um animal de 300 kg come 300 g por dia. O preço serve para mostrar o custo por animal.</p>
+      <p className="mt-2 text-xs text-gray-500">{t('Exemplo: a 0,1% do peso vivo, um animal de 300 kg come 300 g por dia. O preço serve para mostrar o custo por animal.')}</p>
     </fieldset>
   )
 }

@@ -29,6 +29,8 @@ export async function GET(request: NextRequest) {
     farms: farms.map((f) => ({ id: f.id, name: f.name })),
     permissions: user.permissions,
     vet,
+    // Demonstração do veterinário: a tela mostra o aviso e o atalho para criar conta
+    demo: user.isDemo,
     // Há suporte pelo WhatsApp configurado no servidor (o número em si não sai daqui)
     support: hasSupport(),
     // App Android: token renovado no corpo, já que não usa cookies

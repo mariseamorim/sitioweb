@@ -18,6 +18,8 @@ export interface UserData {
   permissions: string[] | null // null = admin (acesso total)
   /** Veterinário consultor: atende várias propriedades (painel em /consultoria) */
   vet?: boolean
+  /** Conta da demonstração (dados fictícios, apagada em 24 h) */
+  demo?: boolean
   /** Suporte pelo WhatsApp disponível (número configurado no servidor) */
   support?: boolean
 }

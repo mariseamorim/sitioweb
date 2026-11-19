@@ -29,8 +29,9 @@ export async function POST(request: NextRequest) {
   if (await isVet(auth.user.id)) return NextResponse.json({ error: VETS_ONLY_PRODUCER }, { status: 403 })
 
   const { code } = await request.json()
-  const vet = code ? await prisma.vetProfile.findUnique({ where: { inviteCode: String(code).trim().toUpperCase() }, include: { user: { select: { id: true, name: true, farmId: true } } } }) : null
-  if (!vet) return notFound('Código de veterinário não encontrado')
+  const vet = code ? await prisma.vetProfile.findUnique({ where: { inviteCode: String(code).trim().toUpperCase() }, include: { user: { select: { id: true, name: true, farmId: true, isDemo: true } } } }) : null
+  // Código de uma conta de demonstração não libera propriedade de verdade
+  if (!vet || vet.user.isDemo) return notFound('Código de veterinário não encontrado')
   const farm = await prisma.farm.findUnique({ where: { id: auth.farmId }, select: { name: true } })
   if (!farm) return notFound('Propriedade não encontrada')
 

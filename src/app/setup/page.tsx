@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PasswordInput } from '@/components/PasswordInput'
+import { useT } from '@/lib/i18n'
 
 export default function SetupPage() {
   const router = useRouter();
+  const t = useT();
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -28,11 +30,11 @@ export default function SetupPage() {
     setError('');
 
     if (form.password !== form.confirm) {
-      setError('As senhas não coincidem');
+      setError(t('As senhas não coincidem'));
       return;
     }
     if (form.password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres');
+      setError(t('A senha deve ter pelo menos 6 caracteres'));
       return;
     }
 
@@ -46,13 +48,13 @@ export default function SetupPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Erro ao criar conta');
+        setError(t(data.error || 'Erro ao criar conta'));
         return;
       }
 
       window.location.href = '/';
     } catch {
-      setError('Erro de conexão. Tente novamente.');
+      setError(t('Erro de conexão. Tente novamente.'));
     } finally {
       setLoading(false);
     }
@@ -61,7 +63,7 @@ export default function SetupPage() {
   if (checking) {
     return (
       <div className="flex items-center justify-center min-h-[85vh]">
-        <p className="text-gray-400 text-sm">Verificando...</p>
+        <p className="text-gray-400 text-sm">{t('Verificando...')}</p>
       </div>
     );
   }
@@ -76,31 +78,31 @@ export default function SetupPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Configuração Inicial</h1>
-            <p className="text-gray-500 text-sm mt-1">Criar conta de administrador do sistema</p>
+            <h1 className="text-2xl font-bold text-gray-900">{t('Configuração inicial')}</h1>
+            <p className="text-gray-500 text-sm mt-1">{t('Criar conta de administrador do sistema')}</p>
           </div>
 
           <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-6">
             <p className="text-xs text-amber-700">
-              Esta página só funciona uma vez. Após criar a conta admin, acesso a esta página será bloqueado.
+              {t('Esta página só funciona uma vez. Após criar a conta admin, acesso a esta página será bloqueado.')}
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('Nome')} *</label>
               <input
                 value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
                 required
                 autoFocus
-                placeholder="Seu nome completo"
+                placeholder={t('Seu nome completo')}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">E-mail *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('E-mail')} *</label>
               <input
                 type="email"
                 value={form.email}
@@ -112,23 +114,23 @@ export default function SetupPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Senha *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('Senha')} *</label>
               <PasswordInput
                 value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })}
                 required
-                placeholder="Mínimo 6 caracteres"
+                placeholder={t('Mínimo 6 caracteres')}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar senha *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('Confirmar senha')} *</label>
               <PasswordInput
                 value={form.confirm}
                 onChange={e => setForm({ ...form, confirm: e.target.value })}
                 required
-                placeholder="Repita a senha"
+                placeholder={t('Repita a senha')}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-600"
               />
             </div>
@@ -142,14 +144,14 @@ export default function SetupPage() {
               disabled={loading}
               className="w-full bg-purple-700 hover:bg-purple-600 disabled:bg-purple-400 text-white font-medium py-2 rounded-lg text-sm transition-colors mt-2"
             >
-              {loading ? 'Criando...' : 'Criar conta admin'}
+              {t(loading ? 'Criando...' : 'Criar conta admin')}
             </button>
           </form>
 
           <p className="text-center text-sm text-gray-500 mt-6">
-            Já tem conta?{' '}
+            {t('Já tem conta?')}{' '}
             <Link href="/login" className="text-purple-700 font-medium hover:underline">
-              Entrar
+              {t('Entrar')}
             </Link>
           </p>
         </div>

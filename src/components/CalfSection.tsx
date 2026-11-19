@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { addPendingRecord } from '@/lib/offlineStorage'
 import { fetchWithTimeout } from '@/lib/offlineData'
 import { todayISO } from '@/lib/utils'
-import { calvingStarts, cowCalving, monthsLabel, plural } from '@/lib/calving'
+import { calvingStarts, cowCalving, plural } from '@/lib/calving'
 import { canAddCalf } from '@/lib/animalRules'
+import { useLocale, useT } from '@/lib/i18n'
 
 export interface HerdAnimal {
   id: string
@@ -18,8 +19,11 @@ export interface HerdAnimal {
   motherId?: string | null
 }
 
-const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+const fmtDate = (iso: string, locale = 'pt-BR') => new Date(iso).toLocaleDateString(locale, { timeZone: 'UTC' })
 const calfLabel = (a: HerdAnimal) => (a.gender === 'Fêmea' ? 'Bezerra' : 'Bezerro')
+type Tr = (text: string, vars?: Record<string, string | number>) => string
+/** "3 meses" no idioma da tela (monthsLabel de lib/calving é só português) */
+const monthsText = (n: number, t: Tr) => (n < 1 ? t('menos de 1 mês') : plural(n, t('mês'), t('meses')))
 const OUTCOMES = [['Vivo', 'Viva'], ['Morto', 'Morreu'], ['Vendido', 'Vendida']] as const
 
 const field = 'mt-1 w-full border border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
@@ -34,6 +38,8 @@ export function CalfSection({ mother, animals, farmId, canEdit, isOnline, onOpen
   onOpen: (animal: HerdAnimal) => void
   onChanged: () => void
 }) {
+  const t = useT()
+  const locale = useLocale()
   const calves = animals.filter((a) => a.motherId === mother.id).sort((a, b) => a.birthDate.localeCompare(b.birthDate))
   const [adding, setAdding] = useState(false)
   const eligible = canAddCalf(mother)
@@ -47,29 +53,29 @@ export function CalfSection({ mother, animals, farmId, canEdit, isOnline, onOpen
   const note = calves.map((c) => {
     const iso = new Date(c.birthDate).toISOString()
     const index = calvingStart.indexOf(iso)
-    if (index < 0 || opened.has(iso)) return 'mesmo parto (gêmeos)'
+    if (index < 0 || opened.has(iso)) return t('mesmo parto (gêmeos)')
     opened.add(iso)
-    return index > 0 ? `${monthsLabel(stats.intervals[index - 1])} depois do parto anterior` : ''
+    return index > 0 ? t('{months} depois do parto anterior', { months: monthsText(stats.intervals[index - 1], t) }) : ''
   })
 
   return (
     <section className="mt-5 border-t border-gray-100 pt-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-base font-semibold text-gray-900">Crias</h3>
+        <h3 className="text-base font-semibold text-gray-900">{t('Crias')}</h3>
         {canEdit && !adding && !mother.id.startsWith('pending_') && (
           <button type="button" disabled={!eligible} onClick={() => setAdding(true)} className="bg-green-700 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold px-3 py-2 rounded-lg">
-            + Adicionar cria
+            + {t('Adicionar cria')}
           </button>
         )}
       </div>
-      {!eligible && <p className="mt-2 text-sm text-amber-700">Adicionar cria fica disponível quando a fêmea completar 2 anos e meio.</p>}
+      {!eligible && <p className="mt-2 text-sm text-amber-700">{t('Adicionar cria fica disponível quando a fêmea completar 2 anos e meio.')}</p>}
 
       {calves.length > 0 && (
         <p className="mt-1 text-sm text-gray-600">
-          {plural(calves.length, 'cria', 'crias')}
-          {calvingStart.length < calves.length && ` em ${plural(calvingStart.length, 'parto', 'partos')}`}
-          {average !== null && ` · um parto a cada ${monthsLabel(average)} em média`}
-          {sinceLast !== null && ` · última há ${monthsLabel(sinceLast)}`}
+          {plural(calves.length, t('cria'), t('crias'))}
+          {calvingStart.length < calves.length && ` ${t('em {births}', { births: plural(calvingStart.length, t('parto'), t('partos')) })}`}
+          {average !== null && ` · ${t('um parto a cada {months} em média', { months: monthsText(average, t) })}`}
+          {sinceLast !== null && ` · ${t('última há {months}', { months: monthsText(sinceLast, t) })}`}
         </p>
       )}
 
@@ -79,15 +85,15 @@ export function CalfSection({ mother, animals, farmId, canEdit, isOnline, onOpen
       )}
 
       {calves.length === 0 && !adding ? (
-        <p className="mt-2 text-sm text-gray-500">Nenhuma cria anotada ainda.</p>
+        <p className="mt-2 text-sm text-gray-500">{t('Nenhuma cria anotada ainda.')}</p>
       ) : (
         <ol className="mt-3 space-y-2">
           {calves.map((c, i) => (
             <li key={c.id}>
               <button type="button" onClick={() => onOpen(c)} className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-left hover:bg-gray-50">
                 <span className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-gray-900">{fmtDate(c.birthDate)} · {calfLabel(c)}</span>
-                  {c.status !== 'Vivo' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{c.status}</span>}
+                  <span className="font-medium text-gray-900">{fmtDate(c.birthDate, locale)} · {t(calfLabel(c))}</span>
+                  {c.status !== 'Vivo' && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{t(c.status)}</span>}
                 </span>
                 <span className="block text-sm text-gray-600">
                   {c.name}{c.code ? ` (${c.code})` : ''}
@@ -111,6 +117,8 @@ export function AddCalfForm({ mother, animals, farmId, isOnline, onCancel, onSav
   onCancel: () => void
   onSaved: () => void
 }) {
+  const t = useT()
+  const locale = useLocale()
   const [birthDate, setBirthDate] = useState(todayISO())
   const [gender, setGender] = useState<'Fêmea' | 'Macho' | ''>('')
   const [name, setName] = useState('')
@@ -121,7 +129,7 @@ export function AddCalfForm({ mother, animals, farmId, isOnline, onCancel, onSav
   const [error, setError] = useState('')
 
   const year = birthDate.slice(0, 4)
-  const defaultName = `Cria da ${mother.name} ${year}`
+  const defaultName = t('Cria da {name} {year}', { name: mother.name, year })
   // Para ligar uma cria já cadastrada: animais sem mãe, mais novos que a vaca
   const candidates = animals
     .filter((a) => !a.motherId && a.id !== mother.id && !a.id.startsWith('pending_') && a.birthDate > mother.birthDate)
@@ -130,25 +138,25 @@ export function AddCalfForm({ mother, animals, farmId, isOnline, onCancel, onSav
   async function save(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    if (!canAddCalf(mother)) return setError('A mãe precisa ter pelo menos 2 anos e meio para adicionar cria')
+    if (!canAddCalf(mother)) return setError(t('A mãe precisa ter pelo menos 2 anos e meio para adicionar cria'))
     if (existing) {
-      if (!existingId) return setError('Escolha a cria')
-      if (!isOnline) return setError('Para ligar uma cria já cadastrada, é preciso internet.')
+      if (!existingId) return setError(t('Escolha a cria'))
+      if (!isOnline) return setError(t('Para ligar uma cria já cadastrada, é preciso internet.'))
       setSaving(true)
       try {
         const res = await fetchWithTimeout(`/api/animals/${existingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ motherId: mother.id }) })
         const data = await res.json()
-        if (!res.ok) return setError(data.error || 'Não foi possível salvar')
+        if (!res.ok) return setError(t(data.error || 'Não foi possível salvar'))
         onSaved()
       } catch {
-        setError('Sem internet. Para ligar uma cria já cadastrada, tente de novo quando o sinal voltar.')
+        setError(t('Sem internet. Para ligar uma cria já cadastrada, tente de novo quando o sinal voltar.'))
       } finally {
         setSaving(false)
       }
       return
     }
 
-    if (!gender) return setError('Escolha bezerro ou bezerra')
+    if (!gender) return setError(t('Escolha bezerro ou bezerra'))
     const calf = { name: name.trim() || defaultName, species: 'Bezerro', gender, birthDate, status, motherId: mother.id }
     // Sem internet: guarda no celular e envia junto com os outros animais
     if (!isOnline) {
@@ -160,7 +168,7 @@ export function AddCalfForm({ mother, animals, farmId, isOnline, onCancel, onSav
     try {
       const res = await fetchWithTimeout('/api/animals', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(calf) })
       const data = await res.json()
-      if (!res.ok) return setError(data.error || 'Não foi possível salvar')
+      if (!res.ok) return setError(t(data.error || 'Não foi possível salvar'))
       onSaved()
     } catch {
       addPendingRecord('animais', { ...calf, code: '', farmId, _type: 'create' })
@@ -179,38 +187,38 @@ export function AddCalfForm({ mother, animals, farmId, isOnline, onCancel, onSav
   return (
     <form ref={formRef} onSubmit={save} className="mt-3 scroll-mt-4 flex flex-col gap-3 rounded-xl border border-green-200 bg-green-50/40 p-3">
       <div className="flex gap-2 text-sm">
-        <button type="button" onClick={() => setExisting(false)} className={`flex-1 rounded-lg py-2 font-semibold ${!existing ? 'bg-white text-green-800 shadow-sm' : 'text-gray-600'}`}>Nova cria</button>
-        <button type="button" onClick={() => setExisting(true)} className={`flex-1 rounded-lg py-2 font-semibold ${existing ? 'bg-white text-green-800 shadow-sm' : 'text-gray-600'}`}>Já está cadastrada</button>
+        <button type="button" onClick={() => setExisting(false)} className={`flex-1 rounded-lg py-2 font-semibold ${!existing ? 'bg-white text-green-800 shadow-sm' : 'text-gray-600'}`}>{t('Nova cria')}</button>
+        <button type="button" onClick={() => setExisting(true)} className={`flex-1 rounded-lg py-2 font-semibold ${existing ? 'bg-white text-green-800 shadow-sm' : 'text-gray-600'}`}>{t('Já está cadastrada')}</button>
       </div>
 
       {existing ? (
-        <label className="text-sm font-medium text-gray-700">Qual animal é cria da {mother.name}?
+        <label className="text-sm font-medium text-gray-700">{t('Qual animal é cria da {name}?', { name: mother.name })}
           <select value={existingId} onChange={(e) => setExistingId(e.target.value)} className={`${field} bg-white`}>
-            <option value="">Escolha</option>
-            {candidates.map((a) => <option key={a.id} value={a.id}>{a.name} ({a.code}) · nasceu em {fmtDate(a.birthDate)}</option>)}
+            <option value="">{t('Escolha')}</option>
+            {candidates.map((a) => <option key={a.id} value={a.id}>{a.name} ({a.code}) · {t('nasceu em {date}', { date: fmtDate(a.birthDate, locale) })}</option>)}
           </select>
-          {candidates.length === 0 && <span className="mt-1 block text-xs text-gray-500">Nenhum animal sem mãe e mais novo que ela.</span>}
+          {candidates.length === 0 && <span className="mt-1 block text-xs text-gray-500">{t('Nenhum animal sem mãe e mais novo que ela.')}</span>}
         </label>
       ) : (
         <>
-          <label className="text-sm font-medium text-gray-700">Data do parto
+          <label className="text-sm font-medium text-gray-700">{t('Data do parto')}
             <input type="date" value={birthDate} max={todayISO()} min={mother.birthDate.slice(0, 10)} onChange={(e) => setBirthDate(e.target.value)} required className={`${field} bg-white`} />
           </label>
           <div>
-            <p className="text-sm font-medium text-gray-700">É bezerro ou bezerra?</p>
+            <p className="text-sm font-medium text-gray-700">{t('É bezerro ou bezerra?')}</p>
             <div className="mt-1 flex gap-2">
-              <button type="button" aria-pressed={gender === 'Macho'} onClick={() => setGender('Macho')} className={choice(gender === 'Macho')}>Bezerro</button>
-              <button type="button" aria-pressed={gender === 'Fêmea'} onClick={() => setGender('Fêmea')} className={choice(gender === 'Fêmea')}>Bezerra</button>
+              <button type="button" aria-pressed={gender === 'Macho'} onClick={() => setGender('Macho')} className={choice(gender === 'Macho')}>{t('Bezerro')}</button>
+              <button type="button" aria-pressed={gender === 'Fêmea'} onClick={() => setGender('Fêmea')} className={choice(gender === 'Fêmea')}>{t('Bezerra')}</button>
             </div>
           </div>
-          <label className="text-sm font-medium text-gray-700">Nome <span className="font-normal text-gray-500">(opcional)</span>
+          <label className="text-sm font-medium text-gray-700">{t('Nome')} <span className="font-normal text-gray-500">({t('opcional')})</span>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder={defaultName} className={`${field} bg-white`} />
           </label>
           <div>
-            <p className="text-sm font-medium text-gray-700">A cria</p>
+            <p className="text-sm font-medium text-gray-700">{t('A cria')}</p>
             <div className="mt-1 flex gap-2">
               {OUTCOMES.map(([value, label]) => (
-                <button key={value} type="button" aria-pressed={status === value} onClick={() => setStatus(value)} className={choice(status === value)}>{label}</button>
+                <button key={value} type="button" aria-pressed={status === value} onClick={() => setStatus(value)} className={choice(status === value)}>{t(label)}</button>
               ))}
             </div>
           </div>
@@ -218,11 +226,11 @@ export function AddCalfForm({ mother, animals, farmId, isOnline, onCancel, onSav
       )}
 
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {!isOnline && !existing && <p className="text-xs text-amber-800">Sem internet: a cria fica guardada no celular e é enviada quando o sinal voltar.</p>}
+      {!isOnline && !existing && <p className="text-xs text-amber-800">{t('Sem internet: a cria fica guardada no celular e é enviada quando o sinal voltar.')}</p>}
       <div className="flex gap-2">
-        <button type="button" onClick={onCancel} className="flex-1 rounded-lg border border-gray-200 bg-white py-2.5 font-medium text-gray-600">Cancelar</button>
+        <button type="button" onClick={onCancel} className="flex-1 rounded-lg border border-gray-200 bg-white py-2.5 font-medium text-gray-600">{t('Cancelar')}</button>
         <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-green-700 py-2.5 font-semibold text-white hover:bg-green-600 disabled:bg-gray-300">
-          {saving ? 'Salvando...' : 'Salvar cria'}
+          {t(saving ? 'Salvando...' : 'Salvar cria')}
         </button>
       </div>
     </form>

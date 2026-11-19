@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { FecharIcon } from '@/components/ModuleIcons'
 import { whatsappLink } from '@/lib/utils'
+import { useLocale, useT } from '@/lib/i18n'
 
 interface Item {
   id: string
@@ -24,11 +25,13 @@ interface LinkedVendor {
 }
 
 const field = 'mt-1 w-full border border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
-const fmtQty = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+const fmtQty = (n: number, locale = 'pt-BR') => n.toLocaleString(locale, { maximumFractionDigits: 2 })
 
 // Pedido de orçamento de um item do estoque, ou mensagem solta (sem item), para um fornecedor vinculado.
 // Os dois chegam na aba "Pedidos" do fornecedor e a resposta volta em "Meus pedidos".
 export function RequestQuote({ item, vendorId: initialVendorId = '', onClose }: { item?: Item; vendorId?: string; onClose: () => void }) {
+  const t = useT()
+  const locale = useLocale()
   const [vendors, setVendors] = useState<LinkedVendor[] | null>(null)
   const [vendorId, setVendorId] = useState(initialVendorId)
   // Sugestão: o que falta para voltar ao dobro do mínimo
@@ -64,18 +67,18 @@ export function RequestQuote({ item, vendorId: initialVendorId = '', onClose }: 
           : { vendorId, itemName: subject, category: 'Outro', note }),
       })
       const data = await res.json()
-      if (!res.ok) return setError(data.error || 'Não foi possível enviar')
+      if (!res.ok) return setError(t(data.error || 'Não foi possível enviar'))
       setSentTo(vendors?.find((v) => v.id === vendorId) ?? null)
     } catch {
-      setError('Sem internet. O pedido precisa de conexão para chegar ao fornecedor.')
+      setError(t('Sem internet. O pedido precisa de conexão para chegar ao fornecedor.'))
     } finally {
       setSending(false)
     }
   }
 
   const whatsappText = item
-    ? `Olá! Pedi um orçamento de ${quantity ? `${quantity} ${item.unit} de ` : ''}${item.name} pelo Anota Aí Agro. Pode ver?`
-    : `Olá! Mandei uma mensagem pelo Anota Aí Agro sobre ${subject}: ${note}`
+    ? t('Olá! Pedi um orçamento de {what} pelo Anota Aí Agro. Pode ver?', { what: `${quantity ? `${quantity} ${item.unit} ${t('de')} ` : ''}${item.name}` })
+    : t('Olá! Mandei uma mensagem pelo Anota Aí Agro sobre {subject}: {note}', { subject, note })
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70] p-4">
@@ -83,62 +86,62 @@ export function RequestQuote({ item, vendorId: initialVendorId = '', onClose }: 
         <div className="p-5 sm:p-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold text-gray-900">
-              {sentTo ? (item ? 'Pedido enviado' : 'Mensagem enviada') : (item ? 'Pedir orçamento' : 'Mandar mensagem')}
+              {t(sentTo ? (item ? 'Pedido enviado' : 'Mensagem enviada') : (item ? 'Pedir orçamento' : 'Mandar mensagem'))}
             </h2>
-            <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
+            <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
           </div>
 
           {sentTo ? (
             <div>
               <p className="text-gray-700">
-                A <strong>{sentTo.companyName}</strong> já vê {item ? 'o pedido' : 'a mensagem'} no painel dela. A resposta aparece em <strong>Ofertas → Meus pedidos</strong> e no sino.
+                <strong>{sentTo.companyName}</strong> {t(item ? 'já vê o pedido no painel dela. A resposta aparece em' : 'já vê a mensagem no painel dela. A resposta aparece em')} <strong>{t('Ofertas → Meus pedidos')}</strong> {t('e no sino.')}
               </p>
               <a href={whatsappLink(sentTo.whatsapp || sentTo.phone, whatsappText)}
                 target="_blank" rel="noopener noreferrer"
                 className="mt-4 flex w-full items-center justify-center bg-green-700 hover:bg-green-600 text-white font-semibold py-3 rounded-lg">
-                Avisar também pelo WhatsApp
+                {t('Avisar também pelo WhatsApp')}
               </a>
-              <button type="button" onClick={onClose} className="mt-2 w-full border border-gray-200 text-gray-600 font-medium py-3 rounded-lg">Fechar</button>
+              <button type="button" onClick={onClose} className="mt-2 w-full border border-gray-200 text-gray-600 font-medium py-3 rounded-lg">{t('Fechar')}</button>
             </div>
           ) : vendors === null ? (
-            <p className="text-sm text-gray-400">Carregando...</p>
+            <p className="text-sm text-gray-400">{t('Carregando...')}</p>
           ) : vendors.length === 0 ? (
             <div>
-              <p className="text-gray-700">Você ainda não tem fornecedor no app.</p>
-              <Link href="/ofertas" className="mt-3 inline-block font-semibold text-green-700 underline">Procurar fornecedor em Ofertas</Link>
+              <p className="text-gray-700">{t('Você ainda não tem fornecedor no app.')}</p>
+              <Link href="/ofertas" className="mt-3 inline-block font-semibold text-green-700 underline">{t('Procurar fornecedor em Ofertas')}</Link>
             </div>
           ) : (
             <form onSubmit={send} className="flex flex-col gap-3">
               {item && (
                 <p className="text-sm text-gray-600">
-                  <strong className="text-gray-900">{item.name}</strong> · você tem {fmtQty(item.currentQuantity)} {item.unit} (mínimo {fmtQty(item.minimumQuantity)})
+                  <strong className="text-gray-900">{item.name}</strong> · {t('você tem {qty} {unit} (mínimo {min})', { qty: fmtQty(item.currentQuantity, locale), unit: item.unit, min: fmtQty(item.minimumQuantity, locale) })}
                 </p>
               )}
-              <label className="text-sm font-medium text-gray-700">Fornecedor
+              <label className="text-sm font-medium text-gray-700">{t('Fornecedor')}
                 <select value={vendorId} onChange={(e) => setVendorId(e.target.value)} required className={field}>
-                  <option value="" disabled>Escolha</option>
+                  <option value="" disabled>{t('Escolha')}</option>
                   {vendors.map((v) => <option key={v.id} value={v.id}>{v.companyName}{v.city ? ` (${v.city})` : ''}</option>)}
                 </select>
               </label>
               {item ? (
-                <label className="text-sm font-medium text-gray-700">Quantidade ({item.unit})
-                  <input inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value.replace(/[^\d.,]/g, ''))} placeholder="Opcional" className={field} />
+                <label className="text-sm font-medium text-gray-700">{t('Quantidade')} ({item.unit})
+                  <input inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value.replace(/[^\d.,]/g, ''))} placeholder={t('Opcional')} className={field} />
                 </label>
               ) : (
-                <label className="text-sm font-medium text-gray-700">Assunto
+                <label className="text-sm font-medium text-gray-700">{t('Assunto')}
                   <input value={subject} onChange={(e) => setSubject(e.target.value)} required maxLength={120}
-                    placeholder="Ex.: arame farpado, horário de entrega" className={field} />
+                    placeholder={t('Ex.: arame farpado, horário de entrega')} className={field} />
                 </label>
               )}
-              <label className="text-sm font-medium text-gray-700">{item ? 'Recado' : 'Mensagem'}
+              <label className="text-sm font-medium text-gray-700">{t(item ? 'Recado' : 'Mensagem')}
                 <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={item ? 2 : 4} maxLength={500} required={!item}
-                  placeholder={item ? 'Ex.: preciso até sexta, entrega no sítio' : 'Ex.: Vocês têm arame farpado? Quanto custa o rolo?'}
+                  placeholder={t(item ? 'Ex.: preciso até sexta, entrega no sítio' : 'Ex.: Vocês têm arame farpado? Quanto custa o rolo?')}
                   className={`${field} resize-none`} />
               </label>
               {error && <p className="text-sm text-red-600">{error}</p>}
               <button type="submit" disabled={sending || !vendorId}
                 className="bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-3 rounded-lg">
-                {sending ? 'Enviando...' : item ? 'Enviar pedido' : 'Enviar mensagem'}
+                {t(sending ? 'Enviando...' : item ? 'Enviar pedido' : 'Enviar mensagem')}
               </button>
             </form>
           )}

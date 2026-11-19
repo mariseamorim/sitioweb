@@ -8,6 +8,7 @@ import { useRegistrationAccount } from '@/lib/useRegistrationAccount'
 import { maskPhone } from '@/lib/masks'
 import { useLang, useT } from '@/lib/i18n'
 import { LanguagePicker } from '@/components/LanguagePicker'
+import { DemoVetButton } from '@/components/DemoVet'
 import { PasswordInput } from '@/components/PasswordInput'
 
 const EMPTY = { name: '', crmv: '', city: '', state: '', phone: '', email: '', password: '', confirm: '' }
@@ -106,6 +107,7 @@ export default function CadastroVeterinarioPage() {
               {t('Já tem cadastro?')} <Link href="/login" className="font-medium text-green-700 hover:underline">{t('Entrar')}</Link>
             </p>
           </form>
+          <DemoVetButton className="mt-6 border-t border-gray-100 pt-5" />
         </div>
       </div>
     </div>

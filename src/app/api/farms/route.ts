@@ -9,7 +9,7 @@ export async function GET() {
 
   if (me.role === 'admin') {
     // Admin sees all farms
-    const farms = await prisma.farm.findMany({ orderBy: { name: 'asc' } })
+    const farms = await prisma.farm.findMany({ where: { isDemo: false }, orderBy: { name: 'asc' } })
     return NextResponse.json(farms)
   }
 

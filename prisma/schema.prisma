@@ -26,6 +26,8 @@ model Farm {
   milkPrice      Float? // valor do litro de leite (estimativa de quanto vai receber)
   /// O que a propriedade faz: leite, cria, recria, engorda (pode ter mais de um; vazio = não informado)
   segments       String[] @default([])
+  /// Propriedade da demonstração do veterinário (dados fictícios, apagada em 24 h; fora das listas do administrador)
+  isDemo         Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -47,6 +49,7 @@ model Farm {
   vetClients      VetClient[] // veterinários consultores que atendem a propriedade
 
   @@index([documentNumber])
+  @@index([isDemo, createdAt])
   @@map("farms")
 }
 
@@ -78,10 +81,13 @@ model User {
   milkSheets       MilkSheet[] // litros da folha do motorista, para conferir
   farmMemberships  FarmMember[] // propriedades a que tem acesso; farmId é a que está aberta
   vetProfile       VetProfile? // preenchido quando a conta é de veterinário consultor
+  /// Conta da demonstração do veterinário (sem login, apagada em 24 h; fora das listas do administrador)
+  isDemo           Boolean       @default(false)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
   @@index([organizationId])
+  @@index([isDemo, createdAt])
   @@map("users")
 }
 

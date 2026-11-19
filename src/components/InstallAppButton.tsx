@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from '@/lib/i18n'
 
 type InstallPrompt = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
 
 // O Chrome só oferece "Instalar" escondido no menu ⋮; no iPhone não há botão nenhum.
 // Este botão deixa a instalação à vista e explica o caminho quando o navegador não instala sozinho.
 export function InstallAppButton({ className = '' }: { className?: string }) {
+  const t = useT();
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null);
   const [state, setState] = useState<'oculto' | 'pronto' | 'ios' | 'ajuda'>('oculto');
   const [showHelp, setShowHelp] = useState(false);
@@ -42,13 +44,13 @@ export function InstallAppButton({ className = '' }: { className?: string }) {
     <div className={className}>
       <button type="button" onClick={handleClick} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border-2 border-green-700 px-4 text-sm font-semibold text-green-800 hover:bg-green-50 focus-visible:outline-2 focus-visible:outline-green-700">
         <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14" /></svg>
-        Instalar o app no celular
+        {t('Instalar o app no celular')}
       </button>
       {showHelp && (
         <p className="mt-2 rounded-xl bg-green-50 p-3 text-left text-sm text-green-900">
           {state === 'ios'
-            ? <>No Safari, toque em <strong>Compartilhar</strong> (o quadrado com a seta para cima) e depois em <strong>Adicionar à Tela de Início</strong>.</>
-            : <>No Chrome, toque nos <strong>três pontinhos ⋮</strong> no canto de cima e escolha <strong>Instalar app</strong> ou <strong>Adicionar à tela inicial</strong>. Se aparecer <strong>Abrir no app</strong>, ele já está instalado: procure o ícone do Anota Aí Agro na tela do celular.</>}
+            ? <>{t('No Safari, toque em')} <strong>{t('Compartilhar')}</strong> {t('(o quadrado com a seta para cima) e depois em')} <strong>{t('Adicionar à Tela de Início')}</strong>.</>
+            : <>{t('No Chrome, toque nos')} <strong>{t('três pontinhos ⋮')}</strong> {t('no canto de cima e escolha')} <strong>{t('Instalar app')}</strong> {t('ou')} <strong>{t('Adicionar à tela inicial')}</strong>. {t('Se aparecer')} <strong>{t('Abrir no app')}</strong>{t(', ele já está instalado: procure o ícone do Anota Aí Agro na tela do celular.')}</>}
         </p>
       )}
     </div>

@@ -8,6 +8,7 @@ import { todayISO } from '@/lib/utils'
 import { fmtNumber } from '@/lib/reports'
 import { OfflineVoiceSetup, VoiceButton } from '@/components/VoiceButton'
 import { milkNumber, milkPrice } from '@/lib/milkValidation'
+import { useT } from '@/lib/i18n'
 
 interface Cow {
   id: string
@@ -26,6 +27,7 @@ interface Props {
 
 // Lançamento da ordenha do dia: todas as vacas numa lista, um campo de litros por vaca
 export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel, defaultPrice = null }: Props) {
+  const t = useT()
   const [date, setDate] = useState(todayISO())
   const [liters, setLiters] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
@@ -51,7 +53,7 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel, 
     if (filled.length === 0) return
     setError('')
     const pricePerLiter = milkPrice(price)
-    if (pricePerLiter === undefined) { setError('Informe um preço por litro válido, por exemplo 2,50'); return }
+    if (pricePerLiter === undefined) { setError(t('Informe um preço por litro válido, por exemplo 2,50')); return }
 
     if (!isOnline) {
       let pending = 0
@@ -71,7 +73,7 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel, 
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Não foi possível salvar. Tente de novo.')
+        setError(data.error ? t(data.error) : t('Não foi possível salvar. Tente de novo.'))
         return
       }
       onDone({ saved: data.created, pending: 0 })
@@ -90,7 +92,7 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel, 
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <label className="text-sm font-medium text-gray-700 block mb-1">Data da ordenha</label>
+        <label className="text-sm font-medium text-gray-700 block mb-1">{t('Data da ordenha')}</label>
         <input
           type="date"
           value={date}
@@ -101,7 +103,7 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel, 
       </div>
 
       {cows.length === 0 ? (
-        <p className="text-center text-gray-500 py-8">Nenhuma vaca cadastrada. Use a aba &quot;Total do dia&quot; ou cadastre as vacas em Animais.</p>
+        <p className="text-center text-gray-500 py-8">{t('Nenhuma vaca cadastrada. Use a aba "Total do dia" ou cadastre as vacas em Animais.')}</p>
       ) : (
         <ul className="divide-y divide-gray-100 border border-gray-100 rounded-xl max-h-[50vh] overflow-y-auto">
           {cows.map((c) => {
@@ -114,7 +116,7 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel, 
                 <div className="flex-1 min-w-0">
                   <p className="text-base font-medium text-gray-800 truncate">{c.name}</p>
                   {already !== undefined && (
-                    <p className="text-xs text-amber-700">Já lançado neste dia: {fmtNumber(already)} L</p>
+                    <p className="text-xs text-amber-700">{t('Já lançado neste dia: {n} L', { n: fmtNumber(already) })}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -122,14 +124,14 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel, 
                     type="text"
                     inputMode="decimal"
                     placeholder="0"
-                    aria-label={`Litros de ${c.name}`}
+                    aria-label={t('Litros de {name}', { name: c.name })}
                     value={liters[c.id] ?? ''}
                     onChange={(e) => setLiters({ ...liters, [c.id]: e.target.value.replace(/[^\d.,]/g, '') })}
                     className="w-20 border border-gray-200 rounded-lg px-2 py-2.5 text-base text-right focus:outline-none focus:ring-2 focus:ring-green-600"
                   />
                   <span className="text-sm text-gray-500">L</span>
                 </div>
-                <VoiceButton size="sm" label={`os litros de ${c.name}`}
+                <VoiceButton size="sm" label={t('os litros de {name}', { name: c.name })}
                   onNumber={(v) => setLiters((l) => ({ ...l, [c.id]: String(v).replace('.', ',') }))} />
               </li>
             )
@@ -138,13 +140,13 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel, 
       )}
       {cows.length > 0 && <OfflineVoiceSetup online={isOnline} />}
 
-      <label className="text-sm font-medium text-gray-700">Preço por litro (R$) <span className="font-normal text-gray-400">(opcional, aplicado a todas as vacas deste lançamento)</span>
-        <MilkDecimalInput decimals={2} inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} placeholder="Ex.: 2,50" className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-3 text-base" />
+      <label className="text-sm font-medium text-gray-700">{t('Preço por litro (R$)')} <span className="font-normal text-gray-400">{t('(opcional, aplicado a todas as vacas deste lançamento)')}</span>
+        <MilkDecimalInput decimals={2} inputMode="decimal" value={price} onChange={e => setPrice(e.target.value)} placeholder={t('Ex.: 2,50')} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-3 text-base" />
       </label>
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex items-center justify-between text-sm text-gray-600">
-        <span>{filled.length} de {cows.length} vacas</span>
+        <span>{t('{n} de {total} vacas', { n: filled.length, total: cows.length })}</span>
         <span className="text-lg font-bold text-green-700">{fmtNumber(total)} L</span>
       </div>
 
@@ -154,7 +156,7 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel, 
           onClick={onCancel}
           className="flex-1 border border-gray-200 text-gray-600 text-base font-medium py-3 rounded-lg hover:bg-gray-50"
         >
-          Cancelar
+          {t('Cancelar')}
         </button>
         <button
           type="button"
@@ -162,7 +164,7 @@ export function MilkDailyEntry({ cows, productions, isOnline, onDone, onCancel, 
           disabled={saving || filled.length === 0}
           className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white text-base font-semibold py-3 rounded-lg"
         >
-          {saving ? 'Salvando...' : isOnline ? 'Salvar ordenha' : 'Salvar no celular'}
+          {t(saving ? 'Salvando...' : isOnline ? 'Salvar ordenha' : 'Salvar no celular')}
         </button>
       </div>
     </div>

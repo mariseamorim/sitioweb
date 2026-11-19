@@ -6,4 +6,11 @@ import { consultoria } from './consultoria'
 import { animais } from './animais'
 import { painel } from './painel'
 
-export const es: Record<string, string> = { ...common, ...auth, ...reproducao, ...consultoria, ...animais, ...painel }
+import { ajuda } from './ajuda'
+import { componentes } from './componentes'
+import { leite } from './leite'
+import { sanidade } from './sanidade'
+import { gestao } from './gestao'
+import { engorda } from './engorda'
+import { lite } from './lite'
+export const es: Record<string, string> = { ...common, ...auth, ...reproducao, ...consultoria, ...animais, ...painel, ...ajuda, ...componentes, ...leite, ...sanidade, ...gestao, ...engorda, ...lite }

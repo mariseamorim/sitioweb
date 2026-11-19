@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useRef, useState, ReactNode } from 'react'
+import { useT } from '@/lib/i18n'
 
 interface ConfirmOptions {
   title: string
@@ -26,6 +27,7 @@ const DialogContext = createContext<DialogContextType>({
 })
 
 export function DialogProvider({ children }: { children: ReactNode }) {
+  const t = useT()
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const resolver = useRef<(value: boolean) => void>(() => {})
 
@@ -56,15 +58,15 @@ export function DialogProvider({ children }: { children: ReactNode }) {
             className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="dialog-title" className="text-lg font-bold text-gray-900">{dialog.title}</h2>
-            {dialog.message && <p className="mt-2 text-base text-gray-600 leading-relaxed">{dialog.message}</p>}
+            <h2 id="dialog-title" className="text-lg font-bold text-gray-900">{t(dialog.title)}</h2>
+            {dialog.message && <p className="mt-2 text-base text-gray-600 leading-relaxed">{t(dialog.message)}</p>}
             <div className="mt-6 flex gap-2">
               {dialog.kind === 'confirm' && (
                 <button
                   onClick={() => close(false)}
                   className="flex-1 border border-gray-200 text-gray-700 text-base font-medium py-3 rounded-lg hover:bg-gray-50"
                 >
-                  Cancelar
+                  {t('Cancelar')}
                 </button>
               )}
               <button
@@ -74,7 +76,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
                   dialog.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-green-700 hover:bg-green-600'
                 }`}
               >
-                {dialog.kind === 'alert' ? 'Entendi' : dialog.confirmLabel ?? 'Confirmar'}
+                {dialog.kind === 'alert' ? t('Entendi') : t(dialog.confirmLabel ?? 'Confirmar')}
               </button>
             </div>
           </div>
