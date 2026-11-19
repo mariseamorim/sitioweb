@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 460" width="100%" height="100%">
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.14"/>
+    </filter>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f0fdf4"/>
+      <stop offset="100%" stop-color="#ecfdf5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="760" height="460" rx="18" fill="url(#bgGrad)" stroke="#bbf7d0" stroke-width="1.5"/>
+
+  <!-- Top Browser / App Frame -->
+  <g transform="translate(28, 22)" filter="url(#shadow)">
+    <rect width="704" height="416" rx="14" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+    <!-- App Topbar -->
+    <path d="M0 14 Q0 0 14 0 L690 0 Q704 0 704 14 L704 54 L0 54 Z" fill="#15803d"/>
+    <!-- Brand Dot & Title -->
+    <circle cx="24" cy="27" r="11" fill="#ffffff" opacity="0.2"/>
+    <text x="24" y="31" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="12" font-weight="800">🌱</text>
+    <text x="44" y="25" fill="#ffffff" font-family="system-ui, sans-serif" font-size="14" font-weight="800">Anota Aí Agro — Ajuda, Configuração Assistida e Suporte</text>
+    <text x="44" y="42" fill="#dcfce7" font-family="system-ui, sans-serif" font-size="11">Suporte direto pelo WhatsApp, passo a passo em todas as telas e Meu Cadastro</text>
+    <rect x="570" y="15" width="116" height="24" rx="12" fill="#ffffff" opacity="0.18"/>
+    <text x="628" y="31" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="700">Suporte & Ajuda</text>
+
+    <!-- Screen Inner Content -->
+    <g transform="translate(20, 68)">
+      
+        <rect x="10" y="6" width="314" height="154" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+        <text x="28" y="34" fill="#0f172a" font-family="system-ui, sans-serif" font-size="14" font-weight="800">💬 Falar com o Suporte</text>
+        <text x="28" y="56" fill="#64748b" font-family="system-ui, sans-serif" font-size="11">Abre o WhatsApp com mensagem pronta já</text>
+        <text x="28" y="72" fill="#64748b" font-family="system-ui, sans-serif" font-size="11">com seu nome e sua propriedade.</text>
+        <rect x="28" y="96" width="278" height="42" rx="10" fill="#15803d"/>
+        <text x="167" y="122" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="12.5" font-weight="800">📲 Chamar Suporte no WhatsApp</text>
+
+        <rect x="340" y="6" width="314" height="154" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+        <text x="358" y="34" fill="#0f172a" font-family="system-ui, sans-serif" font-size="14" font-weight="800">🚀 Configuração Inicial Assistida</text>
+        <text x="358" y="56" fill="#64748b" font-family="system-ui, sans-serif" font-size="11">A gente configura com você: propriedade,</text>
+        <text x="358" y="72" fill="#64748b" font-family="system-ui, sans-serif" font-size="11">animais, leite e quem vai usar na equipe.</text>
+        <rect x="358" y="96" width="278" height="42" rx="10" fill="#0f766e"/>
+        <text x="497" y="122" text-anchor="middle" fill="#ffffff" font-family="system-ui, sans-serif" font-size="12.5" font-weight="800">✨ Pedir Configuração Inicial</text>
+
+        <rect x="10" y="174" width="644" height="150" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+        <text x="28" y="202" fill="#0f172a" font-family="system-ui, sans-serif" font-size="14" font-weight="800">📖 "Como usar cada tela" + Meu Cadastro (/perfil)</text>
+        <rect x="28" y="218" width="290" height="40" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+        <text x="42" y="243" fill="#0f172a" font-family="system-ui, sans-serif" font-size="12" font-weight="700">▸ Passo a passo: Produção de Leite</text>
+        <rect x="336" y="218" width="298" height="40" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+        <text x="350" y="243" fill="#0f172a" font-family="system-ui, sans-serif" font-size="12" font-weight="700">▸ Passo a passo: Recria e Engorda</text>
+        <rect x="28" y="268" width="606" height="40" rx="8" fill="#f0fdf4" stroke="#86efac"/>
+        <text x="42" y="293" fill="#14532d" font-family="system-ui, sans-serif" font-size="12" font-weight="700">👤 Meu Cadastro: Altere nome, telefone, e-mail e senha a qualquer momento</text>
+      
+    </g>
+  </g>
+
+  <!-- Callouts Overlay -->
+  
+    <g transform="translate(64, 182)">
+      <circle cx="0" cy="0" r="15" fill="#dc2626" stroke="#ffffff" stroke-width="2.5" filter="url(#shadow)" />
+      <text x="0" y="5" text-anchor="middle" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="800">1</text>
+      
+        <rect x="20" y="-13" width="172" height="26" rx="6" fill="#111827" opacity="0.92" />
+        <text x="30" y="4" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="11.5" font-weight="600">Suporte direto no WhatsApp</text>
+      
+    </g>
+  
+
+    <g transform="translate(390, 182)">
+      <circle cx="0" cy="0" r="15" fill="#dc2626" stroke="#ffffff" stroke-width="2.5" filter="url(#shadow)" />
+      <text x="0" y="5" text-anchor="middle" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="800">2</text>
+      
+        <rect x="20" y="-13" width="175" height="26" rx="6" fill="#111827" opacity="0.92" />
+        <text x="30" y="4" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="11.5" font-weight="600">Ajuda na configuração inicial</text>
+      
+    </g>
+  
+
+    <g transform="translate(64, 350)">
+      <circle cx="0" cy="0" r="15" fill="#dc2626" stroke="#ffffff" stroke-width="2.5" filter="url(#shadow)" />
+      <text x="0" y="5" text-anchor="middle" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="800">3</text>
+      
+        <rect x="20" y="-13" width="182" height="26" rx="6" fill="#111827" opacity="0.92" />
+        <text x="30" y="4" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="11.5" font-weight="600">Guias por tela e Meu Cadastro</text>
+      
+    </g>
+  
+</svg>
