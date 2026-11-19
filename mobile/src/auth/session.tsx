@@ -6,6 +6,7 @@ import { wipeAll } from '@/db'
 import { clearUnauthorized } from '@/sync'
 import { disableBackgroundSync } from '@/sync/background'
 import { KEY_TOKEN, KEY_USER } from './stored'
+import { DEMO_TOKEN, demoUser, seedDemo } from '@/demo'
 
 export interface User {
   id: string
@@ -30,6 +31,8 @@ interface Session {
   loading: boolean
   login: (login: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  /** Entra na demonstração do veterinário (dados fictícios, sem servidor) */
+  enterDemo: () => Promise<void>
   switchFarm: (farmId: string) => Promise<void>
   refresh: () => Promise<void>
   canAccess: (module: string) => boolean
@@ -90,6 +93,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     clearUnauthorized()
   }, [persist])
 
+  const enterDemo = useCallback(async () => {
+    seedDemo()
+    await persist(DEMO_TOKEN, pickUser(demoUser()))
+    clearUnauthorized()
+  }, [persist])
+
   const logout = useCallback(async () => {
     await api('/api/auth/logout', { method: 'POST' }).catch(() => undefined)
     wipeAll()
@@ -105,10 +114,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [refresh])
 
   const value = useMemo<Session>(() => ({
-    user, loading, login, logout, switchFarm, refresh,
+    user, loading, login, logout, enterDemo, switchFarm, refresh,
     canAccess: (module) => !!user && (user.role === 'admin' || !!user.permissions?.includes(module)),
     canEdit: !!user && (user.role === 'admin' || user.role === 'editor'),
-  }), [user, loading, login, logout, switchFarm, refresh])
+  }), [user, loading, login, logout, enterDemo, switchFarm, refresh])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

@@ -10,6 +10,8 @@ import { queueRequest } from '@/sync/local'
 import { useSyncState } from '@/sync'
 import { Button, Card, Field, Muted, Notice, Screen } from '@/ui'
 import { colors, font, space } from '@/theme'
+import { useT } from '@/lib/i18n'
+import { LanguagePicker } from '@/ui/LanguagePicker'
 
 /** Resposta de /api/perfil, guardada pela sincronização em getCache('perfil') */
 interface Profile {
@@ -29,6 +31,7 @@ export default function Perfil() {
   const { user, refresh, logout } = useSession()
   const sync = useSyncState()
   const router = useRouter()
+  const t = useT()
   const cached = useLive(() => getCache<Profile>('perfil'), [])
   const profile: Profile = cached ?? {
     name: user?.name ?? '', email: user?.email ?? null, phone: user?.phone ?? null, role: user?.role ?? '',
@@ -47,20 +50,20 @@ export default function Perfil() {
 
   async function save() {
     setError(''); setSuccess('')
-    if (!name.trim()) { setError('Informe o nome'); return }
-    if (!phone && !email.trim()) { setError('Informe o telefone ou o e-mail'); return }
-    if (password !== confirmation) { setError('As senhas não coincidem'); return }
-    if (password && password.length < 6) { setError('A nova senha deve ter pelo menos 6 caracteres'); return }
+    if (!name.trim()) { setError(t('Informe o nome')); return }
+    if (!phone && !email.trim()) { setError(t('Informe o telefone ou o e-mail')); return }
+    if (password !== confirmation) { setError(t('As senhas não coincidem')); return }
+    if (password && password.length < 6) { setError(t('A nova senha deve ter pelo menos 6 caracteres')); return }
     const contact = { name: name.trim(), email: email.trim() || null, phone: phone || null }
     const updated: Profile = { ...profile, ...contact, hasPassword: profile.hasPassword || !!password }
 
     if (!sync.online) {
       // Sem internet só nome e contato entram na fila; a senha precisa ser conferida pelo servidor na hora
-      if (password) { setError('Para trocar a senha é preciso internet. Tente de novo quando o sinal voltar.'); return }
+      if (password) { setError(t('Para trocar a senha é preciso internet. Tente de novo quando o sinal voltar.')); return }
       queueRequest({ farmId, module: 'perfil', method: 'PATCH', path: '/api/perfil', body: { ...contact, ...(currentPassword ? { currentPassword } : {}) } })
       setCache('perfil', updated)
       setCurrentPassword('')
-      setSuccess('Sem internet: as alterações ficaram na fila e serão enviadas quando o sinal voltar.')
+      setSuccess(t('Sem internet: as alterações ficaram na fila e serão enviadas quando o sinal voltar.'))
       return
     }
 
@@ -70,55 +73,59 @@ export default function Perfil() {
       setCache('perfil', updated)
       await refresh()
       setPassword(''); setConfirmation(''); setCurrentPassword('')
-      setSuccess('Cadastro atualizado com sucesso.')
+      setSuccess(t('Cadastro atualizado com sucesso.'))
     } catch (e) {
-      setError(e instanceof HttpError ? e.message : 'Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.')
+      setError(e instanceof HttpError ? t(e.message) : t('Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.'))
     } finally {
       setSaving(false)
     }
   }
 
   function wipeAndLogout() {
-    const aviso = sync.pending > 0 ? `Há ${sync.pending} registro(s) ainda não enviados ao servidor. Se sair agora, eles serão perdidos. ` : ''
-    Alert.alert('Sair e apagar os dados deste aparelho?', aviso + 'Apaga as anotações guardadas e o que ainda não foi enviado. Só faça isso com internet e com tudo enviado.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair e apagar', style: 'destructive', onPress: async () => { await logout(); router.replace('/login') } },
+    const aviso = sync.pending > 0 ? t('Há {n} registro(s) ainda não enviados ao servidor. Se sair agora, eles serão perdidos.', { n: sync.pending }) + ' ' : ''
+    Alert.alert(t('Sair e apagar os dados deste aparelho?'), aviso + t('Apaga as anotações guardadas e o que ainda não foi enviado. Só faça isso com internet e com tudo enviado.'), [
+      { text: t('Cancelar'), style: 'cancel' },
+      { text: t('Sair e apagar'), style: 'destructive', onPress: async () => { await logout(); router.replace('/login') } },
     ])
   }
 
-  const section = (title: string) => <Text style={{ fontWeight: '700', fontSize: font.md, color: colors.text, marginBottom: space.sm }}>{title}</Text>
+  const section = (title: string) => <Text style={{ fontWeight: '700', fontSize: font.md, color: colors.text, marginBottom: space.sm }}>{t(title)}</Text>
 
   return (
     <Screen>
-      {!sync.online ? <Notice text="Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho. Nome e contato podem ser alterados; a senha só com conexão." /> : null}
+      {!sync.online ? <Notice text={t('Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho. Nome e contato podem ser alterados; a senha só com conexão.')} /> : null}
       <Card>
         {section('Dados da conta')}
-        <Field label="Nome *" value={name} onChangeText={setName} autoCapitalize="words" textContentType="name" />
-        <Field label="Telefone" value={maskPhone(phone)} onChangeText={t => setPhone(phoneDigits(t))} keyboardType="phone-pad" placeholder="(35) 99999-0000" textContentType="telephoneNumber" />
-        <Field label="E-mail (opcional)" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress"
-          hint="Você entra com o telefone ou com o e-mail. Informe pelo menos um." />
+        <Field label={t('Nome *')} value={name} onChangeText={setName} autoCapitalize="words" textContentType="name" />
+        <Field label={t('Telefone')} value={maskPhone(phone)} onChangeText={v => setPhone(phoneDigits(v))} keyboardType="phone-pad" placeholder="(35) 99999-0000" textContentType="telephoneNumber" />
+        <Field label={t('E-mail (opcional)')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress"
+          hint={t('Você entra com o telefone ou com o e-mail. Informe pelo menos um.')} />
       </Card>
       <Card>
         {section('Segurança')}
         <Muted style={{ marginBottom: space.md }}>
           {profile.hasPassword
-            ? 'Para alterar o e-mail ou a senha, informe sua senha atual. Deixe a nova senha vazia para manter a atual.'
-            : 'Você usa o Google para entrar. Pode criar uma senha para também entrar com e-mail e senha.'}
+            ? t('Para alterar o e-mail ou a senha, informe sua senha atual. Deixe a nova senha vazia para manter a atual.')
+            : t('Você usa o Google para entrar. Pode criar uma senha para também entrar com e-mail e senha.')}
         </Muted>
-        {profile.hasPassword ? <Field label="Senha atual" value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry textContentType="password" /> : null}
-        <Field label="Nova senha" value={password} onChangeText={setPassword} secureTextEntry textContentType="newPassword" hint="Pelo menos 6 caracteres" />
-        <Field label="Confirmar nova senha" value={confirmation} onChangeText={setConfirmation} secureTextEntry textContentType="newPassword" />
-        {profile.googleConnected ? <Muted style={{ color: colors.green, marginBottom: space.md }}>Conta Google conectada.</Muted> : null}
+        {profile.hasPassword ? <Field label={t('Senha atual')} value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry textContentType="password" /> : null}
+        <Field label={t('Nova senha')} value={password} onChangeText={setPassword} secureTextEntry textContentType="newPassword" hint={t('Pelo menos 6 caracteres')} />
+        <Field label={t('Confirmar nova senha')} value={confirmation} onChangeText={setConfirmation} secureTextEntry textContentType="newPassword" />
+        {profile.googleConnected ? <Muted style={{ color: colors.green, marginBottom: space.md }}>{t('Conta Google conectada.')}</Muted> : null}
         {error ? <Notice tone="red" text={error} /> : null}
-        {success ? <Notice tone={success.startsWith('Sem internet') ? 'amber' : 'green'} text={success} /> : null}
-        <Button label="Salvar alterações" onPress={() => void save()} loading={saving} />
+        {success ? <Notice tone={!sync.online ? 'amber' : 'green'} text={success} /> : null}
+        <Button label={t('Salvar alterações')} onPress={() => void save()} loading={saving} />
       </Card>
       <Card>
         {section('Este aparelho')}
         <Muted style={{ marginBottom: space.md }}>
-          O que você anota fica guardado no aparelho até o sinal voltar. “Sair da conta” no menu Mais também apaga tudo. Num aparelho emprestado, saia por aqui.
+          {t('O que você anota fica guardado no aparelho até o sinal voltar. “Sair da conta” no menu Mais também apaga tudo. Num aparelho emprestado, saia por aqui.')}
         </Muted>
-        <Button label="Sair e apagar os dados deste aparelho" variant="danger" onPress={wipeAndLogout} />
+        <Button label={t('Sair e apagar os dados deste aparelho')} variant="danger" onPress={wipeAndLogout} />
+      </Card>
+      <Card>
+        {section('Idioma')}
+        <LanguagePicker />
       </Card>
     </Screen>
   )

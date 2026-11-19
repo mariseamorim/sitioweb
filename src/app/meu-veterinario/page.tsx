@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useDialog } from '@/components/DialogProvider'
 import { useUser } from '@/contexts/UserContext'
+import { useLocale, useT } from '@/lib/i18n'
 
 interface Visit { id: string; date: string; time: string | null; purpose: string | null; vet: string }
 interface Vet { id: string; name: string; phone: string | null; crmv: string | null; city: string | null; state: string | null; since: string }
@@ -11,6 +12,8 @@ interface Vet { id: string; name: string; phone: string | null; crmv: string | n
 export default function MeuVeterinarioPage() {
   const { user } = useUser()
   const { confirm, notify } = useDialog()
+  const t = useT()
+  const locale = useLocale()
   const [vets, setVets] = useState<Vet[] | null>(null)
   const [visits, setVisits] = useState<Visit[]>([])
   const [code, setCode] = useState('')
@@ -23,11 +26,11 @@ export default function MeuVeterinarioPage() {
     try {
       const res = await fetch('/api/meu-veterinario')
       if (res.ok) setVets(await res.json())
-      else setError((await res.json().catch(() => ({}))).error || 'Não foi possível carregar.')
+      else setError((await res.json().catch(() => ({}))).error || t('Não foi possível carregar.'))
     } catch {
-      setError('Sem internet. Esta tela precisa de conexão.')
+      setError(t('Sem internet. Esta tela precisa de conexão.'))
     }
-  }, [])
+  }, [t])
   useEffect(() => { void load() }, [load])
   // Visitas que o veterinário marcou para esta propriedade (sem internet a lista só não aparece)
   useEffect(() => {
@@ -42,12 +45,12 @@ export default function MeuVeterinarioPage() {
     try {
       const res = await fetch('/api/meu-veterinario', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) return setError(data.error || 'Não foi possível liberar o acesso.')
+      if (!res.ok) return setError(data.error || t('Não foi possível liberar o acesso.'))
       setCode('')
-      setMessage(`${data.name} agora acompanha ${user?.farmName ?? 'a propriedade'}.`)
+      setMessage(t('{name} agora acompanha {farm}.', { name: data.name, farm: user?.farmName ?? t('a propriedade') }))
       await load()
     } catch {
-      setError('Erro de conexão. Tente novamente.')
+      setError(t('Erro de conexão. Tente novamente.'))
     } finally {
       setSaving(false)
     }
@@ -55,44 +58,44 @@ export default function MeuVeterinarioPage() {
 
   async function end(vet: Vet) {
     const ok = await confirm({
-      title: `Encerrar o acesso de ${vet.name}?`,
-      message: 'O veterinário deixa de ver e de lançar na propriedade. Ele fica com uma cópia do que ele mesmo lançou (coberturas e diagnósticos); os dados da propriedade continuam com você.',
-      confirmLabel: 'Encerrar acesso',
+      title: t('Encerrar o acesso de {name}?', { name: vet.name }),
+      message: t('O veterinário deixa de ver e de lançar na propriedade. Ele fica com uma cópia do que ele mesmo lançou (coberturas e diagnósticos); os dados da propriedade continuam com você.'),
+      confirmLabel: t('Encerrar acesso'),
     })
     if (!ok) return
     const res = await fetch(`/api/meu-veterinario/${vet.id}`, { method: 'DELETE' })
-    if (!res.ok) return notify('Não foi possível encerrar', (await res.json().catch(() => ({}))).error)
+    if (!res.ok) return notify(t('Não foi possível encerrar'), (await res.json().catch(() => ({}))).error)
     await load()
   }
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-800">Meu veterinário</h1>
+      <h1 className="text-2xl font-bold text-gray-800">{t('Meu veterinário')}</h1>
       <p className="text-gray-500 mb-6">
-        O veterinário que você liberar vê e lança animais, reprodução, vacinas, tratamentos e leite de {user?.farmName ?? 'sua propriedade'}.
-        Ele não vê o financeiro nem o estoque.
+        {t('O veterinário que você liberar vê e lança animais, reprodução, vacinas, tratamentos e leite de {farm}.', { farm: user?.farmName ?? t('sua propriedade') })}{' '}
+        {t('Ele não vê o financeiro nem o estoque.')}
       </p>
 
-      {user?.vet ? <p className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-amber-900">Só o produtor libera ou encerra o acesso do veterinário.</p> : canEdit && (
+      {user?.vet ? <p className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-amber-900">{t('Só o produtor libera ou encerra o acesso do veterinário.')}</p> : canEdit && (
         <form onSubmit={link} className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <label className="text-sm font-medium text-gray-700">Código do veterinário
-            <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} required maxLength={8} placeholder="8 letras e números" autoCapitalize="characters"
+          <label className="text-sm font-medium text-gray-700">{t('Código do veterinário')}
+            <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} required maxLength={8} placeholder={t('8 letras e números')} autoCapitalize="characters"
               className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2.5 text-lg font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-green-600" />
           </label>
-          <p className="mt-1 text-sm text-gray-500">Peça o código ao seu veterinário; ele aparece no painel de consultoria dele.</p>
+          <p className="mt-1 text-sm text-gray-500">{t('Peça o código ao seu veterinário; ele aparece no painel de consultoria dele.')}</p>
           {error && <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>}
           {message && <p role="status" className="mt-2 text-sm text-green-700">{message}</p>}
-          <button type="submit" disabled={saving || code.length < 8} className="mt-3 rounded-lg bg-green-700 px-4 py-2.5 text-base font-semibold text-white hover:bg-green-600 disabled:bg-green-400">{saving ? 'Liberando…' : 'Liberar a propriedade'}</button>
+          <button type="submit" disabled={saving || code.length < 8} className="mt-3 rounded-lg bg-green-700 px-4 py-2.5 text-base font-semibold text-white hover:bg-green-600 disabled:bg-green-400">{t(saving ? 'Liberando…' : 'Liberar a propriedade')}</button>
         </form>
       )}
 
       {visits.length > 0 && (
         <section className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">Próximas visitas</h2>
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">{t('Próximas visitas')}</h2>
           <ul className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
             {visits.map((v) => (
               <li key={v.id} className="px-4 py-3">
-                <p className="font-medium text-gray-900">{new Date(v.date).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'UTC' })}{v.time ? ` · ${v.time}` : ''}</p>
+                <p className="font-medium text-gray-900">{new Date(v.date).toLocaleDateString(locale, { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'UTC' })}{v.time ? ` · ${v.time}` : ''}</p>
                 <p className="text-sm text-gray-500">{[v.vet, v.purpose].filter(Boolean).join(' · ')}</p>
               </li>
             ))}
@@ -100,16 +103,16 @@ export default function MeuVeterinarioPage() {
         </section>
       )}
 
-      <h2 className="text-lg font-semibold text-gray-800 mb-2">Quem acompanha a propriedade</h2>
-      {vets === null ? <p className="text-gray-500">{error && !canEdit ? error : 'Carregando…'}</p> : vets.length === 0 ? <p className="bg-white rounded-xl border border-gray-200 p-6 text-center text-gray-500">Nenhum veterinário acompanha esta propriedade.</p> : (
+      <h2 className="text-lg font-semibold text-gray-800 mb-2">{t('Quem acompanha a propriedade')}</h2>
+      {vets === null ? <p className="text-gray-500">{error && !canEdit ? error : t('Carregando…')}</p> : vets.length === 0 ? <p className="bg-white rounded-xl border border-gray-200 p-6 text-center text-gray-500">{t('Nenhum veterinário acompanha esta propriedade.')}</p> : (
         <ul className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
           {vets.map((v) => (
             <li key={v.id} className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="min-w-0">
                 <p className="font-medium text-gray-900 truncate">{v.name}</p>
-                <p className="text-sm text-gray-500 truncate">{[v.crmv, [v.city, v.state].filter(Boolean).join(', '), v.phone].filter(Boolean).join(' · ') || 'Veterinário'} · desde {new Date(v.since).toLocaleDateString('pt-BR')}</p>
+                <p className="text-sm text-gray-500 truncate">{[v.crmv, [v.city, v.state].filter(Boolean).join(', '), v.phone].filter(Boolean).join(' · ') || t('Veterinário')} · {t('desde')} {new Date(v.since).toLocaleDateString(locale)}</p>
               </div>
-              {canEdit && <button type="button" onClick={() => end(v)} className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Encerrar acesso</button>}
+              {canEdit && <button type="button" onClick={() => end(v)} className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">{t('Encerrar acesso')}</button>}
             </li>
           ))}
         </ul>

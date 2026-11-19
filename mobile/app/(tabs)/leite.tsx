@@ -7,6 +7,7 @@ import { addDays, brDate, brMoney, brNumber, todayISO, weekday } from '@/lib/for
 import { getMilkPrice, groupByDay, listMilk } from '@/repos/milk'
 import { Card, Chips, Empty, Fab, Muted, Row, Screen, Stat } from '@/ui'
 import { colors, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 type Period = '7' | '30' | 'mes'
 
@@ -15,6 +16,7 @@ export default function Leite() {
   const { canEdit } = useSession()
   const router = useRouter()
   const [period, setPeriod] = useState<Period>('7')
+  const t = useT()
   const today = todayISO()
   const from = period === 'mes' ? today.slice(0, 8) + '01' : addDays(today, -(Number(period) - 1))
 
@@ -29,32 +31,32 @@ export default function Leite() {
   return (
     <View style={{ flex: 1 }}>
       <Screen>
-        <Chips options={[{ value: '7', label: 'Últimos 7 dias' }, { value: '30', label: 'Últimos 30 dias' }, { value: 'mes', label: 'Este mês' }]} value={period} onChange={setPeriod} />
+        <Chips options={[{ value: '7', label: t('Últimos 7 dias') }, { value: '30', label: t('Últimos 30 dias') }, { value: 'mes', label: t('Este mês') }]} value={period} onChange={setPeriod} />
         <View style={{ flexDirection: 'row', gap: space.md, marginVertical: space.md }}>
-          <Stat label="litros no período" value={brNumber(total)} tone="green" />
-          <Stat label="média por dia" value={brNumber(days.length ? total / days.length : 0)} />
+          <Stat label={t('litros no período')} value={brNumber(total)} tone="green" />
+          <Stat label={t('média por dia')} value={brNumber(days.length ? total / days.length : 0)} />
         </View>
         <Card>
-          <Muted>Valor estimado no período</Muted>
+          <Muted>{t('Valor estimado no período')}</Muted>
           <Text style={{ fontSize: 22, fontWeight: '700', color: colors.green }}>{brMoney(value)}</Text>
-          <Muted>{price ? `Preço padrão: ${brMoney(price)} por litro` : 'Defina o preço do litro no site para estimar o valor'}</Muted>
+          <Muted>{price ? t('Preço padrão: {price} por litro', { price: brMoney(price) }) : t('Defina o preço do litro no site para estimar o valor')}</Muted>
         </Card>
-        {days.length === 0 ? <Empty title="Nenhum leite anotado no período" text={canEdit ? 'Toque em “Anotar leite” para começar.' : undefined} /> : null}
+        {days.length === 0 ? <Empty title={t('Nenhum leite anotado no período')} text={canEdit ? t('Toque em “Anotar leite” para começar.') : undefined} /> : null}
         {days.map(d => (
           <Card key={d.day} style={{ paddingVertical: space.sm }}>
             <Row
-              title={`${brDate(d.day)}  ${weekday(d.day)}`}
-              detail={d.cows ? `${d.cows} vacas ordenhadas` : d.items.length > 1 ? `${d.items.length} lançamentos` : undefined}
+              title={`${brDate(d.day)}  ${t(weekday(d.day))}`}
+              detail={d.cows ? t('{n} vacas ordenhadas', { n: d.cows }) : d.items.length > 1 ? t('{n} lançamentos', { n: d.items.length }) : undefined}
               right={<Text style={{ fontWeight: '700', fontSize: 18, color: colors.green }}>{brNumber(d.total)} L</Text>}
             />
             {d.items.map(m => (
-              <Row key={m.id} title={m.animalName ? `Vaca ${m.animalName}` : 'Total do dia'} detail={m.observations ?? undefined}
+              <Row key={m.id} title={m.animalName ? `${t('Vaca')} ${m.animalName}` : t('Total do dia')} detail={m.observations ?? undefined}
                 right={<Text style={{ color: colors.text }}>{brNumber(m.quantity)} L</Text>} onPress={canEdit ? () => router.push(`/leite/${m.id}`) : undefined} />
             ))}
           </Card>
         ))}
       </Screen>
-      {canEdit ? <Fab label="+ Anotar leite" onPress={() => router.push('/leite/novo')} /> : null}
+      {canEdit ? <Fab label={t('+ Anotar leite')} onPress={() => router.push('/leite/novo')} /> : null}
     </View>
   )
 }

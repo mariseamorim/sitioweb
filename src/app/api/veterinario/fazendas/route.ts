@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { addFarmMember } from '@/lib/farms'
 import { requireVet } from '@/lib/vets'
+import { regionOrNull } from '@/lib/identity'
 
 // POST: o veterinário cadastra a propriedade de um cliente que ainda não usa o sistema.
 // Body: { name, owner, phone, city, state }. Ele passa a atendê-la; o produtor pode receber o acesso depois
@@ -18,7 +19,7 @@ export async function POST(request: NextRequest) {
 
   const link = await prisma.$transaction(async (tx) => {
     const farm = await tx.farm.create({
-      data: { name, owner: text(body.owner), phone: text(body.phone), city: text(body.city), state: text(body.state)?.toUpperCase() ?? null },
+      data: { name, owner: text(body.owner), phone: text(body.phone), city: text(body.city), state: regionOrNull(body.state) },
     })
     await addFarmMember(tx, user.id, farm.id)
     // Sem nenhuma propriedade aberta, esta já fica aberta
