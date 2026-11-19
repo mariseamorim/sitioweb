@@ -8,6 +8,7 @@ import { prisma } from '@/lib/prisma'
 import { getSessionUser } from '@/lib/auth'
 import { animalToday } from '@/lib/animalRules'
 import { pregnancyChecks } from '@/lib/calving'
+import { addMonths } from '@/lib/reproInsights'
 
 /** Módulos que o veterinário usa nas propriedades que atende (sem financeiro, estoque, usuários e cadastro da propriedade). */
 export const VET_MODULES = ['animais', 'reproducao', 'vacinacao', 'veterinario', 'leite'] as const
@@ -41,6 +42,8 @@ export interface FarmOverview {
   pregnancyRate: number | null
   /** Partos previstos para os próximos 30 dias */
   birthsSoon: number
+  /** Partos previstos por mês ("AAAA-MM"): o mês atual e os 5 seguintes, para o gráfico do painel */
+  birthsByMonth: { month: string; count: number }[]
 }
 
 /** Números de cada propriedade para o painel do veterinário. */
@@ -48,6 +51,8 @@ export async function farmOverviews(farmIds: string[]): Promise<Map<string, Farm
   const result = new Map<string, FarmOverview>()
   if (!farmIds.length) return result
   const now = Date.now()
+  const current = new Date(now).toISOString().slice(0, 7)
+  const months = Array.from({ length: 6 }, (_, i) => addMonths(current, i))
   const [animals, reproductions] = await Promise.all([
     prisma.animal.groupBy({ by: ['farmId'], where: { farmId: { in: farmIds }, status: { in: ['Vivo', 'Doente'] } }, _count: { _all: true } }),
     prisma.reproduction.findMany({
@@ -59,12 +64,14 @@ export async function farmOverviews(farmIds: string[]): Promise<Map<string, Farm
     const own = reproductions.filter((r) => r.farmId === id)
     const diagnosed = own.filter((r) => r.status !== 'Coberta')
     const pregnant = diagnosed.filter((r) => PREGNANT.includes(r.status))
+    const open = own.filter((r) => (r.status === 'Coberta' || r.status === 'Prenha') && !r.actualBirthDate && !!r.expectedBirthDate)
     result.set(id, {
       animals: animals.find((a) => a.farmId === id)?._count._all ?? 0,
       awaitingDiagnosis: own.filter((r) => r.status === 'Coberta').length,
       pregnancyRate: diagnosed.length ? Math.round((pregnant.length / diagnosed.length) * 100) : null,
       birthsSoon: own.filter((r) => (r.status === 'Coberta' || r.status === 'Prenha') && !r.actualBirthDate && !!r.expectedBirthDate
         && r.expectedBirthDate.getTime() >= now - DAY && r.expectedBirthDate.getTime() <= now + 30 * DAY).length,
+      birthsByMonth: months.map((month) => ({ month, count: open.filter((r) => r.expectedBirthDate!.toISOString().startsWith(month)).length })),
     })
   }
   return result

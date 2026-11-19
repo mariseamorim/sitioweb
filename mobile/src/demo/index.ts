@@ -6,6 +6,7 @@
 // listas devolvem o que já está no banco local. A fila de envio é aceita na hora (sync/index.ts), então anotar,
 // diagnosticar e editar funcionam como no uso real, mas nada sai do celular. "Sair da conta" apaga tudo.
 import { all, getMeta, run, setCache, setMeta, TABLES, transaction, upsert, type Row, type TableName } from '@/db'
+import { addMonths } from '@/lib/reproInsights'
 
 export const DEMO_TOKEN = 'demo-veterinario'
 const FARM_KEY = 'demo:farm'
@@ -150,6 +151,7 @@ export function seedDemo() {
 /** Painel de consultoria calculado com os dados do aparelho, como GET /api/veterinario. */
 function panel() {
   const now = Date.now()
+  const months = Array.from({ length: 6 }, (_, i) => addMonths(iso(now).slice(0, 7), i))
   const clients = FARMS.map((farm) => {
     const animals = all<{ n: number }>("SELECT count(*) AS n FROM animals WHERE farmId = ? AND status = 'Vivo'", [farm.id])[0]?.n ?? 0
     const repro = all<{ status: string; coverageDate: string; expectedBirthDate: string | null; actualBirthDate: string | null }>(
@@ -163,6 +165,7 @@ function panel() {
       pregnancyRate: diagnosed.length ? Math.round((pregnant.length / diagnosed.length) * 100) : null,
       birthsSoon: repro.filter((r) => (r.status === 'Coberta' || r.status === 'Prenha') && !r.actualBirthDate && r.expectedBirthDate
         && Date.parse(r.expectedBirthDate) >= now - DAY && Date.parse(r.expectedBirthDate) <= now + 30 * DAY).length,
+      birthsByMonth: months.map((month) => ({ month, count: repro.filter((r) => (r.status === 'Coberta' || r.status === 'Prenha') && !r.actualBirthDate && r.expectedBirthDate?.startsWith(month)).length })),
     }
   })
   const today = iso(now)

@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Agenda } from './Agenda'
+import { VetCharts } from './VetCharts'
 import { useDialog } from '@/components/DialogProvider'
 import { hasPendingOnDevice, PENDING_MESSAGE, reloadInFarm } from '@/lib/farmSwitch'
 import { maskPhone } from '@/lib/masks'
@@ -14,6 +15,7 @@ import { useLang, useLocale, useT } from '@/lib/i18n'
 interface Client {
   id: string; farmId: string; name: string; owner: string | null; city: string | null; state: string | null; phone: string | null
   createdByVet: boolean; since: string; animals: number; awaitingDiagnosis: number; pregnancyRate: number | null; birthsSoon: number
+  birthsByMonth?: { month: string; count: number }[]
 }
 interface Ended { id: string; name: string; since: string; endedAt: string | null; records: number }
 interface ArchivedRecord {
@@ -175,6 +177,8 @@ export default function ConsultoriaPage() {
           )}
         </section>
       </div>
+
+      <VetCharts clients={panel.clients} busy={busy} onOpen={(c) => openFarm(c, '/reproducao/indicadores')} />
 
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 p-4"><p className="text-2xl font-bold text-gray-800">{awaiting}</p><p className="text-sm text-gray-500">{t('aguardando diagnóstico')}</p></div>
