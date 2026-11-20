@@ -19,6 +19,30 @@ import { inDayRange, lastDaysRange } from '@/lib/utils'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 import { useLocale, useT } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
+import { ColumnChart, type MonthPoint } from '@/components/MonthCharts'
+
+/** Gráfico do leite de cada dia do período (até 62 dias; períodos maiores ficam só na tabela) */
+function DailyChart({ from, to, byDay }: { from: string; to: string; byDay: { day: string; total: number }[] }) {
+  const t = useT()
+  const days: string[] = []
+  for (let d = new Date(`${from}T00:00:00Z`); d.toISOString().slice(0, 10) <= to && days.length <= 62; d.setUTCDate(d.getUTCDate() + 1)) days.push(d.toISOString().slice(0, 10))
+  if (days.length > 62 || !days.length) return null
+  const totals = new Map(byDay.map((d) => [d.day, d.total]))
+  const ddmm = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}`
+  // Rótulo de todos os dias até 10; acima disso, a cada poucos dias contando do último para trás
+  const every = days.length <= 10 ? 1 : Math.ceil(days.length / 7)
+  const points: MonthPoint[] = days.map((day, i) => {
+    const value = totals.get(day) ?? null
+    return { label: (days.length - 1 - i) % every === 0 ? ddmm(day) : '', value, title: `${ddmm(day)}: ${value === null ? t('sem anotação') : `${fmtNumber(value)} L`}` }
+  })
+  return (
+    <section className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
+      <h2 className="mb-2 font-semibold text-gray-800">{t('Produção diária (L)')}</h2>
+      <ColumnChart points={points} name={t('Produção diária (L)')} width={760} />
+    </section>
+  )
+}
 
 interface Animal {
   id: string
@@ -332,23 +356,17 @@ export default function MilkProductionPage() {
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
             />
           </div>
-          <div className="ml-auto flex gap-6 text-right">
-            <div>
-              <p className="text-xs text-gray-500">{t('Média por dia')}</p>
-              <p className="text-2xl font-bold text-gray-800">{fmtNumber(average)} L</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">{t('Total no período')}</p>
-              <p className="text-2xl font-bold text-green-700">{fmtNumber(grandTotal)} L</p>
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 rounded-lg bg-green-50 p-3 text-green-900">
-          <p className="text-xs font-medium">{t('Valor estimado no período')}</p>
-          <p className="text-2xl font-bold">{price !== null ? fmtMoney(grandTotal * price) : t('Informe o preço por litro')}</p>
-          {price !== null && <p className="mt-1 text-sm">{fmtNumber(grandTotal)} L × {fmtMoney(price)}/L</p>}
         </div>
       </div>
+
+      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <StatTile accent="blue" label={t('Média por dia')} value={`${fmtNumber(average)} L`} />
+        <StatTile accent="teal" label={t('Total no período')} value={`${fmtNumber(grandTotal)} L`} />
+        <StatTile accent="green" label={t('Valor estimado')} value={price !== null ? fmtMoney(grandTotal * price) : '—'}
+          detail={price !== null ? `${fmtNumber(grandTotal)} L × ${fmtMoney(price)}/L` : t('Informe o preço por litro')} />
+      </div>
+
+      {byDay.length > 0 && <DailyChart from={from} to={to} byDay={byDay} />}
 
       {/* Por dia / por vaca */}
       {hasCowRecords && (
