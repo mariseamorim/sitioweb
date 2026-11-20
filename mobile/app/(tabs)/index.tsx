@@ -9,10 +9,28 @@ import { dueSoon, listVaccinations } from '@/repos/vaccinations'
 import { listTransactions, totals } from '@/repos/transactions'
 import { isLow, listSupplies } from '@/repos/supplies'
 import { useSyncState } from '@/sync'
-import { ActionCard, Card, Muted, Notice, Row, Screen, Tile, TileGrid, Title } from '@/ui'
+import { ActionCard, Badge, Card, Muted, Notice, Row, Screen, Tile, TileGrid, Title } from '@/ui'
+import { prepRange, prepSteps } from '@/lib/calvingPrep'
+import { listReproductions } from '@/repos/reproductions'
 import { colors, font, space } from '@/theme'
 import { useLocale, useT } from '@/lib/i18n'
 import { VetToday } from '@/vet/panel'
+
+/** Vacas e novilhas que pedem secagem ou pré-parto hoje (regra em src/lib/calvingPrep.ts) */
+function calvingPrepList(farmId: string, today: string) {
+  const { from, to } = prepRange(today)
+  // Leite: a propriedade anota leite. Secagem só para quem já pariu (tem cria) ou é Vaca
+  const dairy = (all<{ n: number }>('SELECT count(*) AS n FROM milk WHERE farmId = ?', [farmId])[0]?.n ?? 0) > 0
+  const animals = all<{ id: string; species: string; motherId: string | null }>('SELECT id, species, motherId FROM animals WHERE farmId = ?', [farmId])
+  const mothers = new Set(animals.map(a => a.motherId).filter(Boolean))
+  const species = new Map(animals.map(a => [a.id, a.species]))
+  return listReproductions(farmId)
+    .filter(r => !r.actualBirthDate && (r.status === 'Coberta' || r.status === 'Prenha') && r.expectedBirthDate && r.expectedBirthDate.slice(0, 10) >= from && r.expectedBirthDate.slice(0, 10) <= to)
+    .flatMap(r => prepSteps(r.expectedBirthDate!, today, dairy && (mothers.has(r.femaleId) || species.get(r.femaleId) === 'Vaca'))
+      .map(step => ({ id: r.id, step, name: r.femaleName ?? r.femaleCode ?? '', birth: r.expectedBirthDate! })))
+    .sort((a, b) => a.step.date.localeCompare(b.step.date))
+    .slice(0, 6)
+}
 
 export default function Painel() {
   const { user, canAccess } = useSession()
@@ -33,7 +51,7 @@ export default function Painel() {
     const vacc = canAccess('vacinacao') ? listVaccinations(farmId).filter(v => dueSoon(v, today)) : []
     const fin = canAccess('financeiro') ? totals(listTransactions(farmId, monthStart, today)) : null
     const low = canAccess('estoque') ? listSupplies(farmId).filter(isLow) : []
-    return { herd, animals, milk, vacc, fin, low }
+    return { herd, animals, milk, vacc, fin, low, prep: canAccess('reproducao') ? calvingPrepList(farmId, today) : [] }
   }, [farmId, today])
   const month = new Date(`${today}T12:00:00`).toLocaleDateString(locale, { month: 'long' })
   const monthName = month.charAt(0).toUpperCase() + month.slice(1)
@@ -50,7 +68,7 @@ export default function Painel() {
 
       <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text, marginBottom: space.sm }}>{t('O que você quer fazer?')}</Text>
       <TileGrid>
-        {canAccess('leite') ? <ActionCard accent="blue" icon="water-outline" title={t('Anotar leite')} detail={t('Total ou por vaca')} onPress={() => router.push('/leite/novo')} /> : null}
+        {canAccess('leite') && !user?.vet ? <ActionCard accent="blue" icon="water-outline" title={t('Anotar leite')} detail={t('Total ou por vaca')} onPress={() => router.push('/leite/novo')} /> : null}
         {canAccess('animais') ? <ActionCard accent="green" icon="paw-outline" title={t('Cuidar do rebanho')} detail={t('Consultar e cadastrar')} onPress={() => router.push('/(tabs)/animais')} /> : null}
         {canAccess('financeiro') ? <ActionCard accent="amber" icon="cash-outline" title={t('Anotar dinheiro')} detail={t('Entradas e saídas')} onPress={() => router.push('/financeiro/novo')} /> : null}
         {canAccess('estoque') ? <ActionCard accent="teal" icon="cube-outline" title={t('Conferir estoque')} detail={t('Ração e insumos')} onPress={() => router.push('/estoque')} /> : null}
@@ -79,6 +97,24 @@ export default function Painel() {
             <Row key={v.id} title={`${v.vaccineName} · ${v.animalName ?? t('animal')}`} detail={`${t('Agendada para')} ${brDate(v.scheduledDate)}`} onPress={() => router.push(`/vacinas/${v.id}`)} />
           ))}
           {data.vacc.length > 5 ? <Muted style={{ marginTop: space.sm }}>{t('e mais {n}', { n: data.vacc.length - 5 })}</Muted> : null}
+        </Card>
+      ) : null}
+
+      {data.prep.length ? (
+        <Card>
+          <Text style={{ fontWeight: '700', color: colors.text, marginBottom: space.xs }}>{t('Secagem e pré-parto')}</Text>
+          {data.prep.map(({ id, step, name, birth }) => {
+            const when = brDate(step.date)
+            const detail = step.kind === 'secagem'
+              ? t(step.late ? 'Secagem era em {date}' : 'Secar até {date}', { date: when })
+              : t(step.late ? 'Era para ir ao pré-parto em {date}' : 'Levar para o lote de pré-parto até {date}', { date: when })
+            return (
+              <Row key={id + step.kind} title={t(step.kind === 'secagem' ? 'Secar {name}' : 'Pré-parto: {name}', { name })}
+                detail={`${detail} · ${t('parto previsto {date}', { date: brDate(birth) })}`}
+                badge={step.late ? <Badge label="Atrasada" tone="red" /> : undefined}
+                onPress={() => router.push(`/reproducao/${id}`)} />
+            )
+          })}
         </Card>
       ) : null}
 
