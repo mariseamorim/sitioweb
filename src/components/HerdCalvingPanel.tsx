@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { herdCalving, LATE_MONTHS, plural, type CowLike, type PregnancyCheck } from '@/lib/calving'
 import { useLocale, useT } from '@/lib/i18n'
+import { StatTile, type Accent } from '@/components/StatTile'
 
 const fmtDay = (d: string | Date, locale = 'pt-BR') => new Date(d).toLocaleDateString(locale, { timeZone: 'UTC' })
 type Tr = (text: string, vars?: Record<string, string | number>) => string
@@ -50,7 +51,7 @@ export function PregnancyCheckPanel({ checks, canEdit, onAnswer }: {
               {canEdit && (
                 <div className="flex gap-2">
                   <button type="button" disabled={busy === c.cow.id} onClick={() => answer(c, 'Prenha')}
-                    className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-gray-300">{t('Prenha')}</button>
+                    className="rounded-lg bg-green-800 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:bg-gray-300">{t('Prenha')}</button>
                   <button type="button" disabled={busy === c.cow.id} onClick={() => answer(c, 'Vazia')}
                     className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:text-gray-300">{t('Vazia')}</button>
                 </div>
@@ -76,29 +77,27 @@ export function HerdCalvingPanel({ herd, reproductions }: { herd: CowLike[]; rep
 
   const late = stats.late.filter((l) => l.reason === 'sem-parir')
   const noCalf = stats.late.filter((l) => l.reason === 'sem-cria')
-  const cards: [string, string, string?][] = [
-    [t('Intervalo médio entre partos'), stats.averageInterval !== null ? monthsText(stats.averageInterval, t) : '—', stats.averageInterval === null ? t('Anote pelo menos 2 crias de uma vaca') : undefined],
-    [t('Idade média na 1ª cria'), stats.averageAgeAtFirst !== null ? monthsText(stats.averageAgeAtFirst, t) : '—'],
-    [t('Vacas demorando para criar'), String(late.length), t('Mais de {n} meses sem parir e sem prenhez anotada', { n: LATE_MONTHS })],
+  // Cartões coloridos: médias em azul e verde-água; vacas atrasadas em laranja (verde quando não há nenhuma)
+  const cards: [string, string, Accent, string?][] = [
+    [t('Intervalo médio entre partos'), stats.averageInterval !== null ? monthsText(stats.averageInterval, t) : '—', 'blue', stats.averageInterval === null ? t('Anote pelo menos 2 crias de uma vaca') : undefined],
+    [t('Idade média na 1ª cria'), stats.averageAgeAtFirst !== null ? monthsText(stats.averageAgeAtFirst, t) : '—', 'teal'],
+    [t('Vacas demorando para criar'), String(late.length), late.length > 0 ? 'amber' : 'green', t('Mais de {n} meses sem parir e sem prenhez anotada', { n: LATE_MONTHS })],
   ]
 
   return (
     <section className="mb-6" aria-label={t('Partos do rebanho')}>
-      {/* Lado a lado também no celular, para não empurrar a lista para baixo */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        {cards.map(([label, value, hint], i) => (
-          <div key={label} className={`rounded-xl border p-3 sm:p-4 ${i === 2 && late.length > 0 ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white'}`}>
-            <p className="text-xs sm:text-sm text-gray-500">{label}</p>
-            <p className={`mt-1 text-lg sm:text-2xl font-bold ${i === 2 && late.length > 0 ? 'text-amber-800' : 'text-gray-900'}`}>{value}</p>
-            {hint && <p className="mt-1 hidden sm:block text-xs text-gray-500">{hint}</p>}
-          </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {cards.map(([label, value, accent, hint]) => (
+          <StatTile key={label} accent={accent} label={label} value={value} detail={hint} />
         ))}
       </div>
 
       {late.length > 0 && (
-        <ul className="mt-3 rounded-xl border border-amber-200 bg-white divide-y divide-gray-100">
+        <ul className="mt-3 overflow-hidden rounded-xl border border-amber-200 bg-white divide-y divide-gray-100">
           {late.map(({ stats: s }) => (
-            <li key={s.cow.id}>
+            <li key={s.cow.id} className="relative">
+              {/* Faixa laranja à esquerda: vaca atrasada para criar */}
+              <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-amber-500" />
               <Link href={`/animais?animal=${s.cow.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
                 <span className="min-w-0">
                   <span className="block font-medium text-gray-900">{s.cow.name} <span className="text-sm font-normal text-gray-500">({s.cow.code})</span></span>
@@ -106,7 +105,7 @@ export function HerdCalvingPanel({ herd, reproductions }: { herd: CowLike[]; rep
                     {plural(s.calves, t('cria'), t('crias'))}{s.averageInterval !== null ? ` · ${t('costuma criar a cada {months}', { months: monthsText(s.averageInterval, t) })}` : ''}
                   </span>
                 </span>
-                <span className="shrink-0 text-sm font-semibold text-amber-800">{t('{months} sem parir', { months: monthsText(s.monthsSinceLast ?? 0, t) })}</span>
+                <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">{t('{months} sem parir', { months: monthsText(s.monthsSinceLast ?? 0, t) })}</span>
               </Link>
             </li>
           ))}

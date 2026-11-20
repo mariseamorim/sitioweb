@@ -13,6 +13,7 @@ import { maskPhone } from '@/lib/masks'
 import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
 import { PasswordInput } from '@/components/PasswordInput'
 import { useLang, useT } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
 
 interface User {
   id: string
@@ -31,9 +32,9 @@ const ROLE_LABEL: Record<string, string> = {
 }
 
 const roleColor: Record<string, string> = {
-  admin: 'bg-purple-100 text-purple-700',
-  editor: 'bg-blue-100 text-blue-700',
-  viewer: 'bg-gray-100 text-gray-600',
+  admin: 'bg-purple-100 text-purple-800',
+  editor: 'bg-blue-100 text-blue-800',
+  viewer: 'bg-teal-100 text-teal-800',
 }
 
 const EMPTY_FORM = { name: '', email: '', phone: '', password: '', role: 'viewer', permissions: [] as string[] }
@@ -182,7 +183,7 @@ export default function UsuariosPage() {
           {canManage && (
           <button
             onClick={() => { setShowCreate(true); setError(''); setForm(EMPTY_FORM) }}
-            className="bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap"
+            className="bg-green-800 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg shrink-0 whitespace-nowrap"
           >
             {t('+ Novo Usuário')}
           </button>
@@ -199,6 +200,14 @@ export default function UsuariosPage() {
             <p className="text-lg">{t('Nenhum usuário cadastrado')}</p>
           </div>
         ) : (
+          <>
+          {/* Contagem da equipe por perfil */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 mb-6">
+            <StatTile accent="green" label={t('Usuários')} value={users.length} />
+            <StatTile accent="blue" label={t('Administradores')} value={users.filter(u => u.role === 'admin').length} />
+            <StatTile accent="teal" label={t('Editores')} value={users.filter(u => u.role === 'editor').length} />
+            <StatTile accent="amber" label={t('Visualizadores')} value={users.filter(u => u.role === 'viewer').length} />
+          </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
@@ -219,17 +228,17 @@ export default function UsuariosPage() {
                     </td>
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{contactLabel(u)}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleColor[u.role] || 'bg-gray-100'}`}>
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${roleColor[u.role] || 'bg-gray-100 text-gray-800'}`}>
                         {t(ROLE_LABEL[u.role] || u.role)}
                       </span>
                     </td>
-                    <td className="hidden sm:table-cell px-4 py-3 text-gray-400 text-xs">
+                    <td className="hidden sm:table-cell px-4 py-3 text-gray-600 text-xs">
                       {u.role === 'admin' ? (
-                        <span className="text-purple-600 font-medium">{t('Todos os módulos')}</span>
+                        <span className="text-purple-800 font-semibold">{t('Todos os módulos')}</span>
                       ) : u.permissions && u.permissions.length > 0 ? (
                         <span>{u.permissions.length > 1 ? t('{n} módulos', { n: u.permissions.length }) : t('1 módulo')}</span>
                       ) : (
-                        <span className="text-red-400">{t('Sem acesso')}</span>
+                        <span className="rounded-full bg-red-100 px-2.5 py-0.5 font-semibold text-red-800">{t('Sem acesso')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -263,6 +272,7 @@ export default function UsuariosPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {/* Create modal */}
@@ -311,7 +321,7 @@ export default function UsuariosPage() {
                   {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
                   <div className="flex gap-2 pt-1">
                     <button type="button" onClick={() => setShowCreate(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
-                    <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
+                    <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
                   </div>
                 </form>
               </div>
@@ -364,7 +374,7 @@ export default function UsuariosPage() {
                   {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
                   <div className="flex gap-2 pt-1">
                     <button type="button" onClick={() => setEditUser(null)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
-                    <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
+                    <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
                   </div>
                 </form>
               </div>

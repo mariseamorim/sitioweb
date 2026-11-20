@@ -31,12 +31,13 @@ export interface Reproduction {
 export const STATUS_LIST = ['Coberta', 'Prenha', 'Parida', 'Vazia', 'Perdida']
 const OPEN_STATUSES = ['Coberta', 'Prenha']
 
-/** Cor do selo de situação, como no site (Coberta azul, Prenha roxo, Parida verde, Vazia cinza, Perdida vermelho) */
+/** Cor do selo de situação no app (visual com mais cores): Prenha verde, Vazia vermelho, Coberta azul, Parida roxo, Perdida âmbar */
 export function statusTone(status: string): 'green' | 'amber' | 'red' | 'blue' | 'purple' | 'muted' {
   if (status === 'Coberta') return 'blue'
-  if (status === 'Prenha') return 'purple'
-  if (status === 'Parida') return 'green'
-  if (status === 'Perdida') return 'red'
+  if (status === 'Prenha') return 'green'
+  if (status === 'Parida') return 'purple'
+  if (status === 'Vazia') return 'red'
+  if (status === 'Perdida') return 'amber'
   return 'muted'
 }
 

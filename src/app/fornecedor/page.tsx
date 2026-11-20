@@ -105,6 +105,14 @@ const matchUnit = (unit: string) => OFFER_UNITS.find((u) => u.toLowerCase() === 
 const EMPTY_FORM = { title: '', category: 'Ração', price: '', unit: '', description: '', imageUrl: '', reach: 'clientes', validUntil: '' }
 const input = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 const OFFLINE_ACTION = 'Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.'
+// Mesmas cores do StatTile, num botão (os cartões do painel também são o menu)
+const NAV_ACCENT = {
+  green: { box: 'border-green-200 bg-green-50', bar: 'bg-green-600', value: 'text-green-900' },
+  blue: { box: 'border-blue-200 bg-blue-50', bar: 'bg-blue-600', value: 'text-blue-900' },
+  teal: { box: 'border-teal-200 bg-teal-50', bar: 'bg-teal-600', value: 'text-teal-900' },
+  amber: { box: 'border-amber-200 bg-amber-50', bar: 'bg-amber-500', value: 'text-amber-800' },
+  red: { box: 'border-red-200 bg-red-50', bar: 'bg-red-600', value: 'text-red-700' },
+}
 
 export default function PainelFornecedorPage() {
   const { confirm } = useDialog()
@@ -242,23 +250,26 @@ export default function PainelFornecedorPage() {
       {/* div com role (não <nav>): o globals.css diminui o texto de "nav p", pensado para o menu lateral */}
       <div role="navigation" aria-label="Seções do painel" className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
         {([
-          ['pedidos', 'Pedidos novos', newRequests, newRequests > 0],
-          ['precisando', 'Precisando repor', needs.length, needs.length > 0],
-          ['ofertas', 'Ofertas ativas', activeOffers.length, false],
-          ['vendas', 'Vendas no mês', panel.salesThisMonth, panel.contactsToConfirm > 0],
-          ['clientes', 'Clientes', clients.length, false],
-        ] as const).map(([target, label, value, highlight]) => {
+          // Cor pelo significado: pedido novo sem resposta = vermelho, estoque baixo = laranja
+          ['pedidos', 'Pedidos novos', newRequests, newRequests > 0 ? 'red' : 'blue'],
+          ['precisando', 'Precisando repor', needs.length, needs.length > 0 ? 'amber' : 'teal'],
+          ['ofertas', 'Ofertas ativas', activeOffers.length, 'green'],
+          ['vendas', 'Vendas no mês', panel.salesThisMonth, panel.contactsToConfirm > 0 ? 'amber' : 'teal'],
+          ['clientes', 'Clientes', clients.length, 'blue'],
+        ] as const).map(([target, label, value, accent]) => {
           const active = tab === target
+          const a = NAV_ACCENT[accent]
           return (
             <button key={target} type="button" onClick={() => setTab(target)} aria-current={active ? 'page' : undefined}
-              className={`text-left rounded-xl border-2 p-3 sm:p-4 ${active ? 'border-green-700 bg-green-50' : highlight ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-              <p className={`text-sm ${active ? 'font-semibold text-green-800' : 'text-gray-600'}`}>{label}</p>
-              <p className={`mt-1 text-2xl font-bold ${highlight ? 'text-amber-800' : 'text-gray-900'}`}>{value}</p>
+              className={`relative overflow-hidden text-left rounded-xl border p-3 pt-4 sm:p-4 sm:pt-5 ${a.box} ${active ? 'ring-2 ring-green-800 ring-offset-1' : 'hover:brightness-95'}`}>
+              <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-1.5 ${a.bar}`} />
+              <p className={`text-sm ${active ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>{label}</p>
+              <p className={`mt-1 text-2xl font-bold tabular-nums ${a.value}`}>{value}</p>
             </button>
           )
         })}
         <button type="button" onClick={() => setTab('convidar')} aria-current={tab === 'convidar' ? 'page' : undefined}
-          className={`col-span-2 lg:col-span-1 flex items-center justify-center rounded-xl border-2 p-3 text-sm font-semibold ${tab === 'convidar' ? 'border-green-700 bg-green-50 text-green-800' : 'border-dashed border-green-700 text-green-700 hover:bg-green-50'}`}>
+          className={`col-span-2 lg:col-span-1 flex items-center justify-center rounded-xl border-2 p-3 text-sm font-semibold ${tab === 'convidar' ? 'border-green-800 bg-green-800 text-white' : 'border-dashed border-green-700 text-green-800 hover:bg-green-50'}`}>
           + Convidar clientes
         </button>
       </div>
@@ -290,7 +301,7 @@ export default function PainelFornecedorPage() {
               {' '}Ofertas novas na semana: {panel.offersThisWeek} de {panel.weeklyLimit} · {clicks} chamada{clicks === 1 ? '' : 's'} no WhatsApp.
             </p>
             <button type="button" onClick={() => openForm('new')} disabled={!approved || limitReached}
-              className="bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
+              className="bg-green-800 hover:bg-green-700 disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
               + Nova oferta
             </button>
           </div>
@@ -308,8 +319,8 @@ export default function PainelFornecedorPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-semibold text-gray-900">{o.title}</p>
-                        <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${
-                          status === 'Ativa' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                        <span className={`shrink-0 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                          status === 'Ativa' ? 'bg-green-100 text-green-800' : status === 'Vencida' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
                         }`}>{status}</span>
                       </div>
                       <p className="text-sm text-gray-500">
@@ -383,7 +394,7 @@ export default function PainelFornecedorPage() {
             </button>
           </div>
           <a href={`https://wa.me/?text=${encodeURIComponent(inviteMessage)}`} target="_blank" rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center justify-center w-full sm:w-auto bg-green-700 hover:bg-green-600 text-white font-semibold px-5 py-3 rounded-lg">
+            className="mt-3 inline-flex items-center justify-center w-full sm:w-auto bg-green-800 hover:bg-green-700 text-white font-semibold px-5 py-3 rounded-lg">
             Enviar pelo WhatsApp
           </a>
           <p className="mt-4 text-sm text-gray-500">
@@ -455,7 +466,7 @@ export default function PainelFornecedorPage() {
 
               <div className="flex gap-2">
                 <button type="button" onClick={() => setEditing(null)} className="flex-1 border border-gray-200 text-gray-600 font-medium py-3 rounded-lg hover:bg-gray-50">Cancelar</button>
-                <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white font-semibold py-3 rounded-lg">
+                <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-3 rounded-lg">
                   {saving ? 'Salvando...' : editing === 'new' ? 'Publicar' : 'Salvar'}
                 </button>
               </div>
@@ -468,7 +479,7 @@ export default function PainelFornecedorPage() {
 }
 
 const REQUEST_STATUS: Record<SupplyRequest['status'], { label: string; style: string }> = {
-  novo: { label: 'Novo', style: 'bg-red-100 text-red-700' },
+  novo: { label: 'Novo', style: 'bg-orange-100 text-orange-800' },
   respondido: { label: 'Respondido', style: 'bg-blue-100 text-blue-800' },
   fechado: { label: 'Atendido', style: 'bg-green-100 text-green-800' },
   cancelado: { label: 'Cancelado', style: 'bg-gray-100 text-gray-600' },
@@ -512,7 +523,7 @@ function RequestCard({ request: r, vendorName, onChanged }: { request: SupplyReq
           <p className="font-semibold text-gray-900">{r.itemName}{qty && <span className="font-normal text-gray-600"> · {qty}</span>}</p>
           <p className="text-sm text-gray-500">{r.farm.name}{place(r.farm) && ` · ${place(r.farm)}`}</p>
         </div>
-        <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${status.style}`}>{status.label}</span>
+        <span className={`shrink-0 text-xs font-semibold px-2.5 py-0.5 rounded-full ${status.style}`}>{status.label}</span>
       </div>
       {r.note && <p className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700">{r.note}</p>}
       <p className="mt-1 text-xs text-gray-500">{isMessage ? 'Mensagem' : `${r.category} · pedido`} em {fmtDate(r.createdAt)}{r.createdBy ? ` por ${r.createdBy}` : ''}</p>
@@ -529,7 +540,7 @@ function RequestCard({ request: r, vendorName, onChanged }: { request: SupplyReq
           {r.farm.phone ? (
             <a href={whatsappLink(r.farm.phone, `Olá! Aqui é da ${vendorName}. Respondi ${subjectText} no Anota Aí Agro: ${sent.reply}${sent.price !== null ? ` Valor: ${fmtMoney(sent.price)}.` : ''}`)}
               target="_blank" rel="noopener noreferrer" onClick={() => setSent(null)}
-              className="mt-2 flex w-full items-center justify-center bg-green-700 hover:bg-green-600 text-white text-sm font-semibold py-2.5 rounded-lg">
+              className="mt-2 flex w-full items-center justify-center bg-green-800 hover:bg-green-700 text-white text-sm font-semibold py-2.5 rounded-lg">
               Avisar o cliente pelo WhatsApp
             </a>
           ) : (
@@ -552,7 +563,7 @@ function RequestCard({ request: r, vendorName, onChanged }: { request: SupplyReq
           <div className="flex gap-2">
             <button type="button" onClick={() => setReplying(false)} className="flex-1 border border-gray-200 text-gray-600 font-medium py-2.5 rounded-lg">Cancelar</button>
             <button type="button" disabled={saving || !reply.trim()} onClick={() => send({ reply, replyPrice: price })}
-              className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg">
+              className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg">
               {saving ? 'Enviando...' : 'Enviar resposta'}
             </button>
           </div>
@@ -561,7 +572,7 @@ function RequestCard({ request: r, vendorName, onChanged }: { request: SupplyReq
         <div className="mt-3 flex flex-wrap gap-2 text-sm">
           {r.status !== 'fechado' && (
             <button type="button" onClick={() => { setReply(r.reply ?? ''); setPrice(r.replyPrice !== null ? String(r.replyPrice).replace('.', ',') : ''); setReplying(true) }}
-              className="bg-green-700 hover:bg-green-600 text-white font-semibold px-3 py-2 rounded-lg">
+              className="bg-green-800 hover:bg-green-700 text-white font-semibold px-3 py-2 rounded-lg">
               {r.reply ? 'Mudar resposta' : 'Responder'}
             </button>
           )}
@@ -625,7 +636,7 @@ function NeedsTab({ needs, vendor, onChanged }: { needs: ClientNeed[]; vendor: V
                 const on = selected.includes(c)
                 return (
                   <button key={c} type="button" aria-pressed={on} onClick={() => setSelected(on ? selected.filter((x) => x !== c) : [...selected, c])}
-                    className={`px-3 py-2 rounded-full text-sm font-medium border ${on ? 'bg-green-700 border-green-700 text-white' : 'border-gray-300 text-gray-700 bg-white'}`}>
+                    className={`px-3 py-2 rounded-full text-sm font-medium border ${on ? 'bg-green-800 border-green-800 text-white' : 'border-gray-300 text-gray-700 bg-white'}`}>
                     {c}
                   </button>
                 )
@@ -635,7 +646,7 @@ function NeedsTab({ needs, vendor, onChanged }: { needs: ClientNeed[]; vendor: V
             {error && <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>}
             <div className="mt-3 flex gap-2">
               <button type="button" onClick={() => setEditing(false)} className="border border-gray-200 text-gray-600 font-medium px-4 py-2 rounded-lg">Cancelar</button>
-              <button type="button" onClick={saveCategories} disabled={saving} className="bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold px-4 py-2 rounded-lg">
+              <button type="button" onClick={saveCategories} disabled={saving} className="bg-green-800 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold px-4 py-2 rounded-lg">
                 {saving ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
@@ -667,7 +678,7 @@ function NeedsTab({ needs, vendor, onChanged }: { needs: ClientNeed[]; vendor: V
                 {c.phone ? (
                   <a href={whatsappLink(c.phone, `Olá! Aqui é da ${vendor.companyName}. Posso ajudar com a reposição de ${list}? Tenho para entrega.`)}
                     target="_blank" rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
+                    className="mt-3 inline-flex items-center bg-green-800 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
                     Oferecer pelo WhatsApp
                   </a>
                 ) : (

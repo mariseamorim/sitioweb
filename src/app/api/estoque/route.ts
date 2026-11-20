@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireFarmAccess } from '@/lib/auth'
 import { supplyDailyUse, withDailyUse } from '@/lib/lotUsage'
+import { optionalDate } from '@/lib/utils'
 
 // Preço por unidade e peso do saco: opcionais (vazio apaga)
 function optionalNumber(value: unknown): number | null | undefined {
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { name, category, unit, currentQuantity, minimumQuantity, unitPrice, packageKg } = body
+    const { name, category, unit, currentQuantity, minimumQuantity, unitPrice, packageKg, expiryDate } = body
 
     if (!name || !category || !unit) {
       return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
         minimumQuantity: parseFloat(minimumQuantity) || 0,
         unitPrice: optionalNumber(unitPrice) ?? null,
         packageKg: optionalNumber(packageKg) ?? null,
+        expiryDate: optionalDate(expiryDate) ?? null,
       },
       include: { movements: true },
     })

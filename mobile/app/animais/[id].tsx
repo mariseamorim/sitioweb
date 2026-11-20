@@ -4,10 +4,10 @@ import { Alert, Switch, Text, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { brDate, isoDay, todayISO } from '@/lib/format'
-import { ACQUISITIONS, SPECIES, STATUSES, animalOptions, getAnimal, getAnimalPhoto, removeAnimal, saveAnimal } from '@/repos/animals'
+import { ACQUISITIONS, SPECIES, STATUSES, animalOptions, getAnimal, getAnimalPhoto, removeAnimal, saveAnimal, statusTone } from '@/repos/animals'
 import { listVaccinations, vaccStatus } from '@/repos/vaccinations'
 import { listTreatments } from '@/repos/treatments'
-import { Badge, Button, Card, DateField, Field, Muted, Notice, Row, Screen, SelectField } from '@/ui'
+import { Badge, Button, Card, DateField, Field, IconCircle, Muted, Notice, Row, Screen, SelectField } from '@/ui'
 import { PhotoField, PhotoView } from '@/ui/photo'
 import { colors, space } from '@/theme'
 import { useT } from '@/lib/i18n'
@@ -40,8 +40,9 @@ export default function AnimalScreen() {
             <Muted>{t(a.species)} · {t(a.gender)} · {t('código')} {a.customCode || a.code}</Muted>
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
-          <Badge label={t(a.status)} tone={a.status === 'Vivo' ? 'green' : a.status === 'Doente' ? 'amber' : 'muted'} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm }}>
+          <Badge label={t(a.status)} tone={statusTone(a.status)} />
+          <Badge label={t(a.gender)} tone={a.gender === 'Fêmea' ? 'purple' : 'blue'} />
           {a.isCastrated ? <Badge label={t('Castrado')} /> : null}
         </View>
         <Muted style={{ marginTop: space.sm }}>{t('Nascimento:')} {brDate(a.birthDate)} · {t(ACQUISITIONS.find(x => x[0] === a.acquisitionType)?.[1] ?? a.acquisitionType)}</Muted>
@@ -52,14 +53,14 @@ export default function AnimalScreen() {
         <Text style={{ fontWeight: '700', color: colors.text }}>{t('Vacinas')}</Text>
         {vacc.length === 0 ? <Muted>{t('Nenhuma vacina anotada.')}</Muted> : vacc.slice(0, 8).map(v => {
           const s = vaccStatus(v)
-          return <Row key={v.id} title={v.vaccineName} detail={`${s === 'Aplicada' ? t('Aplicada em') + ' ' + brDate(v.appliedDate) : t('Agendada para') + ' ' + brDate(v.scheduledDate)}`} badge={<Badge label={t(s)} tone={s === 'Aplicada' ? 'green' : s === 'Vencida' ? 'red' : 'amber'} />} onPress={() => router.push(`/vacinas/${v.id}`)} />
+          return <Row key={v.id} left={<IconCircle icon="shield-checkmark-outline" tone={s === 'Aplicada' ? 'green' : s === 'Vencida' ? 'red' : 'amber'} size={36} />} title={v.vaccineName} detail={`${s === 'Aplicada' ? t('Aplicada em') + ' ' + brDate(v.appliedDate) : t('Agendada para') + ' ' + brDate(v.scheduledDate)}`} badge={<Badge label={t(s)} tone={s === 'Aplicada' ? 'green' : s === 'Vencida' ? 'red' : 'amber'} />} onPress={() => router.push(`/vacinas/${v.id}`)} />
         })}
         {canEdit ? <Button label={t('+ Vacina')} variant="ghost" onPress={() => router.push({ pathname: '/vacinas/[id]', params: { id: 'nova', animalId: a.id } })} /> : null}
       </Card>
       <Card>
         <Text style={{ fontWeight: '700', color: colors.text }}>{t('Tratamentos')}</Text>
         {treats.length === 0 ? <Muted>{t('Nenhum tratamento anotado.')}</Muted> : treats.slice(0, 8).map(tm => (
-          <Row key={tm.id} title={tm.medicine} detail={`${brDate(tm.startDate)}${tm.endDate ? ` ${t('a')} ` + brDate(tm.endDate) : ''}`} onPress={() => router.push(`/tratamentos/${tm.id}`)} />
+          <Row key={tm.id} left={<IconCircle icon="medkit-outline" tone="blue" size={36} />} title={tm.medicine} detail={`${brDate(tm.startDate)}${tm.endDate ? ` ${t('a')} ` + brDate(tm.endDate) : ''}`} onPress={() => router.push(`/tratamentos/${tm.id}`)} />
         ))}
         {canEdit ? <Button label={t('+ Tratamento')} variant="ghost" onPress={() => router.push({ pathname: '/tratamentos/[id]', params: { id: 'novo', animalId: a.id } })} /> : null}
       </Card>

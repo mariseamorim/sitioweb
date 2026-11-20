@@ -18,7 +18,8 @@ export function StatTile({ label, value, detail, accent = 'green', children }: {
     <div className={`relative overflow-hidden rounded-xl border p-4 pt-5 ${a.box}`}>
       <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-1.5 ${a.bar}`} />
       <p className="text-sm font-medium text-gray-700">{label}</p>
-      <p className={`mt-1 text-3xl font-bold tabular-nums ${a.value}`}>{value}</p>
+      {/* Número comprido ("11.110.565 L") em letra menor, para caber numa linha */}
+      <p className={`mt-1 font-bold tabular-nums ${typeof value === 'string' && value.length > 9 ? 'text-2xl' : 'text-3xl'} ${a.value}`}>{value}</p>
       {detail ? <p className="mt-1 text-sm text-gray-600">{detail}</p> : null}
       {children}
     </div>

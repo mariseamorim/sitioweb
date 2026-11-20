@@ -23,6 +23,9 @@ export interface Animal {
 
 export const SPECIES = ['Vaca', 'Boi', 'Boi de engorda', 'Touro', 'Bezerro', 'Bezerra', 'Cavalo', 'Égua', 'Cabra', 'Bode', 'Ovelha', 'Carneiro', 'Porco', 'Porca', 'Outro']
 export const STATUSES = ['Vivo', 'Doente', 'Vendido', 'Morto']
+/** Cor do selo da situação do animal (só aparência) */
+export const statusTone = (s: string): 'green' | 'amber' | 'blue' | 'red' | 'muted' =>
+  s === 'Vivo' ? 'green' : s === 'Doente' ? 'amber' : s === 'Vendido' ? 'blue' : s === 'Morto' ? 'red' : 'muted'
 export const ACQUISITIONS = [['existente', 'Já estava na propriedade'], ['nascimento', 'Nasceu aqui'], ['compra', 'Comprado']] as const
 
 export function listAnimals(farmId: string, q = ''): Animal[] {

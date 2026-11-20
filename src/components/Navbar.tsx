@@ -31,7 +31,7 @@ const groups: { label: string; links: NavLink[] }[] = [
   { label: 'Rebanho e produção', links: [
     { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },
     { href: '/engorda', label: 'Recria e engorda', module: 'animais', Icon: BalancaIcon },
-    { href: '/milk-production', label: 'Produção de leite', module: 'leite', Icon: LeiteIcon },
+    { href: '/milk-production', label: 'Produção de leite', module: 'leite', vet: 'hide', Icon: LeiteIcon },
     { href: '/veterinary-treatment', label: 'Tratamentos', module: 'veterinario', Icon: TratamentoIcon },
     { href: '/vacinacao', label: 'Vacinação', module: 'vacinacao', Icon: VacinaIcon },
     { href: '/reproducao', label: 'Reprodução', module: 'reproducao', Icon: ReproducaoIcon },
@@ -92,7 +92,7 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
         { href: '/lite', label: 'Anotar', module: 'leite', Icon: LeiteIcon },
         { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },
         { href: '/vacinacao', label: 'Vacinas', module: 'vacinacao', Icon: VacinaIcon },
-      ].filter((tab) => (!tab.module || canAccess(tab.module)) && fitsSegment(tab.href));
+      ].filter((tab) => (!tab.module || canAccess(tab.module)) && fitsSegment(tab.href) && !(user?.vet && tab.href === '/lite'));
   const isTabActive = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/'));
   const visibleGroups = (isVendor ? vendorGroups : groups).map(group => ({ ...group, links: group.links.filter(link => (!link.module || canAccess(link.module)) && (!link.adminOnly || user?.role === 'admin') && (!link.vet || (link.vet === 'only') === !!user?.vet) && fitsSegment(link.href)) })).filter(group => group.links.length);
   const activeLink = visibleGroups.flatMap(group => group.links).find(link => link.href === '/' ? pathname === '/' : pathname === link.href || pathname.startsWith(link.href + '/'));

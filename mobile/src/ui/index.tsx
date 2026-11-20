@@ -172,6 +172,22 @@ export function Badge({ label, tone = 'muted' }: { label: string; tone?: 'green'
   return <View style={[styles.badge, { backgroundColor: bg }]}><Text style={{ color: fg, fontSize: font.sm, fontWeight: '600' }}>{t(label)}</Text></View>
 }
 
+export type Tone = 'green' | 'amber' | 'red' | 'blue' | 'purple' | 'muted'
+const TONE: Record<Tone, readonly [string, string]> = {
+  green: [colors.greenSoft, colors.green], amber: [colors.amberSoft, colors.amber], red: [colors.redSoft, colors.red],
+  blue: [colors.blueSoft, colors.blue], purple: [colors.purpleSoft, colors.purple], muted: [colors.border, colors.muted],
+}
+
+/** Ícone num círculo de fundo claro colorido, para o `left` do Row e cartões de lista. */
+export function IconCircle({ icon, tone = 'green', size = 40 }: { icon: keyof typeof Ionicons.glyphMap; tone?: Tone; size?: number }) {
+  const [bg, fg] = TONE[tone]
+  return (
+    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
+      <Ionicons name={icon} size={Math.round(size / 2)} color={fg} />
+    </View>
+  )
+}
+
 export function Row({ title, detail, right, onPress, badge, left }: { title: string; detail?: string; right?: ReactNode; onPress?: () => void; badge?: ReactNode; left?: ReactNode }) {
   const t = useT()
   const body = (

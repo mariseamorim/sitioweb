@@ -108,4 +108,12 @@ export const painel: Record<string, string> = {
   'Coletas diárias': 'Registros diarios',
   '{n} animal': '{n} animal',
   '{n} animais': '{n} animales',
+  'Secagem e pré-parto': 'Secado y preparto',
+  'Secagem era em {date}': 'El secado era el {date}',
+  'Secar até {date}': 'Secar hasta el {date}',
+  'Era para ir ao pré-parto em {date}': 'Debía ir al preparto el {date}',
+  'Levar para o lote de pré-parto até {date}': 'Llevar al lote de preparto hasta el {date}',
+  'Secar {name}': 'Secar a {name}',
+  'Pré-parto: {name}': 'Preparto: {name}',
+  'parto previsto {date}': 'parto previsto {date}',
 }

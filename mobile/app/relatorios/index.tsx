@@ -5,7 +5,8 @@ import { todayISO } from '@/lib/format'
 import { exportCSV, exportPDF } from '@/lib/reportExport'
 import { buildReport, REPORT_TYPES, type Report } from '@/lib/reports'
 import { animalOptions } from '@/repos/animals'
-import { Button, Card, Chips, DateField, Muted, Notice, Screen, SelectField, Title } from '@/ui'
+import type { Ionicons } from '@expo/vector-icons'
+import { Button, Card, Chips, DateField, IconCircle, Muted, Notice, Screen, SelectField, Title, type Tone } from '@/ui'
 import { Table } from '@/ui/table'
 import { colors, font, radius, space } from '@/theme'
 import { useT } from '@/lib/i18n'
@@ -18,6 +19,12 @@ const PRESETS: { value: Preset; label: string }[] = [
   { value: 'ano', label: 'Este ano' },
   { value: 'outro', label: 'Outro período' },
 ]
+
+// Ícone e cor de cada tipo de relatório (só aparência)
+const REPORT_ICON: Record<string, [keyof typeof Ionicons.glyphMap, Tone]> = {
+  leite: ['water-outline', 'blue'], 'ficha-animal': ['paw-outline', 'green'], vacinacao: ['shield-checkmark-outline', 'purple'],
+  financeiro: ['cash-outline', 'green'], partos: ['heart-outline', 'red'], rebanho: ['list-outline', 'amber'], estoque: ['cube-outline', 'amber'],
+}
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
@@ -79,9 +86,12 @@ export default function Relatorios() {
         {types.map(r => {
           const on = typeKey === r.key
           return (
-            <Pressable key={r.key} onPress={() => { setTypeKey(r.key); setReport(null); setError('') }} style={[styles.type, on && { borderColor: colors.green, backgroundColor: colors.greenSoft }]}>
-              <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.md }}>{t(r.label)}</Text>
-              <Muted>{t(r.description)}</Muted>
+            <Pressable key={r.key} onPress={() => { setTypeKey(r.key); setReport(null); setError('') }} style={[styles.type, { flexDirection: 'row', alignItems: 'center', gap: space.md }, on && { borderColor: colors.green, backgroundColor: colors.greenSoft }]}>
+              <IconCircle icon={REPORT_ICON[r.key]?.[0] ?? 'document-text-outline'} tone={REPORT_ICON[r.key]?.[1] ?? 'green'} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.md }}>{t(r.label)}</Text>
+                <Muted>{t(r.description)}</Muted>
+              </View>
             </Pressable>
           )
         })}

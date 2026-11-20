@@ -8,6 +8,7 @@ import {
 } from '@/lib/ownerGroups'
 
 import { useT, type Vars } from '@/lib/i18n'
+import { StatTile, type Accent } from '@/components/StatTile'
 
 type Translate = (text: string, vars?: Vars) => string
 
@@ -33,11 +34,12 @@ interface Props {
   deletingId?: string | null
 }
 
+// Etiqueta de cada atividade numa cor (o nome sempre aparece escrito)
 const SEGMENT_STYLE: Record<string, string> = {
-  leite: 'bg-green-50 text-green-800',
-  cria: 'bg-green-50 text-green-800',
-  recria: 'bg-blue-50 text-blue-800',
-  engorda: 'bg-blue-50 text-blue-800',
+  leite: 'bg-blue-100 text-blue-800',
+  cria: 'bg-green-100 text-green-800',
+  recria: 'bg-teal-100 text-teal-800',
+  engorda: 'bg-amber-100 text-amber-800',
 }
 
 const initial = (name: string) => name.trim().charAt(0).toUpperCase() || '?'
@@ -58,12 +60,12 @@ export function OwnerGroups({ farms, activeFarmId, onOpen, openingId, onEdit, on
 
   return (
     <div>
-      <dl className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label={t('proprietários')} value={totals.owners} />
-        <Stat label={t('propriedades ativas')} value={totals.farms} />
-        <Stat label={t('sem lançamento há {n} dias', { n: STALE_DAYS })} value={totals.stale} tone={totals.stale ? 'bad' : 'muted'} onClick={() => setFilter('paradas')} />
-        <Stat label={t('sem proprietário informado')} value={totals.unknown} tone={totals.unknown ? 'warn' : 'muted'} onClick={() => setFilter('semdono')} />
-      </dl>
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label={t('proprietários')} value={totals.owners} accent="blue" />
+        <Stat label={t('propriedades ativas')} value={totals.farms} accent="green" />
+        <Stat label={t('sem lançamento há {n} dias', { n: STALE_DAYS })} value={totals.stale} accent={totals.stale ? 'red' : 'teal'} onClick={() => setFilter('paradas')} />
+        <Stat label={t('sem proprietário informado')} value={totals.unknown} accent={totals.unknown ? 'amber' : 'teal'} onClick={() => setFilter('semdono')} />
+      </div>
 
       <label className="mb-3 flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 focus-within:ring-2 focus-within:ring-green-600">
         <svg aria-hidden="true" className="h-5 w-5 shrink-0 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path strokeLinecap="round" d="m20 20-3.5-3.5" /></svg>
@@ -74,7 +76,7 @@ export function OwnerGroups({ farms, activeFarmId, onOpen, openingId, onEdit, on
       <div role="group" aria-label={t('Filtros')} className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {OWNER_FILTERS.filter((f) => f.key !== 'inativas' || totals.inactive > 0).map((f) => (
           <button key={f.key} type="button" aria-pressed={filter === f.key} onClick={() => setFilter(f.key)}
-            className={`shrink-0 rounded-full px-3.5 py-2 text-sm font-semibold ${filter === f.key ? 'bg-green-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            className={`shrink-0 rounded-full px-3.5 py-2 text-sm font-semibold ${filter === f.key ? 'bg-green-800 text-white' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}>
             {f.key === 'paradas' ? t('Sem lançamento há {n} dias', { n: STALE_DAYS }) : t(f.label)}{f.key === 'inativas' ? ` (${totals.inactive})` : ''}
           </button>
         ))}
@@ -125,14 +127,12 @@ export function OwnerGroups({ farms, activeFarmId, onOpen, openingId, onEdit, on
   )
 }
 
-function Stat({ label, value, tone = 'neutral', onClick }: { label: string; value: number; tone?: 'neutral' | 'muted' | 'warn' | 'bad'; onClick?: () => void }) {
-  const color = { neutral: 'text-gray-900', muted: 'text-gray-400', warn: 'text-amber-700', bad: 'text-red-600' }[tone]
-  const body = <><dd className={`text-2xl font-bold leading-none ${color}`}>{value}</dd><dt className="mt-1 text-xs text-gray-500">{label}</dt></>
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3">
-      {onClick && value > 0 ? <button type="button" onClick={onClick} className="w-full text-left hover:underline">{body}</button> : body}
-    </div>
-  )
+// Cartão de número colorido; com onClick (e número acima de zero) o cartão inteiro vira botão que aplica o filtro
+function Stat({ label, value, accent, onClick }: { label: string; value: number; accent: Accent; onClick?: () => void }) {
+  const tile = <StatTile accent={accent} label={label} value={value} />
+  return onClick && value > 0
+    ? <button type="button" onClick={onClick} className="rounded-xl text-left transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700">{tile}</button>
+    : tile
 }
 
 function FarmRow({ farm, active, unknownOwner, onOpen, opening, onEdit, onDelete, deleting }: {
@@ -144,7 +144,9 @@ function FarmRow({ farm, active, unknownOwner, onOpen, opening, onEdit, onDelete
   const stale = farm.isActive && isStale(farm.lastActivity)
   const place = [farm.city, farm.state].filter(Boolean).join(', ')
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-100 py-3 last:border-b-0">
+    <li className="relative flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-100 py-3 pl-3 last:border-b-0">
+      {/* Faixa vermelha à esquerda: propriedade parada (sem lançamento recente) */}
+      {stale && <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-red-600" />}
       <div className="min-w-0 flex-1 basis-48">
         <p className="truncate font-semibold text-gray-900">{farm.name}</p>
         <p className={`text-xs ${stale ? 'text-red-600' : 'text-gray-500'}`}>
@@ -180,7 +182,7 @@ function FarmRow({ farm, active, unknownOwner, onOpen, opening, onEdit, onDelete
         {onOpen && farm.isActive && (active
           ? <span className="rounded-full bg-green-100 px-3 py-1.5 text-sm font-semibold text-green-800">{t('Aberta')}</span>
           : <button type="button" onClick={() => onOpen(farm)} disabled={opening}
-              className="min-h-10 rounded-lg bg-green-700 px-4 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-60">
+              className="min-h-10 rounded-lg bg-green-800 px-4 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60">
               {t(opening ? 'Abrindo...' : 'Abrir')}
             </button>)}
       </div>

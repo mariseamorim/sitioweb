@@ -93,4 +93,10 @@ export const consultoria: Record<string, string> = {
   'Atrasada': 'Atrasada',
   'Atenção': 'Atención',
   'Aviso': 'Aviso',
+  '{n} vaca para secar': '{n} vaca para secar',
+  '{n} vacas para secar': '{n} vacas para secar',
+  '60 dias antes do parto previsto': '60 días antes del parto previsto',
+  '{n} vaca para o pré-parto': '{n} vaca para el preparto',
+  '{n} vacas para o pré-parto': '{n} vacas para el preparto',
+  '21 dias antes do parto previsto': '21 días antes del parto previsto',
 }

@@ -6,7 +6,7 @@ import { useLive } from '@/db/events'
 import { herdCalving, LATE_MONTHS, monthsLabel, plural, pregnancyChecks, type PregnancyCheck } from '@/lib/calving'
 import { brDate } from '@/lib/format'
 import { birthSoon, isOpen, listHerd, listReproductions, markEmptyAfterCalving, STATUS_LIST, statusTone, updateStatus, type Reproduction } from '@/repos/reproductions'
-import { Badge, Button, Card, Chips, Empty, Fab, Muted, Row, Search, Stat } from '@/ui'
+import { Badge, Button, Card, Chips, Empty, Fab, IconCircle, Muted, Row, Search, Tile, TileGrid } from '@/ui'
 import { colors, font, radius, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
@@ -65,7 +65,7 @@ export default function Reproducao() {
         contentContainerStyle={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: 96 }}
         keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
-          <Row title={item.femaleName ?? t('Animal removido')}
+          <Row left={<IconCircle icon="heart-outline" tone={statusTone(item.status)} />} title={item.femaleName ?? t('Animal removido')}
             detail={`${item.maleName ? `${t('Reprodutor')} ${item.maleName} · ` : ''}${t('Cobertura')} ${brDate(item.coverageDate)}${item.expectedBirthDate && isOpen(item) ? ` · ${t('parto esperado')} ${brDate(item.expectedBirthDate)}` : item.actualBirthDate ? ` · ${t('pariu em')} ${brDate(item.actualBirthDate)}` : ''}`}
             badge={<Badge label={t(item.status)} tone={statusTone(item.status)} />}
             onPress={() => router.push(`/reproducao/${item.id}`)} />
@@ -114,11 +114,11 @@ function HerdCalvingPanel({ herd, reproductions, onOpenAnimal }: { herd: ReturnT
 
   return (
     <View style={{ marginBottom: space.md }}>
-      <View style={{ flexDirection: 'row', gap: space.sm }}>
-        <Stat label={t('Intervalo médio entre partos')} value={stats.averageInterval !== null ? monthsLabel(stats.averageInterval) : '—'} />
-        <Stat label={t('Idade média na 1ª cria')} value={stats.averageAgeAtFirst !== null ? monthsLabel(stats.averageAgeAtFirst) : '—'} />
-        <Stat label={t('Vacas demorando para criar')} value={String(late.length)} tone={late.length > 0 ? 'amber' : undefined} />
-      </View>
+      <TileGrid>
+        <Tile accent="blue" label={t('Intervalo médio entre partos')} value={stats.averageInterval !== null ? monthsLabel(stats.averageInterval) : '—'} />
+        <Tile accent="teal" label={t('Idade média na 1ª cria')} value={stats.averageAgeAtFirst !== null ? monthsLabel(stats.averageAgeAtFirst) : '—'} />
+        <Tile accent={late.length > 0 ? 'amber' : 'green'} label={t('Vacas demorando para criar')} value={String(late.length)} />
+      </TileGrid>
       {stats.averageInterval === null ? <Muted style={{ marginTop: space.xs }}>{t('Anote pelo menos 2 crias de uma vaca para ver o intervalo entre partos.')}</Muted> : null}
       {late.length > 0 ? (
         <Card style={{ marginTop: space.sm, marginBottom: 0, paddingVertical: 4, borderColor: '#fcd34d' }}>

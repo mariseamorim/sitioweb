@@ -139,7 +139,8 @@ export default function DashboardPage() {
 function useFormat() {
   const t = useT()
   const locale = useLocale()
-  const text = (txt: Txt) => (typeof txt === 'string' ? t(txt) : t(txt.text, txt.vars))
+  // Números dentro do texto com separador de milhar ("1.587 L/dia")
+  const text = (txt: Txt) => (typeof txt === 'string' ? t(txt) : t(txt.text, Object.fromEntries(Object.entries(txt.vars).map(([k, v]) => [k, typeof v === 'number' ? v.toLocaleString(locale) : v]))))
   const value = (n: number | null, unit: Unit = '') => {
     if (n === null) return '—'
     if (unit === 'R$') return n.toLocaleString(locale, { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
