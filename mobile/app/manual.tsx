@@ -34,7 +34,7 @@ interface ManualStep {
 }
 
 const FILTERS: { key: ProfileKey; label: string }[] = [
-  { key: 'all', label: 'Todos (22)' },
+  { key: 'all', label: 'Todos (23)' },
   { key: 'lite', label: 'Anota Aí Leite' },
   { key: 'pro', label: 'Propriedade Pro' },
   { key: 'motorista', label: 'Motorista' },
@@ -161,6 +161,23 @@ const MANUAL_STEPS: ManualStep[] = [
       'Em "Resumo do período", alterne entre "Visão mensal" e "Visão anual" para ver o resultado mês a mês.',
     ],
     tip: 'Tocar em qualquer tarefa pendente abre diretamente o módulo para resolvê-la.',
+  },
+  {
+    num: 'Passo 3.2b', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    title: 'Dashboard para TV / Monitor (Indicadores ao Vivo)',
+    summary: 'Exiba os números da fazenda em tempo real na TV do escritório ou sala de ordenha com atualização automática.',
+    pageHeader: 'Dashboard TV (/dashboard)', pageSub: 'Atualização automática em tela cheia',
+    blocks: [
+      { num: 1, fieldLabel: 'Modo monitor', fieldValue: '[ Atualizar ]   [ Tela cheia ]', calloutLabel: 'Ative tela cheia na TV ou monitor', tone: 'green' },
+      { num: 2, fieldLabel: 'Indicadores do dia', fieldValue: 'Animais no rebanho · Leite ontem · Leite no mês', calloutLabel: 'KPIs grandes visíveis à distância', tone: 'neutral' },
+      { num: 3, fieldLabel: 'Alertas e caixa', fieldValue: 'Partos em 30d · Vacinas atrasadas · Saldo do mês', calloutLabel: 'Pendências urgentes em tempo real', tone: 'red' },
+    ],
+    steps: [
+      'Abra a rota /dashboard no navegador da TV, tablet ou computador da fazenda.',
+      'Toque em "Tela cheia" para destacar os cartões de rebanho, leite, reprodução, vacinas e saldo.',
+      'Use "Atualizar" sempre que quiser forçar uma leitura imediata.',
+    ],
+    tip: 'Ideal para manter em um monitor no escritório acompanhando vacinas atrasadas e partos próximos.',
   },
   {
     num: 'Passo 3.3', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
