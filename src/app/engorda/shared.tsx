@@ -97,6 +97,23 @@ export function productLines(lot: Lot) {
   })
 }
 
+/** Peso atual e a meta, com a barra de quanto já chegou (cartões da recria e dos lotes) */
+export function WeightProgress({ current, target }: { current: number; target: number }) {
+  const t = useT()
+  const pct = Math.max(0, Math.min(100, (current / target) * 100))
+  return (
+    <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+      <div className="flex items-baseline justify-between gap-2 text-sm text-gray-700">
+        <span>{t('Peso atual')}: <strong className="text-gray-900">{kg(current)}</strong></span>
+        <span>{t('Meta')}: <strong className="text-gray-900">{kg(target)}</strong></span>
+      </div>
+      <div className="mt-2 h-2.5 rounded-full bg-gray-200" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)} aria-label={t('{n}% da meta', { n: Math.round(pct) })}>
+        <div className="h-2.5 rounded-full bg-green-600" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
+}
+
 export function Stat({ title, value, tone = 'text-gray-900' }: { title: string; value: string; tone?: string }) {
   return (
     <div className="rounded-lg border border-gray-100 bg-gray-50 px-2 py-2.5 text-center">
