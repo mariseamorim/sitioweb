@@ -32,8 +32,6 @@ export const consultoria: Record<string, string> = {
   'atendimentos encerrados': 'atenciones finalizadas',
   'o histórico do que você lançou está no site, em Consultoria.': 'el historial de lo que usted registró está en el sitio, en Consultoría.',
   // Modo demonstração
-  'Ver demonstração do veterinário': 'Ver demostración del veterinario',
-  'Três propriedades com dados fictícios, só neste celular. Não precisa de conta nem de internet.': 'Tres establecimientos con datos ficticios, solo en este celular. No necesita cuenta ni internet.',
   'Demonstração: dados fictícios, guardados só neste celular. Nada é enviado ao servidor. Para sair, use "Sair da conta" em Mais.': 'Demostración: datos ficticios, guardados solo en este celular. Nada se envía al servidor. Para salir, use "Cerrar sesión" en Más.',
   // Tarefas e agenda do painel do veterinário
   'O que fazer nas propriedades': 'Qué hacer en los establecimientos',
