@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 650 880" width="650" height="880">
+  <foreignObject width="650" height="880">
+    <div xmlns="http://www.w3.org/1999/xhtml">
+      <style>
+  .annotated-stage { width: 650px; height: 880px;  transform-origin: top left; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .annotated-stage .main { padding: 18px 16px 80px; }
+  .annotated-stage h1 { font-size: 24px; font-weight: 800; color: #111827; letter-spacing: -0.02em; margin: 0; }
+  .annotated-stage .sub { font-size: 13.5px; color: #6b7280; margin-top: 4px; margin-bottom: 16px; line-height: 1.4; }
+  .annotated-stage .card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .annotated-stage .card-green { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .annotated-stage .card-amber { background: #fffbeb; border: 1px solid #fde68a; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .annotated-stage .card-red { background: #fef2f2; border: 1px solid #fecaca; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .annotated-stage .label { display: block; font-size: 12.5px; font-weight: 600; color: #374151; margin-bottom: 5px; }
+  .annotated-stage .input { width: 100%; border: 1px solid #d1d5db; border-radius: 12px; padding: 11px 13px; font-size: 14.5px; color: #111827; background: #ffffff; margin-bottom: 12px; font-weight: 500; }
+  .annotated-stage .input-focus { border: 2px solid #15803d; background: #f0fdf4; font-weight: 700; }
+  .annotated-stage .btn-primary { width: 100%; background: #14532d; color: #ffffff; border: none; border-radius: 12px; padding: 13px 16px; font-size: 14.5px; font-weight: 700; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .annotated-stage .btn-outline { width: 100%; background: #ffffff; color: #14532d; border: 1.5px solid #14532d; border-radius: 12px; padding: 11px 16px; font-size: 13.5px; font-weight: 700; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .annotated-stage .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; }
+  .annotated-stage .pill-green { background: #dcfce7; color: #166534; }
+  .annotated-stage .pill-amber { background: #fef3c7; color: #92400e; }
+  .annotated-stage .pill-red { background: #fee2e2; color: #991b1b; }
+  .annotated-stage .pill-blue { background: #dbeafe; color: #1e40af; }
+  .annotated-stage .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+</style>
+      <div class="annotated-stage" style="width:650px;height:880px;position:relative;text-align:left;user-select:none;">
+    <!-- Real Phone Screen (Left 420px) -->
+    <div style="position:absolute;left:0;top:0;width:420px;height:880px;border-radius:24px;border:5px solid #1e293b;overflow:hidden;background:#f9fafb;color:#111827;box-shadow:0 10px 25px rgba(15,23,42,0.14);">
+      
+      
+      <div style="height:64px;border-bottom:1px solid #e5e7eb;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:42px;height:42px;border-radius:12px;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;color:#374151;"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></div>
+          
+          <div>
+            <div style="font-size:14.5px;font-weight:700;color:#111827;line-height:1.2;">Painel</div>
+            <div style="font-size:12px;color:#6b7280;">Sítio Boa Vista</div>
+          </div>
+        </div>
+        
+          <div style="position:relative;color:#4b5563;padding:6px;">
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1112 0c0 7 3 8.5 3 8.5H3S6 15 6 8z"/><path d="M10 20a2 2 0 004 0"/></svg>
+            <span style="position:absolute;top:0;right:0;background:#dc2626;color:#fff;font-size:10.5px;font-weight:800;width:19px;height:19px;border-radius:999px;display:flex;align-items:center;justify-content:center;">5</span>
+          </div>
+        
+      </div>
+    
+      <div class="main">
+        <div class="card" style="border-color:#cbd5e1;box-shadow:0 8px 24px rgba(0,0,0,0.08);">
+          <div style="font-size:14.5px;font-weight:800;margin-bottom:10px;">🔔 Tarefas do dia (5 pendências)</div>
+          <div class="card-red" style="padding:10px 12px;margin-bottom:8px;">
+            <div style="font-weight:800;font-size:12.5px;color:#991b1b;">🚫 Leite de Estrela fora do tanque até 21/11</div>
+            <div style="font-size:11.5px;color:#b91c1c;">Carência de Cefalosporina (Mastite)</div>
+          </div>
+          <div class="card-red" style="padding:10px 12px;margin-bottom:8px;">
+            <div style="font-weight:800;font-size:12.5px;color:#991b1b;">💉 Vacinar Bonequinha: Brucelose</div>
+            <div style="font-size:11.5px;color:#b91c1c;">Atrasada desde 15/11</div>
+          </div>
+          <div class="card-amber" style="padding:10px 12px;margin-bottom:0;">
+            <div style="font-weight:800;font-size:12.5px;color:#92400e;">🐄 Confirmar prenhez: Boneca (pariu há 2 meses)</div>
+            <div style="font-size:11.5px;color:#b45309;">⏳ Proteinado Águas acaba em 5 dias (33 kg/dia nos lotes)</div>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="font-size:15px;font-weight:800;">Resumo do período</div>
+            <div style="background:#f3f4f6;border-radius:8px;padding:3px;display:flex;gap:4px;font-size:11.5px;font-weight:700;">
+              <span style="padding:4px 8px;color:#4b5563;">Visão mensal</span>
+              <span style="padding:4px 8px;background:#14532d;color:#fff;border-radius:6px;">Visão anual</span>
+            </div>
+          </div>
+          <div class="grid2" style="margin-bottom:10px;">
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px;">
+              <div style="font-size:11px;color:#166534;">Leite no ano</div>
+              <div style="font-size:17px;font-weight:800;color:#14532d;">64.820 L</div>
+            </div>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px;">
+              <div style="font-size:11px;color:#166534;">Saldo no ano</div>
+              <div style="font-size:17px;font-weight:800;color:#14532d;">+R$ 98.400</div>
+            </div>
+          </div>
+          <div style="font-size:11.5px;color:#374151;border-top:1px solid #e5e7eb;padding-top:8px;">
+            <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Setembro/2026</span><strong>5.980 L · +R$ 9.840</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Outubro/2026</span><strong>6.210 L · +R$ 10.620</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;color:#15803d;"><span>Novembro/2026</span><strong>6.420 L · +R$ 11.250</strong></div>
+          </div>
+        </div>
+      </div>
+      
+      <div style="position:absolute;bottom:0;left:0;right:0;height:66px;border-top:1px solid #e5e7eb;background:#fff;display:grid;grid-template-columns:repeat(5,1fr);z-index:50;">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#166534;">
+            <span style="width:46px;height:30px;border-radius:999px;background:#dcfce7;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+            <span>Painel</span>
+          </div><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#6b7280;">
+            <span style="width:46px;height:30px;border-radius:999px;background:transparent;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l1 5H7L8 3z"/><path d="M7 8l-2 12h14L17 8"/><circle cx="12" cy="13" r="2"/></svg></span>
+            <span>Anotar</span>
+          </div><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#6b7280;">
+            <span style="width:46px;height:30px;border-radius:999px;background:transparent;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="14" width="14" height="7" rx="3"/><circle cx="9" cy="17.5" r="0.75" fill="currentColor"/><circle cx="15" cy="17.5" r="0.75" fill="currentColor"/><path d="M7 14V9.5C7 6.5 9 5 12 5c3 0 5 1.5 5 4.5V14"/></svg></span>
+            <span>Animais</span>
+          </div><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#6b7280;">
+            <span style="width:46px;height:30px;border-radius:999px;background:transparent;display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 3.5l5 5m-2-2l-9.5 9.5-4-4 9.5-9.5zM4.5 17l-1.5 3.5 3.5-1.5"/></svg></span>
+            <span>Vacinas</span>
+          </div><div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:#6b7280;">
+            <span style="width:46px;height:30px;border-radius:999px;background:transparent;display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></span>
+            <span>Mais</span>
+          </div>
+      </div>
+    
+    
+    </div>
+    <!-- Non-overlapping Highlights + External Gutter Callouts -->
+    
+      <!-- Transparent outline box around key area (does not cover content!) -->
+      <div style="position:absolute;left:28px;top:122px;width:354px;height:185px;border:2.5px solid #dc2626;border-radius:12px;background:rgba(220,38,38,0.03);pointer-events:none;z-index:80;box-shadow:0 0 0 2px rgba(255,255,255,0.75);"></div>
+      <!-- Small anchor dot on the right edge of the outline box -->
+      <div style="position:absolute;left:378px;top:211px;width:8px;height:8px;border-radius:999px;background:#dc2626;border:1.5px solid #fff;z-index:85;pointer-events:none;"></div>
+      <!-- Horizontal leader line to outside gutter -->
+      <div style="position:absolute;left:382px;top:214px;width:52px;height:2.5px;background:#dc2626;z-index:82;pointer-events:none;"></div>
+      <!-- Callout badge completely OUTSIDE the phone screen in the right gutter -->
+      <div style="position:absolute;left:434px;top:195px;width:210px;z-index:90;display:flex;align-items:center;gap:8px;background:#0f172a;color:#ffffff;padding:7px 11px 7px 7px;border-radius:12px;border:2px solid #dc2626;box-shadow:0 6px 16px rgba(15,23,42,0.18);font-size:12px;font-weight:700;line-height:1.25;pointer-events:none;">
+        <span style="flex-shrink:0;width:24px;height:24px;border-radius:999px;background:#dc2626;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:12.5px;">1</span>
+        <span>Alertas de carência e vacina</span>
+      </div>
+    
+      <!-- Transparent outline box around key area (does not cover content!) -->
+      <div style="position:absolute;left:195px;top:342px;width:188px;height:32px;border:2.5px solid #dc2626;border-radius:12px;background:rgba(220,38,38,0.03);pointer-events:none;z-index:80;box-shadow:0 0 0 2px rgba(255,255,255,0.75);"></div>
+      <!-- Small anchor dot on the right edge of the outline box -->
+      <div style="position:absolute;left:379px;top:354px;width:8px;height:8px;border-radius:999px;background:#dc2626;border:1.5px solid #fff;z-index:85;pointer-events:none;"></div>
+      <!-- Horizontal leader line to outside gutter -->
+      <div style="position:absolute;left:383px;top:357px;width:51px;height:2.5px;background:#dc2626;z-index:82;pointer-events:none;"></div>
+      <!-- Callout badge completely OUTSIDE the phone screen in the right gutter -->
+      <div style="position:absolute;left:434px;top:338px;width:210px;z-index:90;display:flex;align-items:center;gap:8px;background:#0f172a;color:#ffffff;padding:7px 11px 7px 7px;border-radius:12px;border:2px solid #dc2626;box-shadow:0 6px 16px rgba(15,23,42,0.18);font-size:12px;font-weight:700;line-height:1.25;pointer-events:none;">
+        <span style="flex-shrink:0;width:24px;height:24px;border-radius:999px;background:#dc2626;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:12.5px;">2</span>
+        <span>Alterne Visão Mensal / Anual</span>
+      </div>
+    
+      <!-- Transparent outline box around key area (does not cover content!) -->
+      <div style="position:absolute;left:28px;top:464px;width:354px;height:86px;border:2.5px solid #dc2626;border-radius:12px;background:rgba(220,38,38,0.03);pointer-events:none;z-index:80;box-shadow:0 0 0 2px rgba(255,255,255,0.75);"></div>
+      <!-- Small anchor dot on the right edge of the outline box -->
+      <div style="position:absolute;left:378px;top:503px;width:8px;height:8px;border-radius:999px;background:#dc2626;border:1.5px solid #fff;z-index:85;pointer-events:none;"></div>
+      <!-- Horizontal leader line to outside gutter -->
+      <div style="position:absolute;left:382px;top:506px;width:52px;height:2.5px;background:#dc2626;z-index:82;pointer-events:none;"></div>
+      <!-- Callout badge completely OUTSIDE the phone screen in the right gutter -->
+      <div style="position:absolute;left:434px;top:487px;width:210px;z-index:90;display:flex;align-items:center;gap:8px;background:#0f172a;color:#ffffff;padding:7px 11px 7px 7px;border-radius:12px;border:2px solid #dc2626;box-shadow:0 6px 16px rgba(15,23,42,0.18);font-size:12px;font-weight:700;line-height:1.25;pointer-events:none;">
+        <span style="flex-shrink:0;width:24px;height:24px;border-radius:999px;background:#dc2626;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:12.5px;">3</span>
+        <span>Balanço mês a mês do ano</span>
+      </div>
+    
+  </div>
+    </div>
+  </foreignObject>
+</svg>

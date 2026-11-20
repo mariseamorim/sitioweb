@@ -44,6 +44,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
   ] },
   { label: 'Ajuda', items: [
     { title: 'Ajuda e suporte', href: '/ajuda', icon: 'help-circle-outline' },
+    { title: 'Manual do usuário', detail: 'Passo a passo ilustrado e PDF', href: '/manual', icon: 'book-outline' },
   ] },
 ]
 

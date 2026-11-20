@@ -27,6 +27,7 @@ const mailto = (subject: string) => `mailto:${CONTACT_EMAIL}?subject=${encodeURI
 export default function Ajuda() {
   const { user, canAccess } = useSession()
   const { online } = useSyncState()
+  const router = useRouter()
   const screens = visibleHelp(user, canAccess)
   const t = useT()
 
@@ -50,6 +51,14 @@ export default function Ajuda() {
         <Button label={t('Pedir configuração inicial')} onPress={() => void open(supportUrl('configurar'))} disabled={!online || user?.support === false} style={{ marginTop: space.md }} />
         {!online ? <Muted style={{ marginTop: space.xs }}>{t(OFFLINE)}</Muted> : null}
         <TextButton label={t('Pedir por e-mail')} onPress={() => void open(mailto('Configuração inicial do Anota Aí Agro'))} />
+      </Card>
+
+      <Card>
+        <IconBox><Ionicons name="book-outline" size={22} color={colors.green} /></IconBox>
+        <Text style={cardTitle}>Manual do usuário ilustrado</Text>
+        <Text style={cardText}>Veja o passo a passo completo com as telas do sistema para produtor (Anota Aí Leite e propriedade completa), motorista, laticínio (incluindo criação de rotas), associação e fornecedor. Funciona sem internet e gera PDF.</Text>
+        <Button label="Abrir manual ilustrado" onPress={() => router.push('/manual' as never)} style={{ marginTop: space.md }} />
+        <TextButton label="Abrir manual HTML completo no navegador" onPress={() => void open(`${API_BASE}/manual-usuario.html`)} />
       </Card>
 
       {user && screens.length > 0 ? (
