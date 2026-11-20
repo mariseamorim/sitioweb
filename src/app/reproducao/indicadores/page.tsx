@@ -10,8 +10,10 @@ import { cachedGet, HttpError } from '@/lib/offlineData'
 import { fillInsight, monthName, monthShort, type Indicators } from '@/lib/reproInsights'
 import { useLang, useLocale, useT } from '@/lib/i18n'
 import { CYCLE_DAYS, WAITING_DAYS, type HerdIndices } from '@/lib/herdIndices'
+import { StatTile, type Accent } from '@/components/StatTile'
 
 const card = 'bg-white rounded-xl border border-gray-200 p-4'
+const INDEX_ACCENTS: Accent[] = ['blue', 'green', 'teal', 'teal', 'blue', 'green']
 
 export default function IndicadoresPage() {
   const { user } = useUser()
@@ -51,10 +53,11 @@ export default function IndicadoresPage() {
 
       {data && (
         <>
+          {/* Números principais em cartões coloridos */}
           <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className={card}><p className="text-2xl font-bold text-gray-800">{data.rate12 === null ? '—' : `${data.rate12}%`}</p><p className="text-sm text-gray-500">{t('concepção em 12 meses')}</p></div>
-            <div className={card}><p className="text-2xl font-bold text-gray-800">{births}</p><p className="text-sm text-gray-500">{t('partos em 6 meses')}</p></div>
-            <div className={card}><p className="text-2xl font-bold text-gray-800">{data.awaiting}</p><p className="text-sm text-gray-500">{t('a diagnosticar')}</p></div>
+            <StatTile accent="green" label={t('concepção em 12 meses')} value={data.rate12 === null ? '—' : `${data.rate12}%`} />
+            <StatTile accent="blue" label={t('partos em 6 meses')} value={births} />
+            <StatTile accent={data.awaiting > 0 ? 'amber' : 'teal'} label={t('a diagnosticar')} value={data.awaiting} />
           </div>
 
           <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-4" aria-label={t('Destaques')}>
@@ -124,15 +127,12 @@ function Indices({ i }: { i: HerdIndices }) {
     <section className={`${card} mb-4`} aria-label={t('Índices zootécnicos')}>
       <h2 className="font-semibold text-gray-900">{t('Índices zootécnicos')}</h2>
       <p className="text-sm text-gray-500">{t(i.females === 1 ? '{n} fêmea em idade de cobertura' : '{n} fêmeas em idade de cobertura', { n: i.females })} · {t('{n} com prenhez confirmada', { n: i.pregnant })} · {t('espera de {days} dias depois do parto', { days: WAITING_DAYS })}</p>
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-4 md:grid-cols-3">
-        {items.map((it) => (
-          <div key={it.label}>
-            <dt className="text-sm text-gray-600">{it.label}</dt>
-            <dd className="text-2xl font-bold text-gray-900">{it.value}</dd>
-            <dd className="text-xs text-gray-500">{it.detail}</dd>
-          </div>
+      {/* Um cartão colorido por índice; as cores só alternam para separar os cartões */}
+      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
+        {items.map((it, n) => (
+          <StatTile key={it.label} accent={INDEX_ACCENTS[n % INDEX_ACCENTS.length]} label={it.label} value={it.value} detail={it.detail} />
         ))}
-      </dl>
+      </div>
     </section>
   )
 }

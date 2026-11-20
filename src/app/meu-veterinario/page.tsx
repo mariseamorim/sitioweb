@@ -85,7 +85,7 @@ export default function MeuVeterinarioPage() {
           <p className="mt-1 text-sm text-gray-500">{t('Peça o código ao seu veterinário; ele aparece no painel de consultoria dele.')}</p>
           {error && <p role="alert" className="mt-2 text-sm text-red-600">{error}</p>}
           {message && <p role="status" className="mt-2 text-sm text-green-700">{message}</p>}
-          <button type="submit" disabled={saving || code.length < 8} className="mt-3 rounded-lg bg-green-700 px-4 py-2.5 text-base font-semibold text-white hover:bg-green-600 disabled:bg-green-400">{t(saving ? 'Liberando…' : 'Liberar a propriedade')}</button>
+          <button type="submit" disabled={saving || code.length < 8} className="mt-3 rounded-lg bg-green-800 px-4 py-2.5 text-base font-semibold text-white hover:bg-green-700 disabled:bg-green-400">{t(saving ? 'Liberando…' : 'Liberar a propriedade')}</button>
         </form>
       )}
 

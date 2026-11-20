@@ -18,6 +18,7 @@ import { STOCK_WARNING_DAYS } from '@/lib/lots'
 import { fmtMoney } from '@/lib/reports'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 import { useLocale, useT } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
 
 interface SupplyMovement { id: string; type: string; quantity: number; date: string; description?: string | null }
 interface Supply {
@@ -117,11 +118,19 @@ export default function EstoquePage() {
   const refreshPending = () => { setMovPending(countMovPending()); net.refresh() }
 
   const alertCount = supplies.filter(s => s.currentQuantity <= s.minimumQuantity).length
-  const shown = quick ? supplies.filter(s => s.currentQuantity <= s.minimumQuantity) : supplies
+  // Abas por categoria: só as categorias que têm insumo cadastrado
+  const [catTab, setCatTab] = useState('Todas')
+  const tabCats = CATEGORIES.filter(c => supplies.some(s => s.category === c))
+  const byQuick = quick ? supplies.filter(s => s.currentQuantity <= s.minimumQuantity) : supplies
+  const shown = catTab === 'Todas' ? byQuick : byQuick.filter(s => s.category === catTab)
   const { rows: sortedSupplies, sort } = useSort(shown, {
     name: s => s.name, category: s => s.category, current: s => s.currentQuantity, minimum: s => s.minimumQuantity,
-    status: s => (s.currentQuantity <= s.minimumQuantity ? 0 : 1),
+    status: s => (s.currentQuantity <= 0 ? 0 : s.currentQuantity <= s.minimumQuantity ? 1 : 2),
   })
+  // Valor em estoque: só os insumos com preço informado entram na soma
+  const priced = supplies.filter(s => s.unitPrice)
+  const stockValue = priced.reduce((sum, s) => sum + Math.max(0, s.currentQuantity) * (s.unitPrice ?? 0), 0)
+  const unpriced = supplies.length - priced.length
   const { rows: sortedMovements, sort: movementSort } = useSort(detail?.movements ?? [], {
     date: m => new Date(m.date), type: m => m.type, quantity: m => m.quantity,
   })
@@ -318,6 +327,12 @@ export default function EstoquePage() {
   const fmt = (d: string) => new Date(d).toLocaleDateString(locale, { timeZone: 'UTC' })
 
   const isLow = (s: Supply) => s.currentQuantity <= s.minimumQuantity
+  // Situação do insumo: acabou = Crítico, no mínimo ou abaixo = Baixo; a palavra sempre aparece junto da cor
+  const statusOf = (s: Supply) => s.currentQuantity <= 0
+    ? { label: 'Crítico', badge: 'bg-red-100 text-red-800', dot: 'bg-red-600' }
+    : isLow(s)
+      ? { label: 'Baixo', badge: 'bg-orange-100 text-orange-800', dot: 'bg-orange-500' }
+      : { label: 'OK', badge: 'bg-green-100 text-green-800', dot: 'bg-green-600' }
 
   return (
     <PermissionGuard module="estoque">
@@ -327,7 +342,7 @@ export default function EstoquePage() {
           <h1 className="text-2xl font-bold text-gray-800">{t('Estoque')}</h1>
           <p className="text-gray-500 text-sm mt-1">{t('Insumos, medicamentos e vacinas')}</p>
         </div>
-        <button onClick={() => setShowNew(true)} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
+        <button onClick={() => setShowNew(true)} disabled={!canEdit} className={`text-white text-sm font-semibold px-4 py-2 rounded-lg ${canEdit ? 'bg-green-800 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}>
           {t('Cadastrar produto')}
         </button>
       </div>
@@ -365,7 +380,29 @@ export default function EstoquePage() {
         </div>
       )}
 
+      {/* Números do estoque */}
+      {!loading && supplies.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+          <StatTile accent="blue" label={t('Insumos cadastrados')} value={supplies.length} />
+          <StatTile accent="green" label={t('Valor total em estoque')} value={priced.length ? fmtMoney(stockValue) : '—'}
+            detail={unpriced > 0 ? t('{n} sem preço informado', { n: unpriced }) : undefined} />
+          <StatTile accent="red" label={t('Abaixo do mínimo')} value={alertCount} />
+        </div>
+      )}
+
       {quick && <QuickFilterChip label={t('itens abaixo do estoque mínimo')} count={shown.length} onClear={() => setQuick(null)} />}
+
+      {/* Abas por categoria */}
+      {!loading && tabCats.length > 1 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {['Todas', ...tabCats].map(c => (
+            <button key={c} type="button" onClick={() => setCatTab(c)} aria-pressed={catTab === c}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${catTab === c ? 'bg-green-800 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+              {t(c)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? <p className="text-gray-400 text-sm">{t('Carregando...')}</p> : supplies.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
@@ -391,15 +428,16 @@ export default function EstoquePage() {
                     {s.name}
                     {s.id.startsWith('pending_') && <span className="block text-xs font-medium text-blue-700">{t('Aguardando envio')}</span>}
                   </td>
-                  <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{t(s.category)}</td>
-                  <td className={`px-4 py-3 text-right font-semibold ${isLow(s) ? 'text-red-600' : 'text-gray-800'}`}>
+                  <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{t(s.category)}</td>
+                  <td className={`px-4 py-3 text-right font-semibold tabular-nums ${isLow(s) ? 'text-red-700' : 'text-gray-800'}`}>
                     {s.currentQuantity} {t(s.unit)}
                     {s.daysLeft != null && <span className={`block text-xs font-medium ${s.daysLeft <= STOCK_WARNING_DAYS ? 'text-amber-700' : 'text-gray-500'}`}>{s.daysLeft === 1 ? t('acaba em 1 dia') : t('acaba em {n} dias', { n: s.daysLeft })}</span>}
                   </td>
-                  <td className="hidden sm:table-cell px-4 py-3 text-right text-gray-500">{s.minimumQuantity} {t(s.unit)}</td>
+                  <td className="hidden sm:table-cell px-4 py-3 text-right text-gray-600 tabular-nums">{s.minimumQuantity} {t(s.unit)}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${isLow(s) ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                      {t(isLow(s) ? 'Baixo' : 'OK')}
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${statusOf(s).badge}`}>
+                      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${statusOf(s).dot}`} />
+                      {t(statusOf(s).label)}
                     </span>
                   </td>
                 </tr>
@@ -449,7 +487,7 @@ export default function EstoquePage() {
                   <PriceLine supply={detail} farmId={farmId} canEdit={canEdit && !isPendingId(detail.id)} onSaved={(updated, queued) => { setDetail({ ...detail, ...updated }); setNotice(queued ? t(net.queuedMessage) : ''); refreshPending(); reload() }} />
 
                   {canEdit && (
-                    <button onClick={openMov} className="w-full bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg mb-2">
+                    <button onClick={openMov} className="w-full bg-green-800 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg mb-2">
                       {t('+ Movimentação (Entrada / Saída)')}
                     </button>
                   )}
@@ -552,7 +590,7 @@ export default function EstoquePage() {
                   ) : (
                     <button type="button" onClick={() => { setShowMov(false); resetMov() }} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
                   )}
-                  <button type="button" onClick={() => void closeMov()} className="flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg">{t('Concluir')}</button>
+                  <button type="button" onClick={() => void closeMov()} className="flex-1 bg-green-800 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg">{t('Concluir')}</button>
                 </div>
               </form>
             </div>
@@ -621,7 +659,7 @@ export default function EstoquePage() {
                 {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setShowNew(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
+                  <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
                 </div>
               </form>
             </div>
@@ -671,7 +709,7 @@ function PriceLine({ supply, farmId, canEdit, onSaved }: { supply: Supply; farmI
         {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         <div className="mt-2 flex gap-2">
           <button type="button" onClick={() => setEditing(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg">{t('Cancelar')}</button>
-          <button type="button" onClick={() => void save()} className="flex-1 bg-green-700 text-white text-sm font-medium py-2 rounded-lg">{t('Salvar')}</button>
+          <button type="button" onClick={() => void save()} className="flex-1 bg-green-800 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg">{t('Salvar')}</button>
         </div>
       </div>
     )

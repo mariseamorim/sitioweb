@@ -54,6 +54,7 @@ export const gestao: Record<string, string> = {
   '{n} produtos abaixo do estoque mínimo': '{n} productos por debajo del inventario mínimo',
   'mínimo': 'mínimo',
   'Baixo': 'Bajo',
+  'Crítico': 'Crítico',
   'OK': 'OK',
   'Nenhum produto no estoque': 'Ningún producto en el inventario',
   'Toque em “Cadastrar” para começar.': 'Toque en “Registrar” para comenzar.',

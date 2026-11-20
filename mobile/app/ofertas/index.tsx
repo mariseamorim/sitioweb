@@ -111,7 +111,7 @@ function OfferCard({ offer: o, onCall }: { offer: Offer; onCall: () => void }) {
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
             {o.matchesLowStock ? <Badge label="Seu estoque está baixo" tone="amber" /> : null}
-            <Badge label={o.category} />
+            <Badge label={o.category} tone="blue" />
           </View>
           <Text style={{ fontSize: font.md, fontWeight: '600', color: colors.text }}>{o.title}</Text>
           {o.price ? (

@@ -19,6 +19,12 @@ export const UNITS = ['kg', 'saco', 'litro', 'dose', 'frasco', 'unidade']
 
 export const isLow = (s: Supply) => s.currentQuantity < s.minimumQuantity
 
+/** Selo da situação (só aparência, como no site): abaixo do mínimo e acabou = Crítico, abaixo do mínimo = Baixo, senão OK */
+export function supplyStatus(s: Supply): { label: 'Crítico' | 'Baixo' | 'OK'; tone: 'red' | 'amber' | 'green' } {
+  if (!isLow(s)) return { label: 'OK', tone: 'green' }
+  return s.currentQuantity <= 0 ? { label: 'Crítico', tone: 'red' } : { label: 'Baixo', tone: 'amber' }
+}
+
 export const listSupplies = (farmId: string) => all<Supply>('SELECT * FROM supplies WHERE farmId = ? ORDER BY name COLLATE NOCASE', [farmId])
 export const getSupply = (id: string) => one<Supply>('SELECT * FROM supplies WHERE id = ?', [id])
 export const listMovements = (supplyId: string) => all<Movement>('SELECT * FROM supply_movements WHERE supplyId = ? ORDER BY date DESC, createdAt DESC LIMIT 30', [supplyId])

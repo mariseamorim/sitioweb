@@ -6,6 +6,7 @@ import { BackLink } from '@/components/BackLink'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { useLocale, useT } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
 
 interface Receipt { id: string; number: number; payer: string; payerDoc: string | null; farmName: string | null; date: string; description: string; amount: number }
 interface VetInfo { name: string; crmv: string | null; city: string | null; state: string | null; phone: string | null }
@@ -76,10 +77,16 @@ export default function RecibosPage() {
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('Recibos')}</h1>
-          <p className="text-gray-500">{receipts ? t('{total} em recibos neste mês', { total: money(total) }) : ' '}</p>
         </div>
-        <button type="button" onClick={() => { setFormError(''); setForm({ ...EMPTY, date: todayISO() }) }} className="rounded-lg bg-green-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-600">{t('+ Emitir recibo')}</button>
+        <button type="button" onClick={() => { setFormError(''); setForm({ ...EMPTY, date: todayISO() }) }} className="rounded-lg bg-green-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700">{t('+ Emitir recibo')}</button>
       </div>
+      {/* Total do mês em recibos e quantos já foram emitidos */}
+      {receipts && (
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <StatTile accent="green" label={t('Recebido no mês')} value={money(total)} />
+          <StatTile accent="blue" label={t('Recibos emitidos')} value={receipts.length} />
+        </div>
+      )}
       {error && <p role="alert" className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
       {!receipts && !error && <p className="py-12 text-center text-gray-500">{t('Carregando…')}</p>}
       {receipts?.length === 0 && <p className="bg-white rounded-xl border border-gray-200 p-6 text-center text-gray-500">{t('Nenhum recibo emitido ainda.')}</p>}
@@ -93,7 +100,7 @@ export default function RecibosPage() {
                   <span className="block font-medium text-gray-900 truncate">{t('Nº')} {r.number} · {r.payer}</span>
                   <span className="block text-sm text-gray-500 truncate">{day(r.date)}{r.farmName ? ` · ${r.farmName}` : ''} · {r.description}</span>
                 </span>
-                <span className="shrink-0 font-semibold text-gray-900">{money(r.amount)}</span>
+                <span className="shrink-0 font-semibold tabular-nums text-green-700">{money(r.amount)}</span>
               </button>
             </li>
           ))}
@@ -117,7 +124,7 @@ export default function RecibosPage() {
             {formError && <p role="alert" className="text-sm text-red-600">{formError}</p>}
             <div className="flex gap-3">
               <button type="button" onClick={() => setForm(null)} className="flex-1 rounded-lg border border-gray-300 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50">{t('Fechar')}</button>
-              <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-green-700 py-3 text-base font-semibold text-white hover:bg-green-600 disabled:bg-green-400">{t(saving ? 'Emitindo…' : 'Emitir recibo')}</button>
+              <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-green-800 py-3 text-base font-semibold text-white hover:bg-green-700 disabled:bg-green-400">{t(saving ? 'Emitindo…' : 'Emitir recibo')}</button>
             </div>
           </form>
         </div>
@@ -142,7 +149,7 @@ export default function RecibosPage() {
               </div>
             </article>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={() => window.print()} className="flex-1 rounded-lg bg-green-700 py-3 text-base font-semibold text-white hover:bg-green-600">{t('Imprimir')}</button>
+              <button type="button" onClick={() => window.print()} className="flex-1 rounded-lg bg-green-800 py-3 text-base font-semibold text-white hover:bg-green-700">{t('Imprimir')}</button>
               <button type="button" onClick={() => setOpen(null)} className="flex-1 rounded-lg border border-gray-300 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50">{t('Fechar')}</button>
               <button type="button" onClick={() => remove(open)} className="rounded-lg px-4 py-3 text-sm font-semibold text-red-700 hover:bg-red-50">{t('Apagar')}</button>
             </div>

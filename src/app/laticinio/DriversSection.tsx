@@ -51,7 +51,7 @@ export function DriversSection({ drivers, routes, onChanged }: { drivers: Driver
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-gray-600">O motorista usa o Anota Aí Leite no celular, mesmo sem internet.</p>
-        <button type="button" onClick={() => open('new')} className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">+ Novo motorista</button>
+        <button type="button" onClick={() => open('new')} className="bg-green-800 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">+ Novo motorista</button>
       </div>
 
       {created && (
@@ -60,7 +60,7 @@ export function DriversSection({ drivers, routes, onChanged }: { drivers: Driver
           <p className="mt-1 text-sm text-green-900">Passe o telefone (ou e-mail) e a senha para ele. Ele entra pelo login normal e já vê as rotas.</p>
           {created.phone && accessText && (
             <a href={whatsappLink(created.phone, accessText)} target="_blank" rel="noopener noreferrer"
-              className="mt-3 inline-flex bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">Mandar o acesso pelo WhatsApp</a>
+              className="mt-3 inline-flex bg-green-800 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">Mandar o acesso pelo WhatsApp</a>
           )}
         </div>
       )}
@@ -90,7 +90,7 @@ export function DriversSection({ drivers, routes, onChanged }: { drivers: Driver
           {error && <p className="text-sm text-red-600 sm:col-span-2">{error}</p>}
           <div className="flex gap-2 sm:col-span-2">
             <button type="button" onClick={() => setEditing(null)} className="flex-1 border border-gray-300 bg-white text-gray-700 font-medium py-2.5 rounded-lg">Cancelar</button>
-            <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
+            <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
           </div>
         </form>
       )}

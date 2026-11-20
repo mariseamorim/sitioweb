@@ -149,7 +149,7 @@ export default function RelatoriosPage() {
                 onClick={() => chooseType(rt.key)}
                 aria-pressed={typeKey === rt.key}
                 className={`text-left rounded-xl border-2 p-4 transition-colors ${
-                  typeKey === rt.key ? 'border-green-600 bg-green-50' : 'border-gray-100 bg-white hover:border-gray-200'
+                  typeKey === rt.key ? 'border-green-700 bg-green-50' : 'border-gray-100 bg-white hover:border-green-200'
                 }`}
               >
                 <p className="text-base font-semibold text-gray-900">{t(rt.label)}</p>
@@ -170,8 +170,8 @@ export default function RelatoriosPage() {
                         key={p.key}
                         type="button"
                         onClick={() => choosePreset(p.key)}
-                        className={`px-4 py-2.5 rounded-lg text-sm font-medium border ${
-                          preset === p.key ? 'bg-green-700 border-green-700 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                        className={`px-4 py-2 rounded-full text-sm font-semibold border ${
+                          preset === p.key ? 'bg-green-800 border-green-800 text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                         }`}
                       >
                         {t(p.label)}
@@ -211,7 +211,7 @@ export default function RelatoriosPage() {
                   type="button"
                   onClick={generate}
                   disabled={!canGenerate || loading}
-                  className="w-full sm:w-auto bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white text-base font-semibold px-6 py-3 rounded-lg"
+                  className="w-full sm:w-auto bg-green-800 hover:bg-green-700 disabled:bg-gray-300 text-white text-base font-semibold px-6 py-3 rounded-lg"
                 >
                   {t(loading ? 'Gerando...' : 'Ver relatório')}
                 </button>
@@ -235,11 +235,11 @@ export default function RelatoriosPage() {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handlePDF} disabled={exporting}
-                    className="flex-1 sm:flex-none bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
+                    className="flex-1 sm:flex-none bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
                     {t(exporting ? 'Gerando PDF...' : 'Baixar PDF')}
                   </button>
                   <button onClick={() => exportCSV(shown)}
-                    className="flex-1 sm:flex-none border-2 border-green-700 text-green-700 hover:bg-green-50 text-sm font-semibold px-4 py-2 rounded-lg">
+                    className="flex-1 sm:flex-none border-2 border-green-800 text-green-800 hover:bg-green-50 text-sm font-semibold px-4 py-2 rounded-lg">
                     {t('Baixar planilha')}
                   </button>
                 </div>
@@ -300,7 +300,7 @@ function SortableReportTable({ section }: { section: Report['sections'][number] 
           ) : rows.map((row, r) => (
             <tr key={r}>
               {row.map((v, j) => (
-                <td key={j} className={`px-3 py-2 text-gray-700 ${section.numeric?.includes(j) ? 'text-right whitespace-nowrap' : ''}`}>{v}</td>
+                <td key={j} className={`px-3 py-2 text-gray-700 ${section.numeric?.includes(j) ? 'text-right whitespace-nowrap tabular-nums' : ''}`}>{v}</td>
               ))}
             </tr>
           ))}
@@ -309,7 +309,7 @@ function SortableReportTable({ section }: { section: Report['sections'][number] 
           <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-semibold text-gray-800">
             <tr>
               {section.footer.map((v, j) => (
-                <td key={j} className={`px-3 py-2 ${section.numeric?.includes(j) ? 'text-right whitespace-nowrap' : ''}`}>{v}</td>
+                <td key={j} className={`px-3 py-2 ${section.numeric?.includes(j) ? 'text-right whitespace-nowrap tabular-nums' : ''}`}>{v}</td>
               ))}
             </tr>
           </tfoot>

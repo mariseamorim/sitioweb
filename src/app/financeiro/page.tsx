@@ -13,6 +13,7 @@ import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
 import { useLocale, useT } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
 
 interface Animal { id: string; name: string; code: string }
 interface Transaction {
@@ -27,6 +28,18 @@ interface Transaction {
 
 const CATEGORIES_RECEITA = ['Venda de Leite', 'Venda de Animal', 'Outros']
 const CATEGORIES_DESPESA = ['Medicamentos', 'Ração', 'Vacinas', 'Mão de Obra', 'Outros']
+
+// Cor fixa por categoria (etiqueta e barra); o nome da categoria sempre aparece escrito
+const CATEGORY_COLOR: Record<string, { badge: string; bar: string }> = {
+  'Venda de Leite': { badge: 'bg-sky-100 text-sky-800', bar: 'bg-sky-500' },
+  'Venda de Animal': { badge: 'bg-green-100 text-green-800', bar: 'bg-green-600' },
+  'Medicamentos': { badge: 'bg-rose-100 text-rose-800', bar: 'bg-rose-500' },
+  'Ração': { badge: 'bg-amber-100 text-amber-800', bar: 'bg-amber-500' },
+  'Vacinas': { badge: 'bg-violet-100 text-violet-800', bar: 'bg-violet-500' },
+  'Mão de Obra': { badge: 'bg-orange-100 text-orange-800', bar: 'bg-orange-500' },
+}
+const OTHER_COLOR = { badge: 'bg-gray-100 text-gray-800', bar: 'bg-gray-400' }
+const categoryColor = (c: string) => CATEGORY_COLOR[c] ?? OTHER_COLOR
 
 const MODULE = 'financeiro'
 const EMPTY_FORM = { type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '' }
@@ -164,7 +177,7 @@ export default function FinanceiroPage() {
           <h1 className="text-2xl font-bold text-gray-800">{t('Financeiro')}</h1>
           <p className="text-gray-500 text-sm mt-1">{t('Receitas e despesas da propriedade')}</p>
         </div>
-        <button onClick={() => setShowRegister(true)} className="bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg">
+        <button onClick={() => setShowRegister(true)} className="bg-green-800 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">
           {t('Anotar entrada ou saída')}
         </button>
       </div>
@@ -212,33 +225,24 @@ export default function FinanceiroPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 sm:p-4">
-          <p className="text-xs text-gray-500 mb-1">{t('Receitas')}</p>
-          <p className="text-lg sm:text-xl font-bold text-green-600 truncate">{fmtBRL(totalReceita)}</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 sm:p-4">
-          <p className="text-xs text-gray-500 mb-1">{t('Despesas')}</p>
-          <p className="text-lg sm:text-xl font-bold text-red-500 truncate">{fmtBRL(totalDespesa)}</p>
-        </div>
-        <div className={`rounded-xl shadow-sm border p-3 sm:p-4 ${saldo >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
-          <p className="text-xs text-gray-500 mb-1">{t('Saldo')}</p>
-          <p className={`text-lg sm:text-xl font-bold truncate ${saldo >= 0 ? 'text-green-700' : 'text-red-600'}`}>{fmtBRL(saldo)}</p>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <StatTile accent="green" label={t('Receitas')} value={fmtBRL(totalReceita)} />
+        <StatTile accent="red" label={t('Despesas')} value={fmtBRL(totalDespesa)} />
+        <StatTile accent={saldo >= 0 ? 'green' : 'red'} label={t('Saldo')} value={fmtBRL(saldo)} />
       </div>
 
       {/* Category bars */}
       {byCategory.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-3 sm:p-4 mb-6">
-          <p className="text-xs font-semibold text-gray-600 uppercase mb-3">{t('Por categoria')}</p>
+          <h2 className="text-sm font-semibold text-gray-800 mb-3">{t('Por categoria')}</h2>
           <div className="space-y-2">
             {byCategory.map(([cat, val]) => (
               <div key={cat} className="flex items-center gap-2 sm:gap-3">
-                <span className="text-xs text-gray-600 w-20 sm:w-28 shrink-0 truncate">{t(cat)}</span>
-                <div className="flex-1 bg-gray-100 rounded-full h-2">
-                  <div className="bg-green-500 h-2 rounded-full" style={{ width: `${(val / maxCat) * 100}%` }} />
+                <span className="text-xs sm:text-sm text-gray-700 w-24 sm:w-32 shrink-0 truncate">{t(cat)}</span>
+                <div className="flex-1 bg-gray-100 rounded-full h-2.5">
+                  <div className={`${categoryColor(cat).bar} h-2.5 rounded-full`} style={{ width: `${(val / maxCat) * 100}%` }} />
                 </div>
-                <span className="text-xs font-medium text-gray-700 text-right shrink-0 whitespace-nowrap tabular-nums">{fmtBRL(val)}</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-800 text-right shrink-0 whitespace-nowrap tabular-nums">{fmtBRL(val)}</span>
               </div>
             ))}
           </div>
@@ -249,7 +253,7 @@ export default function FinanceiroPage() {
       <div className="flex flex-wrap gap-2 mb-4">
         {['Todas', 'Receita', 'Despesa'].map(s => (
           <button key={s} onClick={() => setFilterType(s)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterType === s ? 'bg-green-700 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${filterType === s ? 'bg-green-800 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
             {t(s)}
           </button>
         ))}
@@ -266,6 +270,7 @@ export default function FinanceiroPage() {
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
                 <SortTh label={t('Data')} sortKey="date" sort={sort} className="px-2 sm:px-4 py-2 sm:py-3 text-left" />
+                <th className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left">{t('Tipo')}</th>
                 <SortTh label={t('Categoria')} sortKey="category" sort={sort} className="px-2 sm:px-4 py-2 sm:py-3 text-left" />
                 <SortTh label={t('Descrição')} sortKey="description" sort={sort} className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left" />
                 <SortTh label={t('Valor')} sortKey="amount" sort={sort} align="right" className="px-2 sm:px-4 py-2 sm:py-3 text-right" />
@@ -276,11 +281,14 @@ export default function FinanceiroPage() {
               {sortedTransactions.map(tx => (
                 <tr key={tx.id} className="hover:bg-gray-50">
                   <td className="px-2 sm:px-4 py-2 sm:py-3 text-gray-600 whitespace-nowrap">{fmt(tx.date)}{isPendingId(tx.id) && <span className="block text-xs text-blue-700">{t('a enviar')}</span>}</td>
+                  <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3">
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${tx.type === 'Receita' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{t(tx.type)}</span>
+                  </td>
                   <td className="px-2 sm:px-4 py-2 sm:py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium truncate inline-block ${tx.type === 'Receita' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t(tx.category)}</span>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold truncate inline-block max-w-full ${categoryColor(tx.category).badge}`}>{t(tx.category)}</span>
                   </td>
                   <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-gray-500 text-xs truncate">{tx.description || (tx.animal ? tx.animal.name : '—')}</td>
-                  <td className={`px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-xs sm:text-sm whitespace-nowrap ${tx.type === 'Receita' ? 'text-green-600' : 'text-red-500'}`}>
+                  <td className={`px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-xs sm:text-sm whitespace-nowrap tabular-nums ${tx.type === 'Receita' ? 'text-green-700' : 'text-red-700'}`}>
                     {tx.type === 'Receita' ? '+' : '-'}{fmtBRL(tx.amount)}
                   </td>
                   <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
@@ -355,7 +363,7 @@ export default function FinanceiroPage() {
                 {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setShowRegister(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
+                  <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
                 </div>
               </form>
             </div>

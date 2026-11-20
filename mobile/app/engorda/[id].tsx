@@ -13,7 +13,7 @@ import {
   removeWeighing, supplyRef, type Lot, type LotAnimal, type SupplyRef,
 } from '@/repos/lots'
 import { listSupplies } from '@/repos/supplies'
-import { Badge, Button, Card, DateField, Field, Muted, Notice, Screen, SelectField } from '@/ui'
+import { Badge, Button, Card, DateField, Field, Muted, Notice, Screen, SelectField, Tile, TileGrid } from '@/ui'
 import {
   AnimalPicker, OptionCards, ProductsEditor, Section, StatGrid, TextButton, WeightList, averageOf, coverageLine, kg, numericWeights, parseProducts, phaseLabel, plural,
   productsFromLot, tag, type ProductForm,
@@ -77,13 +77,13 @@ export default function LoteScreen() {
           : <TextButton label="Editar lote (nome, fase, data de entrada)" onPress={() => setEditingLot(true)} />) : null}
       </Card>
 
-      <StatGrid items={[
-        { title: 'Entrada', value: s.entry ? kg(s.entry.avgWeight) : '—' },
-        { title: 'Última pesagem', value: s.last ? kg(s.last.avgWeight) : '—' },
-        { title: 'Ganho por cabeça', value: s.gainKg !== null ? kg(s.gainKg) : '—' },
-        { title: 'Ganho por dia', value: s.gmd !== null ? `${brNumber(s.gmd, 3)} kg` : '—', tone: 'green' },
-        ...(isRecria ? [] : [{ title: '@ produzidas', value: arrobas !== null ? brNumber(arrobas) : '—' }]),
-      ]} />
+      <TileGrid>
+        <Tile accent="blue" label={t('Entrada')} value={s.entry ? kg(s.entry.avgWeight) : '—'} />
+        <Tile accent="teal" label={t('Última pesagem')} value={s.last ? kg(s.last.avgWeight) : '—'} />
+        <Tile accent={s.gainKg !== null && s.gainKg < 0 ? 'red' : 'green'} label={t('Ganho por cabeça')} value={s.gainKg !== null ? kg(s.gainKg) : '—'} />
+        <Tile accent={s.gmd !== null && s.gmd < 0 ? 'red' : 'green'} label={t('Ganho por dia')} value={s.gmd !== null ? `${brNumber(s.gmd, 3)} kg` : '—'} />
+        {isRecria ? null : <Tile accent="amber" label={t('@ produzidas')} value={arrobas !== null ? brNumber(arrobas) : '—'} />}
+      </TileGrid>
       <Muted style={{ marginTop: space.sm }}>
         {hasAnimals ? lot.animals.length : s.last?.headCount ?? 0} {t('cabeças')} · {plural(s.days, 'dia', 'dias')} {t('no lote')}
         {arrobas !== null ? ` · ${t('arrobas estimadas pelo peso vivo ({kg} kg = 1 @, rendimento de 50%)', { kg: LIVE_KG_PER_ARROBA })}` : ''}

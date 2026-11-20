@@ -21,6 +21,7 @@ import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 import { useLocale, useT } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
 
 interface Animal {
   id: string
@@ -317,13 +318,18 @@ export default function AnimaisPage() {
     code: (a) => a.code, name: (a) => a.name, species: (a) => a.species, gender: (a) => a.gender, status: (a) => a.status,
   })
 
+  // Etiqueta da situação: a palavra sempre aparece, a cor só ajuda a achar
   const statusColor: Record<string, string> = {
-    Vivo: 'bg-green-100 text-green-700',
-    Morto: 'bg-gray-100 text-gray-600',
-    Vendido: 'bg-blue-100 text-blue-700',
-    Doente: 'bg-red-100 text-red-700',
-    Arrendado: 'bg-yellow-100 text-yellow-700',
+    Vivo: 'bg-green-100 text-green-800',
+    Morto: 'bg-gray-200 text-gray-700',
+    Vendido: 'bg-blue-100 text-blue-800',
+    Doente: 'bg-red-100 text-red-800',
+    Arrendado: 'bg-amber-100 text-amber-800',
   }
+  // Números do rebanho no topo (os mesmos dos filtros do Painel)
+  const aliveCount = animals.filter((a) => a.status === 'Vivo').length
+  const matrixCount = animals.filter(isMatrix).length
+  const withCalfCount = animals.filter((a) => isMatrix(a) && withCalf.has(a.id)).length
 
   function getNextCode(list: Animal[]) {
     const maxNum = list.reduce((acc, item) => {
@@ -342,15 +348,24 @@ export default function AnimaisPage() {
         <button
           onClick={openNew}
           disabled={!canEdit}
-          className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${
-            canEdit 
-              ? 'bg-green-700 hover:bg-green-600' 
+          className={`text-white text-sm font-semibold px-4 py-2 rounded-lg ${
+            canEdit
+              ? 'bg-green-800 hover:bg-green-700'
               : 'bg-gray-400 cursor-not-allowed'
           }`}
         >
           {t('Cadastrar animal')}
         </button>
       </div>
+
+      {!loading && animals.length > 0 && (
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatTile accent="blue" label={t('Total de animais')} value={animals.length} />
+          <StatTile accent="green" label={t('Animais vivos')} value={aliveCount} />
+          {matrixCount > 0 && <StatTile accent="teal" label={t('Matrizes')} value={matrixCount} />}
+          {matrixCount > 0 && <StatTile accent="amber" label={t('Com bezerro ao pé')} value={withCalfCount} />}
+        </div>
+      )}
 
       {/* Offline / sinal fraco / sync banner */}
       {isOnline && fromCache && (
@@ -444,7 +459,7 @@ export default function AnimaisPage() {
                   <td className="hidden md:table-cell px-4 py-3 text-gray-600 text-xs sm:text-sm">{t(a.species)}</td>
                   <td className="hidden lg:table-cell px-4 py-3 text-gray-600 text-xs sm:text-sm">{t(a.gender)}</td>
                   <td className="hidden md:table-cell px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[a.status] || 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusColor[a.status] || 'bg-gray-100 text-gray-600'}`}>
                       {t(a.status)}
                     </span>
                   </td>
@@ -553,7 +568,7 @@ export default function AnimaisPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs text-gray-500">{t('Status')}</p>
-                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColor[selectedAnimal.status] || 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusColor[selectedAnimal.status] || 'bg-gray-100 text-gray-600'}`}>
                     {t(selectedAnimal.status)}
                   </span>
                 </div>
@@ -608,8 +623,8 @@ export default function AnimaisPage() {
                   onClick={() => { closeDetails(); openEdit(selectedAnimal) }}
                   disabled={!canEdit}
                   className={`inline-flex items-center justify-center text-white text-sm font-medium px-3 py-2 rounded-lg flex-1 sm:flex-none ${
-                    canEdit 
-                      ? 'bg-green-700 hover:bg-green-600' 
+                    canEdit
+                      ? 'bg-green-800 hover:bg-green-700'
                       : 'bg-gray-400 cursor-not-allowed'
                   }`}
                 >
@@ -804,7 +819,7 @@ export default function AnimaisPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg"
+                    className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold py-2 rounded-lg"
                   >
                     {t(saving ? 'Salvando...' : 'Salvar')}
                   </button>

@@ -4,8 +4,8 @@ import { Alert, Text, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { brDate, brMoney, brNumber, parseNumber, todayISO } from '@/lib/format'
-import { SUPPLY_CATEGORIES, UNITS, addMovement, getSupply, isLow, listMovements, removeSupply, saveSupply, type Supply } from '@/repos/supplies'
-import { Badge, Button, Card, Chips, DateField, Field, Muted, Notice, Row, Screen, SelectField } from '@/ui'
+import { SUPPLY_CATEGORIES, UNITS, addMovement, getSupply, isLow, listMovements, removeSupply, saveSupply, supplyStatus, type Supply } from '@/repos/supplies'
+import { Badge, Button, Card, Chips, DateField, Field, IconCircle, Muted, Notice, Row, Screen, SelectField } from '@/ui'
 import { colors, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
@@ -25,6 +25,7 @@ export default function EstoqueItem() {
   if (editing) return <SupplyForm farmId={farmId} supply={supply} canEdit={canEdit} onDone={(newId) => { if (isNew) router.replace(`/estoque/${newId}`); else setEditing(false) }} />
   const s = supply!
   if (moving) return <MovementForm farmId={farmId} supply={s} onDone={() => setMoving(false)} />
+  const st = supplyStatus(s)
 
   return (
     <Screen>
@@ -33,8 +34,8 @@ export default function EstoqueItem() {
         <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text }}>{s.name}</Text>
         <Muted>{t(s.category)}{s.unitPrice ? ` · ${brMoney(s.unitPrice)} ${t('por')} ${t(s.unit)}` : ''}{s.packageKg ? ` · ${brNumber(s.packageKg, 0)} kg ${t('por')} ${t(s.unit)}` : ''}</Muted>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: space.sm, marginTop: space.sm }}>
-          <Text style={{ fontSize: 28, fontWeight: '700', color: isLow(s) ? colors.red : colors.green }}>{brNumber(s.currentQuantity, 0)} {t(s.unit)}</Text>
-          <Badge label={isLow(s) ? 'Abaixo do mínimo' : 'OK'} tone={isLow(s) ? 'red' : 'green'} />
+          <Text style={{ fontSize: 28, fontWeight: '700', color: st.tone === 'green' ? colors.green : st.tone === 'red' ? colors.red : colors.amber }}>{brNumber(s.currentQuantity, 0)} {t(s.unit)}</Text>
+          <Badge label={st.label === 'Crítico' ? 'Crítico' : isLow(s) ? 'Abaixo do mínimo' : 'OK'} tone={st.tone} />
         </View>
         <Muted>{t('Mínimo:')} {brNumber(s.minimumQuantity, 0)} {t(s.unit)}</Muted>
         {canEdit ? (
@@ -48,6 +49,7 @@ export default function EstoqueItem() {
         <Text style={{ fontWeight: '700', color: colors.text }}>{t('Movimentações')}</Text>
         {movements.length === 0 ? <Muted>{t('Nenhuma movimentação anotada.')}</Muted> : movements.map(m => (
           <Row key={m.id} title={`${m.type === 'Entrada' ? '+' : '-'}${brNumber(m.quantity, 0)} ${t(s.unit)}`} detail={`${brDate(m.date)}${m.description ? ' · ' + m.description : ''}`}
+            left={<IconCircle icon={m.type === 'Entrada' ? 'arrow-down-outline' : 'arrow-up-outline'} tone={m.type === 'Entrada' ? 'green' : 'amber'} size={36} />}
             badge={<Badge label={m.type} tone={m.type === 'Entrada' ? 'green' : 'amber'} />} />
         ))}
       </Card>

@@ -7,7 +7,7 @@ import { addMonths, buildIndicators, monthName, monthShort, type MonthLiters } f
 import { buildHerdIndices, CYCLE_DAYS, type HerdIndices } from '@/lib/herdIndices'
 import { listAnimals } from '@/repos/animals'
 import { listReproductions } from '@/repos/reproductions'
-import { Card, Muted, Screen, Stat } from '@/ui'
+import { Card, Muted, Screen, Tile, TileGrid, type Accent } from '@/ui'
 import { colors, font, radius, space } from '@/theme'
 import { getLang, tr, useLocale, useT } from '@/lib/i18n'
 
@@ -42,11 +42,11 @@ export default function Indicadores() {
   return (
     <Screen>
       <Muted style={{ marginBottom: space.md }}>{user?.farmName}</Muted>
-      <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.md }}>
-        <Stat label={t('concepção em 12 meses')} value={data.rate12 === null ? '—' : `${data.rate12}%`} />
-        <Stat label={t('partos em 6 meses')} value={String(births)} />
-        <Stat label={t('a diagnosticar')} value={String(data.awaiting)} />
-      </View>
+      <TileGrid>
+        <Tile accent="green" label={t('concepção em 12 meses')} value={data.rate12 === null ? '—' : `${data.rate12}%`} />
+        <Tile accent="blue" label={t('partos em 6 meses')} value={String(births)} />
+        <Tile accent={data.awaiting > 0 ? 'amber' : 'teal'} label={t('a diagnosticar')} value={String(data.awaiting)} />
+      </TileGrid>
 
       <Card style={{ backgroundColor: colors.amberSoft, borderColor: colors.amber }}>
         <Text style={{ fontSize: font.sm, fontWeight: '700', color: colors.amber, marginBottom: space.xs }}>{t('DESTAQUES')}</Text>
@@ -86,26 +86,22 @@ function Indices({ i }: { i: HerdIndices }) {
   const loc = useLocale()
   const months = (n: number) => `${n.toLocaleString(loc)} ${t(n === 1 ? 'mês' : 'meses')}`
   const items = [
-    { label: t('Taxa de serviço'), value: i.serviceRate === null ? '—' : `${i.serviceRate}%`, detail: i.eligible ? t('{a} de {b} aptas em {d} dias', { a: i.served, b: i.eligible, d: CYCLE_DAYS }) : t('nenhuma vaca apta agora') },
-    { label: t('Taxa de concepção'), value: i.conceptionRate === null ? '—' : `${i.conceptionRate}%`, detail: t('diagnosticadas em 12 meses') },
-    { label: t('Taxa de prenhez'), value: i.pregnancyRate === null ? '—' : `${i.pregnancyRate}%`, detail: t('serviço × concepção') },
-    { label: t('Intervalo entre partos'), value: i.iep === null ? '—' : months(i.iep), detail: i.iepCount ? t('média de {n}', { n: i.iepCount }) : t('falta vaca com dois partos') },
-    { label: t('Idade ao 1º parto'), value: i.ipp === null ? '—' : months(i.ipp), detail: i.ippCount ? t('média de {n}', { n: i.ippCount }) : t('falta cria ligada à mãe') },
-    { label: t('Dias pós-parto'), value: i.dpp === null ? '—' : t('{n} dias', { n: i.dpp }), detail: i.dppCount ? t('{n} paridas em aberto', { n: i.dppCount }) : t('nenhuma parida em aberto') },
+    { accent: 'green' as Accent, label: t('Taxa de serviço'), value: i.serviceRate === null ? '—' : `${i.serviceRate}%`, detail: i.eligible ? t('{a} de {b} aptas em {d} dias', { a: i.served, b: i.eligible, d: CYCLE_DAYS }) : t('nenhuma vaca apta agora') },
+    { accent: 'teal' as Accent, label: t('Taxa de concepção'), value: i.conceptionRate === null ? '—' : `${i.conceptionRate}%`, detail: t('diagnosticadas em 12 meses') },
+    { accent: 'blue' as Accent, label: t('Taxa de prenhez'), value: i.pregnancyRate === null ? '—' : `${i.pregnancyRate}%`, detail: t('serviço × concepção') },
+    { accent: 'amber' as Accent, label: t('Intervalo entre partos'), value: i.iep === null ? '—' : months(i.iep), detail: i.iepCount ? t('média de {n}', { n: i.iepCount }) : t('falta vaca com dois partos') },
+    { accent: 'green' as Accent, label: t('Idade ao 1º parto'), value: i.ipp === null ? '—' : months(i.ipp), detail: i.ippCount ? t('média de {n}', { n: i.ippCount }) : t('falta cria ligada à mãe') },
+    { accent: 'blue' as Accent, label: t('Dias pós-parto'), value: i.dpp === null ? '—' : t('{n} dias', { n: i.dpp }), detail: i.dppCount ? t('{n} paridas em aberto', { n: i.dppCount }) : t('nenhuma parida em aberto') },
   ]
   return (
     <Card>
       <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.md }}>{t('Índices zootécnicos')}</Text>
       <Muted>{i.females} {t(i.females === 1 ? 'fêmea' : 'fêmeas')} {t('em idade de cobertura')} · {i.pregnant} {t('com prenhez confirmada')}</Muted>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: space.sm }}>
-        {items.map(it => (
-          <View key={it.label} style={{ width: '50%', paddingVertical: space.sm, paddingRight: space.sm }}>
-            <Text style={{ fontSize: font.sm, color: colors.muted }}>{it.label}</Text>
-            <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text }}>{it.value}</Text>
-            <Text style={{ fontSize: 12, color: colors.muted }}>{it.detail}</Text>
-          </View>
-        ))}
-      </View>
+      {/* Um cartão colorido por índice, dois por linha */}
+      <View style={{ height: space.sm }} />
+      <TileGrid>
+        {items.map(it => <Tile key={it.label} accent={it.accent} label={it.label} value={it.value} detail={it.detail} />)}
+      </TileGrid>
     </Card>
   )
 }

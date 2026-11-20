@@ -8,6 +8,7 @@ import { fmtDate } from '@/lib/reports'
 import { whatsappLink } from '@/lib/utils'
 import { ORG_TYPES, type OrgType } from '@/lib/organizations'
 import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
+import { StatTile } from '@/components/StatTile'
 
 interface Organization {
   id: string
@@ -25,7 +26,7 @@ interface Organization {
 }
 
 const STATUS_LABEL = { pendente: 'Em análise', aprovado: 'Aprovado', bloqueado: 'Bloqueado' }
-const STATUS_STYLE = { pendente: 'bg-amber-100 text-amber-800', aprovado: 'bg-green-100 text-green-800', bloqueado: 'bg-gray-200 text-gray-700' }
+const STATUS_STYLE = { pendente: 'bg-orange-100 text-orange-800', aprovado: 'bg-green-100 text-green-800', bloqueado: 'bg-red-100 text-red-800' }
 
 // Admin aprova ou bloqueia laticínios e associações
 const OFFLINE_ACTION = 'Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.'
@@ -79,6 +80,16 @@ export default function AdminOrganizacoesPage() {
         </p>
       </div>
 
+      {/* Resumo por situação do cadastro: em análise (laranja), aprovados (verde), bloqueados (vermelho) */}
+      {organizations && organizations.length > 0 && (
+        <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatTile accent="blue" label="Cadastros" value={organizations.length} />
+          <StatTile accent="amber" label="Em análise" value={pending} />
+          <StatTile accent="green" label="Aprovados" value={organizations.filter((x) => x.status === 'aprovado').length} />
+          <StatTile accent="red" label="Bloqueados" value={organizations.filter((x) => x.status === 'bloqueado').length} />
+        </div>
+      )}
+
       {fromCache && <p role="status" className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho.</p>}
       {actionError && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</p>}
       {!organizations ? (
@@ -101,11 +112,11 @@ export default function AdminOrganizacoesPage() {
                       : `${o._count.members} associado${o._count.members === 1 ? '' : 's'}`}
                   </p>
                 </div>
-                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_STYLE[o.status]}`}>{STATUS_LABEL[o.status]}</span>
+                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_STYLE[o.status]}`}>{STATUS_LABEL[o.status]}</span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 {o.status !== 'aprovado' && (
-                  <button onClick={() => setStatus(o, 'aprovado')} className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg">Aprovar</button>
+                  <button onClick={() => setStatus(o, 'aprovado')} className="bg-green-800 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">Aprovar</button>
                 )}
                 {o.status !== 'bloqueado' && (
                   <button onClick={() => setStatus(o, 'bloqueado')} className="border border-gray-300 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg hover:bg-gray-50">Bloquear</button>

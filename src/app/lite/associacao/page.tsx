@@ -33,7 +33,7 @@ interface Association {
 }
 
 const fmtMoney = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const FEE_LABEL = { paga: ['Paga', 'bg-green-100 text-green-800'], aberta: ['Em aberto', 'bg-amber-100 text-amber-800'], atrasada: ['Atrasada', 'bg-red-100 text-red-700'] } as const
+const FEE_LABEL = { paga: ['Paga', 'bg-green-100 text-green-800'], aberta: ['Em aberto', 'bg-orange-100 text-orange-800'], atrasada: ['Atrasada', 'bg-red-100 text-red-800'] } as const
 
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
 
@@ -91,7 +91,7 @@ export default function MinhaAssociacaoPage() {
                     <h2 className="text-lg font-semibold text-gray-900">{a.name}</h2>
                     <p className="text-sm text-gray-600">{a.contactName}</p>
                   </div>
-                  {a.status === 'inativo' && <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">Inativo</span>}
+                  {a.status === 'inativo' && <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">Inativo</span>}
                 </div>
 
                 <div className="mt-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-700">
@@ -135,8 +135,8 @@ export default function MinhaAssociacaoPage() {
                         const [label, style] = FEE_LABEL[feeStatus(f, todayISO())]
                         return (
                           <li key={f.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                            <span className="text-gray-800">{fmtMonth(f.reference)}<span className="text-gray-500"> · {fmtMoney(f.amount)} · vence {fmtDay(f.dueDate)}</span></span>
-                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${style}`}>{label}</span>
+                            <span className="text-gray-800">{fmtMonth(f.reference)}<span className="tabular-nums text-gray-500"> · {fmtMoney(f.amount)} · vence {fmtDay(f.dueDate)}</span></span>
+                            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${style}`}>{label}</span>
                           </li>
                         )
                       })}
@@ -200,7 +200,7 @@ function PurchaseItem({ purchase: p, canOrder, onSaved }: { purchase: Purchase; 
           <p className="text-sm text-gray-600">{p.category}{p.deadline && ` · pedir até ${fmtDay(p.deadline)}`}{p.description && ` · ${p.description}`}</p>
           <p className="text-xs text-gray-500">Total da associação até agora: {qtyWithUnit(p.total, p.unit)}</p>
         </div>
-        {!open && <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">Fechada</span>}
+        {!open && <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">Fechada</span>}
       </div>
       {open && canOrder && p.myQuantity ? (
         <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-900">
@@ -212,7 +212,7 @@ function PurchaseItem({ purchase: p, canOrder, onSaved }: { purchase: Purchase; 
           <input value={quantity} onChange={(e) => setQuantity(e.target.value.replace(/[^\d.,]/g, ''))} inputMode="decimal" placeholder="0"
             aria-label={`Quantidade de ${p.title}`} className="w-28 rounded-lg border border-gray-300 px-3 py-2 text-right text-lg font-semibold" />
           <span className="text-gray-600">{p.unit}</span>
-          <button type="button" onClick={save} disabled={saving} className="ml-auto rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-gray-300">
+          <button type="button" onClick={save} disabled={saving} className="ml-auto rounded-lg bg-green-800 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:bg-gray-300">
             {saving ? 'Enviando...' : p.myQuantity ? 'Alterar pedido' : 'Fazer pedido'}
           </button>
         </div>
@@ -262,7 +262,7 @@ function VisitsBlock({ association: a, canRequest, onSaved }: { association: Ass
               <li key={v.id} className="rounded-xl border border-gray-200 p-3 text-sm">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold text-gray-900">{v.subject}</p>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${st.style}`}>{st.label}</span>
+                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${st.style}`}>{st.label}</span>
                 </div>
                 <p className="text-gray-600">{v.scheduledFor ? `Dia ${fmtDay(v.scheduledFor)}` : `Pedida em ${fmtDay(v.createdAt)}`}{v.technician && ` · ${v.technician}`}</p>
                 {v.result && <p className="mt-1 text-gray-700"><span className="font-medium">Resultado:</span> {v.result}</p>}
@@ -279,7 +279,7 @@ function VisitsBlock({ association: a, canRequest, onSaved }: { association: Ass
             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-base" />
           <div className="flex gap-2">
             <button type="button" onClick={() => setAsking(false)} className="flex-1 rounded-lg border border-gray-300 bg-white py-2.5 font-medium text-gray-700">Cancelar</button>
-            <button type="submit" className="flex-1 rounded-lg bg-green-700 py-2.5 font-semibold text-white hover:bg-green-600">Pedir visita</button>
+            <button type="submit" className="flex-1 rounded-lg bg-green-800 py-2.5 font-semibold text-white hover:bg-green-700">Pedir visita</button>
           </div>
         </form>
       ) : canRequest && (

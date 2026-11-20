@@ -53,7 +53,7 @@ interface MyRequest {
 }
 
 const REQUEST_STATUS: Record<MyRequest['status'], { label: string; style: string }> = {
-  novo: { label: 'Aguardando resposta', style: 'bg-amber-100 text-amber-800' },
+  novo: { label: 'Aguardando resposta', style: 'bg-orange-100 text-orange-800' },
   respondido: { label: 'Respondido', style: 'bg-blue-100 text-blue-800' },
   fechado: { label: 'Resolvido', style: 'bg-green-100 text-green-800' },
   cancelado: { label: 'Cancelado', style: 'bg-gray-100 text-gray-600' },
@@ -222,7 +222,7 @@ export default function OfertasPage() {
           {['', ...categories].map((c) => (
             <button key={c || 'todas'} type="button" onClick={() => setCategory(c)}
               className={`px-4 py-2 rounded-full text-sm font-medium border ${
-                category === c ? 'bg-green-700 border-green-700 text-white' : 'border-gray-200 text-gray-600 bg-white hover:bg-gray-50'
+                category === c ? 'bg-green-800 border-green-800 text-white' : 'border-gray-200 text-gray-600 bg-white hover:bg-gray-50'
               }`}>
               {c ? t(c) : t('Todas')}
             </button>
@@ -248,8 +248,8 @@ export default function OfertasPage() {
                 {o.imageUrl && <img src={o.imageUrl} alt="" className="w-24 h-24 rounded-lg object-cover shrink-0" />}
                 <div className="flex-1 min-w-0 flex flex-col">
                   <div className="flex flex-wrap gap-1.5 mb-1">
-                    {o.matchesLowStock && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">{t('Seu estoque está baixo')}</span>}
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{t(o.category)}</span>
+                    {o.matchesLowStock && <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">{t('Seu estoque está baixo')}</span>}
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800">{t(o.category)}</span>
                   </div>
                   <p className="text-base font-semibold text-gray-900">{o.title}</p>
                   {o.price && (
@@ -261,7 +261,7 @@ export default function OfertasPage() {
                   </p>
                   <a href={whatsappLink(phone, t('Olá! Vi a oferta "{title}" no Anota Aí Agro e tenho interesse.', { title: o.title }))}
                     target="_blank" rel="noopener noreferrer" onClick={() => callVendor(o)}
-                    className="mt-3 self-start inline-flex items-center bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
+                    className="mt-3 self-start inline-flex items-center bg-green-800 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
                     {t('Chamar no WhatsApp')}
                   </a>
                 </div>
@@ -289,7 +289,7 @@ export default function OfertasPage() {
                       </p>
                       <p className="text-sm text-gray-500">{r.vendor.companyName} · {t(isMessage ? 'mensagem enviada em {date}' : 'pedido em {date}', { date: fmtDate(r.createdAt) })}</p>
                     </div>
-                    <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${status.style}`}>{t(status.label)}</span>
+                    <span className={`shrink-0 text-xs font-semibold px-2.5 py-0.5 rounded-full ${status.style}`}>{t(status.label)}</span>
                   </div>
                   {r.note && <p className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700"><span className="text-gray-500">{t('Você:')} </span>{r.note}</p>}
                   {r.reply && (
@@ -302,7 +302,7 @@ export default function OfertasPage() {
                     <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                       <a href={whatsappLink(r.vendor.whatsapp || r.vendor.phone, t('Olá! Sobre o meu pedido de {item} pelo Anota Aí Agro.', { item: r.itemName }))}
                         target="_blank" rel="noopener noreferrer"
-                        className="bg-green-700 hover:bg-green-600 text-white font-semibold px-3 py-2 rounded-lg">WhatsApp</a>
+                        className="bg-green-800 hover:bg-green-700 text-white font-semibold px-3 py-2 rounded-lg">WhatsApp</a>
                       {canEdit && <button onClick={() => setRequestStatus(r, 'fechado')} className="font-medium text-green-700 hover:underline">{t('Resolvido')}</button>}
                       {canEdit && r.status === 'novo' && <button onClick={() => setRequestStatus(r, 'cancelado')} className="font-medium text-red-600 hover:underline">{t('Cancelar')}</button>}
                     </div>
@@ -338,7 +338,7 @@ export default function OfertasPage() {
                 <div className="mt-3 flex flex-wrap gap-2">
                   {canEdit && (
                     <button type="button" onClick={() => setMessageTo(v.id)}
-                      className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-3 py-2 rounded-lg">
+                      className="bg-green-800 hover:bg-green-700 text-white text-sm font-semibold px-3 py-2 rounded-lg">
                       {t('Mandar mensagem')}
                     </button>
                   )}
@@ -381,7 +381,7 @@ export default function OfertasPage() {
                       {f.description && <p className="text-xs text-gray-500 line-clamp-1">{f.description}</p>}
                     </div>
                     {f.linked ? (
-                      <span className="shrink-0 rounded-full bg-green-100 px-3 py-1.5 text-xs font-semibold text-green-800">{t('Já é seu fornecedor')}</span>
+                      <span className="shrink-0 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">{t('Já é seu fornecedor')}</span>
                     ) : (
                       <button onClick={() => addVendor(f.id)} className="shrink-0 text-sm font-semibold text-green-700 border border-green-700 rounded-lg px-3 py-1.5 hover:bg-green-50">
                         {t('Adicionar')}

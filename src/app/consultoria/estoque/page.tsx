@@ -7,6 +7,7 @@ import { BackLink } from '@/components/BackLink'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { useLocale, useT } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
 
 interface Move { id: string; type: string; quantity: number; date: string; farmName: string | null; note: string | null }
 interface Supply { id: string; name: string; unit: string; quantity: number; minimum: number | null; expiry: string | null; moves: Move[] }
@@ -70,8 +71,8 @@ export default function EstoqueVeterinarioPage() {
   function warning(s: Supply): { text: string; tone: string } | null {
     if (s.expiry && s.expiry.slice(0, 10) < today) return { text: t('Vencido em {date}', { date: day(s.expiry) }), tone: 'bg-red-100 text-red-800' }
     if (s.quantity <= 0) return { text: t('Acabou'), tone: 'bg-red-100 text-red-800' }
-    if (s.minimum !== null && s.quantity <= s.minimum) return { text: t('Abaixo do mínimo'), tone: 'bg-amber-100 text-amber-900' }
-    if (s.expiry && (Date.parse(s.expiry.slice(0, 10)) - Date.parse(today)) / DAY <= EXPIRY_WARNING_DAYS) return { text: t('Vence em {date}', { date: day(s.expiry) }), tone: 'bg-amber-100 text-amber-900' }
+    if (s.minimum !== null && s.quantity <= s.minimum) return { text: t('Abaixo do mínimo'), tone: 'bg-amber-100 text-amber-800' }
+    if (s.expiry && (Date.parse(s.expiry.slice(0, 10)) - Date.parse(today)) / DAY <= EXPIRY_WARNING_DAYS) return { text: t('Vence em {date}', { date: day(s.expiry) }), tone: 'bg-amber-100 text-amber-800' }
     return null
   }
 
@@ -83,10 +84,17 @@ export default function EstoqueVeterinarioPage() {
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">{t('Meu estoque')}</h1>
-          <p className="text-gray-500">{supplies ? `${supplies.length} ${t(supplies.length === 1 ? 'item' : 'itens')}${alerts ? ` · ${t('{n} com aviso', { n: alerts })}` : ''}` : t('Medicamentos, sêmen e material do veterinário')}</p>
+          <p className="text-gray-500">{t('Medicamentos, sêmen e material do veterinário')}</p>
         </div>
-        <button type="button" onClick={() => { setFormError(''); setItem({ name: '', unit: 'un', quantity: '', minimum: '', expiry: '' }) }} className="rounded-lg bg-green-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-600">{t('+ Novo item')}</button>
+        <button type="button" onClick={() => { setFormError(''); setItem({ name: '', unit: 'un', quantity: '', minimum: '', expiry: '' }) }} className="rounded-lg bg-green-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700">{t('+ Novo item')}</button>
       </div>
+      {/* Quantos itens e quantos com aviso (acabou, abaixo do mínimo, vencido ou perto de vencer) */}
+      {!!supplies?.length && (
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <StatTile accent="blue" label={t('Itens')} value={supplies.length} />
+          <StatTile accent={alerts ? 'amber' : 'green'} label={t('Itens em alerta')} value={alerts} />
+        </div>
+      )}
       {error && <p role="alert" className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</p>}
       {!supplies && !error && <p className="py-12 text-center text-gray-500">{t('Carregando…')}</p>}
       {supplies?.length === 0 && <p className="bg-white rounded-xl border border-gray-200 p-6 text-center text-gray-500">{t('Nenhum item ainda. Cadastre os medicamentos e materiais que você leva para as visitas.')}</p>}
@@ -102,10 +110,10 @@ export default function EstoqueVeterinarioPage() {
                   <p className="text-sm text-gray-500">{[s.minimum !== null ? t('mínimo {n} {unit}', { n: num(s.minimum), unit: s.unit }) : null, s.expiry ? t('validade {date}', { date: day(s.expiry) }) : null].filter(Boolean).join(' · ') || t('Sem mínimo nem validade')}</p>
                   {w && <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${w.tone}`}>{w.text}</span>}
                 </div>
-                <p className="shrink-0 text-right"><span className="text-2xl font-bold text-gray-900">{num(s.quantity)}</span> <span className="text-sm text-gray-500">{s.unit}</span></p>
+                <p className="shrink-0 text-right"><span className={`text-2xl font-bold tabular-nums ${s.quantity <= 0 ? 'text-red-700' : 'text-gray-900'}`}>{num(s.quantity)}</span> <span className="text-sm text-gray-500">{s.unit}</span></p>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" onClick={() => { setFormError(''); setMove({ supply: s, type: 'saida', quantity: '', date: today, farmName: '', note: '' }) }} className="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-600">{t('Saída (usei)')}</button>
+                <button type="button" onClick={() => { setFormError(''); setMove({ supply: s, type: 'saida', quantity: '', date: today, farmName: '', note: '' }) }} className="rounded-lg bg-green-800 px-3 py-2 text-sm font-semibold text-white hover:bg-green-700">{t('Saída (usei)')}</button>
                 <button type="button" onClick={() => { setFormError(''); setMove({ supply: s, type: 'entrada', quantity: '', date: today, farmName: '', note: '' }) }} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Entrada (comprei)')}</button>
                 <button type="button" onClick={() => { setFormError(''); setItem({ id: s.id, name: s.name, unit: s.unit, quantity: '', minimum: s.minimum === null ? '' : String(s.minimum).replace('.', ','), expiry: s.expiry?.slice(0, 10) ?? '' }) }} className="rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100">{t('Editar')}</button>
                 <button type="button" onClick={() => remove(s)} className="rounded-lg px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">{t('Apagar')}</button>
@@ -137,7 +145,7 @@ export default function EstoqueVeterinarioPage() {
             {formError && <p role="alert" className="text-sm text-red-600">{formError}</p>}
             <div className="flex gap-3">
               <button type="button" onClick={() => setItem(null)} className="flex-1 rounded-lg border border-gray-300 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50">{t('Fechar')}</button>
-              <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-green-700 py-3 text-base font-semibold text-white hover:bg-green-600 disabled:bg-green-400">{t(saving ? 'Salvando…' : 'Salvar')}</button>
+              <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-green-800 py-3 text-base font-semibold text-white hover:bg-green-700 disabled:bg-green-400">{t(saving ? 'Salvando…' : 'Salvar')}</button>
             </div>
           </form>
         </div>
@@ -157,7 +165,7 @@ export default function EstoqueVeterinarioPage() {
             {formError && <p role="alert" className="text-sm text-red-600">{formError}</p>}
             <div className="flex gap-3">
               <button type="button" onClick={() => setMove(null)} className="flex-1 rounded-lg border border-gray-300 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50">{t('Fechar')}</button>
-              <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-green-700 py-3 text-base font-semibold text-white hover:bg-green-600 disabled:bg-green-400">{t(saving ? 'Salvando…' : move.type === 'saida' ? 'Registrar saída' : 'Registrar entrada')}</button>
+              <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-green-800 py-3 text-base font-semibold text-white hover:bg-green-700 disabled:bg-green-400">{t(saving ? 'Salvando…' : move.type === 'saida' ? 'Registrar saída' : 'Registrar entrada')}</button>
             </div>
           </form>
         </div>

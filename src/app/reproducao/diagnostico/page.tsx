@@ -10,6 +10,7 @@ import { useUser } from '@/contexts/UserContext'
 import { cachedGet, HttpError, pendingOf, sendOrQueue, withPending } from '@/lib/offlineData'
 import { useOfflineModule } from '@/lib/useOffline'
 import { useT } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
 
 interface Coverage {
   id: string
@@ -89,6 +90,14 @@ export default function DiagnosticoEmLotePage() {
         {rows && rows.length > 0 && <span className="shrink-0 rounded-full bg-gray-900 px-3 py-1 text-sm font-semibold text-white" aria-label={t('{done} de {total} diagnosticadas', { done, total: rows.length })}>{done}/{rows.length}</span>}
       </div>
       {done > 0 && <p role="status" className="text-sm text-gray-600 mb-3">{t(pregnant === 1 ? '{n} prenha' : '{n} prenhas', { n: pregnant })} · {t(done - pregnant === 1 ? '{n} vazia' : '{n} vazias', { n: done - pregnant })}</p>}
+      {/* Andamento do lote em cartões: falta diagnosticar (azul), prenhas (verde), diagnosticadas (verde-água) */}
+      {rows && rows.length > 0 && (
+        <div className="my-4 grid grid-cols-3 gap-3">
+          <StatTile accent="blue" label={t('A diagnosticar')} value={rows.length - done} />
+          <StatTile accent="green" label={t('Prenhas')} value={pregnant} />
+          <StatTile accent="teal" label={t('Diagnosticadas')} value={done} />
+        </div>
+      )}
       {(fromCache || !net.online || queued > 0) && <p role="status" className="mb-3 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">{t(net.online && !fromCache ? 'Sinal fraco.' : 'Sem internet: mostrando as coberturas guardadas neste aparelho.')} {t('O que você marcar fica salvo no aparelho e é enviado quando a conexão voltar.')}</p>}
       {error && <p role="alert" className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{t(error)}</p>}
 
@@ -101,7 +110,9 @@ export default function DiagnosticoEmLotePage() {
           const days = daysSince(row.coverageDate)
           const tone = answer === 'Prenha' ? 'border-green-300 bg-green-50' : answer === 'Vazia' ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-white'
           return (
-            <li key={row.id} className={`rounded-xl border p-4 ${tone}`}>
+            <li key={row.id} className={`relative overflow-hidden rounded-xl border p-4 ${tone}`}>
+              {/* Faixa à esquerda: verde se prenha, vermelha se vazia */}
+              {answer && <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${answer === 'Prenha' ? 'bg-green-600' : 'bg-red-600'}`} />}
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold text-gray-900 truncate">{row.female.name} <span className="font-normal text-gray-500">({row.female.customCode || row.female.code})</span></p>
@@ -109,13 +120,18 @@ export default function DiagnosticoEmLotePage() {
                     {t(row.method === 'ia' ? (days === 1 ? 'Inseminada há {n} dia' : 'Inseminada há {n} dias') : (days === 1 ? 'Coberta há {n} dia' : 'Coberta há {n} dias'), { n: days })}{row.maleName ? ` · ${row.maleName}` : ''}
                     {!answer && days < MIN_DAYS ? ` · ${t('cedo para diagnosticar')}` : ''}
                   </p>
-                  {answer && <p className={`mt-0.5 text-sm font-semibold ${answer === 'Prenha' ? 'text-green-800' : 'text-red-800'}`}>{answer === 'Prenha' ? `✓ ${t('Prenha')}` : `✓ ${t('Vazia')} · ${t('liberada para nova cobertura')}`}</p>}
+                  {answer && (
+                    <p className="mt-1 text-sm text-gray-700">
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${answer === 'Prenha' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>✓ {t(answer)}</span>
+                      {answer === 'Vazia' && ` ${t('liberada para nova cobertura')}`}
+                    </p>
+                  )}
                 </div>
                 {answer && canEdit && <button type="button" disabled={saving === row.id} onClick={() => save(row, 'Coberta')} className="shrink-0 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 underline hover:bg-white/60">{t('desfazer')}</button>}
               </div>
               {!answer && canEdit && (
                 <div className="mt-3 grid grid-cols-2 gap-3">
-                  <button type="button" disabled={saving === row.id} onClick={() => save(row, 'Prenha')} className="rounded-lg bg-green-700 py-3 text-base font-semibold text-white hover:bg-green-600 disabled:opacity-60">✓ {t('Prenha')}</button>
+                  <button type="button" disabled={saving === row.id} onClick={() => save(row, 'Prenha')} className="rounded-lg bg-green-800 py-3 text-base font-semibold text-white hover:bg-green-700 disabled:opacity-60">✓ {t('Prenha')}</button>
                   <button type="button" disabled={saving === row.id} onClick={() => save(row, 'Vazia')} className="rounded-lg bg-red-700 py-3 text-base font-semibold text-white hover:bg-red-600 disabled:opacity-60">✕ {t('Vazia')}</button>
                 </div>
               )}

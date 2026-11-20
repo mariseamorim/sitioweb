@@ -46,12 +46,13 @@ interface Reproduction {
 
 const STATUS_LIST = ['Coberta', 'Prenha', 'Parida', 'Vazia', 'Perdida']
 const FIELD = 'mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600'
+// Etiqueta da situação: Prenha verde, Vazia vermelha, Coberta azul, Parida roxa, Perdida laranja (a palavra sempre aparece)
 const STATUS_COLOR: Record<string, string> = {
-  Coberta: 'bg-blue-100 text-blue-700',
-  Prenha: 'bg-purple-100 text-purple-700',
-  Parida: 'bg-green-100 text-green-700',
-  Vazia: 'bg-gray-100 text-gray-600',
-  Perdida: 'bg-red-100 text-red-700',
+  Coberta: 'bg-blue-100 text-blue-800',
+  Prenha: 'bg-green-100 text-green-800',
+  Parida: 'bg-purple-100 text-purple-800',
+  Vazia: 'bg-red-100 text-red-800',
+  Perdida: 'bg-orange-100 text-orange-800',
 }
 
 const MODULE = 'reproducao'
@@ -253,7 +254,7 @@ export default function ReproducaoPage() {
           <a href="/reproducao/indicadores" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-gray-300 text-gray-700 hover:bg-gray-50">{t('Indicadores')}</a>
           <a href="/reproducao/relatorio-visita" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-gray-300 text-gray-700 hover:bg-gray-50">{t('Relatório de visita')}</a>
           <a href="/reproducao/diagnostico" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-green-700 text-green-800 hover:bg-green-50">{t('Diagnóstico em lote')}</a>
-          <button onClick={openRegister} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
+          <button onClick={openRegister} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${canEdit ? 'bg-green-800 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}>
             + {t('Registrar')}
           </button>
         </div>
@@ -303,7 +304,8 @@ export default function ReproducaoPage() {
       <div className="flex flex-wrap gap-2 mb-4">
         {(['Todas', ...STATUS_LIST]).map(s => (
           <button key={s} onClick={() => { setQuick(null); setFilterStatus(s) }}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterStatus === s ? 'bg-green-700 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            aria-pressed={filterStatus === s}
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${filterStatus === s ? 'bg-green-800 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
             {t(s)}
           </button>
         ))}
@@ -337,7 +339,7 @@ export default function ReproducaoPage() {
                   <td className="px-4 py-3 text-gray-600">{fmt(r.coverageDate)}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{r.expectedBirthDate ? fmt(r.expectedBirthDate) : '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLOR[r.status] || 'bg-gray-100 text-gray-600'}`}>{t(r.status)}</span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLOR[r.status] || 'bg-gray-100 text-gray-700'}`}>{t(r.status)}</span>
                   </td>
                 </tr>
               ))}
@@ -389,7 +391,7 @@ export default function ReproducaoPage() {
                   </div>
                 ) : (
                   <button type="button" onClick={() => setRegisteringBirth(true)}
-                    className="mb-4 w-full bg-green-700 hover:bg-green-600 text-white font-semibold py-3 rounded-lg">
+                    className="mb-4 w-full bg-green-800 hover:bg-green-700 text-white font-semibold py-3 rounded-lg">
                     {t('Registrar parto e anotar a cria')}
                   </button>
                 )
@@ -415,7 +417,7 @@ export default function ReproducaoPage() {
               </div>
 
               <div className="flex gap-2">
-                <button onClick={handleUpdateStatus} className="flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg">{t('Salvar')}</button>
+                <button onClick={handleUpdateStatus} className="flex-1 bg-green-800 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg">{t('Salvar')}</button>
                 <button onClick={() => handleDelete(detail.id)} className="flex-1 border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium py-2 rounded-lg">{t('Excluir')}</button>
               </div>
             </div>
@@ -501,7 +503,7 @@ export default function ReproducaoPage() {
                 {error && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{t(error)}</p>}
                 <div className="flex flex-col gap-2 pt-1 sm:flex-row">
                   <button type="button" onClick={closeRegister} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-lg hover:bg-gray-50">{t(repeated ? 'Fechar' : 'Cancelar')}</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2.5 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
+                  <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2.5 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
                 </div>
                 <button type="button" disabled={saving} onClick={() => void handleSave(true)}
                   className="rounded-lg border-2 border-green-700 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-50 disabled:opacity-50">
@@ -581,7 +583,7 @@ function RecordEditor({ record, farmId, onCancel, onSaved }: { record: Reproduct
       {error && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{t(error)}</p>}
       <div className="flex gap-2 sm:col-span-2">
         <button type="button" onClick={onCancel} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg">{t('Cancelar')}</button>
-        <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar alteração')}</button>
+        <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar alteração')}</button>
       </div>
     </form>
   )

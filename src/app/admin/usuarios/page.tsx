@@ -10,20 +10,21 @@ import { fmtDate } from '@/lib/reports'
 import type { Account } from '@/lib/adminAccounts'
 import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
 import { DemoConsultant, suggestPassword } from './DemoConsultant'
+import { StatTile } from '@/components/StatTile'
 
 // Contas e senhas: o administrador vê todas as contas (produtor, equipe, fornecedor, laticínio, associação, Anota Aí Leite),
 // corrige nome, telefone e e-mail e define uma senha nova para quem esqueceu a sua.
 
 const ROLE_STYLE: Record<string, string> = {
-  admin: 'bg-purple-100 text-purple-700',
-  editor: 'bg-blue-100 text-blue-700',
-  viewer: 'bg-gray-100 text-gray-600',
+  admin: 'bg-purple-100 text-purple-800',
+  editor: 'bg-blue-100 text-blue-800',
+  viewer: 'bg-gray-100 text-gray-700',
   fornecedor: 'bg-amber-100 text-amber-800',
   laticinio: 'bg-sky-100 text-sky-800',
   associacao: 'bg-teal-100 text-teal-800',
   lite: 'bg-green-100 text-green-800',
   motorista: 'bg-green-100 text-green-800',
-  onboarding: 'bg-red-50 text-red-700',
+  onboarding: 'bg-red-100 text-red-800',
 }
 
 const input = 'mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600'
@@ -127,6 +128,15 @@ export default function AdminUsuariosPage() {
         </div>
       )}
 
+      {/* Resumo das contas carregadas: total, sem senha (atenção) e quem entra com Google */}
+      {accounts && accounts.length > 0 && (
+        <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatTile accent="blue" label="Contas" value={accounts.length} />
+          <StatTile accent={accounts.some((a) => !a.hasPassword) ? 'amber' : 'green'} label="Sem senha" value={accounts.filter((a) => !a.hasPassword).length} />
+          <StatTile accent="teal" label="Entra com Google" value={accounts.filter((a) => a.googleConnected).length} />
+        </div>
+      )}
+
       <DemoConsultant onDone={load} />
 
       <div className="mb-4 flex flex-col gap-2 sm:flex-row">
@@ -155,9 +165,9 @@ export default function AdminUsuariosPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-base font-semibold text-gray-900">{a.name}</p>
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${ROLE_STYLE[a.role] ?? 'bg-gray-100 text-gray-600'}`}>{roleLabel(a.role)}</span>
-                      {a.googleConnected && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Entra com Google</span>}
-                      {!a.hasPassword && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-800">Sem senha</span>}
+                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${ROLE_STYLE[a.role] ?? 'bg-gray-100 text-gray-600'}`}>{roleLabel(a.role)}</span>
+                      {a.googleConnected && <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">Entra com Google</span>}
+                      {!a.hasPassword && <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Sem senha</span>}
                     </div>
                     <p className="text-sm text-gray-500">
                       {[a.phone ? maskPhone(a.phone) : null, a.email].filter(Boolean).join(' · ') || contactLabel(a) || 'Sem telefone nem e-mail'}
@@ -209,7 +219,7 @@ export default function AdminUsuariosPage() {
                 {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setEditing(null)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
+                  <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
                 </div>
               </form>
             </div>
