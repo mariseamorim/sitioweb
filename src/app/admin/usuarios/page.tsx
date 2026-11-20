@@ -9,6 +9,7 @@ import { ROLE_LABELS, roleLabel } from '@/lib/roles'
 import { fmtDate } from '@/lib/reports'
 import type { Account } from '@/lib/adminAccounts'
 import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
+import { DemoConsultant, suggestPassword } from './DemoConsultant'
 
 // Contas e senhas: o administrador vê todas as contas (produtor, equipe, fornecedor, laticínio, associação, Anota Aí Leite),
 // corrige nome, telefone e e-mail e define uma senha nova para quem esqueceu a sua.
@@ -26,14 +27,6 @@ const ROLE_STYLE: Record<string, string> = {
 }
 
 const input = 'mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600'
-
-/** Senha fácil de ditar pelo telefone: 8 letras e números sem os que se confundem (0/O, 1/l/I) */
-function suggestPassword() {
-  const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789'
-  const bytes = new Uint8Array(8)
-  crypto.getRandomValues(bytes)
-  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('')
-}
 
 const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
@@ -133,6 +126,8 @@ export default function AdminUsuariosPage() {
           <button type="button" onClick={() => setDone(null)} className="mt-2 text-sm font-semibold text-green-800 hover:underline">Entendi</button>
         </div>
       )}
+
+      <DemoConsultant onDone={load} />
 
       <div className="mb-4 flex flex-col gap-2 sm:flex-row">
         <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nome, telefone, e-mail, propriedade ou empresa" aria-label="Buscar conta"
