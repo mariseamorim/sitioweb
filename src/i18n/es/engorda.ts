@@ -267,4 +267,9 @@ export const engorda: Record<string, string> = {
   'Peso-alvo inválido: use kg, por exemplo 320': 'Peso objetivo inválido: use kg, por ejemplo 320',
   'Garrote': 'Torito',
   'Novilha': 'Vaquillona',
+  'kg/dia': 'kg/día',
+  'Lotes': 'Lotes',
+  'Peso atual': 'Peso actual',
+  'Meta': 'Meta',
+  '{n}% da meta': '{n}% de la meta',
 }

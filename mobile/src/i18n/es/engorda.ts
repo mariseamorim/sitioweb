@@ -260,4 +260,7 @@ export const engorda: Record<string, string> = {
   'Exemplo: a 0,1% do peso vivo, um animal de 300 kg come 300 g por dia. O preço serve para mostrar o custo por animal.': 'Ejemplo: al 0,1% del peso vivo, un animal de 300 kg come 300 g por día. El precio sirve para mostrar el costo por animal.',
   'Escolha um dos produtos do lote': 'Elija uno de los productos del lote',
   'O estoque deste produto precisa estar em kg ou sacos': 'El inventario de este producto debe estar en kg o bolsas',
+  'LOTES': 'LOTES',
+  '{n}% da meta de {kg}': '{n}% de la meta de {kg}',
+  'Meta: {kg}': 'Meta: {kg}',
 }

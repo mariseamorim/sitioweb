@@ -365,4 +365,6 @@ export const gestao: Record<string, string> = {
   'Nome da loja, do vendedor ou cidade': 'Nombre de la tienda, del vendedor o ciudad',
   'Nenhum fornecedor encontrado.': 'Ningún proveedor encontrado.',
   'Já é seu fornecedor': 'Ya es su proveedor',
+  'sem anotação': 'sin registro',
+  'Produção diária (L)': 'Producción diaria (L)',
 }

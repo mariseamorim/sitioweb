@@ -214,24 +214,44 @@ export function Stat({ label, value, tone }: { label: string; value: string; ton
   )
 }
 
-export type Accent = 'green' | 'blue' | 'teal' | 'amber' | 'red'
+/** `plain`: fundo branco (o número leva a cor, via `color`) */
+export type Accent = 'green' | 'blue' | 'teal' | 'amber' | 'red' | 'plain'
 const ACCENT: Record<Accent, { bg: string; border: string; value: string }> = {
   green: { bg: colors.greenSoft, border: '#86efac', value: colors.greenDark },
   blue: { bg: colors.blueSoft, border: '#93c5fd', value: '#1e3a8a' },
   teal: { bg: '#ccfbf1', border: '#5eead4', value: '#134e4a' },
   amber: { bg: colors.amberSoft, border: '#fcd34d', value: '#92400e' },
   red: { bg: colors.redSoft, border: '#fca5a5', value: '#b91c1c' },
+  plain: { bg: colors.white, border: colors.border, value: colors.text },
 }
 
 /** Cartão de número colorido (como src/components/StatTile.tsx do site). Dois por linha: use dentro de <TileGrid>. */
-export function Tile({ label, value, detail, accent = 'green' }: { label: string; value: string; detail?: string; accent?: Accent }) {
+export function Tile({ label, value, detail, accent = 'green', color }: { label: string; value: string; detail?: string; accent?: Accent; color?: string }) {
   const a = ACCENT[accent]
   return (
     <View style={{ flexGrow: 1, flexBasis: '45%', backgroundColor: a.bg, borderColor: a.border, borderWidth: 1, borderRadius: radius.md, padding: space.md }}>
       <Text style={{ color: colors.text, fontSize: font.md, fontWeight: '600' }}>{label}</Text>
-      <Text style={{ color: a.value, fontSize: 30, fontWeight: '800', marginTop: 2 }}>{value}</Text>
+      <Text style={{ color: color ?? a.value, fontSize: 26, fontWeight: '800', marginTop: 2 }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
       {detail ? <Text style={{ color: colors.text, fontSize: font.sm }}>{detail}</Text> : null}
     </View>
+  )
+}
+
+/** Atalho colorido com ícone (Painel: "O que você quer fazer?"). Dois por linha, dentro de <TileGrid>. */
+export function ActionCard({ title, detail, icon, accent, onPress }: { title: string; detail?: string; icon: keyof typeof Ionicons.glyphMap; accent: Accent; onPress: () => void }) {
+  const a = ACCENT[accent]
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button"
+      style={({ pressed }) => ({ flexGrow: 1, flexBasis: '45%', flexDirection: 'row', alignItems: 'center', gap: space.sm, backgroundColor: a.bg, borderColor: a.border, borderWidth: 1, borderRadius: radius.md, padding: space.md, opacity: pressed ? 0.8 : 1 })}>
+      <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={icon} size={22} color={a.value} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: colors.text, fontSize: font.md, fontWeight: '700' }}>{title}</Text>
+        {detail ? <Text style={{ color: colors.text, fontSize: font.sm }}>{detail}</Text> : null}
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={a.value} />
+    </Pressable>
   )
 }
 
