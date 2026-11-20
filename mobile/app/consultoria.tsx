@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Share, Text, useWindowDimensions, View } from 'react-native'
 import { API_BASE, isDemo } from '@/api/client'
 import { useSession } from '@/auth/session'
-import { Button, Card, Empty, Muted, Notice, Screen, Stat } from '@/ui'
+import { Button, Card, Empty, Muted, Notice, Screen, Tile, TileGrid } from '@/ui'
 import { colors, font, space } from '@/theme'
+import { todayISO } from '@/lib/format'
 import { useT } from '@/lib/i18n'
-import { useOpenFarm, useVetPanel, VetAgenda, VetTasks, type VetClient } from '@/vet/panel'
+import { useOpenFarm, useVetPanel, VetAgenda, VetTasks, type AgendaHandle, type VetClient } from '@/vet/panel'
 import { VetCharts } from '@/vet/charts'
 
 // Painel do veterinário consultor (como src/app/consultoria/page.tsx do site): o que fazer em cada propriedade, a
@@ -22,6 +23,7 @@ export default function Consultoria() {
   const { panel, offline, error: loadError, reload } = useVetPanel()
   const [error, setError] = useState('')
   const { open, busy } = useOpenFarm(setError)
+  const agenda = useRef<AgendaHandle>(null)
 
   if (!panel) return <Screen>{loadError ? <Notice tone="red" text={loadError} /> : <Empty title={offline ? t('Sem internet') : t('Carregando…')} text={offline ? t('O painel de consultoria precisa de conexão na primeira vez.') : undefined} />}</Screen>
 
@@ -29,21 +31,31 @@ export default function Consultoria() {
   const rates = panel.clients.filter(c => c.pregnancyRate !== null).map(c => c.pregnancyRate as number)
   const average = rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : null
   const total = (pick: (c: VetClient) => number) => panel.clients.reduce((sum, c) => sum + pick(c), 0)
+  const today = todayISO()
+  const visitsToday = (panel.visits ?? []).filter(v => v.date.slice(0, 10) === today).length
+  const lateShots = (panel.tasks ?? []).filter(k => k.href.startsWith('/vacinacao')).reduce((sum, k) => sum + (k.late ?? 0), 0)
 
   return (
     <Screen>
       {isDemo() ? <Notice tone="blue" text={t('Demonstração: dados fictícios, guardados só neste celular. Nada é enviado ao servidor. Para sair, use "Sair da conta" em Mais.')} /> : null}
       {offline ? <Notice text={t('Sem internet: mostrando os números da última vez que o painel carregou.')} /> : null}
       {error || loadError ? <Notice tone="red" text={error || loadError} /> : null}
-      <Muted style={{ marginBottom: space.md }}>{panel.clients.length} {panel.clients.length === 1 ? t('propriedade atendida') : t('propriedades atendidas')} · {total(c => c.animals)} {t('animais')}</Muted>
-      <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.md }}>
-        <Stat label={t('a diagnosticar')} value={String(total(c => c.awaitingDiagnosis))} tone={total(c => c.awaitingDiagnosis) ? 'amber' : undefined} />
-        <Stat label={t('concepção média')} value={average === null ? '—' : `${average}%`} tone="green" />
-        <Stat label={t('partos em 30 dias')} value={String(total(c => c.birthsSoon))} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: space.md }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: font.xl, fontWeight: '800', color: colors.greenDark }} numberOfLines={2}>{panel.vet.name}</Text>
+          <Muted>{panel.clients.length} {panel.clients.length === 1 ? t('propriedade atendida') : t('propriedades atendidas')} · {total(c => c.animals)} {t('animais')}</Muted>
+        </View>
+        <Button label={t('+ Visita')} disabled={!panel.clients.length} onPress={() => agenda.current?.openNew()} />
       </View>
+      <TileGrid>
+        <Tile accent="amber" label={t('Visitas hoje')} value={String(visitsToday)} detail={t('Para realizar')} />
+        <Tile accent="blue" label={t('A diagnosticar')} value={String(total(c => c.awaitingDiagnosis))} detail={t('Animais')} />
+        <Tile accent="red" label={t('Vacinas atrasadas')} value={String(lateShots)} detail={t('Pendentes')} />
+        <Tile accent="green" label={t('Concepção média')} value={average === null ? '—' : `${average}%`} detail={t('Do rebanho')} />
+      </TileGrid>
 
+      <VetAgenda ref={agenda} panel={panel} onChanged={reload} />
       <VetTasks panel={panel} onOpen={(farmId, href) => void open(farmId, href)} busy={busy} />
-      <VetAgenda panel={panel} onChanged={reload} />
       <VetCharts panel={panel} onOpen={(farmId, href) => void open(farmId, href)} busy={busy} />
 
       <Card style={{ backgroundColor: colors.greenSoft, borderColor: colors.green }}>

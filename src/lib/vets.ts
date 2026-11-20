@@ -47,7 +47,8 @@ export interface FarmOverview {
 }
 
 /** Números de cada propriedade para o painel do veterinário. */
-export async function farmOverviews(farmIds: string[]): Promise<Map<string, FarmOverview>> {
+/** `rateMonths`: janela da taxa de concepção (meses de cobertura, contando o atual); o resto usa os últimos 12 meses. */
+export async function farmOverviews(farmIds: string[], rateMonths = 12): Promise<Map<string, FarmOverview>> {
   const result = new Map<string, FarmOverview>()
   if (!farmIds.length) return result
   const now = Date.now()
@@ -57,12 +58,13 @@ export async function farmOverviews(farmIds: string[]): Promise<Map<string, Farm
     prisma.animal.groupBy({ by: ['farmId'], where: { farmId: { in: farmIds }, status: { in: ['Vivo', 'Doente'] } }, _count: { _all: true } }),
     prisma.reproduction.findMany({
       where: { farmId: { in: farmIds }, coverageDate: { gte: new Date(now - 365 * DAY) } },
-      select: { farmId: true, status: true, expectedBirthDate: true, actualBirthDate: true },
+      select: { farmId: true, status: true, coverageDate: true, expectedBirthDate: true, actualBirthDate: true },
     }),
   ])
+  const rateFrom = Math.max(now - 365 * DAY, new Date(`${addMonths(current, 1 - rateMonths)}-01T00:00:00.000Z`).getTime())
   for (const id of farmIds) {
     const own = reproductions.filter((r) => r.farmId === id)
-    const diagnosed = own.filter((r) => r.status !== 'Coberta')
+    const diagnosed = own.filter((r) => r.status !== 'Coberta' && r.coverageDate.getTime() >= rateFrom)
     const pregnant = diagnosed.filter((r) => PREGNANT.includes(r.status))
     const open = own.filter((r) => (r.status === 'Coberta' || r.status === 'Prenha') && !r.actualBirthDate && !!r.expectedBirthDate)
     result.set(id, {
