@@ -58,7 +58,8 @@ export default function RelatoriosPage() {
   const t = useT()
   const { canAccess, loading: userLoading, user } = useUser()
   const farmId = user?.farmId ?? ''
-  const types = useMemo(() => REPORT_TYPES.filter((rt) => canAccess(rt.module)), [canAccess])
+  // O veterinário consultor não precisa do relatório de produção de leite (é do produtor)
+  const types = useMemo(() => REPORT_TYPES.filter((rt) => canAccess(rt.module) && !(user?.vet && rt.key === 'leite')), [canAccess, user?.vet])
 
   const [typeKey, setTypeKey] = useState('')
   const [preset, setPreset] = useState<Preset>('mes')
