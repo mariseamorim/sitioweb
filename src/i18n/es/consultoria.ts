@@ -215,4 +215,7 @@ export const consultoria: Record<string, string> = {
   'Partos previstos por mês nos próximos 6 meses, por propriedade': 'Partos previstos por mes en los próximos 6 meses, por establecimiento',
   'Partos previstos por mês, por propriedade': 'Partos previstos por mes, por establecimiento',
   '— ainda sem diagnóstico de gestação nos últimos 12 meses': '— todavía sin diagnóstico de preñez en los últimos 12 meses',
+  'Atrasada': 'Atrasada',
+  'Atenção': 'Atención',
+  'Aviso': 'Aviso',
 }

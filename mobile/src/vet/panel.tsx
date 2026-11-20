@@ -1,7 +1,7 @@
 // Painel do veterinário consultor no app: os dados de GET /api/veterinario (propriedades, tarefas e agenda), a
 // abertura da propriedade de um cliente e os blocos de tarefas e de agenda usados em Consultoria e na tela Início.
 import { useRouter } from 'expo-router'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useImperativeHandle, useState, type Ref } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { api, NetworkError } from '@/api/client'
 import { useSession } from '@/auth/session'
@@ -9,7 +9,7 @@ import { getCache, setCache } from '@/db'
 import { todayISO } from '@/lib/format'
 import { useLocale, useT } from '@/lib/i18n'
 import { pendingCount } from '@/sync/local'
-import { Button, Card, DateField, Field, Muted, Notice, SelectField } from '@/ui'
+import { Badge, Button, Card, DateField, Field, Muted, Notice, SelectField } from '@/ui'
 import { colors, font, space } from '@/theme'
 
 export interface VetClient {
@@ -32,7 +32,6 @@ export interface VetPanel {
 }
 
 const CACHE_KEY = 'vet_panel'
-const TONE: Record<VetTask['tone'], string> = { red: colors.red, amber: colors.amber, blue: colors.blue }
 
 /** Painel do servidor; sem internet mostra a última cópia guardada. */
 export function useVetPanel() {
@@ -94,34 +93,36 @@ export function useOpenFarm(setError: (msg: string) => void) {
   return { open, busy }
 }
 
-/** Tarefas das propriedades atendidas, agrupadas por propriedade. Tocar abre a propriedade na tela certa. */
+/** Etiqueta da pendência: atrasada primeiro, depois atenção, depois aviso */
+const BADGE: Record<VetTask['tone'], { label: string; order: number }> = { red: { label: 'Atrasada', order: 0 }, amber: { label: 'Atenção', order: 1 }, blue: { label: 'Aviso', order: 2 } }
+
+/** Pendências das propriedades atendidas, as atrasadas primeiro. Tocar abre a propriedade na tela certa. */
 export function VetTasks({ panel, onOpen, busy }: { panel: VetPanel; onOpen: (farmId: string, href: string) => void; busy: string | null }) {
   const t = useT()
-  const tasks = panel.tasks ?? []
+  const tasks = (panel.tasks ?? [])
+    .flatMap(k => { const c = panel.clients.find(x => x.farmId === k.farmId); return c ? [{ k, c }] : [] })
+    .sort((a, b) => BADGE[a.k.tone].order - BADGE[b.k.tone].order)
   return (
-    <Card>
-      <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.md }}>{t('O que fazer nas propriedades')}</Text>
-      {!tasks.length ? <Muted style={{ marginTop: space.sm }}>{t('Nada pendente nas propriedades que você atende.')}</Muted> : null}
-      {panel.clients.filter(c => tasks.some(k => k.farmId === c.farmId)).map(c => (
-        <View key={c.id} style={{ marginTop: space.md }}>
-          <Text style={{ fontWeight: '700', color: colors.greenDark }}>{c.name}</Text>
-          {tasks.filter(k => k.farmId === c.farmId).map(k => {
-            const detail = [k.late ? t(k.late === 1 ? '{n} já passou da data' : '{n} já passaram da data', { n: k.late }) : null, k.detail ? t(k.detail) : null].filter(Boolean).join(' · ')
-            return (
-              <Pressable key={k.title} disabled={!!busy} onPress={() => onOpen(c.farmId, k.href)} accessibilityRole="button"
-                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'flex-start', gap: space.sm, paddingVertical: space.sm, opacity: busy === c.farmId ? 0.5 : pressed ? 0.7 : 1 })}>
-                <View style={{ width: 10, height: 10, borderRadius: 5, marginTop: 6, backgroundColor: TONE[k.tone] }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: colors.text, fontSize: font.md, fontWeight: '600' }}>{t(k.title, { n: k.n })}</Text>
-                  {detail ? <Muted>{detail}</Muted> : null}
-                </View>
-                <Text style={{ color: colors.muted, fontSize: font.lg }}>›</Text>
-              </Pressable>
-            )
-          })}
-        </View>
-      ))}
-    </Card>
+    <View style={{ marginBottom: space.md }}>
+      <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.lg, marginBottom: space.sm }}>{t('Pendências')}</Text>
+      {!tasks.length ? <Card><Muted>{t('Nada pendente nas propriedades que você atende.')}</Muted></Card> : null}
+      {tasks.map(({ k, c }) => {
+        const detail = [c.name, k.late ? t(k.late === 1 ? '{n} já passou da data' : '{n} já passaram da data', { n: k.late }) : null, k.detail ? t(k.detail) : null].filter(Boolean).join(' · ')
+        return (
+          <Pressable key={k.farmId + k.title} disabled={!!busy} onPress={() => onOpen(c.farmId, k.href)} accessibilityRole="button"
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.sm, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: space.md, marginBottom: space.sm, opacity: busy === c.farmId ? 0.5 : pressed ? 0.7 : 1 })}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm }}>
+                <Text style={{ color: colors.text, fontSize: font.md, fontWeight: '700' }}>{t(k.title, { n: k.n })}</Text>
+                <Badge label={BADGE[k.tone].label} tone={k.tone} />
+              </View>
+              <Muted>{detail}</Muted>
+            </View>
+            <Text style={{ color: colors.muted, fontSize: font.lg }}>›</Text>
+          </Pressable>
+        )
+      })}
+    </View>
   )
 }
 
@@ -131,7 +132,10 @@ interface Form { id?: string; clientId: string; date: string; time: string; purp
  * Agenda de visitas. Completa (Consultoria): marcar, remarcar, concluir e cancelar, com internet.
  * Resumida (Início): as próximas três e o atalho para a Consultoria.
  */
-export function VetAgenda({ panel, onChanged, compact }: { panel: VetPanel; onChanged: () => Promise<void>; compact?: boolean }) {
+/** O topo da Consultoria abre o formulário de nova visita pelo botão "+ Visita" */
+export interface AgendaHandle { openNew: () => void }
+
+export function VetAgenda({ panel, onChanged, compact, ref }: { panel: VetPanel; onChanged: () => Promise<void>; compact?: boolean; ref?: Ref<AgendaHandle> }) {
   const t = useT()
   const locale = useLocale()
   const router = useRouter()
@@ -139,6 +143,8 @@ export function VetAgenda({ panel, onChanged, compact }: { panel: VetPanel; onCh
   const [form, setForm] = useState<Form | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const openNew = () => { setError(''); setForm({ clientId: panel.clients[0]?.id ?? '', date: today, time: '', purpose: '' }) }
+  useImperativeHandle(ref, () => ({ openNew }))
   const visits = panel.visits ?? []
   const shown = compact ? visits.slice(0, 3) : visits
   const label = (v: VetVisit) => {
@@ -176,23 +182,27 @@ export function VetAgenda({ panel, onChanged, compact }: { panel: VetPanel; onCh
     <Card>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm }}>
         <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.md }}>{t('Agenda de visitas')}</Text>
-        {compact ? null : <Button label={t('+ Marcar visita')} variant="secondary" disabled={!panel.clients.length || busy} onPress={() => { setError(''); setForm({ clientId: panel.clients[0]?.id ?? '', date: today, time: '', purpose: '' }) }} />}
+        {compact ? null : <Button label={t('+ Marcar visita')} variant="secondary" disabled={!panel.clients.length || busy} onPress={openNew} />}
       </View>
       {error && !form ? <Notice tone="red" text={error} /> : null}
       {!visits.length ? <Muted style={{ marginTop: space.sm }}>{t('Nenhuma visita marcada.')}</Muted> : null}
-      {shown.map(v => (
-        <View key={v.id} style={{ marginTop: space.md }}>
-          <Text style={{ color: v.date.slice(0, 10) === today ? colors.greenDark : colors.text, fontWeight: '700' }}>{label(v)}</Text>
-          <Muted>{v.purpose || t('Sem motivo anotado')}</Muted>
-          {compact ? null : (
-            <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.xs }}>
-              <Button label={t('Concluir')} variant="ghost" disabled={busy} onPress={() => void send(`/api/veterinario/visitas/${v.id}`, 'PATCH', { status: 'realizada' })} />
-              <Button label={t('Remarcar')} variant="ghost" disabled={busy} onPress={() => { setError(''); setForm({ id: v.id, clientId: v.clientId ?? '', date: v.date.slice(0, 10), time: v.time ?? '', purpose: v.purpose ?? '' }) }} />
-              <Button label={t('Cancelar')} variant="ghost" disabled={busy} onPress={() => void send(`/api/veterinario/visitas/${v.id}`, 'PATCH', { status: 'cancelada' })} />
-            </View>
-          )}
-        </View>
-      ))}
+      {shown.map(v => {
+        const isToday = v.date.slice(0, 10) === today
+        return (
+          // Visita de hoje em destaque, com borda laranja
+          <View key={v.id} style={{ marginTop: space.md, padding: space.md, borderRadius: 12, borderWidth: isToday ? 2 : 1, borderColor: isToday ? '#f59e0b' : colors.border, backgroundColor: isToday ? '#fffbeb' : colors.white }}>
+            <Text style={{ color: isToday ? '#92400e' : colors.text, fontWeight: '700', fontSize: font.md }}>{label(v)}</Text>
+            <Muted>{v.purpose || t('Sem motivo anotado')}</Muted>
+            {compact ? null : (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm, marginTop: space.sm }}>
+                <Button label={t('Concluir')} disabled={busy} onPress={() => void send(`/api/veterinario/visitas/${v.id}`, 'PATCH', { status: 'realizada' })} />
+                <Button label={t('Remarcar')} variant="ghost" disabled={busy} onPress={() => { setError(''); setForm({ id: v.id, clientId: v.clientId ?? '', date: v.date.slice(0, 10), time: v.time ?? '', purpose: v.purpose ?? '' }) }} />
+                <Button label={t('Cancelar')} variant="ghost" disabled={busy} onPress={() => void send(`/api/veterinario/visitas/${v.id}`, 'PATCH', { status: 'cancelada' })} />
+              </View>
+            )}
+          </View>
+        )
+      })}
       {compact ? (
         <Button label={visits.length > 3 ? t('Ver a agenda toda ({n})', { n: visits.length }) : t('Abrir a Consultoria')} variant="secondary" onPress={() => router.push('/consultoria')} style={{ marginTop: space.md }} />
       ) : null}

@@ -3,11 +3,12 @@
 // Painel do veterinário consultor: as propriedades que ele atende, com os números de reprodução de cada uma,
 // a agenda de visitas, o código para o produtor liberar a propriedade e o histórico das que já encerraram.
 // Recibos e estoque do veterinário ficam em telas próprias (/consultoria/recibos e /consultoria/estoque).
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Agenda } from './Agenda'
+import { Agenda, type AgendaHandle } from './Agenda'
 import { VetCharts } from './VetCharts'
 import { useDialog } from '@/components/DialogProvider'
+import { StatTile } from '@/components/StatTile'
 import { hasPendingOnDevice, PENDING_MESSAGE, reloadInFarm } from '@/lib/farmSwitch'
 import { maskPhone } from '@/lib/masks'
 import { useLang, useLocale, useT } from '@/lib/i18n'
@@ -24,7 +25,12 @@ interface ArchivedRecord {
 }
 interface Task { farmId: string; title: string; detail?: string; n: number; late?: number; href: string; tone: 'red' | 'amber' | 'blue' }
 
-const TONE_DOT = { red: 'bg-red-600', amber: 'bg-amber-500', blue: 'bg-blue-600' } as const
+/** Etiqueta da pendência: a palavra diz a urgência, a cor só reforça */
+const TONE_BADGE = {
+  red: { label: 'Atrasada', className: 'bg-red-100 text-red-800' },
+  amber: { label: 'Atenção', className: 'bg-amber-100 text-amber-900' },
+  blue: { label: 'Aviso', className: 'bg-blue-100 text-blue-800' },
+} as const
 const TONE_ORDER = { red: 0, amber: 1, blue: 2 } as const
 /** Tarefas visíveis antes de "Ver todas" */
 const TASKS_SHOWN = 6
@@ -35,6 +41,8 @@ interface Panel {
   clients: Client[]
   /** O que fazer em cada propriedade */
   tasks?: Task[]
+  /** Visitas marcadas a partir de hoje */
+  visits?: { date: string }[]
   ended: Ended[]
 }
 
@@ -56,6 +64,7 @@ export default function ConsultoriaPage() {
   const [formError, setFormError] = useState('')
   const [copied, setCopied] = useState(false)
   const [allTasks, setAllTasks] = useState(false)
+  const agenda = useRef<AgendaHandle>(null)
 
   const load = useCallback(async () => {
     try {
@@ -134,6 +143,9 @@ export default function ConsultoriaPage() {
     const client = panel.clients.find((c) => c.farmId === task.farmId)
     return client ? [{ task, client }] : []
   }).sort((a, b) => TONE_ORDER[a.task.tone] - TONE_ORDER[b.task.tone])
+  const today = new Date().toLocaleDateString('en-CA')
+  const visitsToday = (panel.visits ?? []).filter((v) => v.date.slice(0, 10) === today).length
+  const lateShots = (panel.tasks ?? []).filter((k) => k.href.startsWith('/vacinacao')).reduce((sum, k) => sum + (k.late ?? 0), 0)
 
   return (
     <div>
@@ -142,15 +154,23 @@ export default function ConsultoriaPage() {
           <h1 className="text-2xl font-bold text-gray-800">{t('Consultoria')}</h1>
           <p className="text-gray-500">{panel.clients.length} {t(panel.clients.length === 1 ? 'propriedade atendida' : 'propriedades atendidas')} · {totalAnimals} {t('animais')}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={!panel.clients.length} onClick={() => agenda.current?.openNew()} className="rounded-lg bg-green-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:bg-gray-300">{t('+ Marcar visita')}</button>
           <Link href="/consultoria/recibos" className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Recibos')}</Link>
           <Link href="/consultoria/estoque" className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Meu estoque')}</Link>
         </div>
       </div>
 
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile accent="amber" label={t('Visitas hoje')} value={visitsToday} />
+        <StatTile accent="blue" label={t('A diagnosticar')} value={awaiting} />
+        <StatTile accent="red" label={t('Vacinas atrasadas')} value={lateShots} />
+        <StatTile accent="green" label={t('Concepção média')} value={averageRate === null ? '—' : `${averageRate}%`} />
+      </div>
+
       {/* O dia do veterinário em primeiro lugar: agenda e tarefas lado a lado */}
       <div className="mb-6 grid gap-4 lg:grid-cols-2">
-        <Agenda clients={panel.clients.map((c) => ({ id: c.id, name: c.name }))} />
+        <Agenda ref={agenda} clients={panel.clients.map((c) => ({ id: c.id, name: c.name }))} onChanged={load} />
 
         <section aria-labelledby="vet-tasks">
           <h2 id="vet-tasks" className="mb-3 flex min-h-[44px] items-center text-lg font-semibold text-gray-800">{t('O que fazer nas propriedades')}</h2>
@@ -161,9 +181,11 @@ export default function ConsultoriaPage() {
               {(allTasks ? tasks : tasks.slice(0, TASKS_SHOWN)).map(({ task: k, client: c }) => (
                 <li key={`${k.farmId}${k.title}`}>
                   <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, k.href)} className="flex w-full items-start gap-3 px-4 py-2.5 text-left hover:bg-gray-50 disabled:opacity-60">
-                    <span aria-hidden="true" className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${TONE_DOT[k.tone]}`} />
                     <span className="min-w-0 flex-1">
-                      <span className="block font-medium text-gray-800">{t(k.title, { n: k.n })}</span>
+                      <span className="block font-medium text-gray-800">
+                        <span className={`mr-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${TONE_BADGE[k.tone].className}`}>{t(TONE_BADGE[k.tone].label)}</span>
+                        {t(k.title, { n: k.n })}
+                      </span>
                       <span className="block text-sm text-gray-500">{[c.name, k.late ? t(k.late === 1 ? '{n} já passou da data' : '{n} já passaram da data', { n: k.late }) : null, k.detail ? t(k.detail) : null].filter(Boolean).join(' · ')}</span>
                     </span>
                     <span aria-hidden="true" className="text-gray-400">›</span>
@@ -179,12 +201,6 @@ export default function ConsultoriaPage() {
       </div>
 
       <VetCharts clients={panel.clients} busy={busy} onOpen={(c) => openFarm(c, '/reproducao/indicadores')} />
-
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-4"><p className="text-2xl font-bold text-gray-800">{awaiting}</p><p className="text-sm text-gray-500">{t('aguardando diagnóstico')}</p></div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4"><p className="text-2xl font-bold text-green-700">{averageRate === null ? '—' : `${averageRate}%`}</p><p className="text-sm text-gray-500">{t('concepção média')}</p></div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4"><p className="text-2xl font-bold text-gray-800">{panel.clients.reduce((sum, c) => sum + c.birthsSoon, 0)}</p><p className="text-sm text-gray-500">{t('partos em 30 dias')}</p></div>
-      </div>
 
 
       <section className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">

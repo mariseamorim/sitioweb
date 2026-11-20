@@ -214,6 +214,31 @@ export function Stat({ label, value, tone }: { label: string; value: string; ton
   )
 }
 
+export type Accent = 'green' | 'blue' | 'teal' | 'amber' | 'red'
+const ACCENT: Record<Accent, { bg: string; border: string; value: string }> = {
+  green: { bg: colors.greenSoft, border: '#86efac', value: colors.greenDark },
+  blue: { bg: colors.blueSoft, border: '#93c5fd', value: '#1e3a8a' },
+  teal: { bg: '#ccfbf1', border: '#5eead4', value: '#134e4a' },
+  amber: { bg: colors.amberSoft, border: '#fcd34d', value: '#92400e' },
+  red: { bg: colors.redSoft, border: '#fca5a5', value: '#b91c1c' },
+}
+
+/** Cartão de número colorido (como src/components/StatTile.tsx do site). Dois por linha: use dentro de <TileGrid>. */
+export function Tile({ label, value, detail, accent = 'green' }: { label: string; value: string; detail?: string; accent?: Accent }) {
+  const a = ACCENT[accent]
+  return (
+    <View style={{ flexGrow: 1, flexBasis: '45%', backgroundColor: a.bg, borderColor: a.border, borderWidth: 1, borderRadius: radius.md, padding: space.md }}>
+      <Text style={{ color: colors.text, fontSize: font.md, fontWeight: '600' }}>{label}</Text>
+      <Text style={{ color: a.value, fontSize: 30, fontWeight: '800', marginTop: 2 }}>{value}</Text>
+      {detail ? <Text style={{ color: colors.text, fontSize: font.sm }}>{detail}</Text> : null}
+    </View>
+  )
+}
+
+export function TileGrid({ children }: { children: ReactNode }) {
+  return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginBottom: space.md }}>{children}</View>
+}
+
 export function Notice({ text, tone = 'amber' }: { text: string; tone?: 'amber' | 'red' | 'green' | 'blue' }) {
   const map = { amber: [colors.amberSoft, colors.amber], red: [colors.redSoft, colors.red], green: [colors.greenSoft, colors.green], blue: [colors.blueSoft, colors.blue] } as const
   const [bg, fg] = map[tone]
