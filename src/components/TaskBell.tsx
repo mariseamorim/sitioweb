@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { usePathname } from 'next/navigation'
 import type { Task, TaskTone } from '@/lib/tasks'
 import { FecharIcon, SinoIcon } from '@/components/ModuleIcons'
+import { useT } from '@/lib/i18n'
 
 const CACHE_KEY = 'cached_tasks'
 const TONE_DOT: Record<TaskTone, string> = { red: 'bg-red-600', amber: 'bg-amber-500', blue: 'bg-blue-600' }
@@ -13,6 +14,7 @@ const TONE_DOT: Record<TaskTone, string> = { red: 'bg-red-600', amber: 'bg-amber
 // Sino da barra do topo: mostra as tarefas do dia (vacinas, partos, ordenha, estoque)
 export function TaskBell() {
   const pathname = usePathname()
+  const tr = useT()
   const [tasks, setTasks] = useState<Task[]>([])
   const [open, setOpen] = useState(false)
   const wrapper = useRef<HTMLDivElement>(null)
@@ -57,7 +59,7 @@ export function TaskBell() {
   const urgent = tasks.some((t) => t.tone === 'red')
 
   const list = tasks.length === 0 ? (
-    <p className="px-4 py-6 text-center text-gray-500">Nada pendente por enquanto.</p>
+    <p className="px-4 py-6 text-center text-gray-500">{tr('Nada pendente por enquanto.')}</p>
   ) : (
     <ul className="divide-y divide-gray-100">
       {tasks.map((t, i) => (
@@ -65,8 +67,8 @@ export function TaskBell() {
           <Link href={t.href} onClick={() => setOpen(false)} className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50">
             <span className={`mt-1.5 w-2.5 h-2.5 shrink-0 rounded-full ${TONE_DOT[t.tone]}`} />
             <span className="flex-1 min-w-0">
-              <span className="block text-base font-medium text-gray-800">{t.title}</span>
-              {t.detail && <span className="block text-sm text-gray-500">{t.detail}</span>}
+              <span className="block text-base font-medium text-gray-800">{tr(t.title)}</span>
+              {t.detail && <span className="block text-sm text-gray-500">{tr(t.detail)}</span>}
             </span>
           </Link>
         </li>
@@ -80,7 +82,7 @@ export function TaskBell() {
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        aria-label={tasks.length ? `Tarefas de hoje: ${tasks.length}` : 'Tarefas de hoje'}
+        aria-label={tasks.length ? tr('Tarefas de hoje: {n}', { n: tasks.length }) : tr('Tarefas de hoje')}
         className="relative p-2 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100"
       >
         <SinoIcon className="w-6 h-6" />
@@ -99,7 +101,7 @@ export function TaskBell() {
         <>
           {/* Computador: janela suspensa */}
           <div className="hidden md:block absolute right-0 mt-2 w-96 max-h-[70vh] overflow-y-auto bg-white rounded-xl border border-gray-200 shadow-lg z-50">
-            <p className="px-4 pt-4 pb-2 text-sm font-semibold text-gray-900">O que fazer hoje</p>
+            <p className="px-4 pt-4 pb-2 text-sm font-semibold text-gray-900">{tr('O que fazer hoje')}</p>
             {list}
           </div>
 
@@ -112,8 +114,8 @@ export function TaskBell() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between px-4 pt-4 pb-2">
-                <p className="text-base font-semibold text-gray-900">O que fazer hoje</p>
-                <button onClick={() => setOpen(false)} className="p-1 text-gray-400 hover:text-gray-600" aria-label="Fechar">
+                <p className="text-base font-semibold text-gray-900">{tr('O que fazer hoje')}</p>
+                <button onClick={() => setOpen(false)} className="p-1 text-gray-400 hover:text-gray-600" aria-label={tr('Fechar')}>
                   <FecharIcon />
                 </button>
               </div>

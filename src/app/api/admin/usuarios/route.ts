@@ -9,6 +9,6 @@ export async function GET() {
   const auth = await requireAdmin()
   if ('error' in auth) return auth.error
 
-  const users = await prisma.user.findMany({ select: ACCOUNT_SELECT, orderBy: { name: 'asc' }, take: 2000 })
+  const users = await prisma.user.findMany({ where: { isDemo: false }, select: ACCOUNT_SELECT, orderBy: { name: 'asc' }, take: 2000 })
   return NextResponse.json(users.map(toAccount), { headers: { 'Cache-Control': 'no-store' } })
 }

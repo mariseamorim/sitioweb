@@ -10,6 +10,7 @@ import { useSyncState } from '@/sync'
 import { Button, Chips, DateField, Field, Muted, Notice, Screen, SelectField } from '@/ui'
 import { VoiceButton } from '@/ui/voice'
 import { space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 // Anotar leite (id = "novo") ou editar um lançamento. "Total do dia" é o uso comum; "Por vaca" separa o leite de uma vaca.
 export default function LeiteForm() {
@@ -17,6 +18,7 @@ export default function LeiteForm() {
   const farmId = useFarmId()
   const { canEdit } = useSession()
   const router = useRouter()
+  const t = useT()
   const editing = id && id !== 'novo' ? all<Milk>('SELECT * FROM milk WHERE id = ?', [id])[0] ?? null : null
 
   const [mode, setMode] = useState<'dia' | 'vaca'>(editing?.animalId ? 'vaca' : 'dia')
@@ -70,25 +72,25 @@ export default function LeiteForm() {
   useEffect(() => () => { if (keyRef.current !== savedKeyRef.current) persistRef.current() }, [])
 
   function save() {
-    if (key !== savedKeyRef.current && !persist()) { setError(validate() as string); return }
+    if (key !== savedKeyRef.current && !persist()) { setError(t(validate() as string)); return }
     router.back()
   }
 
   const status = savedAt === null ? ''
-    : !sync.online ? 'Salvo no celular. Será enviado quando houver internet.'
-      : sync.pending > 0 || sync.syncing ? 'Salvo no celular. Enviando…' : 'Salvo e enviado.'
+    : !sync.online ? t('Salvo no celular. Será enviado quando houver internet.')
+      : sync.pending > 0 || sync.syncing ? t('Salvo no celular. Enviando…') : t('Salvo e enviado.')
 
   function remove() {
     if (!editing) return
-    Alert.alert('Apagar lançamento', 'Apagar este lançamento de leite?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Apagar', style: 'destructive', onPress: () => { savedKeyRef.current = keyRef.current; removeMilk(farmId, savedIdRef.current ?? editing.id); router.back() } },
+    Alert.alert(t('Apagar lançamento'), t('Apagar este lançamento de leite?'), [
+      { text: t('Cancelar'), style: 'cancel' },
+      { text: t('Apagar'), style: 'destructive', onPress: () => { savedKeyRef.current = keyRef.current; removeMilk(farmId, savedIdRef.current ?? editing.id); router.back() } },
     ])
   }
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: editing ? 'Editar leite' : 'Anotar leite' }} />
+      <Stack.Screen options={{ title: t(editing ? 'Editar leite' : 'Anotar leite') }} />
       {!canEdit ? <Notice tone="red" text="Sua conta só pode consultar." /> : null}
       <Chips options={[{ value: 'dia', label: 'Total do dia' }, { value: 'vaca', label: 'Por vaca' }]} value={mode} onChange={setMode} />
       <View style={{ height: space.sm }} />

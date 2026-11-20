@@ -3,15 +3,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useDialog } from '@/components/DialogProvider'
 import { fmtNumber } from '@/lib/reports'
+import { useLocale, useT } from '@/lib/i18n'
 
 interface Collection { date: string; liters: number; pointId: string; pointName: string; driverName: string }
 interface Link { pointId: string; pointName: string; driverName: string }
 
-const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
 
 // Coletas que os motoristas anotaram nos sítios ligados a esta propriedade (versão completa)
 export function MilkCollections({ from, to, canEdit }: { from: string; to: string; canEdit: boolean }) {
   const { confirm } = useDialog()
+  const t = useT()
+  const locale = useLocale()
+  const fmtDay = (iso: string) => new Date(iso).toLocaleDateString(locale, { timeZone: 'UTC' })
   const [collections, setCollections] = useState<Collection[]>([])
   const [links, setLinks] = useState<Link[]>([])
 
@@ -26,9 +29,9 @@ export function MilkCollections({ from, to, canEdit }: { from: string; to: strin
 
   async function unlink(link: Link) {
     const ok = await confirm({
-      title: `Desligar ${link.pointName}?`,
-      message: `As coletas de ${link.driverName} nesse local deixam de aparecer aqui. Use se não for o seu sítio.`,
-      confirmLabel: 'Desligar',
+      title: t('Desligar {name}?', { name: link.pointName }),
+      message: t('As coletas de {driver} nesse local deixam de aparecer aqui. Use se não for o seu sítio.', { driver: link.driverName }),
+      confirmLabel: t('Desligar'),
       danger: true,
     })
     if (!ok) return
@@ -42,13 +45,13 @@ export function MilkCollections({ from, to, canEdit }: { from: string; to: strin
   return (
     <section className="mt-6 bg-white rounded-xl border border-gray-200 p-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-900">Coletado pelo motorista</h2>
+        <h2 className="text-base font-semibold text-gray-900">{t('Coletado pelo motorista')}</h2>
         <span className="text-lg font-bold text-blue-700">{fmtNumber(total)} L</span>
       </div>
-      <p className="text-sm text-gray-500">No período escolhido, anotado pelo motorista do leite.</p>
+      <p className="text-sm text-gray-500">{t('No período escolhido, anotado pelo motorista do leite.')}</p>
 
       {collections.length === 0 ? (
-        <p className="mt-3 text-sm text-gray-500">Nenhuma coleta no período.</p>
+        <p className="mt-3 text-sm text-gray-500">{t('Nenhuma coleta no período.')}</p>
       ) : (
         <ul className="mt-3 divide-y divide-gray-100">
           {collections.map((c) => (
@@ -63,8 +66,8 @@ export function MilkCollections({ from, to, canEdit }: { from: string; to: strin
       <div className="mt-3 border-t border-gray-100 pt-3 text-sm text-gray-500">
         {links.map((l) => (
           <p key={l.pointId} className="flex flex-wrap items-center gap-2">
-            Ligado a {l.driverName} ({l.pointName})
-            {canEdit && <button type="button" onClick={() => unlink(l)} className="font-semibold text-red-600 underline">Não é meu sítio</button>}
+            {t('Ligado a {driver} ({point})', { driver: l.driverName, point: l.pointName })}
+            {canEdit && <button type="button" onClick={() => unlink(l)} className="font-semibold text-red-600 underline">{t('Não é meu sítio')}</button>}
           </p>
         ))}
       </div>

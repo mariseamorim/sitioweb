@@ -11,6 +11,7 @@ import { pendingCount } from '@/sync/local'
 import { useSyncState } from '@/sync'
 import { Button, Chips, Field, Notice, Screen, SelectField, styles } from '@/ui'
 import { CheckGroup } from '@/ui/checks'
+import { useT } from '@/lib/i18n'
 
 const PENDING_MESSAGE = 'Ainda há anotações salvas só no celular. Conecte-se à internet e espere o "Tudo enviado" antes de trocar de propriedade.'
 const SEGMENT_OPTIONS = FARM_SEGMENTS.map(s => ({ key: s.key, label: s.label }))
@@ -24,6 +25,7 @@ export default function FazendaForm() {
   const router = useRouter()
   const editing = id && id !== 'nova' ? getFarm(id) : null
   const isAdmin = user?.role === 'admin'
+  const t = useT()
 
   const [form, setForm] = useState<FarmInput>(() => editing ? {
     name: editing.name, propertyType: editing.propertyType ?? 'Fazenda', documentType: editing.documentType ?? 'CNPJ', documentNumber: editing.documentNumber ?? '',
@@ -54,7 +56,7 @@ export default function FazendaForm() {
       await switchFarm(String(created.id))
       router.replace('/(tabs)')
     } catch (e) {
-      setError(e instanceof HttpError ? e.message : 'Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.')
+      setError(e instanceof HttpError ? t(e.message) : t('Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.'))
     } finally {
       setSaving(false)
     }
@@ -65,17 +67,17 @@ export default function FazendaForm() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: editing ? 'Editar propriedade' : 'Cadastrar propriedade' }} />
-      <Text style={styles.label}>Tipo de Propriedade *</Text>
-      <Chips options={PROPERTY_TYPES.map(t => ({ value: t, label: t }))} value={form.propertyType as (typeof PROPERTY_TYPES)[number]} onChange={v => set({ propertyType: v })} />
+      <Stack.Screen options={{ title: t(editing ? 'Editar propriedade' : 'Cadastrar propriedade') }} />
+      <Text style={styles.label}>{t('Tipo de Propriedade *')}</Text>
+      <Chips options={PROPERTY_TYPES.map(p => ({ value: p, label: p }))} value={form.propertyType as (typeof PROPERTY_TYPES)[number]} onChange={v => set({ propertyType: v })} />
       <CheckGroup label="O que a propriedade faz? (pode marcar mais de um)" options={SEGMENT_OPTIONS} value={form.segments} onChange={segments => set({ segments })} />
-      <Field label="Nome *" value={form.name} onChangeText={name => set({ name })} placeholder={`Nome ${form.propertyType === 'Sítio' ? 'do Sítio' : 'da Fazenda'}`} />
+      <Field label="Nome *" value={form.name} onChangeText={name => set({ name })} placeholder={t(form.propertyType === 'Sítio' ? 'Nome do Sítio' : 'Nome da Fazenda')} />
       <Field label="Proprietário" value={form.owner} onChangeText={owner => set({ owner })} placeholder="Nome do proprietário" autoCapitalize="words" />
-      <SelectField label="Doc. Tipo" value={form.documentType} options={DOCUMENT_TYPES.map(t => ({ value: t, label: t }))}
+      <SelectField label="Doc. Tipo" value={form.documentType} options={DOCUMENT_TYPES.map(d => ({ value: d, label: d }))}
         onChange={v => set({ documentType: v ?? 'CNPJ', documentNumber: maskDocument(form.documentNumber, v ?? 'CNPJ') })} />
-      <Field label="Documento (CPF/CNPJ)" value={form.documentNumber} onChangeText={t => set({ documentNumber: maskDocument(t, form.documentType) })} keyboardType="numeric"
+      <Field label="Documento (CPF/CNPJ)" value={form.documentNumber} onChangeText={v => set({ documentNumber: maskDocument(v, form.documentType) })} keyboardType="numeric"
         placeholder={DOCUMENT_PLACEHOLDER[form.documentType] ?? DOCUMENT_PLACEHOLDER.CPF} />
-      <Field label="Telefone" value={form.phone} onChangeText={t => set({ phone: maskPhone(t) })} keyboardType="phone-pad" placeholder="(35) 99999-0000" />
+      <Field label="Telefone" value={form.phone} onChangeText={v => set({ phone: maskPhone(v) })} keyboardType="phone-pad" placeholder="(35) 99999-0000" />
       <Field label="Endereço" value={form.address} onChangeText={address => set({ address })} />
       <Field label="Cidade" value={form.city} onChangeText={city => set({ city })} />
       <Field label="Estado" value={form.state} onChangeText={state => set({ state: state.toUpperCase() })} placeholder="SP" maxLength={2} autoCapitalize="characters" />

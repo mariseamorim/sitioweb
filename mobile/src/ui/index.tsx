@@ -9,6 +9,12 @@ import { useSegments } from 'expo-router'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors, font, radius, space } from '@/theme'
 import { brDate } from '@/lib/format'
+import { Ionicons } from '@expo/vector-icons'
+import { useLocale, useT } from '@/lib/i18n'
+
+// Rótulos, botões, avisos e títulos passam por t(): o texto em português vira o do idioma escolhido. Quem chama já pode
+// mandar traduzido (t de um texto que não é chave devolve o próprio texto).
+const asText = (t: (s: string) => string, node: ReactNode) => (typeof node === 'string' ? t(node) : node)
 
 /** Tela com rolagem. `header`: há cabeçalho de navegação acima (para calcular o espaço do teclado). */
 export function Screen({ children, scroll = true, style, background, header = true }: { children: ReactNode; scroll?: boolean; style?: ViewStyle; background?: string; header?: boolean }) {
@@ -26,10 +32,11 @@ export function Screen({ children, scroll = true, style, background, header = tr
 }
 
 export function Title({ children, sub }: { children: ReactNode; sub?: ReactNode }) {
+  const t = useT()
   return (
     <View style={{ marginBottom: space.md }}>
-      <Text style={styles.title}>{children}</Text>
-      {sub ? <Text style={styles.muted}>{sub}</Text> : null}
+      <Text style={styles.title}>{asText(t, children)}</Text>
+      {sub ? <Text style={styles.muted}>{asText(t, sub)}</Text> : null}
     </View>
   )
 }
@@ -48,20 +55,33 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
 }) {
   const bg = variant === 'primary' ? colors.green : variant === 'danger' ? colors.red : variant === 'secondary' ? colors.white : 'transparent'
   const fg = variant === 'primary' || variant === 'danger' ? colors.white : colors.green
+  const t = useT()
   return (
     <Pressable onPress={onPress} disabled={disabled || loading} accessibilityRole="button"
       style={({ pressed }) => [styles.button, { backgroundColor: bg, borderColor: variant === 'secondary' ? colors.green : bg, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 }, style]}>
-      {loading ? <ActivityIndicator color={fg} /> : <Text style={[styles.buttonText, { color: fg }]}>{label}</Text>}
+      {loading ? <ActivityIndicator color={fg} /> : <Text style={[styles.buttonText, { color: fg }]}>{t(label)}</Text>}
     </Pressable>
   )
 }
 
-export function Field({ label, hint, error, style, ...props }: TextInputProps & { label: string; hint?: string; error?: string | null }) {
+/** Campo de texto. Com secureTextEntry (senha) ganha o olho para mostrar ou esconder; noReveal tira o olho. */
+export function Field({ label, hint, error, style, noReveal, ...props }: TextInputProps & { label: string; hint?: string; error?: string | null; noReveal?: boolean }) {
+  const t = useT()
+  const [show, setShow] = useState(false)
+  const reveal = !!props.secureTextEntry && !noReveal
   return (
     <View style={[styles.field, style]}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput placeholderTextColor={colors.muted} {...props} style={[styles.input, props.multiline && { minHeight: 88, textAlignVertical: 'top' }]} />
-      {error ? <Text style={styles.error}>{error}</Text> : hint ? <Text style={styles.hint}>{hint}</Text> : null}
+      <Text style={styles.label}>{t(label)}</Text>
+      <View>
+        <TextInput placeholderTextColor={colors.muted} {...props} placeholder={props.placeholder ? t(props.placeholder) : props.placeholder} secureTextEntry={reveal ? !show : props.secureTextEntry} style={[styles.input, props.multiline && { minHeight: 88, textAlignVertical: 'top' }, reveal && { paddingRight: 52 }]} />
+        {reveal ? (
+          <Pressable onPress={() => setShow(s => !s)} accessibilityRole="button" accessibilityLabel={t(show ? 'Esconder senha' : 'Mostrar senha')} accessibilityState={{ selected: show }}
+            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 52, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={show ? 'eye-off-outline' : 'eye-outline'} size={22} color={colors.muted} />
+          </Pressable>
+        ) : null}
+      </View>
+      {error ? <Text style={styles.error}>{t(error)}</Text> : hint ? <Text style={styles.hint}>{t(hint)}</Text> : null}
     </View>
   )
 }
@@ -71,34 +91,35 @@ export interface Option { value: string; label: string; detail?: string }
 export function SelectField({ label, value, options, onChange, placeholder = 'Escolher', searchable, allowEmpty }: {
   label: string; value: string | null; options: Option[]; onChange: (value: string | null) => void; placeholder?: string; searchable?: boolean; allowEmpty?: boolean
 }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const current = options.find(o => o.value === value)
   const shown = q ? options.filter(o => (o.label + ' ' + (o.detail ?? '')).toLowerCase().includes(q.toLowerCase())) : options
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>{t(label)}</Text>
       <Pressable onPress={() => setOpen(true)} style={styles.input} accessibilityRole="button">
-        <Text style={{ fontSize: font.md, color: current ? colors.text : colors.muted }}>{current ? current.label : placeholder}</Text>
+        <Text style={{ fontSize: font.md, color: current ? colors.text : colors.muted }}>{current ? t(current.label) : t(placeholder)}</Text>
       </Pressable>
       <Modal visible={open} animationType="slide" onRequestClose={() => setOpen(false)}>
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{label}</Text>
-            <Pressable onPress={() => setOpen(false)} hitSlop={12}><Text style={styles.link}>Fechar</Text></Pressable>
+            <Text style={styles.modalTitle}>{t(label)}</Text>
+            <Pressable onPress={() => setOpen(false)} hitSlop={12}><Text style={styles.link}>{t('Fechar')}</Text></Pressable>
           </View>
-          {searchable ? <TextInput value={q} onChangeText={setQ} placeholder="Buscar" placeholderTextColor={colors.muted} style={[styles.input, { margin: space.lg, marginTop: 0 }]} autoFocus /> : null}
+          {searchable ? <TextInput value={q} onChangeText={setQ} placeholder={t('Buscar')} placeholderTextColor={colors.muted} style={[styles.input, { margin: space.lg, marginTop: 0 }]} autoFocus /> : null}
           <FlatList
-            data={allowEmpty ? [{ value: '', label: 'Nenhum' }, ...shown] : shown}
+            data={allowEmpty ? [{ value: '', label: t('Nenhum') }, ...shown] : shown}
             keyExtractor={o => o.value || '__none'}
             keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => (
               <Pressable onPress={() => { onChange(item.value || null); setOpen(false); setQ('') }} style={[styles.option, item.value === (value ?? '') && { backgroundColor: colors.greenSoft }]}>
-                <Text style={{ fontSize: font.md, color: colors.text }}>{item.label}</Text>
-                {item.detail ? <Text style={styles.muted}>{item.detail}</Text> : null}
+                <Text style={{ fontSize: font.md, color: colors.text }}>{t(item.label)}</Text>
+                {item.detail ? <Text style={styles.muted}>{t(item.detail)}</Text> : null}
               </Pressable>
             )}
-            ListEmptyComponent={<Text style={[styles.muted, { padding: space.lg }]}>Nada encontrado</Text>}
+            ListEmptyComponent={<Text style={[styles.muted, { padding: space.lg }]}>{t('Nada encontrado')}</Text>}
           />
         </SafeAreaView>
       </Modal>
@@ -108,6 +129,8 @@ export function SelectField({ label, value, options, onChange, placeholder = 'Es
 
 /** Data no formato AAAA-MM-DD; vazio = sem data. */
 export function DateField({ label, value, onChange, allowEmpty }: { label: string; value: string; onChange: (iso: string) => void; allowEmpty?: boolean }) {
+  const t = useT()
+  const locale = useLocale()
   const [open, setOpen] = useState(false)
   const date = value ? new Date(value + 'T12:00:00') : new Date()
   const onPick = (e: DateTimePickerEvent, d?: Date) => {
@@ -117,24 +140,25 @@ export function DateField({ label, value, onChange, allowEmpty }: { label: strin
   }
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={styles.label}>{t(label)}</Text>
       <View style={{ flexDirection: 'row', gap: space.sm }}>
         <Pressable onPress={() => setOpen(true)} style={[styles.input, { flex: 1 }]} accessibilityRole="button">
-          <Text style={{ fontSize: font.md, color: value ? colors.text : colors.muted }}>{value ? brDate(value) : 'Escolher data'}</Text>
+          <Text style={{ fontSize: font.md, color: value ? colors.text : colors.muted }}>{value ? brDate(value) : t('Escolher data')}</Text>
         </Pressable>
         {allowEmpty && value ? <Button label="Limpar" variant="ghost" onPress={() => onChange('')} /> : null}
       </View>
-      {open ? <DateTimePicker value={date} mode="date" display="default" onChange={onPick} locale="pt-BR" /> : null}
+      {open ? <DateTimePicker value={date} mode="date" display="default" onChange={onPick} locale={locale} /> : null}
     </View>
   )
 }
 
 export function Chips<T extends string>({ options, value, onChange }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
+  const t = useT()
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, paddingVertical: space.sm }}>
       {options.map(o => (
         <Pressable key={o.value} onPress={() => onChange(o.value)} style={[styles.chip, value === o.value && styles.chipOn]}>
-          <Text style={[styles.chipText, value === o.value && { color: colors.white }]}>{o.label}</Text>
+          <Text style={[styles.chipText, value === o.value && { color: colors.white }]}>{t(o.label)}</Text>
         </Pressable>
       ))}
     </View>
@@ -144,16 +168,18 @@ export function Chips<T extends string>({ options, value, onChange }: { options:
 export function Badge({ label, tone = 'muted' }: { label: string; tone?: 'green' | 'amber' | 'red' | 'blue' | 'purple' | 'muted' }) {
   const map = { green: [colors.greenSoft, colors.green], amber: [colors.amberSoft, colors.amber], red: [colors.redSoft, colors.red], blue: [colors.blueSoft, colors.blue], purple: [colors.purpleSoft, colors.purple], muted: [colors.border, colors.muted] } as const
   const [bg, fg] = map[tone]
-  return <View style={[styles.badge, { backgroundColor: bg }]}><Text style={{ color: fg, fontSize: font.sm, fontWeight: '600' }}>{label}</Text></View>
+  const t = useT()
+  return <View style={[styles.badge, { backgroundColor: bg }]}><Text style={{ color: fg, fontSize: font.sm, fontWeight: '600' }}>{t(label)}</Text></View>
 }
 
 export function Row({ title, detail, right, onPress, badge, left }: { title: string; detail?: string; right?: ReactNode; onPress?: () => void; badge?: ReactNode; left?: ReactNode }) {
+  const t = useT()
   const body = (
     <View style={styles.row}>
       {left ? <View style={{ marginRight: space.md }}>{left}</View> : null}
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={styles.rowTitle} numberOfLines={2}>{title}</Text>
-        {detail ? <Text style={styles.muted} numberOfLines={2}>{detail}</Text> : null}
+        <Text style={styles.rowTitle} numberOfLines={2}>{t(title)}</Text>
+        {detail ? <Text style={styles.muted} numberOfLines={2}>{t(detail)}</Text> : null}
         {badge ? <View style={{ marginTop: 4, flexDirection: 'row' }}>{badge}</View> : null}
       </View>
       {right ? <View style={{ alignItems: 'flex-end', marginLeft: space.md }}>{right}</View> : null}
@@ -163,24 +189,27 @@ export function Row({ title, detail, right, onPress, badge, left }: { title: str
 }
 
 export function Empty({ title, text }: { title: string; text?: string }) {
+  const t = useT()
   return (
     <View style={{ padding: space.xl, alignItems: 'center' }}>
-      <Text style={{ fontSize: font.lg, color: colors.text, fontWeight: '600', textAlign: 'center' }}>{title}</Text>
-      {text ? <Text style={[styles.muted, { textAlign: 'center', marginTop: space.sm }]}>{text}</Text> : null}
+      <Text style={{ fontSize: font.lg, color: colors.text, fontWeight: '600', textAlign: 'center' }}>{t(title)}</Text>
+      {text ? <Text style={[styles.muted, { textAlign: 'center', marginTop: space.sm }]}>{t(text)}</Text> : null}
     </View>
   )
 }
 
 export function Search({ value, onChange, placeholder = 'Buscar' }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
-  return <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={colors.muted} style={[styles.input, { marginBottom: space.sm }]} clearButtonMode="while-editing" />
+  const t = useT()
+  return <TextInput value={value} onChangeText={onChange} placeholder={t(placeholder)} placeholderTextColor={colors.muted} style={[styles.input, { marginBottom: space.sm }]} clearButtonMode="while-editing" />
 }
 
 export function Stat({ label, value, tone }: { label: string; value: string; tone?: 'green' | 'red' | 'amber' }) {
   const color = tone === 'green' ? colors.green : tone === 'red' ? colors.red : tone === 'amber' ? colors.amber : colors.text
+  const t = useT()
   return (
     <View style={styles.stat}>
       <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.muted}>{label}</Text>
+      <Text style={styles.muted}>{t(label)}</Text>
     </View>
   )
 }
@@ -188,7 +217,8 @@ export function Stat({ label, value, tone }: { label: string; value: string; ton
 export function Notice({ text, tone = 'amber' }: { text: string; tone?: 'amber' | 'red' | 'green' | 'blue' }) {
   const map = { amber: [colors.amberSoft, colors.amber], red: [colors.redSoft, colors.red], green: [colors.greenSoft, colors.green], blue: [colors.blueSoft, colors.blue] } as const
   const [bg, fg] = map[tone]
-  return <View style={[styles.notice, { backgroundColor: bg }]}><Text style={{ color: fg, fontSize: font.sm }}>{text}</Text></View>
+  const t = useT()
+  return <View style={[styles.notice, { backgroundColor: bg }]}><Text style={{ color: fg, fontSize: font.sm }}>{t(text)}</Text></View>
 }
 
 /** Recuo inferior da tela (botões de navegação do Android). Dentro das abas a barra de abas já ocupa esse espaço. */
@@ -200,9 +230,10 @@ export function useBottomInset(): number {
 
 export function Fab({ label, onPress }: { label: string; onPress: () => void }) {
   const bottom = useBottomInset()
+  const t = useT()
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.fab, { bottom: space.lg + bottom }, pressed && { opacity: 0.85 }]} accessibilityRole="button">
-      <Text style={{ color: colors.white, fontWeight: '700', fontSize: font.md }}>{label}</Text>
+      <Text style={{ color: colors.white, fontWeight: '700', fontSize: font.md }}>{t(label)}</Text>
     </Pressable>
   )
 }

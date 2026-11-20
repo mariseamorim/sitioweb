@@ -20,6 +20,7 @@ import { isInRearing } from '@/lib/rearing'
 import { pregnancyChecks, type PregnancyCheck } from '@/lib/calving'
 import { AddCalfForm } from '@/components/CalfSection'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
+import { useLocale, useT } from '@/lib/i18n'
 import { COVERAGE_METHODS, EMPTY_COVERAGE, GESTATION_DAYS, gestation, isInsemination, methodLabel, plusDays, repeatCoverage, repeatedFields, type CoverageForm } from '@/lib/coverage'
 
 interface Animal { id: string; name: string; code: string; species: string; gender: string; status: string; birthDate: string; motherId?: string | null; rearingStart?: string | null; rearingEnd?: string | null }
@@ -79,6 +80,8 @@ const legacyRequest = (r: OfflineRecord): QueuedRequest => {
 export default function ReproducaoPage() {
   const { confirm } = useDialog()
   const { user } = useUser()
+  const t = useT()
+  const locale = useLocale()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const farmId = user?.farmId ?? ''
   const [reproductions, setReproductions] = useState<Reproduction[]>([])
@@ -164,7 +167,7 @@ export default function ReproducaoPage() {
 
   async function handleDelete(id: string) {
     if (!canEdit) return
-    if (!(await confirm({ title: 'Excluir este registro de reprodução?', confirmLabel: 'Excluir', danger: true }))) return
+    if (!(await confirm({ title: t('Excluir este registro de reprodução?'), confirmLabel: t('Excluir'), danger: true }))) return
     setDetail(null)
     if (isPendingId(id)) {
       // Ainda não foi enviado: sai da fila do aparelho
@@ -207,8 +210,8 @@ export default function ReproducaoPage() {
   // Salva a cobertura. Com `repeat`, mantém data, tipo, touro, partida e inseminador e limpa só a fêmea:
   // é o dia de IATF, em que a fila toda leva o mesmo sêmen e só muda o brinco.
   async function handleSave(repeat: boolean) {
-    if (!form.femaleId) return setError('Escolha a fêmea')
-    if (!form.coverageDate) return setError('Informe a data da cobertura')
+    if (!form.femaleId) return setError(t('Escolha a fêmea'))
+    if (!form.coverageDate) return setError(t('Informe a data da cobertura'))
     setSaving(true)
     setError('')
     const payload = { ...form, farmId, maleName: form.maleName || null, observations: form.observations || null }
@@ -232,7 +235,7 @@ export default function ReproducaoPage() {
   }
 
   // Datas gravadas à meia-noite UTC: mostrar em UTC para não cair no dia anterior no horário de Brasília
-  const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+  const fmt = (d: string) => new Date(d).toLocaleDateString(locale, { timeZone: 'UTC' })
   // Cobertura em aberto: dá para registrar o parto anotando a cria
   const birthMother = detail && canEdit && !detail.actualBirthDate && !isPendingId(detail.id) && (detail.status === 'Coberta' || detail.status === 'Prenha')
     ? herd.find((a) => a.id === detail.femaleId)
@@ -243,37 +246,42 @@ export default function ReproducaoPage() {
       <div>
       <div className="flex items-start justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Reprodução</h1>
-          <p className="text-gray-500 text-sm mt-1">Coberturas, prenhez e partos</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('Reprodução')}</h1>
+          <p className="text-gray-500 text-sm mt-1">{t('Coberturas, prenhez e partos')}</p>
         </div>
-        <button onClick={openRegister} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
-          + Registrar
-        </button>
+        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <a href="/reproducao/indicadores" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-gray-300 text-gray-700 hover:bg-gray-50">{t('Indicadores')}</a>
+          <a href="/reproducao/relatorio-visita" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-gray-300 text-gray-700 hover:bg-gray-50">{t('Relatório de visita')}</a>
+          <a href="/reproducao/diagnostico" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-green-700 text-green-800 hover:bg-green-50">{t('Diagnóstico em lote')}</a>
+          <button onClick={openRegister} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
+            + {t('Registrar')}
+          </button>
+        </div>
       </div>
 
       {/* Sem internet / fila / aviso */}
       {(!net.online || fromCache) && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />
-          <span>{net.online ? 'Sinal fraco: mostrando a última cópia guardada neste aparelho.' : 'Sem internet.'} O que você registrar fica salvo no aparelho e é enviado quando a conexão voltar.</span>
+          <span>{t(net.online ? 'Sinal fraco: mostrando a última cópia guardada neste aparelho.' : 'Sem internet.')} {t('O que você registrar fica salvo no aparelho e é enviado quando a conexão voltar.')}</span>
         </div>
       )}
       {net.online && net.pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{net.pendingCount} registro{net.pendingCount > 1 ? 's' : ''} para enviar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{t(net.pendingCount > 1 ? '{n} registros para enviar' : '{n} registro para enviar', { n: net.pendingCount })}</span>
           <button
             onClick={() => void net.sync()}
             disabled={net.syncing}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {net.syncing ? 'Enviando...' : 'Enviar agora'}
+            {t(net.syncing ? 'Enviando...' : 'Enviar agora')}
           </button>
         </div>
       )}
       {notice && (
         <div role="status" className="bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span>{notice}</span>
-          <button onClick={() => setNotice('')} className="text-green-700 hover:text-green-900 p-1" aria-label="Fechar aviso"><FecharIcon /></button>
+          <span>{t(notice)}</span>
+          <button onClick={() => setNotice('')} className="text-green-700 hover:text-green-900 p-1" aria-label={t('Fechar aviso')}><FecharIcon /></button>
         </div>
       )}
       </div>
@@ -287,49 +295,49 @@ export default function ReproducaoPage() {
       {upcomingBirths > 0 && (
         <div className="bg-purple-50 border border-purple-200 text-purple-800 rounded-xl px-4 py-3 mb-6 text-sm flex items-center gap-2">
           <ReproducaoIcon className="w-5 h-5 shrink-0" />
-          <span><strong>{upcomingBirths}</strong> parto{upcomingBirths > 1 ? 's' : ''} esperado{upcomingBirths > 1 ? 's' : ''} nos próximos 30 dias</span>
+          <span><strong>{upcomingBirths}</strong> {t(upcomingBirths > 1 ? 'partos esperados nos próximos 30 dias' : 'parto esperado nos próximos 30 dias')}</span>
         </div>
       )}
 
-      {quick && <QuickFilterChip label="partos esperados nos próximos 30 dias" count={filtered.length} onClear={() => setQuick(null)} />}
+      {quick && <QuickFilterChip label={t('partos esperados nos próximos 30 dias')} count={filtered.length} onClear={() => setQuick(null)} />}
       <div className="flex flex-wrap gap-2 mb-4">
         {(['Todas', ...STATUS_LIST]).map(s => (
           <button key={s} onClick={() => { setQuick(null); setFilterStatus(s) }}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterStatus === s ? 'bg-green-700 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-            {s}
+            {t(s)}
           </button>
         ))}
       </div>
 
-      <label className="mb-4 block text-xs font-medium text-gray-600">Buscar animal por nome, código ou brinco
+      <label className="mb-4 block text-xs font-medium text-gray-600">{t('Buscar animal por nome, código ou brinco')}
         <input type="search" value={animalSearch} onChange={e => setAnimalSearch(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
       </label>
-      {loading ? <p className="text-gray-400 text-sm">Carregando...</p> : filtered.length === 0 ? (
+      {loading ? <p className="text-gray-400 text-sm">{t('Carregando...')}</p> : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          <p className="text-lg">Nenhum registro encontrado</p>
-          <p className="text-sm mt-1">Clique em &quot;+ Registrar&quot; para começar</p>
+          <p className="text-lg">{t('Nenhum registro encontrado')}</p>
+          <p className="text-sm mt-1">{t('Clique em "+ Registrar" para começar')}</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <SortTh label="Fêmea" sortKey="female" sort={sort} className="px-4 py-3 text-left" />
-                <SortTh label="Reprodutor" sortKey="male" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
-                <SortTh label="Cobertura" sortKey="coverage" sort={sort} className="px-4 py-3 text-left" />
-                <SortTh label="Parto Esperado" sortKey="expected" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
-                <SortTh label="Status" sortKey="status" sort={sort} className="px-4 py-3 text-left" />
+                <SortTh label={t('Fêmea')} sortKey="female" sort={sort} className="px-4 py-3 text-left" />
+                <SortTh label={t('Reprodutor')} sortKey="male" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label={t('Cobertura')} sortKey="coverage" sort={sort} className="px-4 py-3 text-left" />
+                <SortTh label={t('Parto Esperado')} sortKey="expected" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label={t('Status')} sortKey="status" sort={sort} className="px-4 py-3 text-left" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {sortedReproductions.map(r => (
                 <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetail(r); setEditingRecord(false); setRegisteringBirth(false); setEditStatus(r.status); setEditBirthDate(r.actualBirthDate?.slice(0, 10) || '') }}>
-                  <td className="px-4 py-3 font-medium text-gray-800">{r.female.name}{isPendingId(r.id) && <span className="ml-2 text-xs font-normal text-blue-700">a enviar</span>}</td>
+                  <td className="px-4 py-3 font-medium text-gray-800">{r.female.name}{isPendingId(r.id) && <span className="ml-2 text-xs font-normal text-blue-700">{t('a enviar')}</span>}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{r.maleName || '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{fmt(r.coverageDate)}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{r.expectedBirthDate ? fmt(r.expectedBirthDate) : '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLOR[r.status] || 'bg-gray-100 text-gray-600'}`}>{r.status}</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLOR[r.status] || 'bg-gray-100 text-gray-600'}`}>{t(r.status)}</span>
                   </td>
                 </tr>
               ))}
@@ -346,29 +354,29 @@ export default function ReproducaoPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-lg font-bold text-gray-800">{detail.female.name}</h2>
-                  <p className="text-xs text-gray-500">Cobertura: {fmt(detail.coverageDate)}{isPendingId(detail.id) ? ' · a enviar' : ''}</p>
+                  <p className="text-xs text-gray-500">{t('Cobertura')}: {fmt(detail.coverageDate)}{isPendingId(detail.id) ? ` · ${t('a enviar')}` : ''}</p>
                 </div>
-                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
+                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
-                <div><p className="text-xs text-gray-500">Touro</p><p className="font-medium text-gray-800">{detail.maleName || '—'}{detail.bullRegistry ? ` · ${detail.bullRegistry}` : ''}</p></div>
-                {detail.method && <div><p className="text-xs text-gray-500">Como foi</p><p className="font-medium text-gray-800">{methodLabel(detail.method)}{detail.semenBatch ? ` · partida ${detail.semenBatch}` : ''}</p></div>}
-                {detail.inseminator && <div><p className="text-xs text-gray-500">Inseminador</p><p className="font-medium text-gray-800">{detail.inseminator}</p></div>}
-                {detail.heatDate && <div><p className="text-xs text-gray-500">Cio</p><p className="font-medium text-gray-800">{fmt(detail.heatDate)}</p></div>}
-                <div><p className="text-xs text-gray-500">Parto Esperado</p><p className="font-medium text-gray-800">{detail.expectedBirthDate ? fmt(detail.expectedBirthDate) : '—'}</p></div>
+                <div><p className="text-xs text-gray-500">{t('Touro')}</p><p className="font-medium text-gray-800">{detail.maleName || '—'}{detail.bullRegistry ? ` · ${detail.bullRegistry}` : ''}</p></div>
+                {detail.method && <div><p className="text-xs text-gray-500">{t('Como foi')}</p><p className="font-medium text-gray-800">{t(methodLabel(detail.method))}{detail.semenBatch ? ` · ${t('partida')} ${detail.semenBatch}` : ''}</p></div>}
+                {detail.inseminator && <div><p className="text-xs text-gray-500">{t('Inseminador')}</p><p className="font-medium text-gray-800">{detail.inseminator}</p></div>}
+                {detail.heatDate && <div><p className="text-xs text-gray-500">{t('Cio')}</p><p className="font-medium text-gray-800">{fmt(detail.heatDate)}</p></div>}
+                <div><p className="text-xs text-gray-500">{t('Parto Esperado')}</p><p className="font-medium text-gray-800">{detail.expectedBirthDate ? fmt(detail.expectedBirthDate) : '—'}</p></div>
                 {!detail.actualBirthDate && (detail.status === 'Coberta' || detail.status === 'Prenha') && (() => {
                   const g = gestation(detail.coverageDate, detail.expectedBirthDate, todayISO())
                   return g && (
                     <div className="sm:col-span-2">
-                      <p className="text-xs text-gray-500">Gestação</p>
-                      <p className="font-medium text-gray-800">{g.days} dia{g.days === 1 ? '' : 's'} · {g.toBirth >= 0 ? `faltam ${g.toBirth} dia${g.toBirth === 1 ? '' : 's'} para o parto` : `parto atrasado ${-g.toBirth} dia${g.toBirth === -1 ? '' : 's'}`}</p>
+                      <p className="text-xs text-gray-500">{t('Gestação')}</p>
+                      <p className="font-medium text-gray-800">{t(g.days === 1 ? '{n} dia' : '{n} dias', { n: g.days })} · {g.toBirth >= 0 ? t(g.toBirth === 1 ? 'falta {n} dia para o parto' : 'faltam {n} dias para o parto', { n: g.toBirth }) : t(g.toBirth === -1 ? 'parto atrasado {n} dia' : 'parto atrasado {n} dias', { n: -g.toBirth })}</p>
                       <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-gray-100" aria-hidden="true"><div className="h-full rounded-full bg-purple-500" style={{ width: `${g.percent}%` }} /></div>
                     </div>
                   )
                 })()}
-                {detail.actualBirthDate && <div><p className="text-xs text-gray-500">Parto Real</p><p className="font-medium text-green-700">{fmt(detail.actualBirthDate)}</p></div>}
-                {detail.observations && <div className="sm:col-span-2"><p className="text-xs text-gray-500">Observações</p><p className="text-gray-700">{detail.observations}</p></div>}
+                {detail.actualBirthDate && <div><p className="text-xs text-gray-500">{t('Parto Real')}</p><p className="font-medium text-green-700">{fmt(detail.actualBirthDate)}</p></div>}
+                {detail.observations && <div className="sm:col-span-2"><p className="text-xs text-gray-500">{t('Observações')}</p><p className="text-gray-700">{detail.observations}</p></div>}
               </div>
 
               {/* Parto: anota a cria (ela entra no rebanho, ligada à mãe) e a cobertura fecha sozinha */}
@@ -382,24 +390,24 @@ export default function ReproducaoPage() {
                 ) : (
                   <button type="button" onClick={() => setRegisteringBirth(true)}
                     className="mb-4 w-full bg-green-700 hover:bg-green-600 text-white font-semibold py-3 rounded-lg">
-                    Registrar parto e anotar a cria
+                    {t('Registrar parto e anotar a cria')}
                   </button>
                 )
               )}
 
               {canEdit && !isPendingId(detail.id) && (editingRecord
                 ? <RecordEditor record={detail} farmId={farmId} onCancel={() => setEditingRecord(false)} onSaved={(queued) => { setEditingRecord(false); setDetail(null); afterChange(queued) }} />
-                : <button type="button" onClick={() => setEditingRecord(true)} className="mb-4 w-full border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-lg hover:bg-gray-50">Editar registro</button>)}
+                : <button type="button" onClick={() => setEditingRecord(true)} className="mb-4 w-full border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-lg hover:bg-gray-50">{t('Editar registro')}</button>)}
 
               <div className="border-t border-gray-100 pt-4 mb-4">
-                <p className="text-xs font-semibold text-gray-600 mb-2">Atualizar status</p>
+                <p className="text-xs font-semibold text-gray-600 mb-2">{t('Atualizar status')}</p>
                 <select value={editStatus} onChange={e => setEditStatus(e.target.value)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-green-600">
-                  {STATUS_LIST.map(s => <option key={s}>{s}</option>)}
+                  {STATUS_LIST.map(s => <option key={s} value={s}>{t(s)}</option>)}
                 </select>
                 {editStatus === 'Parida' && (
                   <div>
-                    <label className="text-xs text-gray-600">Data do Parto</label>
+                    <label className="text-xs text-gray-600">{t('Data do Parto')}</label>
                     <input type="date" value={editBirthDate} onChange={e => setEditBirthDate(e.target.value)}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
@@ -407,8 +415,8 @@ export default function ReproducaoPage() {
               </div>
 
               <div className="flex gap-2">
-                <button onClick={handleUpdateStatus} className="flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg">Salvar</button>
-                <button onClick={() => handleDelete(detail.id)} className="flex-1 border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium py-2 rounded-lg">Excluir</button>
+                <button onClick={handleUpdateStatus} className="flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg">{t('Salvar')}</button>
+                <button onClick={() => handleDelete(detail.id)} className="flex-1 border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium py-2 rounded-lg">{t('Excluir')}</button>
               </div>
             </div>
           </div>
@@ -421,85 +429,85 @@ export default function ReproducaoPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">Registrar cobertura</h2>
-                <button onClick={closeRegister} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
+                <h2 className="text-lg font-bold text-gray-800">{t('Registrar cobertura')}</h2>
+                <button onClick={closeRegister} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
               </div>
               {repeated && (
                 <p role="status" className="mb-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
-                  <strong>{repeated.count} cobertura{repeated.count === 1 ? '' : 's'} salva{repeated.count === 1 ? '' : 's'}.</strong> Mantido para a próxima fêmea: {repeated.kept.join(', ')}.
+                  <strong>{t(repeated.count === 1 ? '{n} cobertura salva.' : '{n} coberturas salvas.', { n: repeated.count })}</strong> {t('Mantido para a próxima fêmea:')} {repeated.kept.map(k => k.replace(/^(touro|partida|inseminador) /, (w) => `${t(w.trim())} `)).map(k => t(k)).join(', ')}.
                 </p>
               )}
               <form onSubmit={e => { e.preventDefault(); void handleSave(false) }} className="flex flex-col gap-3">
-                <AnimalPicker animals={females} value={form.femaleId} onChange={id => setForm({ ...form, femaleId: id })} label="Fêmea" />
+                <AnimalPicker animals={females} value={form.femaleId} onChange={id => setForm({ ...form, femaleId: id })} label={t('Fêmea')} />
                 <fieldset>
-                  <legend className="text-xs font-medium text-gray-600">Como foi</legend>
+                  <legend className="text-xs font-medium text-gray-600">{t('Como foi')}</legend>
                   <div className="mt-1 grid grid-cols-2 gap-2">
                     {COVERAGE_METHODS.map(m => (
                       <button key={m.key} type="button" aria-pressed={form.method === m.key} onClick={() => setForm({ ...form, method: form.method === m.key ? '' : m.key })}
                         className={`rounded-xl border-2 px-2 py-2 text-left ${form.method === m.key ? 'border-green-700 bg-green-50' : 'border-gray-200'}`}>
-                        <span className={`block text-sm font-semibold ${form.method === m.key ? 'text-green-800' : 'text-gray-700'}`}>{m.label}</span>
-                        <span className="block text-xs text-gray-500">{m.hint}</span>
+                        <span className={`block text-sm font-semibold ${form.method === m.key ? 'text-green-800' : 'text-gray-700'}`}>{t(m.label)}</span>
+                        <span className="block text-xs text-gray-500">{t(m.hint)}</span>
                       </button>
                     ))}
                   </div>
                 </fieldset>
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Touro</label>
-                  <input type="text" value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} placeholder="Nome ou código do touro"
+                  <label className="text-xs font-medium text-gray-600">{t('Touro')}</label>
+                  <input type="text" value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} placeholder={t('Nome ou código do touro')}
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Data Cobertura *</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Data Cobertura')} *</label>
                     <input type="date" value={form.coverageDate} onChange={e => setForm({ ...form, coverageDate: e.target.value })} required max={todayISO()}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                     {form.status === 'Prenha' && !form.coverageDate && (
-                      <p className="mt-1 text-xs text-amber-800">Se não souber o dia certo, coloque uma data aproximada: ela define a previsão do parto.</p>
+                      <p className="mt-1 text-xs text-amber-800">{t('Se não souber o dia certo, coloque uma data aproximada: ela define a previsão do parto.')}</p>
                     )}
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Status</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Status')}</label>
                     <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
-                      {STATUS_LIST.map(s => <option key={s}>{s}</option>)}
+                      {STATUS_LIST.map(s => <option key={s} value={s}>{t(s)}</option>)}
                     </select>
                   </div>
                 </div>
                 {/* Detalhes recolhidos: o registro rápido é fêmea, como foi, touro e data */}
                 <details className="rounded-lg border border-gray-200 px-3 py-2" open={!!(form.semenBatch || form.inseminator || form.bullRegistry || form.heatDate)}>
-                  <summary className="cursor-pointer text-sm font-medium text-gray-700">Mais detalhes (opcional)</summary>
+                  <summary className="cursor-pointer text-sm font-medium text-gray-700">{t('Mais detalhes (opcional)')}</summary>
                   <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {isInsemination(form.method) && (
                       <>
-                        <label className="text-xs font-medium text-gray-600">Partida do sêmen
+                        <label className="text-xs font-medium text-gray-600">{t('Partida do sêmen')}
                           <input value={form.semenBatch} onChange={e => setForm({ ...form, semenBatch: e.target.value })} placeholder="Ex.: 2412-A" className={FIELD} />
                         </label>
-                        <label className="text-xs font-medium text-gray-600">Inseminador
-                          <input value={form.inseminator} onChange={e => setForm({ ...form, inseminator: e.target.value })} placeholder="Quem inseminou" className={FIELD} />
+                        <label className="text-xs font-medium text-gray-600">{t('Inseminador')}
+                          <input value={form.inseminator} onChange={e => setForm({ ...form, inseminator: e.target.value })} placeholder={t('Quem inseminou')} className={FIELD} />
                         </label>
                       </>
                     )}
-                    <label className="text-xs font-medium text-gray-600">Registro do touro
+                    <label className="text-xs font-medium text-gray-600">{t('Registro do touro')}
                       <input value={form.bullRegistry} onChange={e => setForm({ ...form, bullRegistry: e.target.value })} placeholder="Ex.: RGD 12345" className={FIELD} />
                     </label>
-                    <label className="text-xs font-medium text-gray-600">Data do cio
+                    <label className="text-xs font-medium text-gray-600">{t('Data do cio')}
                       <input type="date" max={todayISO()} value={form.heatDate} onChange={e => setForm({ ...form, heatDate: e.target.value })} className={FIELD} />
                     </label>
-                    <label className="text-xs font-medium text-gray-600 sm:col-span-2">Observações
+                    <label className="text-xs font-medium text-gray-600 sm:col-span-2">{t('Observações')}
                       <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2} className={`${FIELD} resize-none`} />
                     </label>
                   </div>
                 </details>
-                {error && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+                {error && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{t(error)}</p>}
                 <div className="flex flex-col gap-2 pt-1 sm:flex-row">
-                  <button type="button" onClick={closeRegister} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-lg hover:bg-gray-50">{repeated ? 'Fechar' : 'Cancelar'}</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2.5 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
+                  <button type="button" onClick={closeRegister} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-lg hover:bg-gray-50">{t(repeated ? 'Fechar' : 'Cancelar')}</button>
+                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2.5 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
                 </div>
                 <button type="button" disabled={saving} onClick={() => void handleSave(true)}
                   className="rounded-lg border-2 border-green-700 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-50 disabled:opacity-50">
-                  Salvar e repetir para outra fêmea
+                  {t('Salvar e repetir para outra fêmea')}
                 </button>
-                <p className="text-xs text-gray-500">Para o dia de inseminação: a data, o tipo, o touro, a partida e o inseminador ficam preenchidos e só a fêmea muda.</p>
+                <p className="text-xs text-gray-500">{t('Para o dia de inseminação: a data, o tipo, o touro, a partida e o inseminador ficam preenchidos e só a fêmea muda.')}</p>
               </form>
             </div>
           </div>
@@ -519,6 +527,7 @@ function RecordEditor({ record, farmId, onCancel, onSaved }: { record: Reproduct
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const t = useT()
   const field = 'mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600'
 
   async function save(e: React.FormEvent) {
@@ -535,44 +544,44 @@ function RecordEditor({ record, farmId, onCancel, onSaved }: { record: Reproduct
 
   return (
     <form onSubmit={save} className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-gray-200 p-3 sm:grid-cols-2">
-      <label className="text-xs font-medium text-gray-600">Data da cobertura
+      <label className="text-xs font-medium text-gray-600">{t('Data da cobertura')}
         <input type="date" required value={form.coverageDate} onChange={e => setForm({ ...form, coverageDate: e.target.value })} className={field} />
       </label>
-      <label className="text-xs font-medium text-gray-600">Parto estimado
+      <label className="text-xs font-medium text-gray-600">{t('Parto estimado')}
         <input type="date" value={form.expectedBirthDate} onChange={e => setForm({ ...form, expectedBirthDate: e.target.value })} className={field} />
       </label>
-      <label className="text-xs font-medium text-gray-600">Data do cio
+      <label className="text-xs font-medium text-gray-600">{t('Data do cio')}
         <input type="date" value={form.heatDate} onChange={e => setForm({ ...form, heatDate: e.target.value })} className={field} />
       </label>
-      <label className="text-xs font-medium text-gray-600">Como foi
+      <label className="text-xs font-medium text-gray-600">{t('Como foi')}
         <select value={form.method} onChange={e => setForm({ ...form, method: e.target.value })} className={field}>
-          <option value="">Não informado</option>
-          {COVERAGE_METHODS.map(m => <option key={m.key} value={m.key}>{m.label} ({m.hint})</option>)}
+          <option value="">{t('Não informado')}</option>
+          {COVERAGE_METHODS.map(m => <option key={m.key} value={m.key}>{t(m.label)} ({t(m.hint)})</option>)}
         </select>
       </label>
-      <label className="text-xs font-medium text-gray-600">Touro (nome)
+      <label className="text-xs font-medium text-gray-600">{t('Touro (nome)')}
         <input value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} className={field} />
       </label>
-      <label className="text-xs font-medium text-gray-600">Registro do touro
+      <label className="text-xs font-medium text-gray-600">{t('Registro do touro')}
         <input value={form.bullRegistry} onChange={e => setForm({ ...form, bullRegistry: e.target.value })} className={field} />
       </label>
       {(isInsemination(form.method) || !form.method) && (
         <>
-          <label className="text-xs font-medium text-gray-600">Partida do sêmen
+          <label className="text-xs font-medium text-gray-600">{t('Partida do sêmen')}
             <input value={form.semenBatch} onChange={e => setForm({ ...form, semenBatch: e.target.value })} className={field} />
           </label>
-          <label className="text-xs font-medium text-gray-600">Inseminador
+          <label className="text-xs font-medium text-gray-600">{t('Inseminador')}
             <input value={form.inseminator} onChange={e => setForm({ ...form, inseminator: e.target.value })} className={field} />
           </label>
         </>
       )}
-      <label className="text-xs font-medium text-gray-600 sm:col-span-2">Observações
+      <label className="text-xs font-medium text-gray-600 sm:col-span-2">{t('Observações')}
         <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2} className={field} />
       </label>
-      {error && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{t(error)}</p>}
       <div className="flex gap-2 sm:col-span-2">
-        <button type="button" onClick={onCancel} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg">Cancelar</button>
-        <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar alteração'}</button>
+        <button type="button" onClick={onCancel} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg">{t('Cancelar')}</button>
+        <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar alteração')}</button>
       </div>
     </form>
   )

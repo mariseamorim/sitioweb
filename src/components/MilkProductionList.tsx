@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLocale, useT } from '@/lib/i18n'
 
 interface MilkProduction {
   id: string
@@ -14,6 +15,8 @@ interface MilkProductionListProps {
 }
 
 export function MilkProductionList({ animalId }: MilkProductionListProps) {
+  const t = useT()
+  const locale = useLocale()
   const [productions, setProductions] = useState<MilkProduction[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -35,22 +38,22 @@ export function MilkProductionList({ animalId }: MilkProductionListProps) {
     loadProductions()
   }, [animalId])
 
-  if (loading) return <div className="text-center py-4">Carregando...</div>
+  if (loading) return <div className="text-center py-4">{t('Carregando...')}</div>
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
           <tr>
-            <th className="px-4 py-3 text-left">Data</th>
-            <th className="px-4 py-3 text-left">Quantidade (L)</th>
-            <th className="px-4 py-3 text-left">Observações</th>
+            <th className="px-4 py-3 text-left">{t('Data')}</th>
+            <th className="px-4 py-3 text-left">{t('Quantidade (L)')}</th>
+            <th className="px-4 py-3 text-left">{t('Observações')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
           {productions.map((prod) => (
             <tr key={prod.id} className="hover:bg-gray-50">
-              <td className="px-4 py-3 text-gray-700">{new Date(prod.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
+              <td className="px-4 py-3 text-gray-700">{new Date(prod.date).toLocaleDateString(locale, { timeZone: 'UTC' })}</td>
               <td className="px-4 py-3 font-medium text-gray-800">{prod.quantity.toFixed(1)}</td>
               <td className="px-4 py-3 text-gray-500">{prod.observations || '—'}</td>
             </tr>
@@ -58,7 +61,7 @@ export function MilkProductionList({ animalId }: MilkProductionListProps) {
         </tbody>
       </table>
       {productions.length === 0 && (
-        <div className="text-center py-8 text-gray-400 text-sm">Nenhum registro de produção</div>
+        <div className="text-center py-8 text-gray-400 text-sm">{t('Nenhum registro de produção')}</div>
       )}
     </div>
   )

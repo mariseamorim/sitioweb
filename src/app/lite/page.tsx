@@ -16,6 +16,8 @@ import { todayISO } from '@/lib/utils'
 import { parseFolha, type FolhaParsed } from '@/lib/folhaOcr'
 import { canReadFolha, cloudErrorMessage, readFolha, type CloudError, type OcrEngine } from '@/lib/ocr'
 import { logoutKeepingDevice } from '@/lib/offlineUnlock'
+import { getLang, useLocale, useT } from '@/lib/i18n'
+import { LanguagePicker } from '@/components/LanguagePicker'
 
 type Tab = 'anotar' | 'historico' | 'locais' | 'folha' | 'nomes'
 
@@ -26,12 +28,13 @@ function shiftDay(iso: string, days: number) {
 }
 
 const fmtDay = (iso: string, opts: Intl.DateTimeFormatOptions = {}) =>
-  new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC', ...opts })
+  new Date(iso).toLocaleDateString(getLang() === 'es' ? 'es-PY' : 'pt-BR', { timeZone: 'UTC', ...opts })
 
 const input = 'w-full border border-gray-300 rounded-xl px-3 py-3 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 
 export default function LitePage() {
   const { confirm, notify } = useDialog()
+  const t = useT()
   const [data, setData] = useState<LiteData | null>(null)
   const [online, setOnline] = useState(true)
   const [pending, setPending] = useState(0)
@@ -128,7 +131,7 @@ export default function LitePage() {
     for (const p of activePoints) {
       for (const r of p.routes ?? []) {
         if (!r.days.includes(weekday)) continue
-        const route = routes.get(r.id) ?? { title: `Rota de hoje: ${r.name}`, stops: [] }
+        const route = routes.get(r.id) ?? { title: t('Rota de hoje: {name}', { name: r.name }), stops: [] }
         route.stops.push({ point: p, position: r.position })
         routes.set(r.id, route)
       }
@@ -136,9 +139,9 @@ export default function LitePage() {
     const inRoutes = new Set([...routes.values()].flatMap((r) => r.stops.map((s) => s.point.id)))
     const list = [...routes.values()].map((r) => ({ title: r.title, points: r.stops.sort((a, b) => a.position - b.position).map((s) => s.point) }))
     const others = activePoints.filter((p) => !inRoutes.has(p.id))
-    if (others.length) list.push({ title: list.length ? 'Outros locais' : '', points: others })
+    if (others.length) list.push({ title: list.length ? t('Outros locais') : '', points: others })
     return list
-  }, [driver, activePoints, date])
+  }, [driver, activePoints, date, t])
 
   // Coleta não realizada: grava na hora (não espera digitar) com o motivo; "Desfazer" apaga
   async function markSkip(point: LitePoint, skipReason: string | null) {
@@ -185,10 +188,10 @@ export default function LitePage() {
   // Excluir a anotação de um local no dia (também sem internet: entra na fila como as outras)
   async function removeEntry(point: LitePoint) {
     if (!data || !canWrite) return
-    const label = single ? fmtDay(date) : `${point.name} em ${fmtDay(date)}`
-    if (!(await confirm({ title: `Excluir o leite de ${label}?`, message: data.mode === 'fazenda'
-      ? 'Apaga o que foi anotado por aqui. Ordenhas lançadas na tela Produção de leite continuam.'
-      : `${fmtNumber(saved.get(point.id) ?? 0)} L serão apagados.`, confirmLabel: 'Excluir', danger: true }))) return
+    const label = single ? fmtDay(date) : t('{name} em {date}', { name: point.name, date: fmtDay(date) })
+    if (!(await confirm({ title: t('Excluir o leite de {label}?', { label }), message: data.mode === 'fazenda'
+      ? t('Apaga o que foi anotado por aqui. Ordenhas lançadas na tela Produção de leite continuam.')
+      : t('{n} L serão apagados.', { n: fmtNumber(saved.get(point.id) ?? 0) }), confirmLabel: t('Excluir'), danger: true }))) return
     const change: LiteChange = { pointId: point.id, date, liters: null }
     enqueue([change])
     setData(applyChanges(data, [change]))
@@ -242,10 +245,10 @@ export default function LitePage() {
 
   async function logout() {
     if (pendingCount() > 0) {
-      await notify('Ainda há anotações não enviadas', 'Conecte-se à internet para enviá-las antes de sair, senão elas se perdem.')
+      await notify(t('Ainda há anotações não enviadas'), t('Conecte-se à internet para enviá-las antes de sair, senão elas se perdem.'))
       return
     }
-    if (!(await confirm({ title: 'Sair do Anota Aí Leite?', confirmLabel: 'Sair' }))) return
+    if (!(await confirm({ title: t('Sair do Anota Aí Leite?'), confirmLabel: t('Sair') }))) return
     // Sai, mas deixa os dados e a credencial no aparelho (entrar sem internet)
     logoutKeepingDevice()
     await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
@@ -253,10 +256,10 @@ export default function LitePage() {
   }
 
   const status = !online
-    ? { icon: <SemSinalIcon className="w-4 h-4" />, text: pending ? `Sem sinal · ${pending} para enviar` : 'Sem sinal', style: 'bg-amber-100 text-amber-800' }
+    ? { icon: <SemSinalIcon className="w-4 h-4" />, text: pending ? t('Sem sinal · {n} para enviar', { n: pending }) : t('Sem sinal'), style: 'bg-amber-100 text-amber-800' }
     : pending
-      ? { icon: <SincronizarIcon className="w-4 h-4" />, text: syncing ? 'Enviando...' : `${pending} para enviar`, style: 'bg-blue-100 text-blue-800' }
-      : { icon: <CheckIcon className="w-4 h-4" />, text: 'Tudo enviado', style: 'bg-green-100 text-green-800' }
+      ? { icon: <SincronizarIcon className="w-4 h-4" />, text: syncing ? t('Enviando...') : t('{n} para enviar', { n: pending }), style: 'bg-blue-100 text-blue-800' }
+      : { icon: <CheckIcon className="w-4 h-4" />, text: t('Tudo enviado'), style: 'bg-green-100 text-green-800' }
 
   return (
     <div className="min-h-dvh bg-gray-50">
@@ -274,20 +277,20 @@ export default function LitePage() {
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-green-700" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5"><circle cx="12" cy="8" r="3.5" /><path d="M5 21v-2a7 7 0 0 1 14 0v2" /></svg>
             </span>
-            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">Meu cadastro</span><span className="block text-xs text-green-700">Ver e editar meus dados</span></span>
+            <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{t('Meu cadastro')}</span><span className="block text-xs text-green-700">{t('Ver e editar meus dados')}</span></span>
             <SetaDireitaIcon className="h-4 w-4 shrink-0" />
           </Link>
           {data && !isLiteOnlyRole(data.role) && (
-            <Link href="/" aria-label="Voltar ao painel" className="inline-flex min-h-12 shrink-0 items-center gap-1 rounded-xl border border-gray-300 px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600">
-              <SetaDireitaIcon className="h-4 w-4 rotate-180" />Painel
+            <Link href="/" aria-label={t('Voltar ao painel')} className="inline-flex min-h-12 shrink-0 items-center gap-1 rounded-xl border border-gray-300 px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600">
+              <SetaDireitaIcon className="h-4 w-4 rotate-180" />{t('Painel')}
             </Link>
           )}
         </div>
-        <nav className={`mx-auto max-w-xl px-4 pb-2 grid gap-1 ${tabs.length === 4 ? 'grid-cols-4' : tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`} aria-label="Seções">
-          {tabs.map(([t, label]) => (
-            <button key={t} type="button" onClick={() => setTab(t)} aria-current={tab === t ? 'page' : undefined}
-              className={`py-2.5 rounded-lg text-sm font-semibold ${tab === t ? 'bg-green-700 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-              {label}
+        <nav className={`mx-auto max-w-xl px-4 pb-2 grid gap-1 ${tabs.length === 4 ? 'grid-cols-4' : tabs.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}`} aria-label={t('Seções')}>
+          {tabs.map(([key, label]) => (
+            <button key={key} type="button" onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined}
+              className={`py-2.5 rounded-lg text-sm font-semibold ${tab === key ? 'bg-green-700 text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+              {t(label)}
             </button>
           ))}
         </nav>
@@ -296,54 +299,54 @@ export default function LitePage() {
       <main className="mx-auto max-w-xl px-4 py-5 pb-32">
         {needsLogin && (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
-            <p className="font-semibold">Entre de novo para enviar as anotações</p>
-            <Link href="/login?next=/lite" className="mt-2 inline-block font-semibold text-green-800 underline">Entrar</Link>
+            <p className="font-semibold">{t('Entre de novo para enviar as anotações')}</p>
+            <Link href="/login?next=/lite" className="mt-2 inline-block font-semibold text-green-800 underline">{t('Entrar')}</Link>
           </div>
         )}
 
         {!data ? (
-          <p className="py-16 text-center text-gray-500">{online ? 'Carregando...' : 'Sem internet. Abra o app uma vez com internet para começar.'}</p>
+          <p className="py-16 text-center text-gray-500">{t(online ? 'Carregando...' : 'Sem internet. Abra o app uma vez com internet para começar.')}</p>
         ) : tab === 'anotar' ? (
           activePoints.length === 0 ? (
             <FirstPoint driver={driver} onPointOp={pointOp} />
           ) : (
             <>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => goToDay(shiftDay(date, -1))} aria-label="Dia anterior"
+                <button type="button" onClick={() => goToDay(shiftDay(date, -1))} aria-label={t('Dia anterior')}
                   className="h-12 w-12 shrink-0 rounded-xl border border-gray-300 bg-white flex items-center justify-center text-gray-700">
                   <SetaDireitaIcon className="w-5 h-5 rotate-180" />
                 </button>
                 <label className="flex-1">
-                  <span className="sr-only">Data</span>
+                  <span className="sr-only">{t('Data')}</span>
                   <input type="date" value={date} max={today} onChange={(e) => e.target.value && goToDay(e.target.value)}
                     className={`${input} text-center font-semibold`} />
                 </label>
-                <button type="button" onClick={() => goToDay(shiftDay(date, 1))} disabled={date >= today} aria-label="Próximo dia"
+                <button type="button" onClick={() => goToDay(shiftDay(date, 1))} disabled={date >= today} aria-label={t('Próximo dia')}
                   className="h-12 w-12 shrink-0 rounded-xl border border-gray-300 bg-white flex items-center justify-center text-gray-700 disabled:opacity-30">
                   <SetaDireitaIcon className="w-5 h-5" />
                 </button>
               </div>
               <p className="mt-2 text-center text-sm text-gray-500">
-                {date === today ? 'Hoje' : fmtDay(date, { weekday: 'long' })}
-                {date !== today && <button type="button" onClick={() => goToDay(today)} className="ml-2 font-semibold text-green-700 underline">Voltar para hoje</button>}
+                {date === today ? t('Hoje') : fmtDay(date, { weekday: 'long' })}
+                {date !== today && <button type="button" onClick={() => goToDay(today)} className="ml-2 font-semibold text-green-700 underline">{t('Voltar para hoje')}</button>}
               </p>
 
               {single ? (
                 <div className="mt-5 bg-white rounded-2xl border border-gray-200 p-5 text-center">
                   <span className="block text-sm font-medium text-gray-500">{single.name}</span>
-                  <span className="mt-1 block text-lg font-semibold text-gray-900">Leite do dia</span>
-                  {saved.has(single.id) && <span className="mt-1 block text-sm font-semibold text-green-800">Anotado: {fmtNumber(saved.get(single.id)!)} L{draftOf(single.id) ? ' · digite para substituir' : ''}</span>}
+                  <span className="mt-1 block text-lg font-semibold text-gray-900">{t('Leite do dia')}</span>
+                  {saved.has(single.id) && <span className="mt-1 block text-sm font-semibold text-green-800">{t('Anotado: {n} L', { n: fmtNumber(saved.get(single.id)!) })}{draftOf(single.id) ? t(' · digite para substituir') : ''}</span>}
                   <span className="mt-4 flex items-center justify-center gap-2">
                     <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={draftOf(single.id)} autoFocus readOnly={!canWrite}
                       onChange={(e) => setDrafts({ ...drafts, [`${date}|${single.id}`]: e.target.value.replace(/[^\d.,]/g, '') })}
-                      aria-label={`Litros de ${single.name}`}
+                      aria-label={t('Litros de {name}', { name: single.name })}
                       className="w-44 border border-gray-300 rounded-2xl px-4 py-4 !text-5xl font-bold text-center focus:outline-none focus:ring-2 focus:ring-green-600" />
                     <span className="text-2xl text-gray-500">L</span>
                   </span>
-                  {canWrite && <VoiceButton label="os litros do dia" onNumber={(v) => setSpoken(single.id, v)} />}
+                  {canWrite && <VoiceButton label={t('os litros do dia')} onNumber={(v) => setSpoken(single.id, v)} />}
                   {canWrite && saved.has(single.id) && (
                     <button type="button" onClick={() => void removeEntry(single)} className="mt-3 text-sm font-semibold text-red-700 underline">
-                      Excluir anotação deste dia
+                      {t('Excluir anotação deste dia')}
                     </button>
                   )}
                   <PriceLine data={data} liters={parseLiters(valueOf(single.id)) ?? 0} online={online} canWrite={canWrite}
@@ -361,24 +364,24 @@ export default function LitePage() {
                             <label className="flex flex-1 min-w-0 items-center gap-3">
                               <span className="flex-1 min-w-0">
                                 <span className="block text-lg font-semibold text-gray-900 truncate">{p.name}</span>
-                                {p.kind === 'tanque' && <span className="text-xs font-medium text-gray-500">{KIND_LABEL.tanque}</span>}
-                                {saved.has(p.id) && !skipped.has(p.id) && <span className="block text-xs font-semibold text-green-800">Anotado: {fmtNumber(saved.get(p.id)!)} L</span>}
+                                {p.kind === 'tanque' && <span className="text-xs font-medium text-gray-500">{t(KIND_LABEL.tanque)}</span>}
+                                {saved.has(p.id) && !skipped.has(p.id) && <span className="block text-xs font-semibold text-green-800">{t('Anotado: {n} L', { n: fmtNumber(saved.get(p.id)!) })}</span>}
                               </span>
                               {!skipped.has(p.id) && (
                                 <span className="flex items-center gap-2 shrink-0">
                                   <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={draftOf(p.id)}
                                     onChange={(e) => setDrafts({ ...drafts, [`${date}|${p.id}`]: e.target.value.replace(/[^\d.,]/g, '') })}
-                                    aria-label={`Litros de ${p.name}`}
+                                    aria-label={t('Litros de {name}', { name: p.name })}
                                     className="w-28 border border-gray-300 rounded-xl px-3 py-3 !text-2xl font-semibold text-right focus:outline-none focus:ring-2 focus:ring-green-600" />
                                   <span className="text-lg text-gray-500">L</span>
                                 </span>
                               )}
                             </label>
-                            {canWrite && !skipped.has(p.id) && <VoiceButton size="sm" label={`os litros de ${p.name}`} onNumber={(v) => setSpoken(p.id, v)} />}
+                            {canWrite && !skipped.has(p.id) && <VoiceButton size="sm" label={t('os litros de {name}', { name: p.name })} onNumber={(v) => setSpoken(p.id, v)} />}
                           </div>
                           {canWrite && saved.has(p.id) && !skipped.has(p.id) && (
                             <div className="mt-1 text-right">
-                              <button type="button" onClick={() => void removeEntry(p)} className="text-sm font-semibold text-red-700 underline">Excluir</button>
+                              <button type="button" onClick={() => void removeEntry(p)} className="text-sm font-semibold text-red-700 underline">{t('Excluir')}</button>
                             </div>
                           )}
                           {p.org && <RouteStopInfo point={p} skipReason={skipped.get(p.id) ?? null} canWrite={canWrite}
@@ -397,16 +400,16 @@ export default function LitePage() {
 
               {(data.milkWithdrawals ?? []).length > 0 && (
                 <section role="alert" className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4">
-                  <h2 className="text-sm font-semibold text-red-900">Leite em carência: não vai para o tanque</h2>
+                  <h2 className="text-sm font-semibold text-red-900">{t('Leite em carência: não vai para o tanque')}</h2>
                   <ul className="mt-1 space-y-0.5 text-sm text-red-900">
-                    {data.milkWithdrawals!.map((w) => <li key={`${w.animalName}|${w.until}`}><strong>{w.animalName}</strong> até {fmtDay(w.until)} ({w.medicine})</li>)}
+                    {data.milkWithdrawals!.map((w) => <li key={`${w.animalName}|${w.until}`}><strong>{w.animalName}</strong> {t('até {date}', { date: fmtDay(w.until) })} ({w.medicine})</li>)}
                   </ul>
                 </section>
               )}
 
               {dayCollections.length > 0 && (
                 <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
-                  <h2 className="text-sm font-semibold text-blue-900">Coletado pelo motorista neste dia</h2>
+                  <h2 className="text-sm font-semibold text-blue-900">{t('Coletado pelo motorista neste dia')}</h2>
                   <ul className="mt-2 space-y-1">
                     {dayCollections.map((c) => (
                       <li key={c.pointId} className="flex justify-between text-sm text-blue-900">
@@ -417,7 +420,7 @@ export default function LitePage() {
                   </ul>
                 </section>
               )}
-              {!canWrite && <p className="mt-4 text-center text-sm text-gray-500">Seu acesso é só de leitura.</p>}
+              {!canWrite && <p className="mt-4 text-center text-sm text-gray-500">{t('Seu acesso é só de leitura.')}</p>}
             </>
           )
         ) : tab === 'historico' ? (
@@ -435,14 +438,15 @@ export default function LitePage() {
           <footer className="mt-10 flex flex-col items-center gap-3 text-sm text-gray-500">
             <p>{data.userName}</p>
             <div className="flex gap-4">
-              {!isLiteOnlyRole(data.role) && <Link href="/" className="font-medium text-green-700 underline">Abrir app completo</Link>}
+              {!isLiteOnlyRole(data.role) && <Link href="/" className="font-medium text-green-700 underline">{t('Abrir app completo')}</Link>}
               {data.role === 'lite' && (
-                <button type="button" onClick={() => setUpgrading(true)} className="font-medium text-green-700 underline">Quero a versão completa</button>
+                <button type="button" onClick={() => setUpgrading(true)} className="font-medium text-green-700 underline">{t('Quero a versão completa')}</button>
               )}
-              <button type="button" onClick={logout} className="font-medium text-gray-600 underline">Sair</button>
+              <button type="button" onClick={logout} className="font-medium text-gray-600 underline">{t('Sair')}</button>
             </div>
           </footer>
         )}
+        <div className="mt-6 flex justify-center"><LanguagePicker /></div>
       </main>
 
       {upgrading && data && (
@@ -454,18 +458,18 @@ export default function LitePage() {
           <div className="mx-auto max-w-xl px-4 py-3 flex items-center gap-4">
             {!single && (
               <div className="shrink-0">
-                <p className="text-xs text-gray-500">Total do dia</p>
+                <p className="text-xs text-gray-500">{t('Total do dia')}</p>
                 <p className="text-2xl font-bold text-green-800">{fmtNumber(dayTotal)} L</p>
               </div>
             )}
             <button type="button" onClick={() => void save()} disabled={changes.length === 0}
               className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white text-lg font-bold py-4 rounded-xl">
-              {changes.length === 0 ? 'Salvo' : online ? 'Salvar' : 'Salvar no celular'}
+              {t(changes.length === 0 ? 'Salvo' : online ? 'Salvar' : 'Salvar no celular')}
             </button>
           </div>
           {message
-            ? <p role="status" className="pb-3 text-center text-sm font-medium text-green-800">{message}</p>
-            : <p className="pb-3 text-center text-xs text-gray-500">Salva sozinho quando você para de digitar, mesmo sem internet.</p>}
+            ? <p role="status" className="pb-3 text-center text-sm font-medium text-green-800">{t(message)}</p>
+            : <p className="pb-3 text-center text-xs text-gray-500">{t('Salva sozinho quando você para de digitar, mesmo sem internet.')}</p>}
         </div>
       )}
     </div>
@@ -475,13 +479,14 @@ export default function LitePage() {
 // ── Primeiro local ──────────────────────────────────────────────────────
 
 function FirstPoint({ driver, onPointOp }: { driver: boolean; onPointOp: (op: PointOp) => void }) {
+  const t = useT()
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-5">
-      <h1 className="text-xl font-bold text-gray-900">{driver ? 'Monte sua rota' : 'Qual o nome do seu sítio?'}</h1>
+      <h1 className="text-xl font-bold text-gray-900">{t(driver ? 'Monte sua rota' : 'Qual o nome do seu sítio?')}</h1>
       <p className="mt-1 text-gray-600">
-        {driver
+        {t(driver
           ? 'Cadastre os sítios e tanques comunitários onde você recolhe o leite. Comece pelo primeiro.'
-          : 'É só para aparecer nas suas anotações e na planilha.'}
+          : 'É só para aparecer nas suas anotações e na planilha.')}
       </p>
       <div className="mt-4">
         <PointForm chooseKind={driver} onSubmit={({ name, kind }) => onPointOp({ id: newPointId(), create: true, name, kind })} />
@@ -498,6 +503,7 @@ function PointForm({ point, chooseKind = true, onSubmit, onCancel }: {
   onSubmit: (values: { name: string; kind: PointKind }) => void
   onCancel?: () => void
 }) {
+  const t = useT()
   const [name, setName] = useState(point?.name ?? '')
   const [kind, setKind] = useState<PointKind>(point?.kind ?? 'sitio')
 
@@ -511,24 +517,24 @@ function PointForm({ point, chooseKind = true, onSubmit, onCancel }: {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
-      <label className="text-sm font-medium text-gray-700">Nome
+      <label className="text-sm font-medium text-gray-700">{t('Nome')}
         <input value={name} onChange={(e) => setName(e.target.value)} required
-          placeholder={chooseKind ? 'Ex.: Sítio do João ou Tanque da Ponte' : 'Ex.: Sítio Boa Vista'} className={`mt-1 ${input}`} />
+          placeholder={t(chooseKind ? 'Ex.: Sítio do João ou Tanque da Ponte' : 'Ex.: Sítio Boa Vista')} className={`mt-1 ${input}`} />
       </label>
       {chooseKind && (
         <div className="grid grid-cols-2 gap-2">
           {(['sitio', 'tanque'] as const).map((k) => (
             <button key={k} type="button" onClick={() => setKind(k)} aria-pressed={kind === k}
               className={`py-3 rounded-xl border-2 text-sm font-semibold ${kind === k ? 'border-green-700 bg-green-50 text-green-800' : 'border-gray-200 text-gray-600'}`}>
-              {KIND_LABEL[k]}
+              {t(KIND_LABEL[k])}
             </button>
           ))}
         </div>
       )}
       <div className="flex gap-2">
-        {onCancel && <button type="button" onClick={onCancel} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl">Cancelar</button>}
+        {onCancel && <button type="button" onClick={onCancel} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl">{t('Cancelar')}</button>}
         <button type="submit" className="flex-1 bg-green-700 hover:bg-green-600 text-white font-semibold py-3 rounded-xl">
-          {point ? 'Salvar' : chooseKind ? 'Adicionar local' : 'Começar a anotar'}
+          {t(point ? 'Salvar' : chooseKind ? 'Adicionar local' : 'Começar a anotar')}
         </button>
       </div>
     </form>
@@ -544,6 +550,7 @@ function Points({ data, online, onPointOp, onChanged }: {
   /** Resposta do servidor ao ligar/desligar um sítio a uma propriedade (precisa de internet) */
   onChanged: (d: LiteData) => void
 }) {
+  const t = useT()
   const [editing, setEditing] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
 
@@ -566,10 +573,10 @@ function Points({ data, online, onPointOp, onChanged }: {
                 <div className="flex items-start gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900 truncate">{p.name}</p>
-                    <p className="text-sm text-gray-500">{KIND_LABEL[p.kind]}</p>
+                    <p className="text-sm text-gray-500">{t(KIND_LABEL[p.kind])}</p>
                   </div>
-                  <button type="button" onClick={() => setEditing(p.id)} className="text-sm font-semibold text-green-700">Editar</button>
-                  <button type="button" onClick={() => toggle(p)} className="text-sm font-semibold text-gray-600">Arquivar</button>
+                  <button type="button" onClick={() => setEditing(p.id)} className="text-sm font-semibold text-green-700">{t('Editar')}</button>
+                  <button type="button" onClick={() => toggle(p)} className="text-sm font-semibold text-gray-600">{t('Arquivar')}</button>
                 </div>
                 {p.kind === 'sitio' && <FarmLinker point={p} online={online} onChanged={linked} />}
               </>
@@ -585,20 +592,20 @@ function Points({ data, online, onPointOp, onChanged }: {
           </div>
         ) : (
           <button type="button" onClick={() => setAdding(true)} className="w-full border-2 border-dashed border-gray-300 text-gray-700 font-semibold py-4 rounded-2xl hover:bg-white">
-            + Adicionar local
+            {t('+ Adicionar local')}
           </button>
         )}
       </div>
 
       {archived.length > 0 && (
         <section className="mt-8">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Arquivados</h2>
-          <p className="text-sm text-gray-500 mb-2">Não aparecem na anotação, mas o histórico fica guardado.</p>
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">{t('Arquivados')}</h2>
+          <p className="text-sm text-gray-500 mb-2">{t('Não aparecem na anotação, mas o histórico fica guardado.')}</p>
           <ul className="space-y-2">
             {archived.map((p) => (
               <li key={p.id} className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 px-4 py-3">
                 <span className="flex-1 text-gray-700">{p.name}</span>
-                <button type="button" onClick={() => toggle(p)} className="text-sm font-semibold text-green-700">Reativar</button>
+                <button type="button" onClick={() => toggle(p)} className="text-sm font-semibold text-green-700">{t('Reativar')}</button>
               </li>
             ))}
           </ul>
@@ -618,6 +625,7 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
   onOpenDay: (day: string) => void
   onPriceSaved: (price: number | null) => void
 }) {
+  const t = useT()
   const [days, setDays] = useState(7)
   const [pointId, setPointId] = useState('') // '' = todos os locais
   const today = todayISO()
@@ -663,7 +671,7 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
     for (let d = start; d <= end; d = shiftDay(d, 1)) liters += byDay.get(d)?.total ?? 0
     bars.push({
       label: step === 1 ? fmtDay(start, days === 7 ? { weekday: 'short' } : { day: 'numeric' }) : fmtDay(start, { day: 'numeric', month: 'numeric' }),
-      title: `${step === 1 ? fmtDay(start) : `${fmtDay(start)} a ${fmtDay(end)}`}: ${fmtNumber(liters)} L`,
+      title: `${step === 1 ? fmtDay(start) : t('{from} a {to}', { from: fmtDay(start), to: fmtDay(end) })}: ${fmtNumber(liters)} L`,
       liters,
     })
   }
@@ -671,33 +679,33 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
   const labelEvery = bars.length > 14 ? Math.ceil(bars.length / 7) : 1
 
   function download() {
-    const place = selected ? selected.name : 'Todos os locais'
+    const place = selected ? selected.name : t('Todos os locais')
     exportCSV({
-      title: selected ? `Anotações de leite - ${selected.name}` : 'Anotações de leite',
-      subtitle: `${fmtDay(from)} a ${fmtDay(today)} · ${place} · ${data.userName}`,
+      title: selected ? t('Anotações de leite - {name}', { name: selected.name }) : t('Anotações de leite'),
+      subtitle: `${t('{from} a {to}', { from: fmtDay(from), to: fmtDay(today) })} · ${place} · ${data.userName}`,
       sections: [
         {
-          title: 'Anotações',
-          columns: ['Data', 'Local', 'Litros'],
+          title: t('Anotações'),
+          columns: [t('Data'), t('Local'), t('Litros')],
           rows: [...entries].sort((a, b) => a.date.localeCompare(b.date) || (names.get(a.pointId) ?? '').localeCompare(names.get(b.pointId) ?? ''))
             .map((e) => [fmtDay(e.date), names.get(e.pointId) ?? '—', fmtNumber(e.liters)]),
-          footer: ['', 'Total', fmtNumber(total)],
+          footer: ['', t('Total'), fmtNumber(total)],
         },
         ...(!pointId ? [{
-          title: 'Total por local',
-          columns: ['Local', 'Litros'],
+          title: t('Total por local'),
+          columns: [t('Local'), t('Litros')],
           rows: [...byPoint.entries()].map(([id, l]) => [names.get(id) ?? '—', fmtNumber(l)]),
         }] : []),
         ...(price ? [{
-          title: 'Estimativa',
-          columns: ['Valor do litro', 'Total estimado'],
+          title: t('Estimativa'),
+          columns: [t('Valor do litro'), t('Total estimado')],
           rows: [[fmtMoney(price), fmtMoney(total * price)]],
         }] : []),
         ...(periodCollections.length ? [{
-          title: 'Coletado pelo motorista',
-          columns: ['Data', 'Motorista', 'Local', 'Litros'],
+          title: t('Coletado pelo motorista'),
+          columns: [t('Data'), t('Motorista'), t('Local'), t('Litros')],
           rows: periodCollections.map((c) => [fmtDay(c.date), c.driverName, c.pointName, fmtNumber(c.liters)]),
-          footer: ['', '', 'Total', fmtNumber(collected)],
+          footer: ['', '', t('Total'), fmtNumber(collected)],
         }] : []),
       ],
     })
@@ -707,12 +715,12 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
     <div>
       {data.points.length > 1 && (
         <label className="block mb-3">
-          <span className="text-sm font-medium text-gray-700">Local</span>
+          <span className="text-sm font-medium text-gray-700">{t('Local')}</span>
           <select value={pointId} onChange={(e) => setPointId(e.target.value)} className={`mt-1 ${input} bg-white font-semibold`}>
-            <option value="">Todos os locais</option>
+            <option value="">{t('Todos os locais')}</option>
             {data.points.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name}{p.kind === 'tanque' ? ' (tanque)' : ''}{p.active ? '' : ' (arquivado)'}
+                {p.name}{p.kind === 'tanque' ? t(' (tanque)') : ''}{p.active ? '' : t(' (arquivado)')}
               </option>
             ))}
           </select>
@@ -723,7 +731,7 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
         {[7, 30, 90].map((d) => (
           <button key={d} type="button" onClick={() => setDays(d)}
             className={`py-2.5 rounded-xl text-sm font-semibold border ${days === d ? 'bg-green-700 border-green-700 text-white' : 'border-gray-300 bg-white text-gray-700'}`}>
-            {d} dias
+            {t('{n} dias', { n: d })}
           </button>
         ))}
       </div>
@@ -731,28 +739,28 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
       {selected && <p className="mt-4 text-base font-semibold text-gray-900">{selected.name}</p>}
       <div className="mt-4 grid grid-cols-2 gap-2">
         <div className="rounded-2xl border border-gray-200 bg-white p-3">
-          <p className="text-xs text-gray-500">Total no período</p>
+          <p className="text-xs text-gray-500">{t('Total no período')}</p>
           <p className="text-2xl font-bold text-green-800">{fmtNumber(total)} L</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-3">
-          <p className="text-xs text-gray-500">Média por dia anotado</p>
+          <p className="text-xs text-gray-500">{t('Média por dia anotado')}</p>
           <p className="text-2xl font-bold text-gray-900">{fmtNumber(dayList.length ? total / dayList.length : 0)} L</p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-3">
-          <p className="text-xs text-gray-500">Melhor dia</p>
+          <p className="text-xs text-gray-500">{t('Melhor dia')}</p>
           <p className="text-lg font-bold text-gray-900">{best ? `${fmtNumber(best[1])} L` : '—'}</p>
           {best && <p className="text-xs text-gray-500">{fmtDay(best[0])}</p>}
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white p-3">
-          <p className="text-xs text-gray-500">Dias anotados</p>
-          <p className="text-lg font-bold text-gray-900">{dayList.length} de {days}</p>
+          <p className="text-xs text-gray-500">{t('Dias anotados')}</p>
+          <p className="text-lg font-bold text-gray-900">{t('{a} de {b}', { a: dayList.length, b: days })}</p>
         </div>
       </div>
 
       {payeeTotals.length > 0 && (
-        <section className="mt-3 rounded-2xl border border-gray-200 bg-white p-4" aria-label="Por nome da nota">
+        <section className="mt-3 rounded-2xl border border-gray-200 bg-white p-4" aria-label={t('Por nome da nota')}>
           <div className="flex justify-between">
-            <h2 className="text-sm font-semibold text-gray-700">Por nome da nota</h2>
+            <h2 className="text-sm font-semibold text-gray-700">{t('Por nome da nota')}</h2>
             <span className="text-sm font-bold text-gray-900">{fmtNumber(payeeSum)} L</span>
           </div>
           <ul className="mt-2 space-y-1">
@@ -763,7 +771,7 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-xs text-gray-500">É o que cada nome recebe do laticínio nas coletas do período. Compare com o depósito.</p>
+          <p className="mt-2 text-xs text-gray-500">{t('É o que cada nome recebe do laticínio nas coletas do período. Compare com o depósito.')}</p>
           <ul className="mt-3 divide-y divide-gray-100 border-t border-gray-100">
             {[...new Set(splitsInScope.filter((x) => x.date >= from && x.date <= today).map((x) => x.date))].sort().reverse().map((day) => {
               const parts = payeesInScope.map((p) => ({ p, liters: splitsInScope.find((x) => x.date === day && x.payeeId === p.id)?.liters ?? null })).filter((x) => x.liters !== null)
@@ -773,7 +781,7 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
                 <li key={day} className="py-2 text-sm">
                   <div className="flex justify-between gap-3"><span className="font-semibold text-gray-900">{fmtDay(day)}</span><span className="font-semibold text-gray-900">{fmtNumber(sum)} L</span></div>
                   <p className="text-xs text-gray-600">{parts.map((x) => `${x.p.name.split(' ')[0]} ${fmtNumber(x.liters!)}`).join(' · ')}</p>
-                  {sheet && <p className="text-xs text-gray-500">Folha: {fmtNumber(sheet.liters)} L{sheet.rulerValue != null ? ` · régua ${fmtNumber(sheet.rulerValue)}` : ''}{sheet.temperature != null ? ` · ${fmtNumber(sheet.temperature, 0)} °C` : ''}{Math.abs(sheet.liters - sum) > 0.05 ? ` · ${fmtSigned(Math.round((sheet.liters - sum) * 10) / 10)} L` : ' · bate'}</p>}
+                  {sheet && <p className="text-xs text-gray-500">{t('Folha: {n} L', { n: fmtNumber(sheet.liters) })}{sheet.rulerValue != null ? ` · ${t('régua')} ${fmtNumber(sheet.rulerValue)}` : ''}{sheet.temperature != null ? ` · ${fmtNumber(sheet.temperature, 0)} °C` : ''}{Math.abs(sheet.liters - sum) > 0.05 ? ` · ${fmtSigned(Math.round((sheet.liters - sum) * 10) / 10)} L` : t(' · bate')}</p>}
                 </li>
               )
             })}
@@ -782,8 +790,8 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
       )}
 
       {total > 0 && (
-        <section className="mt-3 rounded-2xl border border-gray-200 bg-white p-4" aria-label="Litros por dia">
-          <h2 className="text-sm font-semibold text-gray-700">{step === 1 ? 'Litros por dia' : 'Litros por semana'}</h2>
+        <section className="mt-3 rounded-2xl border border-gray-200 bg-white p-4" aria-label={t('Litros por dia')}>
+          <h2 className="text-sm font-semibold text-gray-700">{t(step === 1 ? 'Litros por dia' : 'Litros por semana')}</h2>
           <div className="mt-3 flex h-36 items-end gap-1">
             {bars.map((b, i) => (
               <div key={i} title={b.title} className="flex h-full min-w-0 flex-1 flex-col justify-end">
@@ -808,7 +816,7 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
       {periodCollections.length > 0 && (
         <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4">
           <div className="flex justify-between">
-            <h2 className="text-sm font-semibold text-blue-900">Coletado pelo motorista</h2>
+            <h2 className="text-sm font-semibold text-blue-900">{t('Coletado pelo motorista')}</h2>
             <span className="text-sm font-bold text-blue-900">{fmtNumber(collected)} L</span>
           </div>
           <ul className="mt-2 space-y-1">
@@ -824,7 +832,7 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
 
       {showBreakdown && byPoint.size > 0 && (
         <section className="mt-4">
-          <h2 className="text-sm font-semibold text-gray-500 mb-2">Por local (toque para ver só ele)</h2>
+          <h2 className="text-sm font-semibold text-gray-500 mb-2">{t('Por local (toque para ver só ele)')}</h2>
           <ul className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
             {[...byPoint.entries()].sort((a, b) => b[1] - a[1]).map(([id, l]) => (
               <li key={id}>
@@ -842,18 +850,18 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
       )}
 
       {dayList.length === 0 ? (
-        <p className="mt-8 text-center text-gray-500">Nenhuma anotação nesse período.</p>
+        <p className="mt-8 text-center text-gray-500">{t('Nenhuma anotação nesse período.')}</p>
       ) : (
         <section className="mt-4">
-          <h2 className="text-sm font-semibold text-gray-500 mb-2">Por dia</h2>
+          <h2 className="text-sm font-semibold text-gray-500 mb-2">{t('Por dia')}</h2>
           <ul className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-100">
             {dayList.map(([day, d]) => (
               <li key={day} className="px-4 py-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-700">{fmtDay(day)} <span className="text-xs text-gray-400">{fmtDay(day, { weekday: 'short' })}</span>{splitDays.has(day) && <span className="ml-1.5 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-800">coleta</span>}</span>
+                  <span className="text-gray-700">{fmtDay(day)} <span className="text-xs text-gray-400">{fmtDay(day, { weekday: 'short' })}</span>{splitDays.has(day) && <span className="ml-1.5 rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-800">{t('coleta')}</span>}</span>
                   <span className="flex items-center gap-3">
                     <span className="font-semibold text-gray-900">{fmtNumber(d.total)} L</span>
-                    {canWrite && <button type="button" onClick={() => onOpenDay(day)} className="text-sm font-semibold text-green-700">Alterar</button>}
+                    {canWrite && <button type="button" onClick={() => onOpenDay(day)} className="text-sm font-semibold text-green-700">{t('Alterar')}</button>}
                   </span>
                 </div>
                 {showBreakdown && d.parts.length > 0 && (
@@ -869,7 +877,7 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
 
       <button type="button" onClick={download} disabled={entries.length === 0}
         className="mt-5 w-full border-2 border-green-700 text-green-800 font-semibold py-3 rounded-xl disabled:border-gray-300 disabled:text-gray-400">
-        Baixar planilha{selected ? ` de ${selected.name}` : ''}
+        {selected ? t('Baixar planilha de {name}', { name: selected.name }) : t('Baixar planilha')}
       </button>
     </div>
   )
@@ -890,6 +898,7 @@ function SplitCard({ data, point, date, canWrite, showName, onSave }: {
   onSave: (changes: LiteSplitChange[]) => void
 }) {
   const { confirm } = useDialog()
+  const t = useT()
   const allPayees = data.payees ?? []
   const splits = data.splits ?? []
   const payees = allPayees.filter((p) => p.pointId === point.id && p.active)
@@ -931,7 +940,7 @@ function SplitCard({ data, point, date, canWrite, showName, onSave }: {
     setChip(null)
   }
   async function remove() {
-    if (!(await confirm({ title: `Apagar a divisão de ${fmtDay(date)}?`, message: 'Os litros do dia continuam anotados. Só a divisão entre os nomes é apagada.', confirmLabel: 'Apagar', danger: true }))) return
+    if (!(await confirm({ title: t('Apagar a divisão de {date}?', { date: fmtDay(date) }), message: t('Os litros do dia continuam anotados. Só a divisão entre os nomes é apagada.'), confirmLabel: t('Apagar'), danger: true }))) return
     onSave(payees.map((p) => ({ payeeId: p.id, date, liters: null })))
     setValues({}); setTotalDraft(null); setOpen(false)
   }
@@ -942,38 +951,38 @@ function SplitCard({ data, point, date, canWrite, showName, onSave }: {
         className="mt-4 flex w-full items-center gap-3 rounded-2xl border-2 border-dashed border-green-300 bg-white px-4 py-3 text-left hover:bg-green-50">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-lg font-bold text-green-800" aria-hidden="true">÷</span>
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold text-gray-900">Coleta hoje? Dividir a nota{showName ? ` de ${point.name}` : ''}</span>
-          <span className="block text-sm text-gray-600">{fmtNumber(since.liters)} L desde {since.from === date ? 'hoje' : fmtDay(since.from)} entre {payees.map((p) => p.name.split(' ')[0]).join(' e ')}</span>
+          <span className="block font-semibold text-gray-900">{showName ? t('Coleta hoje? Dividir a nota de {name}', { name: point.name }) : t('Coleta hoje? Dividir a nota')}</span>
+          <span className="block text-sm text-gray-600">{t('{n} L desde {from} entre {names}', { n: fmtNumber(since.liters), from: since.from === date ? t('hoje') : fmtDay(since.from), names: payees.map((p) => p.name.split(' ')[0]).join(t(' e ')) })}</span>
         </span>
       </button>
     )
   }
 
   return (
-    <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4" aria-label={`Divisão da nota${showName ? ` de ${point.name}` : ''}`}>
+    <section className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-4" aria-label={showName ? t('Divisão da nota de {name}', { name: point.name }) : t('Divisão da nota')}>
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="font-semibold text-blue-950">Nota de {fmtDay(date)}{showName ? ` · ${point.name}` : ''}</h2>
-          <p className="text-xs text-blue-900">{since.from === date ? 'Só o leite de hoje' : `Leite de ${fmtDay(since.from)} a ${fmtDay(date)}`}. Corrija o total se a coleta levou outro valor.</p>
+          <h2 className="font-semibold text-blue-950">{t('Nota de {date}', { date: fmtDay(date) })}{showName ? ` · ${point.name}` : ''}</h2>
+          <p className="text-xs text-blue-900">{since.from === date ? t('Só o leite de hoje') : t('Leite de {from} a {to}', { from: fmtDay(since.from), to: fmtDay(date) })}. {t('Corrija o total se a coleta levou outro valor.')}</p>
         </div>
-        {hasSplit && <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-blue-900">salva</span>}
+        {hasSplit && <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-blue-900">{t('salva')}</span>}
       </div>
 
       <label className="mt-3 flex items-center justify-between gap-3">
-        <span className="text-sm font-medium text-blue-950">Total da coleta</span>
+        <span className="text-sm font-medium text-blue-950">{t('Total da coleta')}</span>
         <span className="flex items-center gap-2">
           <MilkDecimalInput type="text" inputMode="decimal" value={totalText} readOnly={!canWrite}
             onChange={(e) => { setTotalDraft(e.target.value.replace(/[^\d.,]/g, '')); setChip(null) }}
-            aria-label="Total da coleta" className="w-28 rounded-xl border border-blue-200 bg-white px-3 py-2 text-right !text-xl font-bold focus:outline-none focus:ring-2 focus:ring-green-600" />
+            aria-label={t('Total da coleta')} className="w-28 rounded-xl border border-blue-200 bg-white px-3 py-2 text-right !text-xl font-bold focus:outline-none focus:ring-2 focus:ring-green-600" />
           <span className="text-blue-900">L</span>
         </span>
       </label>
 
       {canWrite && (
-        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Sugestão de divisão">
-          {previous.length > 0 && <button type="button" aria-pressed={chip === 'last'} onClick={() => applySuggestion('last')} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${chip === 'last' ? 'bg-green-700 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}>Como da última</button>}
-          <button type="button" aria-pressed={chip === 'equal'} onClick={() => applySuggestion('equal')} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${chip === 'equal' ? 'bg-green-700 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}>Igual para todos</button>
-          <button type="button" aria-pressed={chip === 'first'} onClick={() => applySuggestion('first')} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${chip === 'first' ? 'bg-green-700 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}>Tudo em {payees[0].name.split(' ')[0]}</button>
+        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t('Sugestão de divisão')}>
+          {previous.length > 0 && <button type="button" aria-pressed={chip === 'last'} onClick={() => applySuggestion('last')} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${chip === 'last' ? 'bg-green-700 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}>{t('Como da última')}</button>}
+          <button type="button" aria-pressed={chip === 'equal'} onClick={() => applySuggestion('equal')} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${chip === 'equal' ? 'bg-green-700 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}>{t('Igual para todos')}</button>
+          <button type="button" aria-pressed={chip === 'first'} onClick={() => applySuggestion('first')} className={`rounded-full px-3 py-1.5 text-sm font-semibold ${chip === 'first' ? 'bg-green-700 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}>{t('Tudo em {name}', { name: payees[0].name.split(' ')[0] })}</button>
         </div>
       )}
 
@@ -982,30 +991,30 @@ function SplitCard({ data, point, date, canWrite, showName, onSave }: {
           <li key={p.id} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2">
             <span className="min-w-0 flex-1">
               <span className="block truncate font-semibold text-gray-900">{p.name}</span>
-              {(p.producerCode || p.sequence) && <span className="block text-xs text-gray-500">{[p.producerCode && `produtor ${p.producerCode}`, p.sequence && `seq. ${p.sequence}`].filter(Boolean).join(' · ')}</span>}
+              {(p.producerCode || p.sequence) && <span className="block text-xs text-gray-500">{[p.producerCode && `${t('produtor')} ${p.producerCode}`, p.sequence && `${t('seq.')} ${p.sequence}`].filter(Boolean).join(' · ')}</span>}
             </span>
             <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={valueOf(p.id)} readOnly={!canWrite}
-              onChange={(e) => change(p.id, e.target.value)} aria-label={`Litros de ${p.name}`}
+              onChange={(e) => change(p.id, e.target.value)} aria-label={t('Litros de {name}', { name: p.name })}
               className="w-24 rounded-xl border border-gray-300 px-3 py-2 text-right !text-xl font-bold focus:outline-none focus:ring-2 focus:ring-green-600" />
             <span className="text-gray-500">L</span>
-            {canWrite && <VoiceButton size="sm" label={`os litros de ${p.name}`} onNumber={(v) => change(p.id, fmtInput(v))} />}
+            {canWrite && <VoiceButton size="sm" label={t('os litros de {name}', { name: p.name })} onNumber={(v) => change(p.id, fmtInput(v))} />}
           </li>
         ))}
       </ul>
 
       <p className={`mt-2 text-sm font-medium ${!filled ? 'text-gray-600' : matches ? 'text-green-800' : 'text-red-700'}`} role="status">
-        {!filled ? 'Preencha os litros de cada nome.' : matches ? `Soma ${fmtNumber(sum)} L, igual ao total.` : `Soma ${fmtNumber(sum)} L. ${sum < total ? `Faltam ${fmtNumber(Math.round((total - sum) * 10) / 10)} L` : `Passou ${fmtNumber(Math.round((sum - total) * 10) / 10)} L`} para bater com o total.`}
+        {!filled ? t('Preencha os litros de cada nome.') : matches ? t('Soma {n} L, igual ao total.', { n: fmtNumber(sum) }) : t(sum < total ? 'Soma {n} L. Faltam {d} L para bater com o total.' : 'Soma {n} L. Passou {d} L para bater com o total.', { n: fmtNumber(sum), d: fmtNumber(Math.round(Math.abs(total - sum) * 10) / 10) })}
       </p>
 
       {canWrite && (
         <div className="mt-3 flex items-center gap-3">
           <button type="button" disabled={!filled || !matches || total <= 0 || (!changed && hasSplit)} onClick={() => onSave(payees.map((p) => ({ payeeId: p.id, date, liters: parseLiters(valueOf(p.id)) })))}
             className="flex-1 rounded-xl bg-green-700 py-3 font-bold text-white hover:bg-green-600 disabled:bg-gray-300">
-            {hasSplit && !changed ? 'Divisão salva' : 'Salvar divisão'}
+            {t(hasSplit && !changed ? 'Divisão salva' : 'Salvar divisão')}
           </button>
           {hasSplit
-            ? <button type="button" onClick={() => void remove()} className="text-sm font-semibold text-red-700 underline">Apagar</button>
-            : <button type="button" onClick={() => { setOpen(false); setValues({}); setTotalDraft(null) }} className="text-sm font-semibold text-gray-600 underline">Hoje não</button>}
+            ? <button type="button" onClick={() => void remove()} className="text-sm font-semibold text-red-700 underline">{t('Apagar')}</button>
+            : <button type="button" onClick={() => { setOpen(false); setValues({}); setTotalDraft(null) }} className="text-sm font-semibold text-gray-600 underline">{t('Hoje não')}</button>}
         </div>
       )}
     </section>
@@ -1020,6 +1029,7 @@ function Nomes({ data, online, canWrite, onChanged }: {
   onChanged: (payees: LitePayee[]) => void
 }) {
   const { confirm, notify } = useDialog()
+  const t = useT()
   const points = data.points.filter((p) => p.active)
   const [pointId, setPointId] = useState(points[0]?.id ?? '')
   const all = data.payees ?? []
@@ -1054,14 +1064,14 @@ function Nomes({ data, online, canWrite, onChanged }: {
   }
 
   async function toggle(p: LitePayee) {
-    if (p.active && !(await confirm({ title: `Tirar ${p.name} da nota?`, message: 'Sai das próximas coletas. As divisões já feitas ficam no histórico. Dá para reativar depois.', confirmLabel: 'Tirar', danger: true }))) return
+    if (p.active && !(await confirm({ title: t('Tirar {name} da nota?', { name: p.name }), message: t('Sai das próximas coletas. As divisões já feitas ficam no histórico. Dá para reativar depois.'), confirmLabel: t('Tirar'), danger: true }))) return
     try {
       const res = await fetch(`/api/lite/nomes/${p.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: !p.active }) })
-      if (!res.ok) { await notify('Não foi possível alterar'); return }
+      if (!res.ok) { await notify(t('Não foi possível alterar')); return }
       const saved = (await res.json()) as LitePayee
       onChanged(all.map((x) => (x.id === saved.id ? saved : x)))
     } catch {
-      await notify('Sem internet', 'Cadastrar ou alterar nomes precisa de sinal.')
+      await notify(t('Sem internet'), t('Cadastrar ou alterar nomes precisa de sinal.'))
     }
   }
 
@@ -1103,23 +1113,23 @@ function Nomes({ data, online, canWrite, onChanged }: {
   const photoView = (reading || found) && (
     <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-4">
       {reading && <>
-        <p className="font-semibold text-gray-900">{reading.status.includes('core') || reading.status.includes('load') ? 'Preparando o leitor…' : 'Lendo a folha…'}</p>
+        <p className="font-semibold text-gray-900">{t(reading.status.includes('core') || reading.status.includes('load') ? 'Preparando o leitor…' : 'Lendo a folha…')}</p>
         <div className="mt-2 h-2 overflow-hidden rounded bg-gray-100"><div className="h-full bg-green-600 transition-all" style={{ width: `${Math.round(reading.fraction * 100)}%` }} /></div>
       </>}
       {found && <>
-        <p className="font-semibold text-gray-900">Nomes lidos da folha</p>
+        <p className="font-semibold text-gray-900">{t('Nomes lidos da folha')}</p>
         <ul className="mt-2 space-y-2">
           {found.map((r, i) => (
             <li key={i} className="flex items-center gap-3">
-              <input type="checkbox" checked={r.chosen} onChange={(e) => setFound(found.map((x, j) => (j === i ? { ...x, chosen: e.target.checked } : x)))} className="h-5 w-5" aria-label={`Cadastrar ${r.name}`} />
-              <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-gray-900">{r.name}</span><span className="block text-xs text-gray-500">{[r.producerCode && `produtor ${r.producerCode}`, r.sequence && `seq. ${r.sequence}`].filter(Boolean).join(' · ')}</span></span>
+              <input type="checkbox" checked={r.chosen} onChange={(e) => setFound(found.map((x, j) => (j === i ? { ...x, chosen: e.target.checked } : x)))} className="h-5 w-5" aria-label={t('Cadastrar {name}', { name: r.name })} />
+              <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-gray-900">{r.name}</span><span className="block text-xs text-gray-500">{[r.producerCode && `${t('produtor')} ${r.producerCode}`, r.sequence && `${t('seq.')} ${r.sequence}`].filter(Boolean).join(' · ')}</span></span>
             </li>
           ))}
         </ul>
-        <p className="mt-2 text-xs text-gray-500">Confira os códigos antes de salvar. Dá para alterar depois.</p>
+        <p className="mt-2 text-xs text-gray-500">{t('Confira os códigos antes de salvar. Dá para alterar depois.')}</p>
         <div className="mt-3 flex gap-2">
-          <button type="button" onClick={() => setFound(null)} className="flex-1 rounded-xl border border-gray-300 py-3 font-semibold text-gray-700">Cancelar</button>
-          <button type="button" disabled={busy || !found.some((x) => x.chosen)} onClick={() => void saveFound()} className="flex-1 rounded-xl bg-green-700 py-3 font-semibold text-white disabled:bg-gray-300">{busy ? 'Salvando...' : `Cadastrar ${found.filter((x) => x.chosen).length}`}</button>
+          <button type="button" onClick={() => setFound(null)} className="flex-1 rounded-xl border border-gray-300 py-3 font-semibold text-gray-700">{t('Cancelar')}</button>
+          <button type="button" disabled={busy || !found.some((x) => x.chosen)} onClick={() => void saveFound()} className="flex-1 rounded-xl bg-green-700 py-3 font-semibold text-white disabled:bg-gray-300">{busy ? t('Salvando...') : t('Cadastrar {n}', { n: found.filter((x) => x.chosen).length })}</button>
         </div>
       </>}
     </div>
@@ -1127,26 +1137,26 @@ function Nomes({ data, online, canWrite, onChanged }: {
 
   const formView = editing && (
     <form onSubmit={submit} className="mt-3 rounded-2xl border border-gray-200 bg-white p-4">
-      <h3 className="font-semibold text-gray-900">{editing === 'new' ? `Nome ${payees.length + 1}` : 'Alterar nome'}</h3>
+      <h3 className="font-semibold text-gray-900">{editing === 'new' ? t('Nome {n}', { n: payees.length + 1 }) : t('Alterar nome')}</h3>
       <label className="mt-3 block">
-        <span className="text-sm font-medium text-gray-700">Nome como está na folha</span>
+        <span className="text-sm font-medium text-gray-700">{t('Nome como está na folha')}</span>
         <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required autoFocus className={`mt-1 ${input}`} />
       </label>
       <div className="mt-3 grid grid-cols-2 gap-3">
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Código de produtor</span>
-          <input value={form.producerCode} onChange={(e) => setForm({ ...form, producerCode: e.target.value })} inputMode="numeric" placeholder="ex.: 005712" className={`mt-1 ${input}`} />
+          <span className="text-sm font-medium text-gray-700">{t('Código de produtor')}</span>
+          <input value={form.producerCode} onChange={(e) => setForm({ ...form, producerCode: e.target.value })} inputMode="numeric" placeholder={t('ex.: 005712')} className={`mt-1 ${input}`} />
         </label>
         <label className="block">
-          <span className="text-sm font-medium text-gray-700">Seq. na folha</span>
-          <input value={form.sequence} onChange={(e) => setForm({ ...form, sequence: e.target.value })} inputMode="numeric" placeholder="ex.: 030" className={`mt-1 ${input}`} />
+          <span className="text-sm font-medium text-gray-700">{t('Seq. na folha')}</span>
+          <input value={form.sequence} onChange={(e) => setForm({ ...form, sequence: e.target.value })} inputMode="numeric" placeholder={t('ex.: 030')} className={`mt-1 ${input}`} />
         </label>
       </div>
-      <p className="mt-2 text-xs text-gray-500">O código de produtor é o número que o laticínio dá a cada pessoa. É ele que define para quem vai o pagamento.</p>
-      {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <p className="mt-2 text-xs text-gray-500">{t('O código de produtor é o número que o laticínio dá a cada pessoa. É ele que define para quem vai o pagamento.')}</p>
+      {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{t(error)}</p>}
       <div className="mt-3 flex gap-2">
-        <button type="button" onClick={() => setEditing(null)} className="flex-1 rounded-xl border border-gray-300 py-3 font-semibold text-gray-700">Cancelar</button>
-        <button type="submit" disabled={busy} className="flex-1 rounded-xl bg-green-700 py-3 font-semibold text-white disabled:bg-gray-300">{busy ? 'Salvando...' : 'Salvar'}</button>
+        <button type="button" onClick={() => setEditing(null)} className="flex-1 rounded-xl border border-gray-300 py-3 font-semibold text-gray-700">{t('Cancelar')}</button>
+        <button type="submit" disabled={busy} className="flex-1 rounded-xl bg-green-700 py-3 font-semibold text-white disabled:bg-gray-300">{t(busy ? 'Salvando...' : 'Salvar')}</button>
       </div>
     </form>
   )
@@ -1155,31 +1165,31 @@ function Nomes({ data, online, canWrite, onChanged }: {
     <div>
       {points.length > 1 && (
         <label className="block mb-3">
-          <span className="text-sm font-medium text-gray-700">Local</span>
+          <span className="text-sm font-medium text-gray-700">{t('Local')}</span>
           <select value={pointId} onChange={(e) => { setPointId(e.target.value); setEditing(null) }} className={`mt-1 ${input} bg-white font-semibold`}>
             {points.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </label>
       )}
-      {!online && <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">Sem internet. Cadastrar nomes precisa de sinal; a divisão da coleta funciona sem.</p>}
+      {!online && <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{t('Sem internet. Cadastrar nomes precisa de sinal; a divisão da coleta funciona sem.')}</p>}
 
       {payees.length === 0 && editing !== 'new' ? (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 text-center">
           <span className="text-4xl" aria-hidden="true">📄</span>
-          <h2 className="mt-2 text-lg font-bold text-gray-900">A nota do laticínio tem mais de um nome?</h2>
-          <p className="mx-auto mt-1 max-w-xs text-sm text-gray-600">Cadastre quem divide o leite do tanque. Depois, a cada coleta, você só diz quanto vai para cada um, na tela Anotar.</p>
+          <h2 className="mt-2 text-lg font-bold text-gray-900">{t('A nota do laticínio tem mais de um nome?')}</h2>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-gray-600">{t('Cadastre quem divide o leite do tanque. Depois, a cada coleta, você só diz quanto vai para cada um, na tela Anotar.')}</p>
           {canWrite && canReadFolha() && <div className="mt-4 grid grid-cols-2 gap-2">
             <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-700 py-3 font-bold text-white ${online ? '' : 'opacity-50'}`}>
-              📷 Tirar foto
+              📷 {t('Tirar foto')}
               <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={!online} onChange={(e) => { const f = e.target.files?.[0]; if (f) void readNames(f); e.target.value = '' }} />
             </label>
             <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800 ${online ? '' : 'opacity-50'}`}>
-              🖼 Da galeria
+              🖼 {t('Da galeria')}
               <input type="file" accept="image/*" className="sr-only" disabled={!online} onChange={(e) => { const f = e.target.files?.[0]; if (f) void readNames(f); e.target.value = '' }} />
             </label>
           </div>}
-          {canWrite && <button type="button" onClick={startNew} disabled={!online} className="mt-2 w-full rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800 disabled:border-gray-300 disabled:text-gray-400">Digitar os nomes</button>}
-          {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-left text-sm text-red-700">{error}</p>}
+          {canWrite && <button type="button" onClick={startNew} disabled={!online} className="mt-2 w-full rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800 disabled:border-gray-300 disabled:text-gray-400">{t('Digitar os nomes')}</button>}
+          {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-left text-sm text-red-700">{t(error)}</p>}
         </div>
       ) : (
         <ul className="space-y-2">
@@ -1188,12 +1198,12 @@ function Nomes({ data, online, canWrite, onChanged }: {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold text-gray-900">{p.name}</p>
-                  <p className="text-xs text-gray-500">{[p.producerCode && `produtor ${p.producerCode}`, p.sequence && `seq. ${p.sequence}`].filter(Boolean).join(' · ') || 'sem código'}{p.active ? '' : ' · fora da nota'}</p>
+                  <p className="text-xs text-gray-500">{[p.producerCode && `${t('produtor')} ${p.producerCode}`, p.sequence && `${t('seq.')} ${p.sequence}`].filter(Boolean).join(' · ') || t('sem código')}{p.active ? '' : t(' · fora da nota')}</p>
                 </div>
                 {canWrite && (
                   <div className="flex shrink-0 gap-3 text-sm font-semibold">
-                    <button type="button" onClick={() => startEdit(p)} className="text-green-700">Alterar</button>
-                    <button type="button" onClick={() => void toggle(p)} className={p.active ? 'text-gray-500' : 'text-green-700'}>{p.active ? 'Tirar' : 'Reativar'}</button>
+                    <button type="button" onClick={() => startEdit(p)} className="text-green-700">{t('Alterar')}</button>
+                    <button type="button" onClick={() => void toggle(p)} className={p.active ? 'text-gray-500' : 'text-green-700'}>{t(p.active ? 'Tirar' : 'Reativar')}</button>
                   </div>
                 )}
               </div>
@@ -1204,9 +1214,9 @@ function Nomes({ data, online, canWrite, onChanged }: {
       {photoView}
       {formView}
       {canWrite && payees.length > 0 && !editing && (
-        <button type="button" onClick={startNew} disabled={!online} className="mt-3 w-full rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800 disabled:border-gray-300 disabled:text-gray-400">+ Adicionar outro nome</button>
+        <button type="button" onClick={startNew} disabled={!online} className="mt-3 w-full rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800 disabled:border-gray-300 disabled:text-gray-400">{t('+ Adicionar outro nome')}</button>
       )}
-      {payees.length > 0 && <p className="mt-4 text-center text-sm text-gray-500">Laticínio, rota e tanque vêm do laticínio. Você só cadastra os nomes.</p>}
+      {payees.length > 0 && <p className="mt-4 text-center text-sm text-gray-500">{t('Laticínio, rota e tanque vêm do laticínio. Você só cadastra os nomes.')}</p>}
     </div>
   )
 }
@@ -1240,6 +1250,8 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
   onSaveSplits: (changes: LiteSplitChange[]) => void
 }) {
   const { confirm, notify } = useDialog()
+  const t = useT()
+  const locale = useLocale()
   const today = todayISO()
   const points = data.points.filter((p) => p.active)
   const [pointId, setPointId] = useState(points[0]?.id ?? '')
@@ -1310,7 +1322,7 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
   }
 
   async function remove(date: string) {
-    if (!(await confirm({ title: `Apagar a folha de ${fmtDay(date)}?`, message: 'A divisão entre os nomes continua; só a folha e a foto são apagadas.', confirmLabel: 'Apagar', danger: true }))) return
+    if (!(await confirm({ title: t('Apagar a folha de {date}?', { date: fmtDay(date) }), message: t('A divisão entre os nomes continua; só a folha e a foto são apagadas.'), confirmLabel: t('Apagar'), danger: true }))) return
     onSave({ date, liters: null })
     if (draft?.date === date) setDraft(null)
   }
@@ -1318,10 +1330,10 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
   async function showPhoto(date: string) {
     try {
       const res = await fetch(`/api/lite/folha?data=${date}`)
-      if (!res.ok) { await notify('Sem foto', 'A foto desta coleta não está disponível agora.'); return }
+      if (!res.ok) { await notify(t('Sem foto'), t('A foto desta coleta não está disponível agora.')); return }
       setPhotoOf({ date, photo: (await res.json()).photo })
     } catch {
-      await notify('Sem internet', 'A foto fica no servidor; abre quando houver sinal.')
+      await notify(t('Sem internet'), t('A foto fica no servidor; abre quando houver sinal.'))
     }
   }
 
@@ -1345,14 +1357,14 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
   const monthSheets = sheets.filter((x) => x.date.startsWith(month))
   const sheetTotal = monthSheets.reduce((sum, x) => sum + x.liters, 0)
   const price = data.milkPrice
-  const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('pt-BR', { timeZone: 'UTC', month: 'long' })
+  const monthLabel = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString(locale, { timeZone: 'UTC', month: 'long' })
   const field = 'w-full rounded-xl border border-gray-300 px-3 py-2 text-right text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-green-600'
 
   return (
     <div>
       {points.length > 1 && (
         <label className="block mb-3">
-          <span className="text-sm font-medium text-gray-700">Local</span>
+          <span className="text-sm font-medium text-gray-700">{t('Local')}</span>
           <select value={pointId} onChange={(e) => { setPointId(e.target.value); setDraft(null) }} className={`mt-1 ${input} bg-white font-semibold`}>
             {points.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
@@ -1361,58 +1373,58 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
 
       {canWrite && !draft && (
         <div className="rounded-2xl border border-gray-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-gray-900">Folha do carreteiro</h2>
-          <p className="mt-1 text-sm text-gray-600">Fotografe a folha preenchida. O app lê os litros de cada nome, a temperatura, a amostra e a régua, e você confere antes de salvar. A foto fica guardada junto da coleta.</p>
+          <h2 className="text-lg font-semibold text-gray-900">{t('Folha do carreteiro')}</h2>
+          <p className="mt-1 text-sm text-gray-600">{t('Fotografe a folha preenchida. O app lê os litros de cada nome, a temperatura, a amostra e a régua, e você confere antes de salvar. A foto fica guardada junto da coleta.')}</p>
           {reading ? (
             <div className="mt-4">
-              <p className="font-semibold text-gray-900">{reading.status === 'nuvem' ? 'Lendo a folha na nuvem…' : /load|core|init/.test(reading.status) ? 'Preparando o leitor do aparelho…' : 'Lendo a folha no aparelho…'}</p>
+              <p className="font-semibold text-gray-900">{t(reading.status === 'nuvem' ? 'Lendo a folha na nuvem…' : /load|core|init/.test(reading.status) ? 'Preparando o leitor do aparelho…' : 'Lendo a folha no aparelho…')}</p>
               <div className="mt-2 h-2 overflow-hidden rounded bg-gray-100"><div className="h-full bg-green-600 transition-all" style={{ width: `${Math.round(reading.fraction * 100)}%` }} /></div>
-              <p className="mt-1 text-xs text-gray-500">{reading.status === 'nuvem' ? 'Com internet a leitura é feita na nuvem e lê a letra à mão.' : 'Sem internet o leitor do aparelho lê o impresso; os números à mão vêm para você conferir.'}</p>
+              <p className="mt-1 text-xs text-gray-500">{t(reading.status === 'nuvem' ? 'Com internet a leitura é feita na nuvem e lê a letra à mão.' : 'Sem internet o leitor do aparelho lê o impresso; os números à mão vêm para você conferir.')}</p>
             </div>
           ) : (
             <div className="mt-4 flex flex-col gap-2">
               {canReadFolha() && <div className="grid grid-cols-2 gap-2">
                 <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-green-700 py-3 font-bold text-white hover:bg-green-600">
-                  📷 Tirar foto
-                  <input type="file" accept="image/*" capture="environment" className="sr-only" aria-label="Tirar foto da folha" onChange={(e) => { const f = e.target.files?.[0]; if (f) void readPhoto(f); e.target.value = '' }} />
+                  📷 {t('Tirar foto')}
+                  <input type="file" accept="image/*" capture="environment" className="sr-only" aria-label={t('Tirar foto da folha')} onChange={(e) => { const f = e.target.files?.[0]; if (f) void readPhoto(f); e.target.value = '' }} />
                 </label>
                 <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800 hover:bg-green-50">
-                  🖼 Da galeria
-                  <input type="file" accept="image/*" className="sr-only" aria-label="Escolher foto da folha na galeria" onChange={(e) => { const f = e.target.files?.[0]; if (f) void readPhoto(f); e.target.value = '' }} />
+                  🖼 {t('Da galeria')}
+                  <input type="file" accept="image/*" className="sr-only" aria-label={t('Escolher foto da folha na galeria')} onChange={(e) => { const f = e.target.files?.[0]; if (f) void readPhoto(f); e.target.value = '' }} />
                 </label>
               </div>}
-              <button type="button" onClick={() => { setError(''); setDraft(emptyDraft(today, sheets.find((x) => x.date === today))) }} className="w-full rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800">Digitar a folha</button>
+              <button type="button" onClick={() => { setError(''); setDraft(emptyDraft(today, sheets.find((x) => x.date === today))) }} className="w-full rounded-xl border-2 border-green-700 py-3 font-semibold text-green-800">{t('Digitar a folha')}</button>
             </div>
           )}
-          {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-          {message && <p role="status" className="mt-2 text-center text-sm font-medium text-green-800">{message}</p>}
+          {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{t(error)}</p>}
+          {message && <p role="status" className="mt-2 text-center text-sm font-medium text-green-800">{t(message)}</p>}
         </div>
       )}
 
       {draft && (
         <div ref={formRef} className="scroll-mt-48 rounded-2xl border border-blue-200 bg-blue-50 p-4">
-          {draft.photo && <img src={draft.photo} alt="Foto da folha" className="mb-3 max-h-56 w-full rounded-xl object-contain bg-white" />}
+          {draft.photo && <img src={draft.photo} alt={t('Foto da folha')} className="mb-3 max-h-56 w-full rounded-xl object-contain bg-white" />}
           {draft.read && (
             <p className="mb-3 text-sm text-blue-900">
-              {draft.read.found >= 4 ? `Li ${draft.read.found} de ${draft.read.expected} campos` : `Li só ${draft.read.found} de ${draft.read.expected} campos`}{draft.engine === 'nuvem' ? ' (leitura na nuvem).' : draft.engine === 'aparelho' ? ' (leitura no aparelho).' : '.'} Confira cada número antes de salvar.
-              {draft.read.tank ? ` Folha do tanque ${draft.read.tank}.` : ''}
+              {t(draft.read.found >= 4 ? 'Li {a} de {b} campos' : 'Li só {a} de {b} campos', { a: draft.read.found, b: draft.read.expected })}{draft.engine === 'nuvem' ? t(' (leitura na nuvem).') : draft.engine === 'aparelho' ? t(' (leitura no aparelho).') : '.'} {t('Confira cada número antes de salvar.')}
+              {draft.read.tank ? ` ${t('Folha do tanque {n}.', { n: draft.read.tank })}` : ''}
             </p>
           )}
           {draft.engine === 'aparelho' && (
             <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              {cloudErrorMessage(draft.cloudError, navigator.onLine)}
+              {t(cloudErrorMessage(draft.cloudError, navigator.onLine))}
             </p>
           )}
-          <label className="block text-sm font-medium text-blue-950">Dia da coleta
+          <label className="block text-sm font-medium text-blue-950">{t('Dia da coleta')}
             <input type="date" value={draft.date} max={today} onChange={(e) => e.target.value && setDraft({ ...draft, date: e.target.value })} className={`mt-1 ${input} bg-white font-semibold`} />
           </label>
           {draft.rows.length > 0 && (
             <ul className="mt-3 space-y-2">
               {draft.rows.map((r, i) => (
                 <li key={r.payee.id} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2">
-                  <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-gray-900">{r.payee.name}</span>{r.payee.producerCode && <span className="block text-xs text-gray-500">produtor {r.payee.producerCode}</span>}</span>
+                  <span className="min-w-0 flex-1"><span className="block truncate font-semibold text-gray-900">{r.payee.name}</span>{r.payee.producerCode && <span className="block text-xs text-gray-500">{t('produtor')} {r.payee.producerCode}</span>}</span>
                   {r.confidence !== null && <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${r.confidence >= 80 ? 'bg-green-50 text-green-800' : 'bg-amber-50 text-amber-800'}`}>{r.confidence}%</span>}
-                  <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={r.liters} aria-label={`Litros de ${r.payee.name} na folha`}
+                  <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={r.liters} aria-label={t('Litros de {name} na folha', { name: r.payee.name })}
                     onChange={(e) => setDraft({ ...draft, rows: draft.rows.map((x, j) => (j === i ? { ...x, liters: e.target.value.replace(/[^\d.,]/g, ''), confidence: null } : x)) })}
                     className="w-24 rounded-xl border border-gray-300 px-3 py-2 text-right !text-xl font-bold focus:outline-none focus:ring-2 focus:ring-green-600" />
                   <span className="text-gray-500">L</span>
@@ -1421,38 +1433,38 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
             </ul>
           )}
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <label className="text-sm font-medium text-blue-950">{draft.rows.length ? 'Total (soma dos nomes)' : 'Total da folha'}
-              <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={draft.rows.length ? fmtInputNum(draftRowSum > 0 ? draftRowSum : null) : draft.total} readOnly={draft.rows.length > 0} aria-label="Total da folha"
+            <label className="text-sm font-medium text-blue-950">{t(draft.rows.length ? 'Total (soma dos nomes)' : 'Total da folha')}
+              <MilkDecimalInput type="text" inputMode="decimal" placeholder="0" value={draft.rows.length ? fmtInputNum(draftRowSum > 0 ? draftRowSum : null) : draft.total} readOnly={draft.rows.length > 0} aria-label={t('Total da folha')}
                 onChange={(e) => setDraft({ ...draft, total: e.target.value.replace(/[^\d.,]/g, '') })} className={`mt-1 ${field}${draft.rows.length ? ' bg-gray-50 text-gray-700' : ''}`} />
             </label>
-            <label className="text-sm font-medium text-blue-950">Valor da régua
-              <MilkDecimalInput type="text" inputMode="decimal" placeholder="—" value={draft.ruler} aria-label="Valor da régua" onChange={(e) => setDraft({ ...draft, ruler: e.target.value.replace(/[^\d.,]/g, '') })} className={`mt-1 ${field}`} />
+            <label className="text-sm font-medium text-blue-950">{t('Valor da régua')}
+              <MilkDecimalInput type="text" inputMode="decimal" placeholder="—" value={draft.ruler} aria-label={t('Valor da régua')} onChange={(e) => setDraft({ ...draft, ruler: e.target.value.replace(/[^\d.,]/g, '') })} className={`mt-1 ${field}`} />
             </label>
-            <label className="text-sm font-medium text-blue-950">Temperatura °C
-              <MilkDecimalInput type="text" inputMode="decimal" placeholder="—" value={draft.temperature} aria-label="Temperatura" onChange={(e) => setDraft({ ...draft, temperature: e.target.value.replace(/[^\d.,]/g, '') })} className={`mt-1 ${field}`} />
+            <label className="text-sm font-medium text-blue-950">{t('Temperatura °C')}
+              <MilkDecimalInput type="text" inputMode="decimal" placeholder="—" value={draft.temperature} aria-label={t('Temperatura')} onChange={(e) => setDraft({ ...draft, temperature: e.target.value.replace(/[^\d.,]/g, '') })} className={`mt-1 ${field}`} />
             </label>
-            <label className="text-sm font-medium text-blue-950">Nº da amostra
-              <input inputMode="numeric" placeholder="—" value={draft.sample} aria-label="Número da amostra" onChange={(e) => setDraft({ ...draft, sample: e.target.value })} className={`mt-1 ${field}`} />
+            <label className="text-sm font-medium text-blue-950">{t('Nº da amostra')}
+              <input inputMode="numeric" placeholder="—" value={draft.sample} aria-label={t('Número da amostra')} onChange={(e) => setDraft({ ...draft, sample: e.target.value })} className={`mt-1 ${field}`} />
             </label>
           </div>
-          {parseLiters(draft.temperature) !== null && parseLiters(draft.temperature)! > 4 && <p className="mt-2 text-sm font-semibold text-red-700">Temperatura acima de 4 °C. O laticínio pode recusar; vale conferir o tanque.</p>}
+          {parseLiters(draft.temperature) !== null && parseLiters(draft.temperature)! > 4 && <p className="mt-2 text-sm font-semibold text-red-700">{t('Temperatura acima de 4 °C. O laticínio pode recusar; vale conferir o tanque.')}</p>}
           {noted && draftTotal !== null && (
             <p className={`mt-2 text-sm ${diffPct !== null && diffPct > SHEET_ALERT_PERCENT ? 'font-semibold text-red-700' : 'text-blue-900'}`}>
               {noted.liters > 0
-                ? `Você anotou ${fmtNumber(noted.liters)} L${noted.from < draft.date ? ` de ${fmtDay(noted.from, { day: 'numeric', month: 'numeric' })} a ${fmtDay(draft.date, { day: 'numeric', month: 'numeric' })}` : ' no dia'}. ${diff === 0 ? 'A folha bate.' : `Folha com ${fmtSigned(diff!)} L (${fmtSigned(Math.round((diff! / noted.liters) * 1000) / 10)}%).`}`
-                : 'Sem anotação sua nesses dias para comparar.'}
+                ? `${t('Você anotou {n} L', { n: fmtNumber(noted.liters) })}${noted.from < draft.date ? ` ${t('de {from} a {to}', { from: fmtDay(noted.from, { day: 'numeric', month: 'numeric' }), to: fmtDay(draft.date, { day: 'numeric', month: 'numeric' }) })}` : t(' no dia')}. ${diff === 0 ? t('A folha bate.') : t('Folha com {d} L ({p}%).', { d: fmtSigned(diff!), p: fmtSigned(Math.round((diff! / noted.liters) * 1000) / 10) })}`
+                : t('Sem anotação sua nesses dias para comparar.')}
             </p>
           )}
-          {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{t(error)}</p>}
           <div className="mt-3 flex items-center gap-3">
-            <button type="button" onClick={save} className="flex-1 rounded-xl bg-green-700 py-3 font-bold text-white hover:bg-green-600">Salvar folha</button>
-            <button type="button" onClick={() => { setDraft(null); setError('') }} className="text-sm font-semibold text-gray-600 underline">Cancelar</button>
+            <button type="button" onClick={save} className="flex-1 rounded-xl bg-green-700 py-3 font-bold text-white hover:bg-green-600">{t('Salvar folha')}</button>
+            <button type="button" onClick={() => { setDraft(null); setError('') }} className="text-sm font-semibold text-gray-600 underline">{t('Cancelar')}</button>
           </div>
-          {draft.rows.length > 0 && <p className="mt-2 text-xs text-blue-900">Os litros por nome da folha passam a ser a divisão desta coleta, que aparece no Histórico.</p>}
+          {draft.rows.length > 0 && <p className="mt-2 text-xs text-blue-900">{t('Os litros por nome da folha passam a ser a divisão desta coleta, que aparece no Histórico.')}</p>}
         </div>
       )}
 
-      <section className="mt-5" aria-label="Resumo do mês">
+      <section className="mt-5" aria-label={t('Resumo do mês')}>
         <div className="grid grid-cols-3 gap-2">
           {months.map((m) => (
             <button key={m} type="button" onClick={() => setMonth(m)}
@@ -1462,16 +1474,16 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
           ))}
         </div>
         <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-3">
-          <p className="text-xs text-gray-500">Pela folha do carreteiro</p>
-          <p className="text-2xl font-bold text-gray-900">{fmtNumber(sheetTotal)} L <span className="text-sm font-normal text-gray-500">{monthSheets.length} coleta{monthSheets.length === 1 ? '' : 's'}</span></p>
-          {price && sheetTotal > 0 && <p className="mt-1 text-sm text-green-800">Pela folha, deve receber <strong>{fmtMoney(sheetTotal * price)}</strong> em {monthLabel(month)} (litro a {fmtMoney(price)}).</p>}
+          <p className="text-xs text-gray-500">{t('Pela folha do carreteiro')}</p>
+          <p className="text-2xl font-bold text-gray-900">{fmtNumber(sheetTotal)} L <span className="text-sm font-normal text-gray-500">{t(monthSheets.length === 1 ? '{n} coleta' : '{n} coletas', { n: monthSheets.length })}</span></p>
+          {price && sheetTotal > 0 && <p className="mt-1 text-sm text-green-800">{t('Pela folha, deve receber')} <strong>{fmtMoney(sheetTotal * price)}</strong> {t('em {month} (litro a {price}).', { month: monthLabel(month), price: fmtMoney(price) })}</p>}
         </div>
       </section>
 
       <section className="mt-5">
-        <h2 className="mb-2 text-sm font-semibold text-gray-500">Cada coleta</h2>
+        <h2 className="mb-2 text-sm font-semibold text-gray-500">{t('Cada coleta')}</h2>
         {checks.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-gray-300 bg-white p-5 text-center text-gray-600">Nenhuma folha guardada ainda. Fotografe a próxima quando o carreteiro passar.</p>
+          <p className="rounded-2xl border border-dashed border-gray-300 bg-white p-5 text-center text-gray-600">{t('Nenhuma folha guardada ainda. Fotografe a próxima quando o carreteiro passar.')}</p>
         ) : (
           <ul className="space-y-2">
             {checks.map((c) => {
@@ -1481,22 +1493,22 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="font-semibold text-gray-900">{fmtDay(c.date)} <span className="text-xs font-normal text-gray-400">{fmtDay(c.date, { weekday: 'short' })}</span></span>
                     <span className="flex gap-3 text-sm font-semibold">
-                      {sheet?.hasPhoto && <button type="button" onClick={() => void showPhoto(c.date)} className="text-green-700">Foto</button>}
-                      {canWrite && <button type="button" onClick={() => { setError(''); setDraft(emptyDraft(c.date, sheet)); setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }} className="text-green-700">Alterar</button>}
-                      {canWrite && <button type="button" onClick={() => void remove(c.date)} className="text-red-700">Apagar</button>}
+                      {sheet?.hasPhoto && <button type="button" onClick={() => void showPhoto(c.date)} className="text-green-700">{t('Foto')}</button>}
+                      {canWrite && <button type="button" onClick={() => { setError(''); setDraft(emptyDraft(c.date, sheet)); setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50) }} className="text-green-700">{t('Alterar')}</button>}
+                      {canWrite && <button type="button" onClick={() => void remove(c.date)} className="text-red-700">{t('Apagar')}</button>}
                     </span>
                   </div>
-                  <p className="mt-1 text-lg font-bold text-gray-900">{fmtNumber(c.sheet)} L <span className="text-sm font-normal text-gray-500">{[sheet?.rulerValue != null && `régua ${fmtNumber(sheet.rulerValue)}`, sheet?.temperature != null && `${fmtNumber(sheet.temperature, 0)} °C`, sheet?.sampleNumber && `amostra ${sheet.sampleNumber}`].filter(Boolean).join(' · ')}</span></p>
+                  <p className="mt-1 text-lg font-bold text-gray-900">{fmtNumber(c.sheet)} L <span className="text-sm font-normal text-gray-500">{[sheet?.rulerValue != null && `${t('régua')} ${fmtNumber(sheet.rulerValue)}`, sheet?.temperature != null && `${fmtNumber(sheet.temperature, 0)} °C`, sheet?.sampleNumber && `${t('amostra')} ${sheet.sampleNumber}`].filter(Boolean).join(' · ')}</span></p>
                   {c.noted === null ? (
-                    <p className="mt-1 text-sm text-gray-500">Primeira folha guardada. A conferência começa na próxima.</p>
+                    <p className="mt-1 text-sm text-gray-500">{t('Primeira folha guardada. A conferência começa na próxima.')}</p>
                   ) : c.noted === 0 ? (
-                    <p className="mt-1 text-sm text-gray-500">Você não anotou o leite desses dias, então não dá para conferir.</p>
+                    <p className="mt-1 text-sm text-gray-500">{t('Você não anotou o leite desses dias, então não dá para conferir.')}</p>
                   ) : c.diff === 0 ? (
-                    <p className="mt-1 text-sm font-semibold text-green-800">Bate com o que você anotou ({fmtNumber(c.noted)} L).</p>
+                    <p className="mt-1 text-sm font-semibold text-green-800">{t('Bate com o que você anotou ({n} L).', { n: fmtNumber(c.noted) })}</p>
                   ) : (
                     <p className={`mt-1 text-sm ${c.alert ? 'font-semibold text-red-700' : 'text-gray-600'}`}>
-                      Você anotou {fmtNumber(c.noted)} L: {fmtSigned(c.diff!)} L na folha ({fmtSigned(c.percent ?? 0)}%).{' '}
-                      {c.alert ? (c.diff! < 0 ? 'Bem menos do que você anotou. Vale conversar com o carreteiro.' : 'Bem mais do que você anotou. Confira a sua anotação.') : 'Diferença pequena, normal entre a régua e a ordenha.'}
+                      {t('Você anotou {n} L: {d} L na folha ({p}%).', { n: fmtNumber(c.noted), d: fmtSigned(c.diff!), p: fmtSigned(c.percent ?? 0) })}{' '}
+                      {t(c.alert ? (c.diff! < 0 ? 'Bem menos do que você anotou. Vale conversar com o carreteiro.' : 'Bem mais do que você anotou. Confira a sua anotação.') : 'Diferença pequena, normal entre a régua e a ordenha.')}
                     </p>
                   )}
                 </li>
@@ -1504,13 +1516,13 @@ function Folha({ data, online, canWrite, onSave, onSaveSplits }: {
             })}
           </ul>
         )}
-        <p className="mt-3 text-xs text-gray-500">A folha é comparada com o leite anotado desde o dia seguinte à coleta anterior até o dia dela. Diferença acima de {SHEET_ALERT_PERCENT}% aparece em vermelho.</p>
+        <p className="mt-3 text-xs text-gray-500">{t('A folha é comparada com o leite anotado desde o dia seguinte à coleta anterior até o dia dela. Diferença acima de {p}% aparece em vermelho.', { p: SHEET_ALERT_PERCENT })}</p>
       </section>
 
       {photoOf && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setPhotoOf(null)} role="dialog" aria-label={`Foto da folha de ${fmtDay(photoOf.date)}`}>
-          <img src={photoOf.photo} alt={`Folha de ${fmtDay(photoOf.date)}`} className="max-h-full max-w-full rounded-lg" />
-          <button type="button" onClick={() => setPhotoOf(null)} className="absolute right-4 top-4 rounded-full bg-white px-4 py-2 font-semibold">Fechar</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setPhotoOf(null)} role="dialog" aria-label={t('Foto da folha de {date}', { date: fmtDay(photoOf.date) })}>
+          <img src={photoOf.photo} alt={t('Folha de {date}', { date: fmtDay(photoOf.date) })} className="max-h-full max-w-full rounded-lg" />
+          <button type="button" onClick={() => setPhotoOf(null)} className="absolute right-4 top-4 rounded-full bg-white px-4 py-2 font-semibold">{t('Fechar')}</button>
         </div>
       )}
     </div>
@@ -1528,6 +1540,7 @@ function PriceLine({ data, liters, period = 'no dia', highlight = false, online,
   canWrite: boolean
   onSaved: (price: number | null) => void
 }) {
+  const t = useT()
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
   const [error, setError] = useState('')
@@ -1557,18 +1570,18 @@ function PriceLine({ data, liters, period = 'no dia', highlight = false, online,
   if (editing) {
     return (
       <div className="mt-4 text-left">
-        <label className="text-sm font-medium text-gray-700">Valor do litro (R$)
-          <MilkDecimalInput decimals={2} inputMode="decimal" value={value} autoFocus placeholder="Ex.: 2,50"
+        <label className="text-sm font-medium text-gray-700">{t('Valor do litro (R$)')}
+          <MilkDecimalInput decimals={2} inputMode="decimal" value={value} autoFocus placeholder={t('Ex.: 2,50')}
             onChange={(e) => setValue(e.target.value.replace(/[^\d.,]/g, ''))}
             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void save() } }}
             className={`mt-1 ${input}`} />
         </label>
-        <p className="mt-1 text-xs text-gray-500">Opcional. Serve só para estimar quanto você vai receber. Deixe vazio para não usar.</p>
-        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+        <p className="mt-1 text-xs text-gray-500">{t('Opcional. Serve só para estimar quanto você vai receber. Deixe vazio para não usar.')}</p>
+        {error && <p className="mt-1 text-sm text-red-600">{t(error)}</p>}
         <div className="mt-2 flex gap-2">
-          <button type="button" onClick={() => setEditing(false)} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-xl">Cancelar</button>
+          <button type="button" onClick={() => setEditing(false)} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-2.5 rounded-xl">{t('Cancelar')}</button>
           <button type="button" onClick={save} disabled={saving || !online} className="flex-1 bg-green-700 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-xl">
-            {saving ? 'Salvando...' : 'Salvar'}
+            {t(saving ? 'Salvando...' : 'Salvar')}
           </button>
         </div>
       </div>
@@ -1578,7 +1591,7 @@ function PriceLine({ data, liters, period = 'no dia', highlight = false, online,
   const editButton = canWrite && (
     <button type="button" onClick={() => { setValue(price ? price.toFixed(2).replace('.', ',') : ''); setEditing(true) }}
       className="ml-2 font-semibold text-green-700 underline">
-      {price ? 'Alterar' : 'Informar valor do litro'}
+      {t(price ? 'Alterar' : 'Informar valor do litro')}
     </button>
   )
 
@@ -1586,9 +1599,9 @@ function PriceLine({ data, liters, period = 'no dia', highlight = false, online,
   if (highlight && price) {
     return (
       <div className="pt-4">
-        <p className="text-sm font-medium text-green-900">Você recebe aproximadamente {period}</p>
+        <p className="text-sm font-medium text-green-900">{t('Você recebe aproximadamente')} {t(period)}</p>
         <p className="mt-1 text-3xl font-bold text-green-800">{fmtMoney(liters * price)}</p>
-        <p className="mt-1 text-sm text-gray-600">Litro a {fmtMoney(price)}{editButton}</p>
+        <p className="mt-1 text-sm text-gray-600">{t('Litro a {price}', { price: fmtMoney(price) })}{editButton}</p>
       </div>
     )
   }
@@ -1596,8 +1609,8 @@ function PriceLine({ data, liters, period = 'no dia', highlight = false, online,
   return (
     <p className="mt-4 text-sm text-gray-600">
       {price
-        ? <>Litro a {fmtMoney(price)} · aproximadamente <strong className="text-gray-900">{fmtMoney(liters * price)}</strong> {period}</>
-        : 'Quer saber quanto vai receber?'}
+        ? <>{t('Litro a {price}', { price: fmtMoney(price) })} · {t('aproximadamente')} <strong className="text-gray-900">{fmtMoney(liters * price)}</strong> {t(period)}</>
+        : t('Quer saber quanto vai receber?')}
       {editButton}
     </p>
   )
@@ -1611,6 +1624,7 @@ function UpgradeModal({ data, online, pending, onClose }: {
   pending: number
   onClose: () => void
 }) {
+  const t = useT()
   const [form, setForm] = useState({ name: data.points[0]?.name ?? '', propertyType: 'Sítio', city: '', state: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -1641,36 +1655,35 @@ function UpgradeModal({ data, online, pending, onClose }: {
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-4">
       <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-md bg-white rounded-2xl p-5 flex flex-col gap-3 max-h-[95vh] overflow-y-auto">
-        <h2 className="text-xl font-bold text-gray-900">Versão completa</h2>
+        <h2 className="text-xl font-bold text-gray-900">{t('Versão completa')}</h2>
         <p className="text-gray-600">
-          Além do leite, você passa a controlar rebanho, vacinas, financeiro, estoque e relatórios.
-          Todas as suas anotações de leite vão junto, e você continua anotando por aqui.
+          {t('Além do leite, você passa a controlar rebanho, vacinas, financeiro, estoque e relatórios. Todas as suas anotações de leite vão junto, e você continua anotando por aqui.')}
         </p>
-        <label className="text-sm font-medium text-gray-700">Nome da propriedade
+        <label className="text-sm font-medium text-gray-700">{t('Nome da propriedade')}
           <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={`mt-1 ${input}`} />
         </label>
         <div className="grid grid-cols-2 gap-2">
-          {['Sítio', 'Fazenda'].map((t) => (
-            <button key={t} type="button" onClick={() => setForm({ ...form, propertyType: t })} aria-pressed={form.propertyType === t}
-              className={`py-3 rounded-xl border-2 text-sm font-semibold ${form.propertyType === t ? 'border-green-700 bg-green-50 text-green-800' : 'border-gray-200 text-gray-600'}`}>
-              {t}
+          {['Sítio', 'Fazenda'].map((type) => (
+            <button key={type} type="button" onClick={() => setForm({ ...form, propertyType: type })} aria-pressed={form.propertyType === type}
+              className={`py-3 rounded-xl border-2 text-sm font-semibold ${form.propertyType === type ? 'border-green-700 bg-green-50 text-green-800' : 'border-gray-200 text-gray-600'}`}>
+              {t(type)}
             </button>
           ))}
         </div>
         <div className="grid grid-cols-3 gap-2">
-          <label className="col-span-2 text-sm font-medium text-gray-700">Cidade
+          <label className="col-span-2 text-sm font-medium text-gray-700">{t('Cidade')}
             <input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required className={`mt-1 ${input}`} />
           </label>
-          <label className="text-sm font-medium text-gray-700">UF
+          <label className="text-sm font-medium text-gray-700">{t('UF')}
             <input value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })} required maxLength={2} placeholder="MG" className={`mt-1 ${input}`} />
           </label>
         </div>
-        <p className="text-xs text-gray-500">A cidade ajuda o motorista do leite a encontrar sua propriedade e mostrar as coletas para você.</p>
-        {(blocked || error) && <p className="text-sm text-red-600">{blocked || error}</p>}
+        <p className="text-xs text-gray-500">{t('A cidade ajuda o motorista do leite a encontrar sua propriedade e mostrar as coletas para você.')}</p>
+        {(blocked || error) && <p className="text-sm text-red-600">{t(blocked || error)}</p>}
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl">Agora não</button>
+          <button type="button" onClick={onClose} className="flex-1 border border-gray-300 text-gray-700 font-semibold py-3 rounded-xl">{t('Agora não')}</button>
           <button type="submit" disabled={saving || !!blocked} className="flex-1 bg-green-700 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl">
-            {saving ? 'Criando...' : 'Quero a versão completa'}
+            {t(saving ? 'Criando...' : 'Quero a versão completa')}
           </button>
         </div>
       </form>
@@ -1681,6 +1694,7 @@ function UpgradeModal({ data, online, pending, onClose }: {
 // ── Motorista: ligar sítio da rota a uma propriedade Pro ────────────────
 
 function FarmLinker({ point, online, onChanged }: { point: LitePoint; online: boolean; onChanged: (p: LitePoint) => void }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [city, setCity] = useState('')
@@ -1713,42 +1727,42 @@ function FarmLinker({ point, online, onChanged }: { point: LitePoint; online: bo
   if (point.farm) {
     return (
       <p className="mt-2 text-sm text-gray-600">
-        Ligado a <strong className="text-gray-900">{point.farm.name}</strong>
+        {t('Ligado a')} <strong className="text-gray-900">{point.farm.name}</strong>
         {(point.farm.city || point.farm.state) && ` (${[point.farm.city, point.farm.state].filter(Boolean).join('/')})`}
-        <button type="button" onClick={() => link(null)} disabled={!online} className="ml-2 font-semibold text-gray-600 underline disabled:text-gray-300">Desligar</button>
+        <button type="button" onClick={() => link(null)} disabled={!online} className="ml-2 font-semibold text-gray-600 underline disabled:text-gray-300">{t('Desligar')}</button>
       </p>
     )
   }
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} disabled={!online} className="mt-2 text-sm font-semibold text-green-700 underline disabled:text-gray-300">
-        Ligar à propriedade do produtor
+        {t('Ligar à propriedade do produtor')}
       </button>
     )
   }
   return (
     <div className="mt-3 rounded-xl bg-gray-50 p-3">
-      <p className="text-sm text-gray-600">Procure a propriedade pelo nome. O produtor passa a ver o que você coletar aqui.</p>
+      <p className="text-sm text-gray-600">{t('Procure a propriedade pelo nome. O produtor passa a ver o que você coletar aqui.')}</p>
       <div className="mt-2 grid grid-cols-3 gap-2">
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nome da propriedade" aria-label="Nome da propriedade" className={`col-span-2 ${input}`} />
-        <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Cidade" aria-label="Cidade" className={input} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Nome da propriedade')} aria-label={t('Nome da propriedade')} className={`col-span-2 ${input}`} />
+        <input value={city} onChange={(e) => setCity(e.target.value)} placeholder={t('Cidade')} aria-label={t('Cidade')} className={input} />
       </div>
       {q.trim().length >= 3 && (
         <ul className="mt-2 divide-y divide-gray-200 rounded-xl border border-gray-200 bg-white">
           {found.length === 0 ? (
-            <li className="px-3 py-2.5 text-sm text-gray-500">Nenhuma propriedade encontrada.</li>
+            <li className="px-3 py-2.5 text-sm text-gray-500">{t('Nenhuma propriedade encontrada.')}</li>
           ) : found.map((f) => (
             <li key={f.id}>
               <button type="button" onClick={() => link(f.id)} className="w-full px-3 py-2.5 text-left hover:bg-green-50">
                 <span className="block font-medium text-gray-900">{f.name}</span>
-                <span className="block text-sm text-gray-500">{[f.city, f.state].filter(Boolean).join('/') || 'Sem cidade informada'}</span>
+                <span className="block text-sm text-gray-500">{[f.city, f.state].filter(Boolean).join('/') || t('Sem cidade informada')}</span>
               </button>
             </li>
           ))}
         </ul>
       )}
-      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-      <button type="button" onClick={() => setOpen(false)} className="mt-2 text-sm font-medium text-gray-600 underline">Cancelar</button>
+      {error && <p className="mt-1 text-sm text-red-600">{t(error)}</p>}
+      <button type="button" onClick={() => setOpen(false)} className="mt-2 text-sm font-medium text-gray-600 underline">{t('Cancelar')}</button>
     </div>
   )
 }

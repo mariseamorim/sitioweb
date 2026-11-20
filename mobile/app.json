@@ -3,14 +3,14 @@
     "name": "Anota Aí Agro",
     "slug": "anota-ai-agro",
     "scheme": "anotaaiagro",
-    "version": "1.2.0",
+    "version": "1.6.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "android": {
       "package": "br.com.anotaaiagro.app",
-      "versionCode": 4,
+      "versionCode": 11,
       "adaptiveIcon": {
         "backgroundColor": "#0f3f2e",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -35,12 +35,13 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "imageWidth": 240,
+          "imageWidth": 170,
           "resizeMode": "contain",
           "backgroundColor": "#0f3f2e"
         }
       ],
       "@react-native-community/datetimepicker",
+      "expo-background-task",
       [
         "expo-image-picker",
         {
@@ -54,6 +55,14 @@
         {
           "microphonePermission": "O app usa o microfone para você falar a quantidade de leite.",
           "speechRecognitionPermission": "O app reconhece a sua voz para anotar o leite."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraProguardRules": "-keep class androidx.work.** { *; }\n-keep class * extends androidx.room.RoomDatabase { <init>(...); }\n-keep class androidx.room.** { *; }"
+          }
         }
       ]
     ],

@@ -132,6 +132,13 @@ export function updateStatus(farmId: string, id: string, status: string, actualB
   updateLocal({ table: 'reproductions', farmId, id, path: `/api/reproducao/${id}`, body, row })
 }
 
+/** Desfaz o diagnóstico de gestação: volta para Coberta, com o parto previsto que tinha antes (some ao marcar Vazia) */
+export function undoDiagnosis(farmId: string, id: string, expectedBirthDate: string | null) {
+  const expected = expectedBirthDate ? isoDay(expectedBirthDate) : null
+  const body = { status: 'Coberta', ...(expected ? { expectedBirthDate: expected } : {}) }
+  updateLocal({ table: 'reproductions', farmId, id, path: `/api/reproducao/${id}`, body, row: { expectedBirthDate: expected } })
+}
+
 export function removeReproduction(farmId: string, id: string) {
   deleteLocal({ table: 'reproductions', farmId, id, path: `/api/reproducao/${id}` })
 }

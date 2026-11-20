@@ -20,6 +20,7 @@ import { animalCodes, animalSearchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
+import { useLocale, useT } from '@/lib/i18n'
 
 interface Animal {
   id: string
@@ -64,6 +65,8 @@ const EMPTY_FORM = {
 export default function AnimaisPage() {
   const { confirm } = useDialog()
   const { user } = useUser()
+  const t = useT()
+  const locale = useLocale()
   const [animals, setAnimals] = useState<Animal[]>([])
   const [loading, setLoading] = useState(true)
   const [farmId, setFarmId] = useState('')
@@ -238,7 +241,7 @@ export default function AnimaisPage() {
     e.preventDefault()
     setError('')
     const ruleError = animalRuleError(form)
-    if (ruleError) { setError(ruleError); return }
+    if (ruleError) { setError(t(ruleError)); return }
     setSaving(true)
 
     // Novo animal sem internet (ou com sinal fraco, abaixo): fica na fila do aparelho e já aparece na lista
@@ -267,7 +270,7 @@ export default function AnimaisPage() {
     const data = await res.json()
 
     if (!res.ok) {
-      setError(data.error || 'Erro ao salvar')
+      setError(data.error || t('Erro ao salvar'))
       setSaving(false)
       return
     }
@@ -278,7 +281,7 @@ export default function AnimaisPage() {
     } catch {
       // A rede falhou: o cadastro novo vai para a fila; a edição precisa de internet (o servidor é quem manda)
       if (!editing) return queueCreate()
-      setError('Não foi possível salvar. Verifique a conexão e tente novamente.')
+      setError(t('Não foi possível salvar. Verifique a conexão e tente novamente.'))
     } finally {
       setSaving(false)
     }
@@ -286,10 +289,10 @@ export default function AnimaisPage() {
 
   async function handleDelete(id: string) {
     if (!canEdit) return
-    if (!(await confirm({ title: 'Excluir este animal?', message: 'Todo o histórico dele (leite, vacinas, tratamentos) também será apagado.', confirmLabel: 'Excluir', danger: true }))) return
+    if (!(await confirm({ title: t('Excluir este animal?'), message: t('Todo o histórico dele (leite, vacinas, tratamentos) também será apagado.'), confirmLabel: t('Excluir'), danger: true }))) return
     // Apagar precisa de internet (leva o histórico junto); com sinal fraco a espera estoura em vez de travar
     const res = await fetchWithTimeout(`/api/animals/${id}`, { method: 'DELETE' }).catch(() => null)
-    if (!res?.ok) setError(navigator.onLine ? 'Não foi possível excluir agora. Tente de novo.' : 'Sem internet. Para excluir um animal, tente quando a conexão voltar.')
+    if (!res?.ok) setError(t(navigator.onLine ? 'Não foi possível excluir agora. Tente de novo.' : 'Sem internet. Para excluir um animal, tente quando a conexão voltar.'))
     fetchAnimals(farmId)
   }
 
@@ -309,7 +312,7 @@ export default function AnimaisPage() {
     'com-cria': (a) => isMatrix(a) && withCalf.has(a.id),
     solteiras: (a) => isMatrix(a) && !withCalf.has(a.id),
   }
-  const filtered = animals.filter((a) => (!quick || quickTest[quick](a)) && `${animalSearchText(a)} ${a.species.toLocaleLowerCase('pt-BR')}`.includes(term))
+  const filtered = animals.filter((a) => (!quick || quickTest[quick](a)) && `${animalSearchText(a)} ${a.species.toLocaleLowerCase('pt-BR')} ${t(a.species).toLocaleLowerCase(locale)}`.includes(term))
   const { rows: sortedAnimals, sort } = useSort(filtered, {
     code: (a) => a.code, name: (a) => a.name, species: (a) => a.species, gender: (a) => a.gender, status: (a) => a.status,
   })
@@ -335,7 +338,7 @@ export default function AnimaisPage() {
     <PermissionGuard module="animais">
       <div>
       <div className="page-toolbar flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Animais</h1>
+        <h1 className="text-2xl font-bold text-gray-800">{t('Animais')}</h1>
         <button
           onClick={openNew}
           disabled={!canEdit}
@@ -345,7 +348,7 @@ export default function AnimaisPage() {
               : 'bg-gray-400 cursor-not-allowed'
           }`}
         >
-          Cadastrar animal
+          {t('Cadastrar animal')}
         </button>
       </div>
 
@@ -353,34 +356,34 @@ export default function AnimaisPage() {
       {isOnline && fromCache && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />
-          <span>Sinal fraco: mostrando a última cópia do rebanho guardada neste aparelho. Novos animais ficam no aparelho até a internet voltar.</span>
+          <span>{t('Sinal fraco: mostrando a última cópia do rebanho guardada neste aparelho. Novos animais ficam no aparelho até a internet voltar.')}</span>
         </div>
       )}
       {!isOnline && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />
-          <span>Sem internet. Ao salvar, os novos animais ficam neste aparelho. Quando a internet voltar, use “Enviar registros”.</span>
+          <span>{t('Sem internet. Ao salvar, os novos animais ficam neste aparelho. Quando a internet voltar, use “Enviar registros”.')}</span>
         </div>
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} animal{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para enviar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount > 1 ? t('{n} animais pendentes para enviar', { n: pendingCount }) : t('{n} animal pendente para enviar', { n: pendingCount })}</span>
           <button
             onClick={handleSync}
             disabled={syncing}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {syncing ? 'Enviando...' : 'Enviar registros'}
+            {t(syncing ? 'Enviando...' : 'Enviar registros')}
           </button>
         </div>
       )}
 
-      {quick && <QuickFilterChip label={HERD_FILTER_LABEL[quick]} count={filtered.length} onClear={() => setQuick(null)} />}
+      {quick && <QuickFilterChip label={t(HERD_FILTER_LABEL[quick])} count={filtered.length} onClear={() => setQuick(null)} />}
       <div className="mb-4">
       <input
         type="text"
-        aria-label="Buscar animal por nome, código, brinco ou espécie"
-        placeholder="Digite o nome, código ou brinco do animal"
+        aria-label={t('Buscar animal por nome, código, brinco ou espécie')}
+        placeholder={t('Digite o nome, código ou brinco do animal')}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="min-w-0 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
@@ -388,25 +391,25 @@ export default function AnimaisPage() {
       </div>
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Carregando...</p>
+        <p className="text-gray-400 text-sm">{t('Carregando...')}</p>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          <p className="text-lg">{search.trim() ? 'Nenhum animal encontrado nesta busca' : 'Nenhum animal cadastrado'}</p>
-          <p className="text-sm mt-1">{search.trim() ? 'Confira o nome ou número. Você pode limpar a busca para ver todos os animais.' : 'Use “Cadastrar animal” para começar.'}</p>
-          {search.trim() && <button type="button" onClick={() => setSearch('')} className="mt-4 rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700">Limpar busca</button>}
+          <p className="text-lg">{t(search.trim() ? 'Nenhum animal encontrado nesta busca' : 'Nenhum animal cadastrado')}</p>
+          <p className="text-sm mt-1">{t(search.trim() ? 'Confira o nome ou número. Você pode limpar a busca para ver todos os animais.' : 'Use “Cadastrar animal” para começar.')}</p>
+          {search.trim() && <button type="button" onClick={() => setSearch('')} className="mt-4 rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700">{t('Limpar busca')}</button>}
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <th className="px-2 sm:px-4 py-3 text-left">Foto</th>
-                <SortTh label="Código" sortKey="code" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
-                <SortTh label="Nome" sortKey="name" sort={sort} className="px-2 sm:px-4 py-3 text-left" />
-                <SortTh label="Espécie" sortKey="species" sort={sort} className="hidden md:table-cell px-4 py-3 text-left" />
-                <SortTh label="Sexo" sortKey="gender" sort={sort} className="hidden lg:table-cell px-4 py-3 text-left" />
-                <SortTh label="Status" sortKey="status" sort={sort} className="hidden md:table-cell px-4 py-3 text-left" />
-                <th className="px-2 sm:px-4 py-3 text-right">Ações</th>
+                <th className="px-2 sm:px-4 py-3 text-left">{t('Foto')}</th>
+                <SortTh label={t('Código')} sortKey="code" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                <SortTh label={t('Nome')} sortKey="name" sort={sort} className="px-2 sm:px-4 py-3 text-left" />
+                <SortTh label={t('Espécie')} sortKey="species" sort={sort} className="hidden md:table-cell px-4 py-3 text-left" />
+                <SortTh label={t('Sexo')} sortKey="gender" sort={sort} className="hidden lg:table-cell px-4 py-3 text-left" />
+                <SortTh label={t('Status')} sortKey="status" sort={sort} className="hidden md:table-cell px-4 py-3 text-left" />
+                <th className="px-2 sm:px-4 py-3 text-right">{t('Ações')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -421,7 +424,7 @@ export default function AnimaisPage() {
                       <img
                         src={a.imageUrl}
                         alt={a.name}
-                        title="Ampliar foto"
+                        title={t('Ampliar foto')}
                         onClick={(e) => { e.stopPropagation(); setExpandedImage({ src: a.imageUrl!, alt: a.name }) }}
                         className="w-8 sm:w-10 h-8 sm:h-10 rounded-lg object-cover cursor-zoom-in hover:ring-2 hover:ring-green-500"
                       />
@@ -438,16 +441,16 @@ export default function AnimaisPage() {
                     {/* No celular a coluna de código some: mostra os códigos embaixo do nome */}
                     <span className="block sm:hidden font-normal text-gray-500">{animalCodes(a)}</span>
                   </td>
-                  <td className="hidden md:table-cell px-4 py-3 text-gray-600 text-xs sm:text-sm">{a.species}</td>
-                  <td className="hidden lg:table-cell px-4 py-3 text-gray-600 text-xs sm:text-sm">{a.gender}</td>
+                  <td className="hidden md:table-cell px-4 py-3 text-gray-600 text-xs sm:text-sm">{t(a.species)}</td>
+                  <td className="hidden lg:table-cell px-4 py-3 text-gray-600 text-xs sm:text-sm">{t(a.gender)}</td>
                   <td className="hidden md:table-cell px-4 py-3">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[a.status] || 'bg-gray-100 text-gray-600'}`}>
-                      {a.status}
+                      {t(a.status)}
                     </span>
                   </td>
                   <td className="px-2 sm:px-4 py-3 text-right space-x-1 sm:space-x-2">
                     <button
-                      aria-label={`Editar animal ${a.name}`}
+                      aria-label={t('Editar animal {name}', { name: a.name })}
                       onClick={(e) => { e.stopPropagation(); openEdit(a) }}
                       disabled={!canEdit}
                       className={`inline-flex items-center gap-1 text-xs ${canEdit ? 'text-blue-600 hover:underline' : 'text-gray-300 cursor-not-allowed'}`}
@@ -455,10 +458,10 @@ export default function AnimaisPage() {
                       <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M12 20h9" />
                         <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                      </svg><span>Editar</span>
+                      </svg><span>{t('Editar')}</span>
                     </button>
                     <button
-                      aria-label={`Excluir animal ${a.name}`}
+                      aria-label={t('Excluir animal {name}', { name: a.name })}
                       onClick={(e) => { e.stopPropagation(); handleDelete(a.id) }}
                       disabled={!canEdit}
                       className={`inline-flex items-center gap-1 text-xs ${canEdit ? 'text-red-500 hover:underline' : 'text-gray-300 cursor-not-allowed'}`}
@@ -469,7 +472,7 @@ export default function AnimaisPage() {
                         <path d="M19 6l-1 14H6L5 6" />
                         <path d="M10 11v6" />
                         <path d="M14 11v6" />
-                      </svg><span>Excluir</span>
+                      </svg><span>{t('Excluir')}</span>
                     </button>
                   </td>
                 </tr>
@@ -484,11 +487,11 @@ export default function AnimaisPage() {
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4 cursor-zoom-out"
           onClick={() => setExpandedImage(null)}
           role="dialog"
-          aria-label={`Foto de ${expandedImage.alt}`}
+          aria-label={t('Foto de {name}', { name: expandedImage.alt })}
         >
           <img src={expandedImage.src} alt={expandedImage.alt} className="max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl" />
           <button
-            aria-label="Fechar foto"
+            aria-label={t('Fechar foto')}
             onClick={() => setExpandedImage(null)}
             className="absolute top-3 right-3 w-10 h-10 rounded-full bg-white/90 text-gray-800 text-2xl leading-none flex items-center justify-center hover:bg-white"
           >
@@ -510,7 +513,7 @@ export default function AnimaisPage() {
                     <img
                       src={selectedAnimal.imageUrl}
                       alt={selectedAnimal.name}
-                      title="Ampliar foto"
+                      title={t('Ampliar foto')}
                       onClick={() => setExpandedImage({ src: selectedAnimal.imageUrl!, alt: selectedAnimal.name })}
                       className="w-12 sm:w-16 h-12 sm:h-16 rounded-xl object-cover flex-shrink-0 cursor-zoom-in"
                     />
@@ -518,16 +521,16 @@ export default function AnimaisPage() {
                     <div className="w-12 sm:w-16 h-12 sm:h-16 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 flex-shrink-0"><AnimalIcon className="w-7 h-7 sm:w-8 sm:h-8" /></div>
                   )}
                   <div className="min-w-0">
-                    <p className="text-xs text-gray-500">Código</p>
+                    <p className="text-xs text-gray-500">{t('Código')}</p>
                     <p className="text-base sm:text-lg font-semibold text-gray-800 break-words">{selectedAnimal.code}</p>
-                    {selectedAnimal.customCode && <p className="text-xs sm:text-sm text-gray-600 break-words">Outro código: <strong>{selectedAnimal.customCode}</strong></p>}
-                    <p className="text-xs sm:text-sm text-gray-500 truncate">{selectedAnimal.species}</p>
+                    {selectedAnimal.customCode && <p className="text-xs sm:text-sm text-gray-600 break-words">{t('Outro código:')} <strong>{selectedAnimal.customCode}</strong></p>}
+                    <p className="text-xs sm:text-sm text-gray-500 truncate">{t(selectedAnimal.species)}</p>
                   </div>
                 </div>
                 <button
                   onClick={closeDetails}
                   className="text-gray-500 hover:text-gray-700 p-1 flex-shrink-0"
-                  aria-label="Fechar"
+                  aria-label={t('Fechar')}
                 >
                   <FecharIcon />
                 </button>
@@ -535,36 +538,36 @@ export default function AnimaisPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-4 sm:mt-6 text-sm">
                 <div className="min-w-0">
-                  <p className="text-xs text-gray-500">Nome</p>
+                  <p className="text-xs text-gray-500">{t('Nome')}</p>
                   <p className="font-medium text-gray-800 truncate">{selectedAnimal.name}</p>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs text-gray-500">Sexo</p>
-                  <p className="font-medium text-gray-800">{selectedAnimal.gender}</p>
+                  <p className="text-xs text-gray-500">{t('Sexo')}</p>
+                  <p className="font-medium text-gray-800">{t(selectedAnimal.gender)}</p>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs text-gray-500">Data de Nascimento</p>
+                  <p className="text-xs text-gray-500">{t('Data de Nascimento')}</p>
                   <p className="font-medium text-gray-800 text-xs sm:text-sm">
-                    {new Date(selectedAnimal.birthDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                    {new Date(selectedAnimal.birthDate).toLocaleDateString(locale, { timeZone: 'UTC' })}
                   </p>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs text-gray-500">Status</p>
+                  <p className="text-xs text-gray-500">{t('Status')}</p>
                   <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColor[selectedAnimal.status] || 'bg-gray-100 text-gray-600'}`}>
-                    {selectedAnimal.status}
+                    {t(selectedAnimal.status)}
                   </span>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs text-gray-500">GTA</p>
+                  <p className="text-xs text-gray-500">{t('GTA')}</p>
                   <p className="font-medium text-gray-800 truncate text-xs sm:text-sm">{selectedAnimal.gta || '-'}</p>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs text-gray-500">Observações</p>
+                  <p className="text-xs text-gray-500">{t('Observações')}</p>
                   <p className="font-medium text-gray-800 text-xs sm:text-sm line-clamp-2">{selectedAnimal.observations || '-'}</p>
                 </div>
                 {mother && (
                   <div className="min-w-0">
-                    <p className="text-xs text-gray-500">Mãe</p>
+                    <p className="text-xs text-gray-500">{t('Mãe')}</p>
                     <button type="button" onClick={() => setSelectedAnimal(mother)} className="font-semibold text-green-700 underline">
                       {mother.name}{mother.code ? ` (${mother.code})` : ''}
                     </button>
@@ -575,7 +578,7 @@ export default function AnimaisPage() {
               {/* Recria por animal: a partir da desmama o app acompanha peso, ganho e cobertura em Recria e engorda */}
               {isInRearing(selectedAnimal) ? (
                 <p className="mt-4 rounded-xl bg-sky-50 px-4 py-3 text-sm text-sky-900">
-                  Na recria desde {new Date(selectedAnimal.rearingStart!).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}. <Link href="/engorda" className="font-semibold underline">Pesar e acompanhar</Link>
+                  {t('Na recria desde {date}.', { date: new Date(selectedAnimal.rearingStart!).toLocaleDateString(locale, { timeZone: 'UTC' }) })} <Link href="/engorda" className="font-semibold underline">{t('Pesar e acompanhar')}</Link>
                 </p>
               ) : canEdit && !selectedAnimal.id.startsWith('pending_') && canEnterRearing(selectedAnimal, animalToday()) && (
                 <div className="mt-4">
@@ -588,7 +591,7 @@ export default function AnimaisPage() {
                       }} />
                   ) : (
                     <button type="button" onClick={() => setEnteringRearing(true)} className="w-full rounded-xl border border-sky-300 bg-sky-50 py-2.5 text-sm font-semibold text-sky-800 hover:bg-sky-100">
-                      Entrar na recria (desmama)
+                      {t('Entrar na recria (desmama)')}
                     </button>
                   )}
                 </div>
@@ -610,7 +613,8 @@ export default function AnimaisPage() {
                       : 'bg-gray-400 cursor-not-allowed'
                   }`}
                 >
-                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <span className="sr-only">{t('Editar')}</span>
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 20h9" />
                     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
                   </svg>
@@ -624,7 +628,8 @@ export default function AnimaisPage() {
                       : 'border border-gray-200 text-gray-300 cursor-not-allowed'
                   }`}
                 >
-                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <span className="sr-only">{t('Excluir')}</span>
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 6h18" />
                     <path d="M8 6V4h8v2" />
                     <path d="M19 6l-1 14H6L5 6" />
@@ -643,7 +648,7 @@ export default function AnimaisPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-lg font-bold text-gray-800 mb-4">
-                {editing ? 'Editar Animal' : 'Novo Animal'}
+                {t(editing ? 'Editar Animal' : 'Novo Animal')}
               </h2>
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -655,7 +660,7 @@ export default function AnimaisPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Código *</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Código')} *</label>
                     <input
                       value={form.code}
                       onChange={(e) => setForm({ ...form, code: e.target.value })}
@@ -665,7 +670,7 @@ export default function AnimaisPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Nome *</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Nome')} *</label>
                     <input
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -676,12 +681,12 @@ export default function AnimaisPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Outro código <span className="font-normal text-gray-400">(opcional: brinco, SISBOV ou o número que você já usa)</span>
+                  <label className="text-xs font-medium text-gray-600">{t('Outro código')} <span className="font-normal text-gray-400">{t('(opcional: brinco, SISBOV ou o número que você já usa)')}</span>
                     <input
                       value={form.customCode}
                       onChange={(e) => setForm({ ...form, customCode: e.target.value })}
                       maxLength={40}
-                      placeholder="Ex.: 4471"
+                      placeholder={t('Ex.: 4471')}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                     />
                   </label>
@@ -689,7 +694,7 @@ export default function AnimaisPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Espécie *</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Espécie')} *</label>
                     <select
                       value={form.species}
                       onChange={(e) => {
@@ -699,11 +704,11 @@ export default function AnimaisPage() {
                       }}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                     >
-                      {ESPECIES.map((s) => <option key={s}>{s}</option>)}
+                      {ESPECIES.map((s) => <option key={s} value={s}>{t(s)}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="animal-gender" className="text-xs font-medium text-gray-600">Sexo *</label>
+                    <label htmlFor="animal-gender" className="text-xs font-medium text-gray-600">{t('Sexo')} *</label>
                     <select
                       id="animal-gender"
                       value={form.gender}
@@ -711,16 +716,16 @@ export default function AnimaisPage() {
                       onChange={(e) => setForm({ ...form, gender: e.target.value, isCastrated: e.target.value === 'Macho' && form.isCastrated })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 disabled:bg-gray-50 disabled:text-gray-500"
                     >
-                      <option>Fêmea</option>
-                      <option>Macho</option>
+                      <option value="Fêmea">{t('Fêmea')}</option>
+                      <option value="Macho">{t('Macho')}</option>
                     </select>
-                    {fixedAnimalGender(form.species) && <p className="mt-1 text-xs text-gray-500">Definido automaticamente pela espécie.</p>}
+                    {fixedAnimalGender(form.species) && <p className="mt-1 text-xs text-gray-500">{t('Definido automaticamente pela espécie.')}</p>}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Data de Nascimento *</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Data de Nascimento')} *</label>
                     <input
                       type="date"
                       max={animalToday()}
@@ -731,42 +736,42 @@ export default function AnimaisPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Status *</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Status')} *</label>
                     <select
                       value={form.status}
                       onChange={(e) => setForm({ ...form, status: e.target.value as StatusAnimal })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                     >
-                      {STATUS_LIST.map((s) => <option key={s}>{s}</option>)}
+                      {STATUS_LIST.map((s) => <option key={s} value={s}>{t(s)}</option>)}
                     </select>
                   </div>
                 </div>
 
                 {isBovine(form.species) && <div className="rounded-lg bg-green-50 p-3 text-sm text-green-900">
-                  <p>Classificação por idade e sexo: <strong>{form.birthDate ? animalCategory(form) : 'Informe a data de nascimento'}</strong></p>
-                  {form.gender === 'Macho' && <label className="mt-2 flex items-center gap-2"><input type="checkbox" checked={form.isCastrated} onChange={e => setForm({ ...form, isCastrated: e.target.checked })} />Animal castrado</label>}
+                  <p>{t('Classificação por idade e sexo:')} <strong>{form.birthDate ? t(animalCategory(form)) : t('Informe a data de nascimento')}</strong></p>
+                  {form.gender === 'Macho' && <label className="mt-2 flex items-center gap-2"><input type="checkbox" checked={form.isCastrated} onChange={e => setForm({ ...form, isCastrated: e.target.checked })} />{t('Animal castrado')}</label>}
                 </div>}
-                <label className="text-xs font-medium text-gray-600">Origem do animal
+                <label className="text-xs font-medium text-gray-600">{t('Origem do animal')}
                   <select value={form.acquisitionType} onChange={e => setForm({ ...form, acquisitionType: e.target.value })} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
-                    <option value="nascimento">Nascimento na propriedade</option><option value="compra">Compra</option><option value="existente">Já estava no rebanho</option>
+                    <option value="nascimento">{t('Nascimento na propriedade')}</option><option value="compra">{t('Compra')}</option><option value="existente">{t('Já estava no rebanho')}</option>
                   </select>
                 </label>
-                {form.acquisitionType === 'compra' && form.gender === 'Fêmea' && isBovine(form.species) && <p className="text-xs text-amber-800">Uma vaca comprada deve ter pelo menos 3 anos. Fêmeas jovens são cadastradas como bezerras.</p>}
+                {form.acquisitionType === 'compra' && form.gender === 'Fêmea' && isBovine(form.species) && <p className="text-xs text-amber-800">{t('Uma vaca comprada deve ter pelo menos 3 anos. Fêmeas jovens são cadastradas como bezerras.')}</p>}
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Mãe <span className="font-normal text-gray-400">(se for cria de uma vaca do rebanho)</span>
+                  <label className="text-xs font-medium text-gray-600">{t('Mãe')} <span className="font-normal text-gray-400">{t('(se for cria de uma vaca do rebanho)')}</span>
                     <select
                       value={form.motherId}
                       onChange={(e) => setForm({ ...form, motherId: e.target.value })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                     >
-                      <option value="">Sem mãe no rebanho</option>
+                      <option value="">{t('Sem mãe no rebanho')}</option>
                       {motherOptions.map((m) => <option key={m.id} value={m.id}>{m.name}{m.code ? ` (${m.code})` : ''}</option>)}
                     </select>
                   </label>
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-gray-600">GTA (Guia de Trânsito Animal)</label>
+                  <label className="text-xs font-medium text-gray-600">{t('GTA (Guia de Trânsito Animal)')}</label>
                   <input
                     value={form.gta}
                     onChange={(e) => setForm({ ...form, gta: e.target.value })}
@@ -775,7 +780,7 @@ export default function AnimaisPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-gray-600">Observações</label>
+                  <label className="text-xs font-medium text-gray-600">{t('Observações')}</label>
                   <textarea
                     value={form.observations}
                     onChange={(e) => setForm({ ...form, observations: e.target.value })}
@@ -794,14 +799,14 @@ export default function AnimaisPage() {
                     onClick={() => setShowForm(false)}
                     className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50"
                   >
-                    Cancelar
+                    {t('Cancelar')}
                   </button>
                   <button
                     type="submit"
                     disabled={saving}
                     className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg"
                   >
-                    {saving ? 'Salvando...' : 'Salvar'}
+                    {t(saving ? 'Salvando...' : 'Salvar')}
                   </button>
                 </div>
               </form>

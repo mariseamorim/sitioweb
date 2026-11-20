@@ -6,6 +6,7 @@ import { brNumber } from '@/lib/format'
 import { listenForNumber, prepareOfflineVoice, VoiceError, type VoiceErrorKind } from '@/lib/voice'
 import { parseSpokenLiters } from '@/lib/voiceNumber'
 import { colors, font, space } from '@/theme'
+import { tr, useT } from '@/lib/i18n'
 
 const ERRORS: Record<VoiceErrorKind, string> = {
   'sem-sinal': 'Sem internet para a voz. Prepare a voz sem internet (abaixo) ou digite o número.',
@@ -19,6 +20,7 @@ export function VoiceButton({ onNumber, unit = 'litros' }: { onNumber: (value: n
   const [listening, setListening] = useState(false)
   const [message, setMessage] = useState<{ text: string; ok: boolean; kind?: VoiceErrorKind } | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const t = useT()
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
@@ -27,19 +29,19 @@ export function VoiceButton({ onNumber, unit = 'litros' }: { onNumber: (value: n
     const controller = new AbortController()
     abortRef.current = controller
     setListening(true)
-    setMessage({ text: 'Pode falar o número.', ok: true })
+    setMessage({ text: t('Pode falar o número.'), ok: true })
     try {
       const { texts } = await listenForNumber(controller.signal)
       const value = texts.map(parseSpokenLiters).find(v => v !== null && v >= 0)
       if (value === undefined || value === null) {
-        setMessage({ text: `Não entendi "${texts[0] ?? ''}". Fale só o número, por exemplo "quarenta e sete".`, ok: false })
+        setMessage({ text: t('Não entendi "{text}". Fale só o número, por exemplo "quarenta e sete".', { text: texts[0] ?? '' }), ok: false })
       } else {
         onNumber(value)
-        setMessage({ text: `Ouvi: ${brNumber(value, 2).replace(/,?0+$/, '')} ${unit}. Confira o número.`, ok: true })
+        setMessage({ text: t('Ouvi: {n} {unit}. Confira o número.', { n: brNumber(value, 2).replace(/,?0+$/, ''), unit: t(unit) }), ok: true })
       }
     } catch (e) {
       const kind = e instanceof VoiceError ? e.kind : 'falhou'
-      setMessage({ text: ERRORS[kind], ok: false, kind })
+      setMessage({ text: tr(ERRORS[kind]), ok: false, kind })
     } finally {
       setListening(false)
       abortRef.current = null
@@ -47,21 +49,21 @@ export function VoiceButton({ onNumber, unit = 'litros' }: { onNumber: (value: n
   }
 
   async function prepare() {
-    try { setMessage({ text: await prepareOfflineVoice(), ok: true }) }
-    catch { setMessage({ text: 'Este Android não permite baixar a voz pelo app. Abra Configurações › Idiomas › Reconhecimento de fala.', ok: false }) }
+    try { setMessage({ text: t(await prepareOfflineVoice()), ok: true }) }
+    catch { setMessage({ text: t('Este Android não permite baixar a voz pelo app. Abra Configurações › Idiomas › Reconhecimento de fala.'), ok: false }) }
   }
 
   const canPrepare = Platform.OS === 'android' && Number(Platform.Version) >= 33 && message?.kind === 'sem-sinal' && !listening
   return (
     <View style={{ alignItems: 'center', marginBottom: space.md }}>
-      <Pressable onPress={press} accessibilityRole="button" accessibilityLabel={listening ? 'Parar de ouvir' : 'Falar o número'}
+      <Pressable onPress={press} accessibilityRole="button" accessibilityLabel={t(listening ? 'Parar de ouvir' : 'Falar o número')}
         style={({ pressed }) => ({
           flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48, paddingHorizontal: 20, borderRadius: 999, borderWidth: 2,
           borderColor: listening ? colors.red : colors.green, backgroundColor: listening ? colors.red : colors.white, opacity: pressed ? 0.85 : 1,
         })}>
         <Ionicons name="mic-outline" size={22} color={listening ? colors.white : colors.green} />
         <Text style={{ fontSize: font.md, fontWeight: '700', color: listening ? colors.white : colors.green }}>
-          {listening ? 'Ouvindo... toque para parar' : 'Falar o número'}
+          {t(listening ? 'Ouvindo... toque para parar' : 'Falar o número')}
         </Text>
       </Pressable>
       {message ? (
@@ -69,7 +71,7 @@ export function VoiceButton({ onNumber, unit = 'litros' }: { onNumber: (value: n
       ) : null}
       {canPrepare ? (
         <Pressable onPress={prepare} hitSlop={8}>
-          <Text style={{ marginTop: space.sm, fontSize: font.sm, fontWeight: '600', color: colors.green, textDecorationLine: 'underline' }}>Preparar a voz sem internet</Text>
+          <Text style={{ marginTop: space.sm, fontSize: font.sm, fontWeight: '600', color: colors.green, textDecorationLine: 'underline' }}>{t('Preparar a voz sem internet')}</Text>
         </Pressable>
       ) : null}
     </View>

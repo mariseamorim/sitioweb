@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/contexts/UserContext'
+import { useT } from '@/lib/i18n'
 
 export function AdminFarmBanner() {
   const router = useRouter()
   const { refresh } = useUser()
   const [loading, setLoading] = useState(false)
+  const t = useT()
 
   async function switchFarm() {
     setLoading(true)
@@ -26,7 +28,7 @@ export function AdminFarmBanner() {
       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
       </svg>
-      Trocar Propriedade
+      {t('Trocar propriedade')}
     </button>
   )
 }

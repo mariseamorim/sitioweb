@@ -5,6 +5,8 @@ import { setSessionCookie } from '@/lib/auth'
 import { registrationIdentity } from '@/lib/registration'
 import { MODULES } from '@/lib/modules'
 import { addFarmMember, parseSegments } from '@/lib/farms'
+import { normalizeRegion } from '@/lib/identity'
+import { DOCUMENT_TYPES } from '@/lib/masks'
 
 export async function POST(request: NextRequest) {
   let body
@@ -31,10 +33,10 @@ export async function POST(request: NextRequest) {
     const segments = farm.segments === undefined ? [] : parseSegments(farm.segments)
     if (!segments) return NextResponse.json({ error: 'Segmento inválido' }, { status: 400 })
     if (farm.propertyType && !['Fazenda', 'Sítio'].includes(farm.propertyType)) return NextResponse.json({ error: 'Tipo de propriedade inválido' }, { status: 400 })
-    if (details.state) {
-      details.state = details.state.toUpperCase()
-      if (!/^[A-Z]{2}$/.test(details.state)) return NextResponse.json({ error: 'Informe a sigla do estado' }, { status: 400 })
-    }
+    const region = normalizeRegion(details.state)
+    if (region === 'invalid') return NextResponse.json({ error: 'Informe a sigla do estado' }, { status: 400 })
+    details.state = region
+    if (details.documentType && !(DOCUMENT_TYPES as readonly string[]).includes(details.documentType)) return NextResponse.json({ error: 'Tipo de documento inválido' }, { status: 400 })
     const user = await prisma.$transaction(async tx => {
       if (identity.id) {
         const claimed = await tx.user.updateMany({ where: { id: identity.id, role: 'onboarding' }, data: { role: 'editor' } })

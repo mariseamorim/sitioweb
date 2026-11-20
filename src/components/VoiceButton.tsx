@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { downloadOfflineVoice, listenForNumber, offlineVoiceReady, VoiceError, VOICE_MODEL_SIZE_MB, type VoiceErrorKind } from '@/lib/voice'
 import { parseSpokenLiters } from '@/lib/voiceNumber'
+import { useLocale, useT } from '@/lib/i18n'
 
-const fmt = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+const fmt = (n: number, locale: string) => n.toLocaleString(locale, { maximumFractionDigits: 2 })
 
 const ERRORS: Record<VoiceErrorKind, string> = {
   'sem-sinal': 'Sem internet para a voz. Baixe a voz no celular (logo abaixo) ou digite o número.',
@@ -29,6 +30,8 @@ export function VoiceButton({ onNumber, label, size = 'lg' }: {
   label: string
   size?: 'lg' | 'sm'
 }) {
+  const t = useT()
+  const locale = useLocale()
   const [listening, setListening] = useState(false)
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -40,18 +43,18 @@ export function VoiceButton({ onNumber, label, size = 'lg' }: {
     const controller = new AbortController()
     abortRef.current = controller
     setListening(true)
-    setMessage({ text: offlineVoiceReady() && !navigator.onLine ? 'Preparando a voz... fale o número.' : 'Pode falar o número.', ok: true })
+    setMessage({ text: t(offlineVoiceReady() && !navigator.onLine ? 'Preparando a voz... fale o número.' : 'Pode falar o número.'), ok: true })
     try {
       const { texts } = await listenForNumber(controller.signal)
       const value = texts.map(parseSpokenLiters).find((v) => v !== null && v >= 0)
       if (value === undefined || value === null) {
-        setMessage({ text: `Não entendi "${texts[0] ?? ''}". Fale só o número, por exemplo "quarenta e sete".`, ok: false })
+        setMessage({ text: t('Não entendi "{heard}". Fale só o número, por exemplo "quarenta e sete".', { heard: texts[0] ?? '' }), ok: false })
       } else {
         onNumber(value)
-        setMessage({ text: `Ouvi: ${fmt(value)} litros. Confira o número.`, ok: true })
+        setMessage({ text: t('Ouvi: {n} litros. Confira o número.', { n: fmt(value, locale) }), ok: true })
       }
     } catch (e) {
-      setMessage({ text: ERRORS[e instanceof VoiceError ? e.kind : 'falhou'], ok: false })
+      setMessage({ text: t(ERRORS[e instanceof VoiceError ? e.kind : 'falhou']), ok: false })
     } finally {
       setListening(false)
       abortRef.current = null
@@ -61,12 +64,12 @@ export function VoiceButton({ onNumber, label, size = 'lg' }: {
   const big = size === 'lg'
   return (
     <div className={big ? 'mt-3 flex flex-col items-center' : 'flex flex-col items-end'}>
-      <button type="button" onClick={handleClick} aria-label={listening ? 'Parar de ouvir' : `Falar ${label}`} aria-pressed={listening}
+      <button type="button" onClick={handleClick} aria-label={listening ? t('Parar de ouvir') : t('Falar {label}', { label: t(label) })} aria-pressed={listening}
         className={`flex items-center justify-center gap-2 rounded-full font-semibold focus-visible:outline-2 focus-visible:outline-green-700 ${
           listening ? 'bg-red-600 text-white animate-pulse' : 'border-2 border-green-700 text-green-800 hover:bg-green-50'
         } ${big ? 'h-12 px-5 text-base' : 'h-11 w-11'}`}>
         <MicIcon className={big ? 'h-6 w-6' : 'h-5 w-5'} />
-        {big && (listening ? 'Ouvindo... toque para parar' : 'Falar o número')}
+        {big && t(listening ? 'Ouvindo... toque para parar' : 'Falar o número')}
       </button>
       {message && (
         <p role="status" className={`mt-2 text-sm ${big ? 'text-center' : 'max-w-56 text-right'} ${message.ok ? 'text-green-800' : 'text-amber-800'}`}>
@@ -79,6 +82,7 @@ export function VoiceButton({ onNumber, label, size = 'lg' }: {
 
 // Baixar a voz para funcionar sem internet (uma vez só; fica no celular)
 export function OfflineVoiceSetup({ online }: { online: boolean }) {
+  const t = useT()
   const [ready, setReady] = useState<boolean | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
   const [error, setError] = useState('')
@@ -95,22 +99,22 @@ export function OfflineVoiceSetup({ online }: { online: boolean }) {
       await downloadOfflineVoice(setProgress)
       setReady(true)
     } catch {
-      setError('Não foi possível baixar a voz. Tente de novo com uma internet melhor.')
+      setError(t('Não foi possível baixar a voz. Tente de novo com uma internet melhor.'))
     } finally {
       setProgress(null)
     }
   }
 
   if (ready === null) return null
-  if (ready) return <p className="mt-3 text-center text-xs text-gray-500">Voz sem internet: pronta neste celular.</p>
+  if (ready) return <p className="mt-3 text-center text-xs text-gray-500">{t('Voz sem internet: pronta neste celular.')}</p>
   if (progress !== null) {
     return (
       <div className="mt-3" role="status">
-        <p className="text-center text-sm text-gray-700">Baixando a voz... {Math.round(progress * 100)}%</p>
+        <p className="text-center text-sm text-gray-700">{t('Baixando a voz...')} {Math.round(progress * 100)}%</p>
         <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-200">
           <div className="h-full bg-green-600 transition-[width]" style={{ width: `${Math.round(progress * 100)}%` }} />
         </div>
-        <p className="mt-1 text-center text-xs text-gray-500">Não feche o app até terminar.</p>
+        <p className="mt-1 text-center text-xs text-gray-500">{t('Não feche o app até terminar.')}</p>
       </div>
     )
   }
@@ -118,9 +122,9 @@ export function OfflineVoiceSetup({ online }: { online: boolean }) {
   return (
     <div className="mt-3 text-center">
       <button type="button" onClick={download} className="text-sm font-semibold text-green-700 underline">
-        Usar a voz sem internet: baixar ({VOICE_MODEL_SIZE_MB} MB)
+        {t('Usar a voz sem internet: baixar ({mb} MB)', { mb: VOICE_MODEL_SIZE_MB })}
       </button>
-      <p className="text-xs text-gray-500">Baixa uma vez só. Melhor no Wi-Fi.</p>
+      <p className="text-xs text-gray-500">{t('Baixa uma vez só. Melhor no Wi-Fi.')}</p>
       {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
   )

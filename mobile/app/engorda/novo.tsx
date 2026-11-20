@@ -10,6 +10,7 @@ import { listSupplies } from '@/repos/supplies'
 import { Button, DateField, Field, Muted, Notice, Screen } from '@/ui'
 import { AnimalPicker, OptionCards, ProductsEditor, WeightList, averageOf, kg, numericWeights, parseProducts, type ProductForm } from '@/ui/lots'
 import { colors, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 /** Novo lote (porte do LotForm de src/app/engorda/page.tsx do site) */
 export default function NovoLote() {
@@ -17,6 +18,7 @@ export default function NovoLote() {
   const farmId = useFarmId()
   const { canEdit } = useSession()
   const router = useRouter()
+  const t = useT()
   const today = todayISO()
   const herd = useLive(() => listHerd(farmId), [farmId])
   const supplies = useLive(() => listSupplies(farmId).map(supplyRef), [farmId])
@@ -61,13 +63,13 @@ export default function NovoLote() {
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: 'Novo lote' }} />
+      <Stack.Screen options={{ title: t('Novo lote') }} />
       {!canEdit ? <Notice tone="red" text="Sua conta só pode consultar." /> : null}
       <Field label="Nome do lote" value={name} onChangeText={setName} placeholder="Ex.: Garrotes de julho" autoFocus />
       <OptionCards value={phase} onChange={setPhase} options={[{ value: 'recria', title: 'Recria' }, { value: 'engorda', title: 'Engorda' }]} />
       <DateField label="Data de entrada" value={startDate} onChange={setStartDate} />
 
-      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.muted, marginBottom: 4 }}>Como você acompanha este lote?</Text>
+      <Text style={{ fontSize: 13, fontWeight: '600', color: colors.muted, marginBottom: 4 }}>{t('Como você acompanha este lote?')}</Text>
       <OptionCards value={mode} onChange={setMode} options={[{ value: 'animais', title: 'Animais cadastrados', hint: 'Peso de cada um' }, { value: 'quantidade', title: 'Só a quantidade', hint: 'Peso médio do lote' }]} />
 
       {mode === 'animais' ? (
@@ -75,10 +77,10 @@ export default function NovoLote() {
           <AnimalPicker herd={herd} lotNames={lotNames} selected={animalIds} onChange={setAnimalIds} />
           {chosen.length > 0 ? (
             <View style={{ marginTop: space.md }}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.muted, marginBottom: 4 }}>Peso de entrada (opcional, mas é com ele que o app calcula o ganho de cada animal)</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: colors.muted, marginBottom: 4 }}>{t('Peso de entrada (opcional, mas é com ele que o app calcula o ganho de cada animal)')}</Text>
               <WeightList animals={chosen} weights={weights} onChange={setWeights} />
               {avg !== null
-                ? <Text style={{ marginTop: space.sm, color: colors.text }}>Peso médio de entrada: <Text style={{ fontWeight: '700' }}>{kg(avg)}</Text></Text>
+                ? <Text style={{ marginTop: space.sm, color: colors.text }}>{t('Peso médio de entrada:')} <Text style={{ fontWeight: '700' }}>{kg(avg)}</Text></Text>
                 : <Field label="Sem pesar agora? Informe o peso médio estimado (kg)" value={avgWeight} onChangeText={v => setAvgWeight(decimal(v))} keyboardType="decimal-pad" placeholder="Ex.: 250" style={{ marginTop: space.md }} />}
             </View>
           ) : null}
@@ -95,7 +97,7 @@ export default function NovoLote() {
       {error ? <Notice tone="red" text={error} /> : null}
       <Button label="Criar lote" onPress={save} disabled={!canEdit} />
       <Button label="Cancelar" variant="ghost" onPress={() => router.back()} style={{ marginTop: space.sm }} />
-      <Muted style={{ textAlign: 'center', marginTop: space.sm }}>Sem internet, o lote fica guardado no celular e é enviado quando a conexão voltar.</Muted>
+      <Muted style={{ textAlign: 'center', marginTop: space.sm }}>{t('Sem internet, o lote fica guardado no celular e é enviado quando a conexão voltar.')}</Muted>
     </Screen>
   )
 }

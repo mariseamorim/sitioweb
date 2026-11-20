@@ -1,3 +1,5 @@
+import { tr } from '@/lib/i18n'
+
 // Datas e números no formato brasileiro. As datas do servidor vêm em ISO (UTC, meia-noite); o app trabalha com "AAAA-MM-DD".
 
 const TZ = 'America/Sao_Paulo'
@@ -56,7 +58,7 @@ export function ageText(birthDate: string | null | undefined, today = todayISO()
   const b = isoDay(birthDate)
   if (!b) return ''
   const months = (Number(today.slice(0, 4)) - Number(b.slice(0, 4))) * 12 + (Number(today.slice(5, 7)) - Number(b.slice(5, 7)))
-  if (months < 1) return 'recém-nascido'
-  if (months < 24) return `${months} ${months === 1 ? 'mês' : 'meses'}`
-  return `${Math.floor(months / 12)} anos`
+  if (months < 1) return tr('recém-nascido')
+  if (months < 24) return tr(months === 1 ? '{n} mês' : '{n} meses', { n: months })
+  return tr('{n} anos', { n: Math.floor(months / 12) })
 }

@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { AnimalIcon } from '@/components/ModuleIcons'
+import { useT } from '@/lib/i18n'
 
 interface Props {
   value: string        // base64 atual
@@ -31,6 +32,7 @@ function resizeToBase64(file: File): Promise<string> {
 }
 
 export function ImagePicker({ value, onChange }: Props) {
+  const t = useT()
   const fileRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [showCamera, setShowCamera] = useState(false)
@@ -70,7 +72,7 @@ export function ImagePicker({ value, onChange }: Props) {
       setStream(s)
       setShowCamera(true)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Não foi possível acessar a câmera. Verifique as permissões do navegador.'
+      const message = err instanceof Error ? err.message : t('Não foi possível acessar a câmera. Verifique as permissões do navegador.')
       setCameraError(message)
       alert(message)
     }
@@ -105,7 +107,7 @@ export function ImagePicker({ value, onChange }: Props) {
       const playPromise = video.play()
       if (playPromise !== undefined) {
         playPromise.catch((e) => {
-          setCameraError('Erro ao iniciar câmera: ' + e.message)
+          setCameraError(t('Erro ao iniciar câmera:') + ' ' + e.message)
         })
       }
       
@@ -116,12 +118,12 @@ export function ImagePicker({ value, onChange }: Props) {
         video.removeEventListener('play', handlePlay)
       }
     }
-  }, [showCamera, stream])
+  }, [showCamera, stream, t])
 
   function capture() {
     const video = videoRef.current
     if (!video || video.videoWidth === 0 || video.videoHeight === 0) {
-      alert('Câmera não está pronta. Aguarde um momento e tente novamente.')
+      alert(t('Câmera não está pronta. Aguarde um momento e tente novamente.'))
       return
     }
     const canvas = document.createElement('canvas')
@@ -160,13 +162,13 @@ export function ImagePicker({ value, onChange }: Props) {
 
   return (
     <div>
-      <label className="text-xs font-medium text-gray-600">Foto</label>
+      <label className="text-xs font-medium text-gray-600">{t('Foto')}</label>
 
       <div className="mt-1 flex gap-3 items-start">
         {/* Preview */}
         <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden bg-gray-50 shrink-0">
           {value ? (
-            <img src={value} alt="preview" className="w-full h-full object-cover rounded-lg" />
+            <img src={value} alt={t('Foto')} className="w-full h-full object-cover rounded-lg" />
           ) : (
             <AnimalIcon className="w-10 h-10 text-gray-300" />
           )}
@@ -179,14 +181,14 @@ export function ImagePicker({ value, onChange }: Props) {
             onClick={() => fileRef.current?.click()}
             className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
           >
-            Enviar foto
+            {t('Enviar foto')}
           </button>
           <button
             type="button"
             onClick={openCamera}
             className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700"
           >
-            Usar câmera
+            {t('Usar câmera')}
           </button>
           {value && (
             <button
@@ -194,7 +196,7 @@ export function ImagePicker({ value, onChange }: Props) {
               onClick={() => onChange('')}
               className="px-3 py-1.5 text-xs font-medium text-red-500 border border-red-100 rounded-lg hover:bg-red-50"
             >
-              Remover
+              {t('Remover')}
             </button>
           )}
         </div>
@@ -227,7 +229,7 @@ export function ImagePicker({ value, onChange }: Props) {
                 <div className="absolute inset-0 flex items-center justify-center bg-black/80">
                   <div className="text-center">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border border-white border-t-transparent mb-2"></div>
-                    <p className="text-white text-sm">Iniciando câmera...</p>
+                    <p className="text-white text-sm">{t('Iniciando câmera...')}</p>
                   </div>
                 </div>
               )}
@@ -243,7 +245,7 @@ export function ImagePicker({ value, onChange }: Props) {
                 onClick={closeCamera}
                 className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50"
               >
-                Cancelar
+                {t('Cancelar')}
               </button>
               <button
                 type="button"
@@ -251,7 +253,7 @@ export function ImagePicker({ value, onChange }: Props) {
                 disabled={!cameraReady}
                 className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-400 text-white text-sm font-medium py-2 rounded-lg"
               >
-                Capturar
+                {t('Capturar')}
               </button>
             </div>
           </div>

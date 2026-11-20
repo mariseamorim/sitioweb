@@ -16,6 +16,7 @@ import { Badge, Button, Card, Chips, Empty, Field, Muted, Notice, Screen } from 
 import { RequestQuote } from '@/ui/RequestQuote'
 import { TextButton } from '@/ui/TextButton'
 import { colors, font, radius, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 const OFFLINE_SEARCH = 'Sem internet. A busca de fornecedores precisa de conexão; tente de novo quando o sinal voltar.'
 
@@ -30,6 +31,7 @@ export default function Ofertas() {
   const [category, setCategory] = useState('')
   const [messageTo, setMessageTo] = useState<string | null>(null)
   const [actionError, setActionError] = useState('')
+  const t = useT()
 
   const categories = [...new Set(offers.map(o => o.category))]
   const visible = offers.filter(o => !category || o.category === category)
@@ -37,29 +39,29 @@ export default function Ofertas() {
   function callVendor(offer: Offer) {
     const phone = offer.vendor?.whatsapp || offer.vendor?.phone || ''
     countOfferClick(farmId, offer.id)
-    void openWhatsApp(phone, `Olá! Vi a oferta "${offer.title}" no Anota Aí Agro e tenho interesse.`)
+    void openWhatsApp(phone, t('Olá! Vi a oferta "{title}" no Anota Aí Agro e tenho interesse.', { title: offer.title }))
   }
 
   function closeRequest(r: SupplyRequest, status: 'fechado' | 'cancelado') {
     if (status === 'fechado') { setRequestStatus(farmId, r.id, status); return }
-    Alert.alert('Cancelar este pedido?', `${r.itemName} · ${r.vendor?.companyName ?? 'fornecedor'}`, [
-      { text: 'Voltar', style: 'cancel' },
-      { text: 'Cancelar pedido', style: 'destructive', onPress: () => setRequestStatus(farmId, r.id, status) },
+    Alert.alert(t('Cancelar este pedido?'), `${r.itemName} · ${r.vendor?.companyName ?? t('fornecedor')}`, [
+      { text: t('Voltar'), style: 'cancel' },
+      { text: t('Cancelar pedido'), style: 'destructive', onPress: () => setRequestStatus(farmId, r.id, status) },
     ])
   }
 
   function remove(v: MyVendor) {
-    Alert.alert(`Remover ${v.companyName}?`, 'Você deixa de ver as ofertas dele e ele deixa de ver sua propriedade como cliente.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Remover', style: 'destructive', onPress: () => removeVendor(farmId, v.id) },
+    Alert.alert(t('Remover {name}?', { name: v.companyName }), t('Você deixa de ver as ofertas dele e ele deixa de ver sua propriedade como cliente.'), [
+      { text: t('Cancelar'), style: 'cancel' },
+      { text: t('Remover'), style: 'destructive', onPress: () => removeVendor(farmId, v.id) },
     ])
   }
 
   return (
     <Screen>
-      <Muted style={{ marginBottom: space.md }}>Insumos dos seus fornecedores e da sua região</Muted>
+      <Muted style={{ marginBottom: space.md }}>{t('Insumos dos seus fornecedores e da sua região')}</Muted>
       {actionError ? <Notice tone="red" text={actionError} /> : null}
-      {low.length > 0 ? <Notice tone="amber" text={`Estoque baixo em ${low.join(', ')}. As ofertas dessas categorias aparecem primeiro.`} /> : null}
+      {low.length > 0 ? <Notice tone="amber" text={t('Estoque baixo em {list}. As ofertas dessas categorias aparecem primeiro.', { list: low.map(c => t(c)).join(', ') })} /> : null}
       {categories.length > 1 ? (
         <Chips options={['', ...categories].map(c => ({ value: c, label: c || 'Todas' }))} value={category} onChange={setCategory} />
       ) : null}
@@ -70,17 +72,17 @@ export default function Ofertas() {
 
       {requests.length > 0 ? (
         <View style={{ marginTop: space.xl }}>
-          <Text style={sectionTitle}>Meus pedidos e mensagens</Text>
+          <Text style={sectionTitle}>{t('Meus pedidos e mensagens')}</Text>
           {requests.map(r => <RequestCard key={r.id} request={r} canEdit={canEdit} onClose={status => closeRequest(r, status)} />)}
         </View>
       ) : null}
 
       <View style={{ marginTop: space.xl }}>
-        <Text style={sectionTitle}>Meus fornecedores</Text>
+        <Text style={sectionTitle}>{t('Meus fornecedores')}</Text>
         <Muted style={{ marginBottom: space.md }}>
-          Seus fornecedores veem os itens do seu estoque que estão abaixo do mínimo, para oferecer a reposição. Você pode desligar para cada um.
+          {t('Seus fornecedores veem os itens do seu estoque que estão abaixo do mínimo, para oferecer a reposição. Você pode desligar para cada um.')}
         </Muted>
-        {vendors.length === 0 ? <Muted style={{ marginBottom: space.md }}>Nenhum fornecedor ainda.</Muted> : vendors.map(v => (
+        {vendors.length === 0 ? <Muted style={{ marginBottom: space.md }}>{t('Nenhum fornecedor ainda.')}</Muted> : vendors.map(v => (
           <VendorCard key={v.id} vendor={v} canEdit={canEdit}
             onMessage={() => setMessageTo(v.id)}
             onToggleMute={() => setVendorLink(farmId, v.id, { muted: !v.muted })}
@@ -99,8 +101,9 @@ const sectionTitle = { fontSize: font.lg, fontWeight: '700' as const, color: col
 const smallText = { fontSize: font.sm, color: colors.muted }
 
 function OfferCard({ offer: o, onCall }: { offer: Offer; onCall: () => void }) {
+  const t = useT()
   const vendor = o.vendor
-  const where = o.isMyVendor ? ' · seu fornecedor' : vendor?.city ? ` · ${vendor.city}` : ''
+  const where = o.isMyVendor ? ` · ${t('seu fornecedor')}` : vendor?.city ? ` · ${vendor.city}` : ''
   return (
     <Card style={o.matchesLowStock ? { borderColor: '#fcd34d' } : undefined}>
       <View style={{ flexDirection: 'row', gap: space.md }}>
@@ -117,7 +120,7 @@ function OfferCard({ offer: o, onCall }: { offer: Offer; onCall: () => void }) {
             </Text>
           ) : null}
           {o.description ? <Text style={{ fontSize: font.sm, color: colors.text, marginTop: 4 }}>{o.description}</Text> : null}
-          <Text style={[smallText, { marginTop: 4 }]}>{vendor?.companyName ?? 'Fornecedor'}{where} · até {brDate(o.validUntil)}</Text>
+          <Text style={[smallText, { marginTop: 4 }]}>{vendor?.companyName ?? t('Fornecedor')}{where} · {t('até')} {brDate(o.validUntil)}</Text>
         </View>
       </View>
       <Button label="Chamar no WhatsApp" onPress={onCall} style={{ marginTop: space.md }} />
@@ -129,7 +132,8 @@ function RequestCard({ request: r, canEdit, onClose }: { request: SupplyRequest;
   const status = REQUEST_STATUS[r.status] ?? REQUEST_STATUS.novo
   const open = r.status === 'novo' || r.status === 'respondido'
   const isMessage = !r.supplyId && !r.quantity
-  const company = r.vendor?.companyName ?? 'Fornecedor'
+  const t = useT()
+  const company = r.vendor?.companyName ?? t('Fornecedor')
   // Mensagem ainda na fila de envio: só dá para encerrar depois que o servidor a receber
   const sent = !isLocalId(r.id)
   return (
@@ -139,13 +143,13 @@ function RequestCard({ request: r, canEdit, onClose }: { request: SupplyRequest;
           <Text style={{ fontSize: font.md, fontWeight: '600', color: colors.text }}>
             {r.itemName}{r.quantity ? <Text style={{ fontWeight: '400', color: colors.muted }}> · {brNumber(r.quantity, 0)}{r.unit ? ` ${r.unit}` : ''}</Text> : null}
           </Text>
-          <Text style={smallText}>{company} · {isMessage ? 'mensagem enviada' : 'pedido'} em {brDate(r.createdAt)}</Text>
+          <Text style={smallText}>{company} · {t(isMessage ? 'mensagem enviada em {date}' : 'pedido em {date}', { date: brDate(r.createdAt) })}</Text>
         </View>
         <Badge label={status.label} tone={status.tone} />
       </View>
       {r.note ? (
         <View style={{ marginTop: space.sm, backgroundColor: colors.bg, borderRadius: radius.sm, padding: space.sm }}>
-          <Text style={{ fontSize: font.sm, color: colors.text }}><Text style={{ color: colors.muted }}>Você: </Text>{r.note}</Text>
+          <Text style={{ fontSize: font.sm, color: colors.text }}><Text style={{ color: colors.muted }}>{t('Você:')} </Text>{r.note}</Text>
         </View>
       ) : null}
       {r.reply ? (
@@ -156,10 +160,10 @@ function RequestCard({ request: r, canEdit, onClose }: { request: SupplyRequest;
       ) : null}
       {open ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm, marginTop: space.md }}>
-          <Button label="WhatsApp" onPress={() => void openWhatsApp(r.vendor?.whatsapp || r.vendor?.phone || '', `Olá! Sobre o meu pedido de ${r.itemName} pelo Anota Aí Agro.`)} style={{ minHeight: 44 }} />
+          <Button label="WhatsApp" onPress={() => void openWhatsApp(r.vendor?.whatsapp || r.vendor?.phone || '', t('Olá! Sobre o meu pedido de {item} pelo Anota Aí Agro.', { item: r.itemName }))} style={{ minHeight: 44 }} />
           {canEdit && sent ? <TextButton label="Resolvido" onPress={() => onClose('fechado')} /> : null}
           {canEdit && sent && r.status === 'novo' ? <TextButton label="Cancelar" tone="red" onPress={() => onClose('cancelado')} /> : null}
-          {!sent ? <Muted>Aguardando envio</Muted> : null}
+          {!sent ? <Muted>{t('Aguardando envio')}</Muted> : null}
         </View>
       ) : null}
     </Card>
@@ -169,17 +173,18 @@ function RequestCard({ request: r, canEdit, onClose }: { request: SupplyRequest;
 function VendorCard({ vendor: v, canEdit, onMessage, onToggleMute, onToggleShare, onRemove }: {
   vendor: MyVendor; canEdit: boolean; onMessage: () => void; onToggleMute: () => void; onToggleShare: () => void; onRemove: () => void
 }) {
+  const t = useT()
   const place = [v.city, v.state].filter(Boolean).join('/')
   return (
     <Card>
       <Text style={{ fontSize: font.md, fontWeight: '600', color: colors.text }}>{v.companyName}</Text>
       <Text style={smallText}>{[v.contactName, place].filter(Boolean).join(' · ')}</Text>
       <Text style={[smallText, { marginTop: 4 }]}>
-        {v.shareStock ? 'Vê seu estoque baixo' : 'Não vê seu estoque'}{v.muted ? ' · ofertas silenciadas' : ''}{v.status === 'pendente' ? ' · cadastro em análise' : ''}
+        {t(v.shareStock ? 'Vê seu estoque baixo' : 'Não vê seu estoque')}{v.muted ? ` · ${t('ofertas silenciadas')}` : ''}{v.status === 'pendente' ? ` · ${t('cadastro em análise')}` : ''}
       </Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.md }}>
         {canEdit ? <Button label="Mandar mensagem" onPress={onMessage} style={{ minHeight: 44 }} /> : null}
-        <Button label="WhatsApp" variant="secondary" onPress={() => void openWhatsApp(v.whatsapp || v.phone, 'Olá! Te encontrei pelo Anota Aí Agro.')} style={{ minHeight: 44 }} />
+        <Button label="WhatsApp" variant="secondary" onPress={() => void openWhatsApp(v.whatsapp || v.phone, t('Olá! Te encontrei pelo Anota Aí Agro.'))} style={{ minHeight: 44 }} />
       </View>
       {canEdit ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.md, marginTop: space.sm, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: space.xs }}>
@@ -199,6 +204,7 @@ function VendorSearch({ farmId, online, onError }: { farmId: string; online: boo
   const [searching, setSearching] = useState(false)
   const [adding, setAdding] = useState<string | null>(null)
   const term = query.trim()
+  const t = useT()
 
   useEffect(() => {
     if (term.length < 2) { setFound([]); return }
@@ -222,7 +228,7 @@ function VendorSearch({ farmId, online, onError }: { farmId: string; online: boo
       setQuery('')
       setFound([])
     } catch (e) {
-      onError(e instanceof Error && e.message !== 'Sem conexão' && e.message !== 'Tempo esgotado' ? e.message : OFFLINE_SEARCH)
+      onError(e instanceof Error && e.message !== 'Sem conexão' && e.message !== 'Tempo esgotado' ? t(e.message) : t(OFFLINE_SEARCH))
     } finally {
       setAdding(null)
     }
@@ -234,8 +240,8 @@ function VendorSearch({ farmId, online, onError }: { farmId: string; online: boo
         hint={online ? undefined : OFFLINE_SEARCH} />
       {term.length >= 2 && online ? (
         <Card style={{ paddingVertical: space.xs }}>
-          {searching && found.length === 0 ? <Muted style={{ paddingVertical: space.md }}>Procurando...</Muted>
-            : found.length === 0 ? <Muted style={{ paddingVertical: space.md }}>Nenhum fornecedor encontrado.</Muted>
+          {searching && found.length === 0 ? <Muted style={{ paddingVertical: space.md }}>{t('Procurando...')}</Muted>
+            : found.length === 0 ? <Muted style={{ paddingVertical: space.md }}>{t('Nenhum fornecedor encontrado.')}</Muted>
             : found.map((f, i) => (
               <View key={f.id} style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.md, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}>
                 <View style={{ flex: 1, minWidth: 0 }}>

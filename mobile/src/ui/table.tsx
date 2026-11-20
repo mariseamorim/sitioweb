@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { colors, font, radius, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 export type Cell = string | number
 
@@ -35,6 +36,7 @@ function widths(columns: string[], rows: Cell[][], footer?: Cell[]): number[] {
 }
 
 export function Table({ columns, rows, numeric = [], footer }: { columns: string[]; rows: Cell[][]; numeric?: number[]; footer?: Cell[] }) {
+  const t = useT()
   const [sort, setSort] = useState<{ col: number; dir: 'asc' | 'desc' } | null>(null)
   const sorted = useMemo(() => {
     if (!sort) return rows
@@ -52,13 +54,13 @@ export function Table({ columns, rows, numeric = [], footer }: { columns: string
         {columns.map((c, j) => (
           <Pressable key={j} onPress={() => toggle(j)} style={[styles.cell, { width: w[j] }]} accessibilityRole="button">
             <Text style={[styles.headText, { textAlign: align(j) }, sort?.col === j && { color: colors.text }]} numberOfLines={2}>
-              {c}{sort?.col === j ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+              {t(c)}{sort?.col === j ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
             </Text>
           </Pressable>
         ))}
       </View>
       {sorted.length === 0 ? (
-        <View style={[styles.row, { width: w.reduce((s, n) => s + n, 0) }]}><Text style={[styles.empty]}>Nenhum registro</Text></View>
+        <View style={[styles.row, { width: w.reduce((s, n) => s + n, 0) }]}><Text style={[styles.empty]}>{t('Nenhum registro')}</Text></View>
       ) : sorted.map((row, i) => (
         <View key={i} style={[styles.row, i % 2 === 1 && { backgroundColor: colors.bg }]}>
           {columns.map((_, j) => (

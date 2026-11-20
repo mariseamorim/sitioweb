@@ -4,14 +4,16 @@ import type { ReactNode } from 'react'
 import { Text, View } from 'react-native'
 import { useSession } from '@/auth/session'
 import { colors, font, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 export function AdminOnly({ children }: { children: ReactNode }) {
   const { user } = useSession()
+  const t = useT()
   if (user?.role === 'admin') return <>{children}</>
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl, backgroundColor: colors.bg }}>
       <Ionicons name="lock-closed-outline" size={48} color={colors.border} style={{ marginBottom: space.lg }} />
-      <Text style={{ fontSize: font.md, color: colors.muted }}>Área do administrador.</Text>
+      <Text style={{ fontSize: font.md, color: colors.muted }}>{t('Área do administrador.')}</Text>
     </View>
   )
 }

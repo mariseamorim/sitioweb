@@ -7,6 +7,7 @@ import { brDate } from '@/lib/format'
 import { listVaccinations, vaccStatus, type VaccStatus } from '@/repos/vaccinations'
 import { Badge, Chips, Empty, Fab, Row, Search } from '@/ui'
 import { colors, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
 type Filter = 'Todas' | VaccStatus
 
@@ -16,6 +17,7 @@ export default function Vacinas() {
   const router = useRouter()
   const [filter, setFilter] = useState<Filter>('Todas')
   const [q, setQ] = useState('')
+  const t = useT()
   const items = useLive(() => listVaccinations(farmId).map(v => ({ ...v, status: vaccStatus(v) })), [farmId])
   const term = q.trim().toLowerCase()
   const shown = items.filter(v => (filter === 'Todas' || v.status === filter) && (!term || `${v.animalName ?? ''} ${v.animalCode ?? ''} ${v.vaccineName}`.toLowerCase().includes(term)))
@@ -24,8 +26,8 @@ export default function Vacinas() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm }}>
-        <Chips options={(['Todas', 'Pendente', 'Aplicada', 'Vencida'] as Filter[]).map(f => ({ value: f, label: f }))} value={filter} onChange={setFilter} />
-        <Search value={q} onChange={setQ} placeholder="Animal ou vacina" />
+        <Chips options={(['Todas', 'Pendente', 'Aplicada', 'Vencida'] as Filter[]).map(f => ({ value: f, label: t(f) }))} value={filter} onChange={setFilter} />
+        <Search value={q} onChange={setQ} placeholder={t('Animal ou vacina')} />
       </View>
       <FlatList
         data={shown}
@@ -33,14 +35,14 @@ export default function Vacinas() {
         contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: 96 }}
         keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
-          <Row title={`${item.vaccineName} · ${item.animalName ?? 'animal'}`}
-            detail={item.status === 'Aplicada' ? `Aplicada em ${brDate(item.appliedDate)}` : `Agendada para ${brDate(item.scheduledDate)}`}
-            badge={<Badge label={item.status} tone={tone(item.status)} />}
+          <Row title={`${item.vaccineName} · ${item.animalName ?? t('animal')}`}
+            detail={item.status === 'Aplicada' ? `${t('Aplicada em')} ${brDate(item.appliedDate)}` : `${t('Agendada para')} ${brDate(item.scheduledDate)}`}
+            badge={<Badge label={t(item.status)} tone={tone(item.status)} />}
             onPress={() => router.push(`/vacinas/${item.id}`)} />
         )}
-        ListEmptyComponent={<Empty title="Nenhuma vacina" text={canEdit ? 'Toque em “Registrar” para agendar ou anotar uma vacina.' : undefined} />}
+        ListEmptyComponent={<Empty title={t('Nenhuma vacina')} text={canEdit ? t('Toque em “Registrar” para agendar ou anotar uma vacina.') : undefined} />}
       />
-      {canEdit ? <Fab label="+ Registrar" onPress={() => router.push('/vacinas/nova')} /> : null}
+      {canEdit ? <Fab label={t('+ Registrar')} onPress={() => router.push('/vacinas/nova')} /> : null}
     </View>
   )
 }

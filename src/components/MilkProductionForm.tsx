@@ -2,6 +2,7 @@
 import { MilkDecimalInput } from '@/components/MilkDecimalInput'
 
 import { useState } from 'react'
+import { useT } from '@/lib/i18n'
 
 interface MilkProductionFormProps {
   animalId: string
@@ -9,6 +10,7 @@ interface MilkProductionFormProps {
 }
 
 export function MilkProductionForm({ animalId, onSuccess }: MilkProductionFormProps) {
+  const t = useT()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -34,12 +36,12 @@ export function MilkProductionForm({ animalId, onSuccess }: MilkProductionFormPr
         body: JSON.stringify(data),
       })
 
-      if (!response.ok) throw new Error('Failed to add milk production')
+      if (!response.ok) throw new Error('Erro ao adicionar produção')
 
       formEl.reset()
       onSuccess?.()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao adicionar produção')
+      setError(err instanceof Error ? t(err.message) : t('Erro ao adicionar produção'))
     } finally {
       setLoading(false)
     }
@@ -47,7 +49,7 @@ export function MilkProductionForm({ animalId, onSuccess }: MilkProductionFormPr
 
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <h2 className="text-lg font-semibold text-gray-800 mb-4">Registrar Produção</h2>
+      <h2 className="text-lg font-semibold text-gray-800 mb-4">{t('Registrar Produção')}</h2>
 
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">{error}</p>
@@ -55,7 +57,7 @@ export function MilkProductionForm({ animalId, onSuccess }: MilkProductionFormPr
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="text-xs font-medium text-gray-600">Data *</label>
+          <label className="text-xs font-medium text-gray-600">{t('Data')} *</label>
           <input
             type="date"
             name="date"
@@ -65,7 +67,7 @@ export function MilkProductionForm({ animalId, onSuccess }: MilkProductionFormPr
         </div>
 
         <div>
-          <label className="text-xs font-medium text-gray-600">Quantidade (litros) *</label>
+          <label className="text-xs font-medium text-gray-600">{t('Quantidade (litros)')} *</label>
           <MilkDecimalInput
             inputMode="decimal"
             name="quantity"
@@ -74,11 +76,11 @@ export function MilkProductionForm({ animalId, onSuccess }: MilkProductionFormPr
           />
         </div>
 
-        <label className="text-xs font-medium text-gray-600">Preço por litro (R$)
-          <MilkDecimalInput decimals={2} name="pricePerLiter" inputMode="decimal" placeholder="Opcional" className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+        <label className="text-xs font-medium text-gray-600">{t('Preço por litro (R$)')}
+          <MilkDecimalInput decimals={2} name="pricePerLiter" inputMode="decimal" placeholder={t('Opcional')} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
         </label>
         <div className="md:col-span-2">
-          <label className="text-xs font-medium text-gray-600">Observações</label>
+          <label className="text-xs font-medium text-gray-600">{t('Observações')}</label>
           <textarea
             name="observations"
             rows={3}
@@ -92,7 +94,7 @@ export function MilkProductionForm({ animalId, onSuccess }: MilkProductionFormPr
         disabled={loading}
         className="mt-4 w-full bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg transition-colors"
       >
-        {loading ? 'Salvando...' : 'Adicionar Produção'}
+        {t(loading ? 'Salvando...' : 'Adicionar Produção')}
       </button>
     </form>
   )

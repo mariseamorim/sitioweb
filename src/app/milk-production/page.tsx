@@ -18,6 +18,7 @@ import { fmtNumber, fmtMoney } from '@/lib/reports'
 import { inDayRange, lastDaysRange } from '@/lib/utils'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
+import { useLocale, useT } from '@/lib/i18n'
 
 interface Animal {
   id: string
@@ -39,9 +40,6 @@ interface Production {
 type RegisterMode = 'total' | 'vaca'
 const MODE_KEY = 'milk_register_mode'
 
-/** Datas são gravadas como meia-noite UTC do dia: exibir em UTC evita mostrar o dia anterior */
-const fmtDay = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
-const fmtWeekday = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'UTC', weekday: 'short' }).replace('.', '')
 
 function readMode(): RegisterMode {
   try { return localStorage.getItem(MODE_KEY) === 'vaca' ? 'vaca' : 'total' } catch { return 'total' }
@@ -50,6 +48,11 @@ function readMode(): RegisterMode {
 export default function MilkProductionPage() {
   const { confirm } = useDialog()
   const { user } = useUser()
+  const t = useT()
+  const locale = useLocale()
+  /** Datas são gravadas como meia-noite UTC do dia: exibir em UTC evita mostrar o dia anterior */
+  const fmtDay = (iso: string) => new Date(iso).toLocaleDateString(locale, { timeZone: 'UTC' })
+  const fmtWeekday = (iso: string) => new Date(iso).toLocaleDateString(locale, { timeZone: 'UTC', weekday: 'short' }).replace('.', '')
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const [productions, setProductions] = useState<Production[]>([])
   const [allAnimals, setAllAnimals] = useState<Animal[]>([])
@@ -206,7 +209,7 @@ export default function MilkProductionPage() {
 
   async function handleDelete(id: string) {
     if (!canEdit) return
-    if (!(await confirm({ title: 'Excluir este registro de leite?', confirmLabel: 'Excluir', danger: true }))) return
+    if (!(await confirm({ title: t('Excluir este registro de leite?'), confirmLabel: t('Excluir'), danger: true }))) return
     await fetchWithTimeout(`/api/milk-production/${id}`, { method: 'DELETE' }).catch(() => null)
     loadData(farmId)
   }
@@ -253,8 +256,8 @@ export default function MilkProductionPage() {
       onClick={() => handleDelete(id)}
       disabled={!canEdit}
       className={`p-1 ${canEdit ? 'text-red-400 hover:text-red-600' : 'text-gray-300 cursor-not-allowed'}`}
-      title="Excluir"
-      aria-label="Excluir"
+      title={t('Excluir')}
+      aria-label={t('Excluir')}
     >
       <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
@@ -262,7 +265,7 @@ export default function MilkProductionPage() {
     </button>
   )
   const editButton = (production: Production) => canEdit && (
-    <button type="button" disabled={!isOnline} onClick={() => { setDetailDay(null); setDetailAnimalId(null); setEditingProduction(production) }} className="px-2 py-1 text-xs font-semibold text-green-700 hover:underline disabled:text-gray-400" aria-label={`Editar lançamento de ${fmtDay(production.date)}`} title={isOnline ? 'Editar lançamento' : 'Conecte-se para editar'}>Editar</button>
+    <button type="button" disabled={!isOnline} onClick={() => { setDetailDay(null); setDetailAnimalId(null); setEditingProduction(production) }} className="px-2 py-1 text-xs font-semibold text-green-700 hover:underline disabled:text-gray-400" aria-label={t('Editar lançamento de {date}', { date: fmtDay(production.date) })} title={t(isOnline ? 'Editar lançamento' : 'Conecte-se para editar')}>{t('Editar')}</button>
   )
 
   return (
@@ -271,8 +274,8 @@ export default function MilkProductionPage() {
       {/* Header */}
       <div className="page-toolbar flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Produção de Leite</h1>
-          <p className="text-gray-500 text-sm mt-1">Abra um dia ou uma vaca para consultar e editar os lançamentos.</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('Produção de Leite')}</h1>
+          <p className="text-gray-500 text-sm mt-1">{t('Abra um dia ou uma vaca para consultar e editar os lançamentos.')}</p>
         </div>
         <button
           onClick={openRegister}
@@ -283,7 +286,7 @@ export default function MilkProductionPage() {
               : 'bg-gray-400 cursor-not-allowed'
           }`}
         >
-          Anotar leite
+          {t('Anotar leite')}
         </button>
       </div>
 
@@ -291,18 +294,18 @@ export default function MilkProductionPage() {
       {!isOnline && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center gap-2">
           <SemSinalIcon className="w-5 h-5 shrink-0" />
-          <span>Sem internet. Ao salvar, os registros ficam neste aparelho. Quando a internet voltar, use “Enviar registros”.</span>
+          <span>{t('Sem internet. Ao salvar, os registros ficam neste aparelho. Quando a internet voltar, use “Enviar registros”.')}</span>
         </div>
       )}
       {isOnline && pendingCount > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl px-4 py-3 mb-4 text-sm flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount} registro{pendingCount > 1 ? 's' : ''} pendente{pendingCount > 1 ? 's' : ''} para enviar</span>
+          <span className="flex items-center gap-2"><SincronizarIcon className="w-5 h-5 shrink-0" />{pendingCount > 1 ? t('{n} registros pendentes para enviar', { n: pendingCount }) : t('1 registro pendente para enviar')}</span>
           <button
             onClick={handleSync}
             disabled={syncing}
             className="bg-blue-700 hover:bg-blue-600 disabled:bg-blue-400 text-white text-xs font-medium px-3 py-1.5 rounded-lg shrink-0"
           >
-            {syncing ? 'Enviando...' : 'Enviar registros'}
+            {t(syncing ? 'Enviando...' : 'Enviar registros')}
           </button>
         </div>
       )}
@@ -312,7 +315,7 @@ export default function MilkProductionPage() {
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-end">
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">De</label>
+            <label className="text-xs font-medium text-gray-600 block mb-1">{t('De')}</label>
             <input
               type="date"
               value={from}
@@ -321,7 +324,7 @@ export default function MilkProductionPage() {
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">Até</label>
+            <label className="text-xs font-medium text-gray-600 block mb-1">{t('Até')}</label>
             <input
               type="date"
               value={to}
@@ -331,18 +334,18 @@ export default function MilkProductionPage() {
           </div>
           <div className="ml-auto flex gap-6 text-right">
             <div>
-              <p className="text-xs text-gray-500">Média por dia</p>
+              <p className="text-xs text-gray-500">{t('Média por dia')}</p>
               <p className="text-2xl font-bold text-gray-800">{fmtNumber(average)} L</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Total no período</p>
+              <p className="text-xs text-gray-500">{t('Total no período')}</p>
               <p className="text-2xl font-bold text-green-700">{fmtNumber(grandTotal)} L</p>
             </div>
           </div>
         </div>
         <div className="mt-4 rounded-lg bg-green-50 p-3 text-green-900">
-          <p className="text-xs font-medium">Valor estimado no período</p>
-          <p className="text-2xl font-bold">{price !== null ? fmtMoney(grandTotal * price) : 'Informe o preço por litro'}</p>
+          <p className="text-xs font-medium">{t('Valor estimado no período')}</p>
+          <p className="text-2xl font-bold">{price !== null ? fmtMoney(grandTotal * price) : t('Informe o preço por litro')}</p>
           {price !== null && <p className="mt-1 text-sm">{fmtNumber(grandTotal)} L × {fmtMoney(price)}/L</p>}
         </div>
       </div>
@@ -357,27 +360,27 @@ export default function MilkProductionPage() {
               onClick={() => setView(v)}
               className={`px-5 py-2 rounded-lg text-sm font-semibold ${activeView === v ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500'}`}
             >
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
       )}
 
       {loading ? (
-        <p className="text-gray-400 text-sm">Carregando...</p>
+        <p className="text-gray-400 text-sm">{t('Carregando...')}</p>
       ) : byDay.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
-          <p className="text-lg">Nenhuma produção registrada no período</p>
-          <p className="text-sm mt-1">Ajuste o período ou clique em &quot;Anotar leite&quot;</p>
+          <p className="text-lg">{t('Nenhuma produção registrada no período')}</p>
+          <p className="text-sm mt-1">{t('Ajuste o período ou clique em "Anotar leite"')}</p>
         </div>
       ) : activeView === 'dia' ? (
         <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <SortTh label="Dia" sortKey="day" sort={daySort} className="px-3 py-3 sm:px-4 text-left" />
-                <SortTh label="Vacas" sortKey="cows" sort={daySort} align="right" className="px-3 py-3 sm:px-4 text-right" />
-                <SortTh label="Total (L)" sortKey="total" sort={daySort} align="right" className="px-3 py-3 sm:px-4 text-right" />
+                <SortTh label={t('Dia')} sortKey="day" sort={daySort} className="px-3 py-3 sm:px-4 text-left" />
+                <SortTh label={t('Vacas')} sortKey="cows" sort={daySort} align="right" className="px-3 py-3 sm:px-4 text-right" />
+                <SortTh label={t('Total (L)')} sortKey="total" sort={daySort} align="right" className="px-3 py-3 sm:px-4 text-right" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -397,7 +400,7 @@ export default function MilkProductionPage() {
             </tbody>
             <tfoot className="border-t-2 border-gray-200 bg-gray-50">
               <tr>
-                <td colSpan={2} className="px-3 py-3 sm:px-4 text-xs font-bold text-gray-600 uppercase">Total ({byDay.length} dias)</td>
+                <td colSpan={2} className="px-3 py-3 sm:px-4 text-xs font-bold text-gray-600 uppercase">{t('Total ({n} dias)', { n: byDay.length })}</td>
                 <td className="px-3 py-3 sm:px-4 text-right font-bold text-green-700">{fmtNumber(grandTotal)}</td>
               </tr>
             </tfoot>
@@ -408,10 +411,10 @@ export default function MilkProductionPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
               <tr>
-                <SortTh label="Animal" sortKey="name" sort={cowSort} className="px-3 py-3 sm:px-4 text-left" />
-                <SortTh label="Código" sortKey="code" sort={cowSort} className="hidden sm:table-cell px-3 py-3 sm:px-4 text-left" />
-                <SortTh label="Total (L)" sortKey="total" sort={cowSort} align="right" className="px-3 py-3 sm:px-4 text-right" />
-                <SortTh label="Registros" sortKey="count" sort={cowSort} align="right" className="hidden sm:table-cell px-3 py-3 sm:px-4 text-right" />
+                <SortTh label={t('Animal')} sortKey="name" sort={cowSort} className="px-3 py-3 sm:px-4 text-left" />
+                <SortTh label={t('Código')} sortKey="code" sort={cowSort} className="hidden sm:table-cell px-3 py-3 sm:px-4 text-left" />
+                <SortTh label={t('Total (L)')} sortKey="total" sort={cowSort} align="right" className="px-3 py-3 sm:px-4 text-right" />
+                <SortTh label={t('Registros')} sortKey="count" sort={cowSort} align="right" className="hidden sm:table-cell px-3 py-3 sm:px-4 text-right" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -427,14 +430,14 @@ export default function MilkProductionPage() {
           </table>
           {byCow.length < byDay.length && (
             <p className="px-4 py-3 text-xs text-gray-500 border-t border-gray-100">
-              Lançamentos de total do dia (sem vaca) aparecem só na visão por dia.
+              {t('Lançamentos de total do dia (sem vaca) aparecem só na visão por dia.')}
             </p>
           )}
         </div>
       )}
 
       <MilkCollections from={from} to={to} canEdit={canEdit} />
-      {hasPricedRecords && <p className="mb-5 rounded-lg bg-green-50 p-3 text-sm text-green-800">Valor pelos preços registrados: <strong>{fmtMoney(estimatedValue)}</strong>{unpricedRecords > 0 && ` · ${unpricedRecords} lançamento(s) sem preço não incluído(s).`}</p>}
+      {hasPricedRecords && <p className="mb-5 rounded-lg bg-green-50 p-3 text-sm text-green-800">{t('Valor pelos preços registrados:')} <strong>{fmtMoney(estimatedValue)}</strong>{unpricedRecords > 0 && ` · ${t('{n} lançamento(s) sem preço não incluído(s).', { n: unpricedRecords })}`}</p>}
 
       {/* Detalhe do dia */}
       {detailDay && (
@@ -442,19 +445,19 @@ export default function MilkProductionPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">Leite de {fmtDay(detailDay)}</h2>
-                <button onClick={() => setDetailDay(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
+                <h2 className="text-lg font-bold text-gray-800">{t('Leite de {date}', { date: fmtDay(detailDay) })}</h2>
+                <button onClick={() => setDetailDay(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
               </div>
               <ul className="divide-y divide-gray-100 border border-gray-100 rounded-xl">
                 {detailDayItems.map((p) => (
                   <li key={p.id} className="flex items-center gap-3 px-4 py-3">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-800">
-                        {p.animal ? `${p.animal.name} (${p.animal.code})` : 'Total do dia'}
+                        {p.animal ? `${p.animal.name} (${p.animal.code})` : t('Total do dia')}
                       </p>
                       {(p.cowsMilked || p.observations) && (
                         <p className="text-xs text-gray-500">
-                          {[p.cowsMilked ? `${p.cowsMilked} vacas` : '', p.observations].filter(Boolean).join(' · ')}
+                          {[p.cowsMilked ? t('{n} vacas', { n: p.cowsMilked }) : '', p.observations].filter(Boolean).join(' · ')}
                         </p>
                       )}
                     </div>
@@ -465,7 +468,7 @@ export default function MilkProductionPage() {
                   </li>
                 ))}
               </ul>
-              {detailDayItems.length === 0 && <p className="text-center py-6 text-gray-400 text-sm">Nenhum registro</p>}
+              {detailDayItems.length === 0 && <p className="text-center py-6 text-gray-400 text-sm">{t('Nenhum registro')}</p>}
             </div>
           </div>
         </div>
@@ -479,24 +482,24 @@ export default function MilkProductionPage() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-lg font-bold text-gray-800">{detailAnimal.name}</h2>
-                  <p className="text-xs text-gray-500">Código: {detailAnimal.code}</p>
+                  <p className="text-xs text-gray-500">{t('Código: {code}', { code: detailAnimal.code })}</p>
                 </div>
-                <button onClick={() => setDetailAnimalId(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
+                <button onClick={() => setDetailAnimalId(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
               </div>
 
               <div className="bg-green-50 border border-green-100 rounded-lg px-4 py-3 mb-4 text-sm flex justify-between">
-                <span className="text-gray-600">Total no período selecionado</span>
+                <span className="text-gray-600">{t('Total no período selecionado')}</span>
                 <span className="font-bold text-green-700">{fmtNumber(detailAnimalPeriodTotal)} L</span>
               </div>
 
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">Histórico completo</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">{t('Histórico completo')}</h3>
               <div className="rounded-xl border border-gray-100 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                     <tr>
-                      <SortTh label="Data" sortKey="date" sort={itemSort} className="px-3 py-2 sm:px-4 text-left" />
-                      <SortTh label="Qtd (L)" sortKey="quantity" sort={itemSort} align="right" className="px-3 py-2 sm:px-4 text-right" />
-                      <SortTh label="Observações" sortKey="observations" sort={itemSort} className="hidden sm:table-cell px-3 py-2 sm:px-4 text-left" />
+                      <SortTh label={t('Data')} sortKey="date" sort={itemSort} className="px-3 py-2 sm:px-4 text-left" />
+                      <SortTh label={t('Qtd (L)')} sortKey="quantity" sort={itemSort} align="right" className="px-3 py-2 sm:px-4 text-right" />
+                      <SortTh label={t('Observações')} sortKey="observations" sort={itemSort} className="hidden sm:table-cell px-3 py-2 sm:px-4 text-left" />
                       <th className="px-3 py-2 sm:px-4"></th>
                     </tr>
                   </thead>
@@ -523,8 +526,8 @@ export default function MilkProductionPage() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 sm:p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">Anotar leite</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
+                <h2 className="text-lg font-bold text-gray-800">{t('Anotar leite')}</h2>
+                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
               </div>
 
               <div className="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl mb-5">
@@ -537,7 +540,7 @@ export default function MilkProductionPage() {
                       registerMode === mode ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500'
                     }`}
                   >
-                    {label}
+                    {t(label)}
                   </button>
                 ))}
               </div>

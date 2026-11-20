@@ -11,6 +11,8 @@ import { SortTh } from '@/components/SortTh'
 import { contactLabel } from '@/lib/identity'
 import { maskPhone } from '@/lib/masks'
 import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
+import { PasswordInput } from '@/components/PasswordInput'
+import { useLang, useT } from '@/lib/i18n'
 
 interface User {
   id: string
@@ -43,6 +45,7 @@ function PermissionsGrid({ value, onChange, disabled, allowed }: {
   /** Módulos que quem está editando pode liberar (undefined = todos) */
   allowed?: string[]
 }) {
+  const t = useT()
   function toggle(key: string) {
     onChange(value.includes(key) ? value.filter(k => k !== key) : [...value, key])
   }
@@ -62,7 +65,7 @@ function PermissionsGrid({ value, onChange, disabled, allowed }: {
             onChange={() => !locked && toggle(m.key)}
             disabled={locked}
           />
-          <span className="truncate">{m.label}</span>
+          <span className="truncate">{t(m.label)}</span>
         </label>
         )
       })}
@@ -74,6 +77,8 @@ const OFFLINE_ACTION = 'Sem internet. Esta ação precisa de conexão; tente de 
 
 export default function UsuariosPage() {
   const { confirm, notify } = useDialog()
+  const t = useT()
+  const es = useLang() === 'es'
   const { user: me } = useUser()
   // O admin e o dono da propriedade (editor com o módulo Usuários) gerenciam a equipe
   const canManage = me?.role === 'admin' || (me?.role === 'editor' && !!me?.permissions?.includes('usuarios'))
@@ -132,9 +137,9 @@ export default function UsuariosPage() {
           permissions: form.permissions,
         }),
       })
-    } catch { setError(OFFLINE_ACTION); setSaving(false); return }
+    } catch { setError(t(OFFLINE_ACTION)); setSaving(false); return }
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) { setError(data.error || 'Erro ao salvar'); setSaving(false); return }
+    if (!res.ok) { setError(t(data.error || 'Erro ao salvar')); setSaving(false); return }
     setSaving(false); setShowCreate(false); setForm(EMPTY_FORM); fetchUsers()
   }
 
@@ -152,17 +157,17 @@ export default function UsuariosPage() {
           ? { name: editForm.name }
           : { name: editForm.name, role: editForm.role, permissions: editForm.permissions }),
       })
-    } catch { setError(OFFLINE_ACTION); setSaving(false); return }
+    } catch { setError(t(OFFLINE_ACTION)); setSaving(false); return }
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) { setError(data.error || 'Erro ao salvar'); setSaving(false); return }
+    if (!res.ok) { setError(t(data.error || 'Erro ao salvar')); setSaving(false); return }
     setSaving(false); setEditUser(null); fetchUsers()
   }
 
   async function handleDelete(id: string, name: string) {
-    if (!(await confirm({ title: `Excluir o usuário ${name}?`, message: 'Ele não vai mais conseguir entrar no sistema.', confirmLabel: 'Excluir', danger: true }))) return
+    if (!(await confirm({ title: t('Excluir o usuário {name}?', { name }), message: t('Ele não vai mais conseguir entrar no sistema.'), confirmLabel: t('Excluir'), danger: true }))) return
     let res: Response
-    try { res = await fetchWithTimeout(`/api/users/${id}`, { method: 'DELETE' }) } catch { await notify('Não foi possível excluir', OFFLINE_ACTION); return }
-    if (!res.ok) { const d = await res.json().catch(() => ({})); await notify('Não foi possível excluir', d.error); return }
+    try { res = await fetchWithTimeout(`/api/users/${id}`, { method: 'DELETE' }) } catch { await notify(t('Não foi possível excluir'), t(OFFLINE_ACTION)); return }
+    if (!res.ok) { const d = await res.json().catch(() => ({})); await notify(t('Não foi possível excluir'), d.error ? t(d.error) : undefined); return }
     fetchUsers()
   }
 
@@ -171,37 +176,37 @@ export default function UsuariosPage() {
       <div>
         <div className="flex items-start justify-between gap-3 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Usuários</h1>
-            <p className="text-gray-500 text-sm mt-1">Gerencie acesso e permissões por módulo</p>
+            <h1 className="text-2xl font-bold text-gray-800">{t('Usuários')}</h1>
+            <p className="text-gray-500 text-sm mt-1">{t('Gerencie acesso e permissões por módulo')}</p>
           </div>
           {canManage && (
           <button
             onClick={() => { setShowCreate(true); setError(''); setForm(EMPTY_FORM) }}
             className="bg-green-700 hover:bg-green-600 text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap"
           >
-            + Novo Usuário
+            {t('+ Novo Usuário')}
           </button>
           )}
         </div>
 
-        {fromCache && <p role="status" className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho.</p>}
+        {fromCache && <p role="status" className="mb-4 rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">{t('Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho.')}</p>}
         {loading ? (
-          <p className="text-gray-400 text-sm">Carregando...</p>
+          <p className="text-gray-400 text-sm">{t('Carregando...')}</p>
         ) : loadError && users.length === 0 ? (
-          <p className="text-gray-500 text-sm">{loadError}</p>
+          <p className="text-gray-500 text-sm">{t(loadError)}</p>
         ) : users.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
-            <p className="text-lg">Nenhum usuário cadastrado</p>
+            <p className="text-lg">{t('Nenhum usuário cadastrado')}</p>
           </div>
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
                 <tr>
-                  <SortTh label="Nome" sortKey="name" sort={sort} className="px-4 py-3 text-left" />
-                  <SortTh label="Contato" sortKey="email" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
-                  <SortTh label="Perfil" sortKey="role" sort={sort} className="px-4 py-3 text-left" />
-                  <SortTh label="Módulos" sortKey="modules" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                  <SortTh label={t('Nome')} sortKey="name" sort={sort} className="px-4 py-3 text-left" />
+                  <SortTh label={t('Contato')} sortKey="email" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
+                  <SortTh label={t('Perfil')} sortKey="role" sort={sort} className="px-4 py-3 text-left" />
+                  <SortTh label={t('Módulos')} sortKey="modules" sort={sort} className="hidden sm:table-cell px-4 py-3 text-left" />
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -215,16 +220,16 @@ export default function UsuariosPage() {
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{contactLabel(u)}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${roleColor[u.role] || 'bg-gray-100'}`}>
-                        {ROLE_LABEL[u.role] || u.role}
+                        {t(ROLE_LABEL[u.role] || u.role)}
                       </span>
                     </td>
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-400 text-xs">
                       {u.role === 'admin' ? (
-                        <span className="text-purple-600 font-medium">Todos os módulos</span>
+                        <span className="text-purple-600 font-medium">{t('Todos os módulos')}</span>
                       ) : u.permissions && u.permissions.length > 0 ? (
-                        <span>{u.permissions.length} módulo{u.permissions.length > 1 ? 's' : ''}</span>
+                        <span>{u.permissions.length > 1 ? t('{n} módulos', { n: u.permissions.length }) : t('1 módulo')}</span>
                       ) : (
-                        <span className="text-red-400">Sem acesso</span>
+                        <span className="text-red-400">{t('Sem acesso')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -233,7 +238,7 @@ export default function UsuariosPage() {
                         <button
                           onClick={() => openEdit(u)}
                           className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Editar"
+                          title={t('Editar')}
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -244,7 +249,7 @@ export default function UsuariosPage() {
                           <button
                             onClick={() => handleDelete(u.id, u.name)}
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Excluir"
+                            title={t('Excluir')}
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -266,47 +271,47 @@ export default function UsuariosPage() {
             <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold text-gray-800">Novo Usuário</h2>
-                  <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
+                  <h2 className="text-lg font-bold text-gray-800">{t('Novo Usuário')}</h2>
+                  <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
                 </div>
                 <form onSubmit={handleCreate} className="flex flex-col gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Nome *</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Nome')} *</label>
                     <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Telefone</label>
-                    <input type="tel" inputMode="tel" placeholder="(35) 99999-0000" value={form.phone} onChange={e => setForm({ ...form, phone: maskPhone(e.target.value) })}
+                    <label className="text-xs font-medium text-gray-600">{t('Telefone')}</label>
+                    <input type="tel" inputMode="tel" placeholder={es ? '0981 123456' : '(35) 99999-0000'} value={form.phone} onChange={e => setForm({ ...form, phone: maskPhone(e.target.value) })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">E-mail (opcional)</label>
+                    <label className="text-xs font-medium text-gray-600">{t('E-mail (opcional)')}</label>
                     <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                    <p className="mt-1 text-xs text-gray-500">A pessoa entra com o telefone ou com o e-mail. Informe pelo menos um.</p>
+                    <p className="mt-1 text-xs text-gray-500">{t('A pessoa entra com o telefone ou com o e-mail. Informe pelo menos um.')}</p>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Senha *</label>
-                    <input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required
+                    <label className="text-xs font-medium text-gray-600">{t('Senha')} *</label>
+                    <PasswordInput value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Perfil</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Perfil')}</label>
                     <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value, permissions: [] })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
-                      <option value="editor">Editor</option>
-                      <option value="viewer">Visualizador</option>
+                      <option value="editor">{t('Editor')}</option>
+                      <option value="viewer">{t('Visualizador')}</option>
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600 block mb-1.5">Módulos permitidos</label>
+                    <label className="text-xs font-medium text-gray-600 block mb-1.5">{t('Módulos permitidos')}</label>
                     <PermissionsGrid value={form.permissions} onChange={p => setForm({ ...form, permissions: p })} disabled={false} allowed={grantable} />
                   </div>
                   {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
                   <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={() => setShowCreate(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
-                    <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
+                    <button type="button" onClick={() => setShowCreate(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
+                    <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
                   </div>
                 </form>
               </div>
@@ -321,31 +326,31 @@ export default function UsuariosPage() {
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h2 className="text-lg font-bold text-gray-800">Editar Usuário</h2>
+                    <h2 className="text-lg font-bold text-gray-800">{t('Editar Usuário')}</h2>
                     <p className="text-xs text-gray-500">{contactLabel(editUser)}</p>
                   </div>
-                  <button onClick={() => setEditUser(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
+                  <button onClick={() => setEditUser(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
                 </div>
                 <form onSubmit={handleUpdate} className="flex flex-col gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Nome</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Nome')}</label>
                     <input value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} required
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">Perfil</label>
+                    <label className="text-xs font-medium text-gray-600">{t('Perfil')}</label>
                     <select value={editForm.role} onChange={e => setEditForm({ ...editForm, role: e.target.value, permissions: [] })}
                       disabled={editUser.id === me?.id}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 disabled:bg-gray-50 disabled:text-gray-400">
-                      <option value="editor">Editor</option>
-                      <option value="viewer">Visualizador</option>
+                      <option value="editor">{t('Editor')}</option>
+                      <option value="viewer">{t('Visualizador')}</option>
                     </select>
                     {editUser.id === me?.id && (
-                      <p className="text-xs text-gray-400 mt-1">Você não pode alterar seu próprio perfil.</p>
+                      <p className="text-xs text-gray-400 mt-1">{t('Você não pode alterar seu próprio perfil.')}</p>
                     )}
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600 block mb-1.5">Módulos permitidos</label>
+                    <label className="text-xs font-medium text-gray-600 block mb-1.5">{t('Módulos permitidos')}</label>
                     <PermissionsGrid
                       value={editForm.permissions}
                       onChange={p => setEditForm({ ...editForm, permissions: p })}
@@ -353,13 +358,13 @@ export default function UsuariosPage() {
                       allowed={grantable}
                     />
                     {editUser.id === me?.id && (
-                      <p className="text-xs text-gray-400 mt-1">Você não pode alterar seus próprios módulos.</p>
+                      <p className="text-xs text-gray-400 mt-1">{t('Você não pode alterar seus próprios módulos.')}</p>
                     )}
                   </div>
                   {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
                   <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={() => setEditUser(null)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
-                    <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
+                    <button type="button" onClick={() => setEditUser(null)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
+                    <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
                   </div>
                 </form>
               </div>

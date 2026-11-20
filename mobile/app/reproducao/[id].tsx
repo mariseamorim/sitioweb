@@ -13,8 +13,9 @@ import {
 } from '@/repos/reproductions'
 import { Badge, Button, Card, Chips, DateField, Field, Muted, Notice, Screen, SelectField } from '@/ui'
 import { colors, font, radius, space } from '@/theme'
+import { useT } from '@/lib/i18n'
 
-const STATUS_OPTIONS = STATUS_LIST.map(s => ({ value: s, label: s }))
+const statusOptions = (t: (s: string) => string) => STATUS_LIST.map(s => ({ value: s, label: t(s) }))
 
 // Reprodução: id = "nova" abre "Registrar cobertura"; um id existente abre o detalhe do registro
 export default function ReproducaoScreen() {
@@ -29,6 +30,7 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
   const farmId = useFarmId()
   const { canEdit } = useSession()
   const router = useRouter()
+  const t = useT()
   const females = useLive(() => breedableFemales(farmId), [farmId])
   const [form, setForm] = useState<CoverageForm>({
     ...EMPTY_COVERAGE, femaleId: presetFemaleId ?? '', status: presetStatus && STATUS_LIST.includes(presetStatus) ? presetStatus : 'Coberta',
@@ -45,8 +47,8 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
   // Salva a cobertura. Com `repeat`, mantém data, tipo, touro, partida e inseminador e limpa só a fêmea:
   // é o dia de IATF, em que a fila toda leva o mesmo sêmen e só muda o brinco.
   function save(repeat: boolean) {
-    if (!form.femaleId) { setError('Escolha a fêmea'); return }
-    if (!form.coverageDate) { setError('Informe a data da cobertura'); return }
+    if (!form.femaleId) { setError(t('Escolha a fêmea')); return }
+    if (!form.coverageDate) { setError(t('Informe a data da cobertura')); return }
     setError('')
     createCoverage(farmId, form)
     if (repeat) {
@@ -59,47 +61,47 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: 'Registrar cobertura' }} />
-      {!canEdit ? <Notice tone="red" text="Sua conta só pode consultar." /> : null}
-      {repeated ? <Notice tone="green" text={`${repeated.count} cobertura${repeated.count === 1 ? '' : 's'} salva${repeated.count === 1 ? '' : 's'}. Mantido para a próxima fêmea: ${repeated.kept.join(', ')}.`} /> : null}
-      <SelectField label="Fêmea" value={form.femaleId || null} onChange={v => set({ femaleId: v ?? '' })} searchable placeholder="Escolher a fêmea"
-        options={females.map(a => ({ value: a.id, label: a.name, detail: `${a.customCode || a.code} · ${a.species}` }))} />
-      <Text style={styles.label}>Como foi</Text>
+      <Stack.Screen options={{ title: t('Registrar cobertura') }} />
+      {!canEdit ? <Notice tone="red" text={t('Sua conta só pode consultar.')} /> : null}
+      {repeated ? <Notice tone="green" text={`${t(repeated.count === 1 ? '{n} cobertura salva.' : '{n} coberturas salvas.', { n: repeated.count })} ${t('Mantido para a próxima fêmea:')} ${repeated.kept.join(', ')}.`} /> : null}
+      <SelectField label={t('Fêmea')} value={form.femaleId || null} onChange={v => set({ femaleId: v ?? '' })} searchable placeholder={t('Escolher a fêmea')}
+        options={females.map(a => ({ value: a.id, label: a.name, detail: `${a.customCode || a.code} · ${t(a.species)}` }))} />
+      <Text style={styles.label}>{t('Como foi')}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginBottom: space.md }}>
         {COVERAGE_METHODS.map(m => {
           const on = form.method === m.key
           return (
             <Pressable key={m.key} onPress={() => set({ method: on ? '' : m.key })} style={[styles.method, on && { borderColor: colors.green, backgroundColor: colors.greenSoft }]}>
-              <Text style={{ fontWeight: '700', color: on ? colors.green : colors.text }}>{m.label}</Text>
-              <Muted>{m.hint}</Muted>
+              <Text style={{ fontWeight: '700', color: on ? colors.green : colors.text }}>{t(m.label)}</Text>
+              <Muted>{t(m.hint)}</Muted>
             </Pressable>
           )
         })}
       </View>
-      <Field label="Touro" value={form.maleName} onChangeText={v => set({ maleName: v })} placeholder="Nome ou código do touro" />
-      <DateField label="Data da cobertura *" value={form.coverageDate} onChange={v => set({ coverageDate: v })} />
-      {form.status === 'Prenha' && !form.coverageDate ? <Notice text="Se não souber o dia certo, coloque uma data aproximada: ela define a previsão do parto." /> : null}
-      <SelectField label="Status" value={form.status} options={STATUS_OPTIONS} onChange={v => set({ status: v ?? 'Coberta' })} />
+      <Field label={t('Touro')} value={form.maleName} onChangeText={v => set({ maleName: v })} placeholder={t('Nome ou código do touro')} />
+      <DateField label={t('Data da cobertura *')} value={form.coverageDate} onChange={v => set({ coverageDate: v })} />
+      {form.status === 'Prenha' && !form.coverageDate ? <Notice text={t('Se não souber o dia certo, coloque uma data aproximada: ela define a previsão do parto.')} /> : null}
+      <SelectField label={t('Status')} value={form.status} options={statusOptions(t)} onChange={v => set({ status: v ?? 'Coberta' })} />
       {/* Detalhes recolhidos: o registro rápido é fêmea, como foi, touro e data */}
-      {!more ? <Button label="Mais detalhes (opcional)" variant="ghost" onPress={() => setShowMore(true)} style={{ marginBottom: space.md }} /> : (
+      {!more ? <Button label={t('Mais detalhes (opcional)')} variant="ghost" onPress={() => setShowMore(true)} style={{ marginBottom: space.md }} /> : (
         <Card>
-          <Text style={[styles.label, { marginBottom: space.md }]}>Mais detalhes (opcional)</Text>
+          <Text style={[styles.label, { marginBottom: space.md }]}>{t('Mais detalhes (opcional)')}</Text>
           {isInsemination(form.method) ? (
             <View>
-              <Field label="Partida do sêmen" value={form.semenBatch} onChangeText={v => set({ semenBatch: v })} placeholder="Ex.: 2412-A" autoCapitalize="characters" />
-              <Field label="Inseminador" value={form.inseminator} onChangeText={v => set({ inseminator: v })} placeholder="Quem inseminou" />
+              <Field label={t('Partida do sêmen')} value={form.semenBatch} onChangeText={v => set({ semenBatch: v })} placeholder={t('Ex.: 2412-A')} autoCapitalize="characters" />
+              <Field label={t('Inseminador')} value={form.inseminator} onChangeText={v => set({ inseminator: v })} placeholder={t('Quem inseminou')} />
             </View>
           ) : null}
-          <Field label="Registro do touro" value={form.bullRegistry} onChangeText={v => set({ bullRegistry: v })} placeholder="Ex.: RGD 12345" />
-          <DateField label="Data do cio" value={form.heatDate} onChange={v => set({ heatDate: v })} allowEmpty />
-          <Field label="Observações" value={form.observations} onChangeText={v => set({ observations: v })} multiline />
+          <Field label={t('Registro do touro')} value={form.bullRegistry} onChangeText={v => set({ bullRegistry: v })} placeholder={t('Ex.: RGD 12345')} />
+          <DateField label={t('Data do cio')} value={form.heatDate} onChange={v => set({ heatDate: v })} allowEmpty />
+          <Field label={t('Observações')} value={form.observations} onChangeText={v => set({ observations: v })} multiline />
         </Card>
       )}
       {error ? <Notice tone="red" text={error} /> : null}
-      <Button label="Salvar" onPress={() => save(false)} disabled={!canEdit} />
-      <Button label="Salvar e repetir para outra fêmea" variant="secondary" onPress={() => save(true)} disabled={!canEdit} style={{ marginTop: space.sm }} />
-      <Muted style={{ marginTop: space.sm }}>Para o dia de inseminação: a data, o tipo, o touro, a partida e o inseminador ficam preenchidos e só a fêmea muda.</Muted>
-      {repeated ? <Button label="Fechar" variant="ghost" onPress={() => router.back()} style={{ marginTop: space.sm }} /> : null}
+      <Button label={t('Salvar')} onPress={() => save(false)} disabled={!canEdit} />
+      <Button label={t('Salvar e repetir para outra fêmea')} variant="secondary" onPress={() => save(true)} disabled={!canEdit} style={{ marginTop: space.sm }} />
+      <Muted style={{ marginTop: space.sm }}>{t('Para o dia de inseminação: a data, o tipo, o touro, a partida e o inseminador ficam preenchidos e só a fêmea muda.')}</Muted>
+      {repeated ? <Button label={t('Fechar')} variant="ghost" onPress={() => router.back()} style={{ marginTop: space.sm }} /> : null}
     </Screen>
   )
 }
@@ -110,12 +112,13 @@ function DetailScreen({ id }: { id: string }) {
   const farmId = useFarmId()
   const { canEdit } = useSession()
   const router = useRouter()
+  const t = useT()
   const r = useLive(() => getReproduction(id), [id])
   const [mode, setMode] = useState<'ver' | 'editar' | 'parto'>('ver')
   const [editStatus, setEditStatus] = useState<string | null>(r?.status ?? null)
   const [editBirthDate, setEditBirthDate] = useState(isoDay(r?.actualBirthDate))
 
-  if (!r) return <Screen><Stack.Screen options={{ title: 'Reprodução' }} /><Notice text="Registro não encontrado." /></Screen>
+  if (!r) return <Screen><Stack.Screen options={{ title: t('Reprodução') }} /><Notice text={t('Registro não encontrado.')} /></Screen>
 
   const g = isOpen(r) ? gestation(r.coverageDate, r.expectedBirthDate, todayISO()) : null
   const mother = canEdit && isOpen(r) ? getAnimal(r.femaleId) : null
@@ -126,40 +129,40 @@ function DetailScreen({ id }: { id: string }) {
   }
 
   function remove() {
-    Alert.alert('Excluir este registro de reprodução?', undefined, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Excluir', style: 'destructive', onPress: () => { removeReproduction(farmId, r!.id); router.back() } },
+    Alert.alert(t('Excluir este registro de reprodução?'), undefined, [
+      { text: t('Cancelar'), style: 'cancel' },
+      { text: t('Excluir'), style: 'destructive', onPress: () => { removeReproduction(farmId, r!.id); router.back() } },
     ])
   }
 
   const item = (label: string, value: string, tone?: string) => (
     <View style={{ marginBottom: space.sm }}>
-      <Muted>{label}</Muted>
+      <Muted>{t(label)}</Muted>
       <Text style={{ color: tone ?? colors.text, fontWeight: '600', fontSize: font.md }}>{value}</Text>
     </View>
   )
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: r.femaleName ?? 'Reprodução' }} />
+      <Stack.Screen options={{ title: r.femaleName ?? t('Reprodução') }} />
       <Card>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: space.md }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text }}>{r.femaleName ?? 'Animal removido'}</Text>
-            <Muted>Cobertura: {brDate(r.coverageDate)}</Muted>
+            <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text }}>{r.femaleName ?? t('Animal removido')}</Text>
+            <Muted>{t('Cobertura')}: {brDate(r.coverageDate)}</Muted>
           </View>
-          <Badge label={r.status} tone={statusTone(r.status)} />
+          <Badge label={t(r.status)} tone={statusTone(r.status)} />
         </View>
         {item('Touro', `${r.maleName || '—'}${r.bullRegistry ? ` · ${r.bullRegistry}` : ''}`)}
-        {r.method ? item('Como foi', `${methodLabel(r.method)}${r.semenBatch ? ` · partida ${r.semenBatch}` : ''}`) : null}
+        {r.method ? item('Como foi', `${methodLabel(r.method)}${r.semenBatch ? ` · ${t('partida')} ${r.semenBatch}` : ''}`) : null}
         {r.inseminator ? item('Inseminador', r.inseminator) : null}
         {r.heatDate ? item('Cio', brDate(r.heatDate)) : null}
         {item('Parto esperado', r.expectedBirthDate ? brDate(r.expectedBirthDate) : '—')}
         {g ? (
           <View style={{ marginBottom: space.sm }}>
-            <Muted>Gestação</Muted>
+            <Muted>{t('Gestação')}</Muted>
             <Text style={{ color: colors.text, fontWeight: '600' }}>
-              {g.days} dia{g.days === 1 ? '' : 's'} · {g.toBirth >= 0 ? `faltam ${g.toBirth} dia${g.toBirth === 1 ? '' : 's'} para o parto` : `parto atrasado ${-g.toBirth} dia${g.toBirth === -1 ? '' : 's'}`}
+              {t(g.days === 1 ? '{n} dia' : '{n} dias', { n: g.days })} · {g.toBirth >= 0 ? t(g.toBirth === 1 ? 'falta {n} dia para o parto' : 'faltam {n} dias para o parto', { n: g.toBirth }) : t(g.toBirth === -1 ? 'parto atrasado {n} dia' : 'parto atrasado {n} dias', { n: -g.toBirth })}
             </Text>
             <View style={styles.bar}><View style={[styles.barFill, { width: `${g.percent}%` }]} /></View>
           </View>
@@ -171,19 +174,19 @@ function DetailScreen({ id }: { id: string }) {
       {/* Parto: anota a cria (ela entra no rebanho, ligada à mãe) e a cobertura fecha sozinha */}
       {mother ? (mode === 'parto'
         ? <CalfForm farmId={farmId} reproduction={r} mother={mother} onCancel={() => setMode('ver')} onSaved={() => router.back()} />
-        : <Button label="Registrar parto e anotar a cria" onPress={() => setMode('parto')} style={{ marginBottom: space.md }} />) : null}
+        : <Button label={t('Registrar parto e anotar a cria')} onPress={() => setMode('parto')} style={{ marginBottom: space.md }} />) : null}
 
       {canEdit ? (mode === 'editar'
         ? <RecordEditor farmId={farmId} record={r} onCancel={() => setMode('ver')} onSaved={() => setMode('ver')} />
-        : <Button label="Editar registro" variant="secondary" onPress={() => setMode('editar')} style={{ marginBottom: space.md }} />) : null}
+        : <Button label={t('Editar registro')} variant="secondary" onPress={() => setMode('editar')} style={{ marginBottom: space.md }} />) : null}
 
       {canEdit ? (
         <Card>
-          <Text style={[styles.label, { marginBottom: space.md }]}>Atualizar status</Text>
-          <SelectField label="Status" value={editStatus} options={STATUS_OPTIONS} onChange={setEditStatus} />
-          {editStatus === 'Parida' ? <DateField label="Data do parto" value={editBirthDate} onChange={setEditBirthDate} allowEmpty /> : null}
-          <Button label="Salvar" onPress={saveStatus} />
-          <Button label="Excluir" variant="ghost" onPress={remove} style={{ marginTop: space.sm }} />
+          <Text style={[styles.label, { marginBottom: space.md }]}>{t('Atualizar status')}</Text>
+          <SelectField label={t('Status')} value={editStatus} options={statusOptions(t)} onChange={setEditStatus} />
+          {editStatus === 'Parida' ? <DateField label={t('Data do parto')} value={editBirthDate} onChange={setEditBirthDate} allowEmpty /> : null}
+          <Button label={t('Salvar')} onPress={saveStatus} />
+          <Button label={t('Excluir')} variant="ghost" onPress={remove} style={{ marginTop: space.sm }} />
         </Card>
       ) : null}
     </Screen>
@@ -198,10 +201,11 @@ function RecordEditor({ farmId, record, onCancel, onSaved }: { farmId: string; r
     semenBatch: record.semenBatch ?? '', inseminator: record.inseminator ?? '', observations: record.observations ?? '',
   })
   const [error, setError] = useState('')
+  const t = useT()
   const set = (patch: Partial<typeof form>) => setForm(f => ({ ...f, ...patch }))
 
   function save() {
-    if (!form.coverageDate) { setError('Informe a data da cobertura'); return }
+    if (!form.coverageDate) { setError(t('Informe a data da cobertura')); return }
     // A data da cobertura recalcula o parto previsto; a previsão digitada vale por cima
     updateCoverage(farmId, record, form)
     onSaved()
@@ -209,25 +213,25 @@ function RecordEditor({ farmId, record, onCancel, onSaved }: { farmId: string; r
 
   return (
     <Card>
-      <Text style={[styles.label, { marginBottom: space.md }]}>Editar registro</Text>
-      <DateField label="Data da cobertura" value={form.coverageDate} onChange={v => set({ coverageDate: v })} />
-      <DateField label="Parto estimado" value={form.expectedBirthDate} onChange={v => set({ expectedBirthDate: v })} allowEmpty />
-      <DateField label="Data do cio" value={form.heatDate} onChange={v => set({ heatDate: v })} allowEmpty />
-      <SelectField label="Como foi" value={form.method || null} onChange={v => set({ method: v ?? '' })} allowEmpty placeholder="Não informado"
-        options={COVERAGE_METHODS.map(m => ({ value: m.key, label: m.label, detail: m.hint }))} />
-      <Field label="Touro (nome)" value={form.maleName} onChangeText={v => set({ maleName: v })} />
-      <Field label="Registro do touro" value={form.bullRegistry} onChangeText={v => set({ bullRegistry: v })} />
+      <Text style={[styles.label, { marginBottom: space.md }]}>{t('Editar registro')}</Text>
+      <DateField label={t('Data da cobertura')} value={form.coverageDate} onChange={v => set({ coverageDate: v })} />
+      <DateField label={t('Parto estimado')} value={form.expectedBirthDate} onChange={v => set({ expectedBirthDate: v })} allowEmpty />
+      <DateField label={t('Data do cio')} value={form.heatDate} onChange={v => set({ heatDate: v })} allowEmpty />
+      <SelectField label={t('Como foi')} value={form.method || null} onChange={v => set({ method: v ?? '' })} allowEmpty placeholder={t('Não informado')}
+        options={COVERAGE_METHODS.map(m => ({ value: m.key, label: t(m.label), detail: t(m.hint) }))} />
+      <Field label={t('Touro (nome)')} value={form.maleName} onChangeText={v => set({ maleName: v })} />
+      <Field label={t('Registro do touro')} value={form.bullRegistry} onChangeText={v => set({ bullRegistry: v })} />
       {isInsemination(form.method) || !form.method ? (
         <View>
-          <Field label="Partida do sêmen" value={form.semenBatch} onChangeText={v => set({ semenBatch: v })} autoCapitalize="characters" />
-          <Field label="Inseminador" value={form.inseminator} onChangeText={v => set({ inseminator: v })} />
+          <Field label={t('Partida do sêmen')} value={form.semenBatch} onChangeText={v => set({ semenBatch: v })} autoCapitalize="characters" />
+          <Field label={t('Inseminador')} value={form.inseminator} onChangeText={v => set({ inseminator: v })} />
         </View>
       ) : null}
-      <Field label="Observações" value={form.observations} onChangeText={v => set({ observations: v })} multiline />
+      <Field label={t('Observações')} value={form.observations} onChangeText={v => set({ observations: v })} multiline />
       {error ? <Notice tone="red" text={error} /> : null}
       <View style={{ flexDirection: 'row', gap: space.sm }}>
-        <Button label="Cancelar" variant="ghost" onPress={onCancel} style={{ flex: 1 }} />
-        <Button label="Salvar alteração" onPress={save} style={{ flex: 1 }} />
+        <Button label={t('Cancelar')} variant="ghost" onPress={onCancel} style={{ flex: 1 }} />
+        <Button label={t('Salvar alteração')} onPress={save} style={{ flex: 1 }} />
       </View>
     </Card>
   )
@@ -246,49 +250,50 @@ function CalfForm({ farmId, reproduction, mother, onCancel, onSaved }: {
   const [name, setName] = useState('')
   const [status, setStatus] = useState('Vivo')
   const [error, setError] = useState('')
+  const t = useT()
   const defaultName = `Cria da ${mother.name} ${birthDate.slice(0, 4)}`
   const candidates = calfCandidates(farmId, mother)
 
   function save() {
-    if (!canAddCalf({ ...mother, isCastrated: !!mother.isCastrated })) { setError('A mãe precisa ter pelo menos 2 anos e meio para adicionar cria'); return }
+    if (!canAddCalf({ ...mother, isCastrated: !!mother.isCastrated })) { setError(t('A mãe precisa ter pelo menos 2 anos e meio para adicionar cria')); return }
     if (existing === 'existente') {
       const calf = candidates.find(c => c.id === existingId)
-      if (!calf) { setError('Escolha a cria'); return }
+      if (!calf) { setError(t('Escolha a cria')); return }
       linkExistingCalf(farmId, reproduction, calf)
       onSaved()
       return
     }
-    if (!gender) { setError('Escolha bezerro ou bezerra'); return }
-    if (birthDate > todayISO()) { setError('A data do parto não pode ser no futuro'); return }
-    if (birthDate < isoDay(mother.birthDate)) { setError('A data do parto não pode ser antes do nascimento da mãe'); return }
+    if (!gender) { setError(t('Escolha bezerro ou bezerra')); return }
+    if (birthDate > todayISO()) { setError(t('A data do parto não pode ser no futuro')); return }
+    if (birthDate < isoDay(mother.birthDate)) { setError(t('A data do parto não pode ser antes do nascimento da mãe')); return }
     registerBirth(farmId, reproduction, { name: name.trim() || defaultName, gender, birthDate, status })
     onSaved()
   }
 
   return (
     <Card style={{ borderColor: colors.green, backgroundColor: colors.greenSoft }}>
-      <Text style={[styles.label, { marginBottom: space.xs }]}>Registrar parto</Text>
-      <Chips options={[{ value: 'nova', label: 'Nova cria' }, { value: 'existente', label: 'Já está cadastrada' }]} value={existing} onChange={setExisting} />
+      <Text style={[styles.label, { marginBottom: space.xs }]}>{t('Registrar parto')}</Text>
+      <Chips options={[{ value: 'nova', label: t('Nova cria') }, { value: 'existente', label: t('Já está cadastrada') }]} value={existing} onChange={setExisting} />
       {existing === 'existente' ? (
         <View>
-          <SelectField label={`Qual animal é cria da ${mother.name}?`} value={existingId} onChange={setExistingId} searchable placeholder="Escolha"
-            options={candidates.map(a => ({ value: a.id, label: a.name, detail: `${a.customCode || a.code} · nasceu em ${brDate(a.birthDate)}` }))} />
-          {candidates.length === 0 ? <Muted style={{ marginBottom: space.md }}>Nenhum animal sem mãe e mais novo que ela.</Muted> : null}
+          <SelectField label={t('Qual animal é cria da {name}?', { name: mother.name })} value={existingId} onChange={setExistingId} searchable placeholder={t('Escolha')}
+            options={candidates.map(a => ({ value: a.id, label: a.name, detail: `${a.customCode || a.code} · ${t('nasceu em')} ${brDate(a.birthDate)}` }))} />
+          {candidates.length === 0 ? <Muted style={{ marginBottom: space.md }}>{t('Nenhum animal sem mãe e mais novo que ela.')}</Muted> : null}
         </View>
       ) : (
         <View>
-          <DateField label="Data do parto" value={birthDate} onChange={setBirthDate} />
-          <Text style={styles.label}>É bezerro ou bezerra?</Text>
-          <Chips options={[{ value: 'Macho', label: 'Bezerro' }, { value: 'Fêmea', label: 'Bezerra' }]} value={gender} onChange={setGender} />
-          <Field label="Nome (opcional)" value={name} onChangeText={setName} placeholder={defaultName} />
-          <Text style={styles.label}>A cria</Text>
-          <Chips options={OUTCOMES} value={status} onChange={setStatus} />
+          <DateField label={t('Data do parto')} value={birthDate} onChange={setBirthDate} />
+          <Text style={styles.label}>{t('É bezerro ou bezerra?')}</Text>
+          <Chips options={[{ value: 'Macho', label: t('Bezerro') }, { value: 'Fêmea', label: t('Bezerra') }]} value={gender} onChange={setGender} />
+          <Field label={t('Nome (opcional)')} value={name} onChangeText={setName} placeholder={defaultName} />
+          <Text style={styles.label}>{t('A cria')}</Text>
+          <Chips options={OUTCOMES.map(o => ({ ...o, label: t(o.label) }))} value={status} onChange={setStatus} />
         </View>
       )}
       {error ? <Notice tone="red" text={error} /> : null}
       <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
-        <Button label="Cancelar" variant="ghost" onPress={onCancel} style={{ flex: 1 }} />
-        <Button label="Salvar cria" onPress={save} style={{ flex: 1 }} />
+        <Button label={t('Cancelar')} variant="ghost" onPress={onCancel} style={{ flex: 1 }} />
+        <Button label={t('Salvar cria')} onPress={save} style={{ flex: 1 }} />
       </View>
     </Card>
   )
