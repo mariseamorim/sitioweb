@@ -18,7 +18,7 @@ export const DEMO_HOURS = 24
 /** Limite de demonstrações ao mesmo tempo: acima disso as mais antigas saem antes do prazo */
 const MAX_ACTIVE = 300
 /** E-mail da conta fixa de demonstração do consultor */
-export const DEMO_CONSULTANT_EMAIL = 'consultor.demo@anotaaiagro.com.br'
+export const DEMO_CONSULTANT_EMAIL = 'veterinario@demo.com'
 /** Propriedades de demonstração que pertencem a uma conta de verdade (a do consultor) não vencem */
 const NOT_PERMANENT: Prisma.FarmWhereInput = { members: { none: { user: { isDemo: false } } } }
 
@@ -60,11 +60,13 @@ export async function cleanupDemos() {
 }
 
 /**
- * Cria (ou recria, com as datas de hoje) a conta fixa de demonstração do consultor, com a senha informada.
- * Recriar apaga a conta anterior e as propriedades fictícias dela.
+ * Cria (ou recria, com as datas de hoje) a conta fixa de demonstração do consultor, como as outras contas @demo.com.
+ * Sem `password`, mantém a senha atual. Recriar apaga a conta anterior e as propriedades fictícias dela.
  */
-export async function resetDemoConsultant(password: string): Promise<{ email: string }> {
-  const old = await prisma.user.findUnique({ where: { email: DEMO_CONSULTANT_EMAIL }, select: { id: true, isDemo: true, vetProfile: { select: { id: true } } } })
+export async function resetDemoConsultant(password?: string): Promise<{ email: string }> {
+  const old = await prisma.user.findUnique({ where: { email: DEMO_CONSULTANT_EMAIL }, select: { id: true, password: true, vetProfile: { select: { id: true } } } })
+  const hash = password ? await hashPassword(password) : old?.password
+  if (!hash) throw new Error('Defina a senha da conta de demonstração.')
   if (old) {
     // Segurança: só mexe numa conta que é mesmo a de demonstração (perfil de veterinário e só propriedades fictícias)
     const real = await prisma.farmMember.count({ where: { userId: old.id, farm: { isDemo: false } } })
@@ -72,7 +74,7 @@ export async function resetDemoConsultant(password: string): Promise<{ email: st
     await prisma.farm.deleteMany({ where: { isDemo: true, members: { some: { userId: old.id } } } })
     await prisma.user.delete({ where: { id: old.id } })
   }
-  await createDemoVet({ email: DEMO_CONSULTANT_EMAIL, password: await hashPassword(password) })
+  await createDemoVet({ email: DEMO_CONSULTANT_EMAIL, password: hash })
   return { email: DEMO_CONSULTANT_EMAIL }
 }
 

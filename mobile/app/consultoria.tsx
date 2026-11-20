@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Share, Text, View } from 'react-native'
+import { Share, Text, useWindowDimensions, View } from 'react-native'
 import { API_BASE, isDemo } from '@/api/client'
 import { useSession } from '@/auth/session'
 import { Button, Card, Empty, Muted, Notice, Screen, Stat } from '@/ui'
@@ -15,6 +15,10 @@ import { VetCharts } from '@/vet/charts'
 export default function Consultoria() {
   const { user } = useSession()
   const t = useT()
+  // Largura mínima dos botões pequenos: a palavra mais longa inteira, no tamanho de letra do celular (bold ≈ 0,62 da letra por caractere)
+  const { fontScale } = useWindowDimensions()
+  const longest = Math.max(...['Indicadores', 'Reprodução', 'Animais'].map((label) => t(label).length))
+  const smallButton = { flexGrow: 1, flexBasis: Math.ceil(longest * font.md * 0.62 * fontScale) + 2 * space.lg + 4 }
   const { panel, offline, error: loadError, reload } = useVetPanel()
   const [error, setError] = useState('')
   const { open, busy } = useOpenFarm(setError)
@@ -60,10 +64,11 @@ export default function Consultoria() {
             {c.animals} {t('animais')} · {t('concepção')} {c.pregnancyRate === null ? '—' : `${c.pregnancyRate}%`} · {c.awaitingDiagnosis} {t('a diagnosticar')} · {c.birthsSoon} {c.birthsSoon === 1 ? t('parto') : t('partos')} {t('em 30 dias')}
           </Text>
           <Button label={t('Diagnóstico em lote')} onPress={() => void open(c.farmId, '/reproducao/diagnostico')} loading={busy === c.farmId} disabled={!!busy} style={{ marginTop: space.md }} />
-          <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.sm }}>
-            <Button label={t('Indicadores')} variant="secondary" onPress={() => void open(c.farmId, '/reproducao/indicadores')} disabled={!!busy} style={{ flex: 1 }} />
-            <Button label={t('Reprodução')} variant="secondary" onPress={() => void open(c.farmId, '/reproducao')} disabled={!!busy} style={{ flex: 1 }} />
-            <Button label={t('Animais')} variant="secondary" onPress={() => void open(c.farmId, '/animais')} disabled={!!busy} style={{ flex: 1 }} />
+          {/* Com letra grande os botões passam para a linha de baixo em vez de quebrar a palavra no meio */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm }}>
+            <Button label={t('Indicadores')} variant="secondary" onPress={() => void open(c.farmId, '/reproducao/indicadores')} disabled={!!busy} style={smallButton} />
+            <Button label={t('Reprodução')} variant="secondary" onPress={() => void open(c.farmId, '/reproducao')} disabled={!!busy} style={smallButton} />
+            <Button label={t('Animais')} variant="secondary" onPress={() => void open(c.farmId, '/animais')} disabled={!!busy} style={smallButton} />
           </View>
         </Card>
       ))}
