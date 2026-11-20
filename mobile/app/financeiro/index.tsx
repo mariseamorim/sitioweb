@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Alert, Text, View } from 'react-native'
+import { Alert, Pressable, Text, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { addDays, brDate, brMoney, todayISO } from '@/lib/format'
-import { listTransactions, removeTransaction, totals } from '@/repos/transactions'
+import { isPaid, listTransactions, removeTransaction, setPaid, totals } from '@/repos/transactions'
 import { Badge, Card, Chips, Empty, Fab, IconCircle, Screen, Tile, TileGrid } from '@/ui'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
@@ -54,8 +55,8 @@ export default function Financeiro() {
         <Chips options={[{ value: 'mes', label: 'Este mês' }, { value: '30', label: 'Últimos 30 dias' }, { value: '90', label: 'Últimos 90 dias' }]} value={period} onChange={setPeriod} />
         <View style={{ height: space.sm }} />
         <TileGrid>
-          <Tile accent="green" label={t('Receitas')} value={brMoney(sum.income)} />
-          <Tile accent="red" label={t('Despesas')} value={brMoney(sum.expense)} />
+          <Tile accent="green" label={t('Receitas')} value={brMoney(sum.income)} detail={sum.toReceive ? t('{value} a receber', { value: brMoney(sum.toReceive) }) : undefined} />
+          <Tile accent="red" label={t('Despesas')} value={brMoney(sum.expense)} detail={sum.toPay ? t('{value} a pagar', { value: brMoney(sum.toPay) }) : undefined} />
           <Tile accent={sum.balance < 0 ? 'red' : 'green'} label={t('Saldo')} value={brMoney(sum.balance)} />
         </TileGrid>
         <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.lg, marginBottom: space.xs }}>{t('Movimentações')}</Text>
@@ -81,6 +82,11 @@ export default function Financeiro() {
                   ) : null}
                 </View>
                 <Text style={{ fontWeight: '700', color: tone, fontSize: font.md }}>{income ? '+' : '-'}{brMoney(tx.amount)}</Text>
+                {/* Polegar verde: pago/recebido; vermelho para baixo: em aberto. Tocar troca. */}
+                <Pressable disabled={!canEdit} onPress={() => setPaid(farmId, tx.id, !isPaid(tx))} hitSlop={8} accessibilityRole="button"
+                  accessibilityLabel={t(isPaid(tx) ? (income ? 'Recebido: marcar como a receber' : 'Pago: marcar como a pagar') : (income ? 'A receber: marcar como recebido' : 'A pagar: marcar como pago'))}>
+                  <Ionicons name={isPaid(tx) ? 'thumbs-up' : 'thumbs-down'} size={22} color={isPaid(tx) ? colors.green : colors.red} />
+                </Pressable>
               </View>
             </Card>
           )

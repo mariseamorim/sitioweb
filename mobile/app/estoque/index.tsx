@@ -2,9 +2,9 @@ import { useRouter } from 'expo-router'
 import { FlatList, Text, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
-import { brNumber } from '@/lib/format'
-import { isLow, listSupplies, supplyStatus } from '@/repos/supplies'
-import { Badge, Empty, Fab, IconCircle, Notice, Row } from '@/ui'
+import { brNumber, todayISO } from '@/lib/format'
+import { EXPIRY_WARNING_DAYS, daysToExpiry, isLow, listSupplies, supplyStatus } from '@/repos/supplies'
+import { Badge, Empty, Fab, IconCircle, Notice, Row, Tile, TileGrid } from '@/ui'
 import { colors, space } from '@/theme'
 import { useT, useLocale } from '@/lib/i18n'
 
@@ -23,13 +23,25 @@ export default function Estoque() {
   const t = useT()
   const items = useLive(() => listSupplies(farmId), [farmId])
   const low = items.filter(isLow).length
+  const today = todayISO()
+  // Vencem nos próximos 30 dias ou já venceram
+  const expiring = items.filter(s => { const d = daysToExpiry(s, today); return d !== null && d <= EXPIRY_WARNING_DAYS })
+  const expired = expiring.filter(s => (daysToExpiry(s, today) ?? 0) < 0).length
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <FlatList
         data={items}
         keyExtractor={s => s.id}
         contentContainerStyle={{ padding: space.lg, paddingBottom: 96 }}
-        ListHeaderComponent={low ? <Notice tone="red" text={low === 1 ? t('1 produto abaixo do estoque mínimo') : t('{n} produtos abaixo do estoque mínimo', { n: low })} /> : undefined}
+        ListHeaderComponent={items.length ? (
+          <View>
+            {low ? <Notice tone="red" text={low === 1 ? t('1 produto abaixo do estoque mínimo') : t('{n} produtos abaixo do estoque mínimo', { n: low })} /> : null}
+            <TileGrid>
+              <Tile accent="red" label={t('Abaixo do mínimo')} value={String(low)} />
+              <Tile accent="amber" label={t('Próximos a vencer')} value={String(expiring.length)} detail={expired ? t(expired === 1 ? '1 já venceu' : '{n} já venceram', { n: expired }) : t('Nos próximos {n} dias', { n: EXPIRY_WARNING_DAYS })} />
+            </TileGrid>
+          </View>
+        ) : undefined}
         renderItem={({ item }) => {
           const st = supplyStatus(item)
           return (

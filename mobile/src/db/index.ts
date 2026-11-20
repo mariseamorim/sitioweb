@@ -30,11 +30,11 @@ export const TABLES = {
     list: '/api/veterinary-treatment', module: 'veterinario',
   },
   transactions: {
-    columns: ['type', 'category', 'date', 'amount', 'description', 'animalId', 'createdAt', 'updatedAt'],
+    columns: ['type', 'category', 'date', 'amount', 'description', 'paid', 'animalId', 'createdAt', 'updatedAt'],
     list: '/api/financeiro', module: 'financeiro',
   },
   supplies: {
-    columns: ['name', 'category', 'unit', 'currentQuantity', 'minimumQuantity', 'packageKg', 'unitPrice', 'dailyUseKg', 'daysLeft', 'createdAt', 'updatedAt'],
+    columns: ['name', 'category', 'unit', 'currentQuantity', 'minimumQuantity', 'packageKg', 'unitPrice', 'expiryDate', 'dailyUseKg', 'daysLeft', 'createdAt', 'updatedAt'],
     list: '/api/estoque', module: 'estoque',
   },
   supply_movements: {

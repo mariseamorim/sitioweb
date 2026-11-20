@@ -1,5 +1,5 @@
 import { all } from '@/db'
-import { createLocal, deleteLocal } from '@/sync/local'
+import { createLocal, deleteLocal, updateLocal } from '@/sync/local'
 
 export interface Transaction {
   id: string
@@ -8,6 +8,8 @@ export interface Transaction {
   date: string
   amount: number
   description: string | null
+  /** Pago/recebido; no banco do aparelho vem como 1/0 (vazio nos lançamentos antigos = pago) */
+  paid: boolean | number | null
   animalId: string | null
   animalName: string | null
 }
@@ -23,17 +25,27 @@ export function listTransactions(farmId: string, from: string, to: string): Tran
   )
 }
 
+/** Lançamento antigo, sem a informação, conta como pago */
+export const isPaid = (t: Transaction) => !(t.paid === false || t.paid === 0)
+
 export function totals(items: Transaction[]) {
-  let income = 0, expense = 0
-  for (const t of items) { if (t.type === 'Receita') income += t.amount; else expense += t.amount }
-  return { income, expense, balance: income - expense }
+  let income = 0, expense = 0, toReceive = 0, toPay = 0
+  for (const t of items) {
+    if (t.type === 'Receita') { income += t.amount; if (!isPaid(t)) toReceive += t.amount } else { expense += t.amount; if (!isPaid(t)) toPay += t.amount }
+  }
+  return { income, expense, balance: income - expense, toReceive, toPay }
 }
 
-export interface TransactionInput { type: 'Receita' | 'Despesa'; category: string; date: string; amount: number; description: string; animalId: string | null }
+export interface TransactionInput { type: 'Receita' | 'Despesa'; category: string; date: string; amount: number; description: string; animalId: string | null; paid: boolean }
 
 export function saveTransaction(farmId: string, input: TransactionInput): string {
-  const body = { type: input.type, category: input.category, date: input.date, amount: input.amount, description: input.description.trim() || null, animalId: input.type === 'Receita' ? input.animalId || null : null }
+  const body = { type: input.type, category: input.category, date: input.date, amount: input.amount, description: input.description.trim() || null, animalId: input.type === 'Receita' ? input.animalId || null : null, paid: input.paid }
   return createLocal({ table: 'transactions', farmId, path: '/api/financeiro', body })
+}
+
+/** Marca como pago/recebido ou em aberto (vai para o servidor pela fila, como os outros lançamentos) */
+export function setPaid(farmId: string, id: string, paid: boolean) {
+  updateLocal({ table: 'transactions', farmId, id, path: `/api/financeiro/${id}`, method: 'PATCH', body: { paid } })
 }
 
 export function removeTransaction(farmId: string, id: string) {

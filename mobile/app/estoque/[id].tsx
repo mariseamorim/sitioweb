@@ -4,9 +4,9 @@ import { Alert, Text, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { brDate, brMoney, brNumber, parseNumber, todayISO } from '@/lib/format'
-import { SUPPLY_CATEGORIES, UNITS, addMovement, getSupply, isLow, listMovements, removeSupply, saveSupply, supplyStatus, type Supply } from '@/repos/supplies'
+import { EXPIRY_WARNING_DAYS, SUPPLY_CATEGORIES, UNITS, addMovement, daysToExpiry, getSupply, isLow, listMovements, removeSupply, saveSupply, supplyStatus, type Supply } from '@/repos/supplies'
 import { Badge, Button, Card, Chips, DateField, Field, IconCircle, Muted, Notice, Row, Screen, SelectField } from '@/ui'
-import { colors, space } from '@/theme'
+import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
 export default function EstoqueItem() {
@@ -38,6 +38,7 @@ export default function EstoqueItem() {
           <Badge label={st.label === 'Crítico' ? 'Crítico' : isLow(s) ? 'Abaixo do mínimo' : 'OK'} tone={st.tone} />
         </View>
         <Muted>{t('Mínimo:')} {brNumber(s.minimumQuantity, 0)} {t(s.unit)}</Muted>
+        <ExpiryLine supply={s} />
         {canEdit ? (
           <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md }}>
             <Button label="Entrada / saída" onPress={() => setMoving(true)} style={{ flex: 1 }} />
@@ -66,6 +67,7 @@ function SupplyForm({ farmId, supply, canEdit, onDone }: { farmId: string; suppl
   const [minimum, setMinimum] = useState(supply ? brNumber(supply.minimumQuantity, 0) : '')
   const [packageKg, setPackageKg] = useState(supply?.packageKg ? brNumber(supply.packageKg, 0) : '')
   const [unitPrice, setUnitPrice] = useState(supply?.unitPrice ? brNumber(supply.unitPrice, 2) : '')
+  const [expiry, setExpiry] = useState(supply?.expiryDate ? supply.expiryDate.slice(0, 10) : '')
   const [error, setError] = useState('')
   const t = useT()
 
@@ -73,7 +75,7 @@ function SupplyForm({ farmId, supply, canEdit, onDone }: { farmId: string; suppl
     if (!name.trim() || !category || !unit) { setError('Informe nome, categoria e unidade'); return }
     const cur = parseNumber(current) ?? 0, min = parseNumber(minimum) ?? 0, pk = parseNumber(packageKg), up = parseNumber(unitPrice)
     if ([cur, min, pk, up].some(v => v !== null && !Number.isFinite(v))) { setError('Quantidades inválidas'); return }
-    onDone(saveSupply(farmId, { name, category, unit, currentQuantity: cur, minimumQuantity: min, packageKg: pk, unitPrice: up }, supply?.id))
+    onDone(saveSupply(farmId, { name, category, unit, currentQuantity: cur, minimumQuantity: min, packageKg: pk, unitPrice: up, expiryDate: expiry || null }, supply?.id))
   }
 
   function remove() {
@@ -94,6 +96,7 @@ function SupplyForm({ farmId, supply, canEdit, onDone }: { farmId: string; suppl
       <Field label="Quantidade mínima (avisa quando está acabando)" value={minimum} onChangeText={setMinimum} keyboardType="decimal-pad" />
       <Field label="Kg por unidade (opcional, para sacos)" value={packageKg} onChangeText={setPackageKg} keyboardType="decimal-pad" />
       <Field label="Preço por unidade (R$, opcional)" value={unitPrice} onChangeText={setUnitPrice} keyboardType="decimal-pad" />
+      <DateField label="Validade (opcional)" value={expiry} onChange={setExpiry} allowEmpty />
       {error ? <Notice tone="red" text={error} /> : null}
       <Button label="Salvar" onPress={save} disabled={!canEdit} />
       {supply && canEdit ? <Button label="Apagar produto" variant="ghost" onPress={remove} style={{ marginTop: space.sm }} /> : null}
@@ -127,4 +130,13 @@ function MovementForm({ farmId, supply, onDone }: { farmId: string; supply: Supp
       <Button label="Cancelar" variant="ghost" onPress={onDone} style={{ marginTop: space.sm }} />
     </Screen>
   )
+}
+
+/** Validade: vencido em vermelho, vencendo em até 30 dias em laranja */
+function ExpiryLine({ supply }: { supply: Supply }) {
+  const t = useT()
+  if (!supply.expiryDate) return null
+  const days = daysToExpiry(supply, todayISO()) ?? 0
+  const color = days < 0 ? colors.red : days <= EXPIRY_WARNING_DAYS ? colors.amber : colors.muted
+  return <Text style={{ color, fontSize: font.sm, fontWeight: days <= EXPIRY_WARNING_DAYS ? '700' : '400' }}>{t(days < 0 ? 'Venceu em {date}' : 'Validade: {date}', { date: brDate(supply.expiryDate) })}</Text>
 }

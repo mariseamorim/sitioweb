@@ -23,6 +23,8 @@ interface Transaction {
   date: string
   amount: number
   description?: string | null
+  /** Já pago (despesa) ou recebido (receita); sem o campo (registro antigo) conta como pago */
+  paid?: boolean
   animal?: Animal | null
 }
 
@@ -42,7 +44,7 @@ const OTHER_COLOR = { badge: 'bg-gray-100 text-gray-800', bar: 'bg-gray-400' }
 const categoryColor = (c: string) => CATEGORY_COLOR[c] ?? OTHER_COLOR
 
 const MODULE = 'financeiro'
-const EMPTY_FORM = { type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '' }
+const EMPTY_FORM = { type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '', paid: true }
 
 /** Lançamento guardado sem internet, como aparece na lista e nos totais. Registros antigos da fila têm os campos soltos, sem _body. */
 function pendingTransaction(p: PendingRequest, animals: Animal[]): Transaction | null {
@@ -53,6 +55,7 @@ function pendingTransaction(p: PendingRequest, animals: Animal[]): Transaction |
     id: pendingItemId(p), type: String(b.type ?? ''), category: String(b.category ?? ''),
     date: date.includes('T') ? date : `${date}T00:00:00.000Z`, amount: Number(b.amount) || 0,
     description: b.description ? String(b.description) : null,
+    paid: b.paid !== (false as unknown),
     animal: animals.find(a => a.id === b.animalId) ?? null,
   }
 }
@@ -115,6 +118,9 @@ export default function FinanceiroPage() {
   const totalReceita = filtered.filter(tx => tx.type === 'Receita').reduce((s, tx) => s + tx.amount, 0)
   const totalDespesa = filtered.filter(tx => tx.type === 'Despesa').reduce((s, tx) => s + tx.amount, 0)
   const saldo = totalReceita - totalDespesa
+  // Em aberto: despesas ainda não pagas e receitas ainda não recebidas
+  const openDespesa = filtered.filter(tx => tx.type === 'Despesa' && tx.paid === false).reduce((s, tx) => s + tx.amount, 0)
+  const openReceita = filtered.filter(tx => tx.type === 'Receita' && tx.paid === false).reduce((s, tx) => s + tx.amount, 0)
 
   const byCategory = useMemo(() => {
     const map = new Map<string, number>()
@@ -143,6 +149,16 @@ export default function FinanceiroPage() {
     else afterChange(r.status === 'queued')
   }
 
+  /** Marca como pago/recebido ou em aberto (precisa de internet; sem sinal, fica na fila) */
+  async function togglePaid(tx: Transaction) {
+    if (isPendingId(tx.id)) return setNotice(t('Espere o lançamento ser enviado para mudar se foi pago.'))
+    const paid = tx.paid === false
+    setTransactions(list => list.map(x => (x.id === tx.id ? { ...x, paid } : x)))
+    const r = await sendOrQueue(MODULE, { type: 'update', id: tx.id, url: `/api/financeiro/${tx.id}`, method: 'PATCH', body: { paid }, local: { farmId } })
+    if (r.status === 'rejected') { setNotice(t(r.error)); reload() }
+    else if (r.status === 'queued') setNotice(t(net.queuedMessage))
+  }
+
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setSaving(true)
@@ -155,6 +171,7 @@ export default function FinanceiroPage() {
       description: form.description || null,
       // Animal só na venda de animal; despesa não tem animal
       animalId: form.type === 'Receita' && form.category === 'Venda de Animal' ? form.animalId || null : null,
+      paid: form.paid,
     }
     const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/financeiro', method: 'POST', body, local: { farmId } })
     setSaving(false)
@@ -226,8 +243,8 @@ export default function FinanceiroPage() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-        <StatTile accent="green" label={t('Receitas')} value={fmtBRL(totalReceita)} />
-        <StatTile accent="red" label={t('Despesas')} value={fmtBRL(totalDespesa)} />
+        <StatTile accent="green" label={t('Receitas')} value={fmtBRL(totalReceita)} detail={openReceita ? t('{value} a receber', { value: fmtBRL(openReceita) }) : undefined} />
+        <StatTile accent="red" label={t('Despesas')} value={fmtBRL(totalDespesa)} detail={openDespesa ? t('{value} a pagar', { value: fmtBRL(openDespesa) }) : undefined} />
         <StatTile accent={saldo >= 0 ? 'green' : 'red'} label={t('Saldo')} value={fmtBRL(saldo)} />
       </div>
 
@@ -274,6 +291,7 @@ export default function FinanceiroPage() {
                 <SortTh label={t('Categoria')} sortKey="category" sort={sort} className="px-2 sm:px-4 py-2 sm:py-3 text-left" />
                 <SortTh label={t('Descrição')} sortKey="description" sort={sort} className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-left" />
                 <SortTh label={t('Valor')} sortKey="amount" sort={sort} align="right" className="px-2 sm:px-4 py-2 sm:py-3 text-right" />
+                <th className="px-2 sm:px-4 py-2 sm:py-3 text-center">{t('Pago')}</th>
                 <th className="px-2 sm:px-4 py-2 sm:py-3"></th>
               </tr>
             </thead>
@@ -290,6 +308,16 @@ export default function FinanceiroPage() {
                   <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-gray-500 text-xs truncate">{tx.description || (tx.animal ? tx.animal.name : '—')}</td>
                   <td className={`px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-xs sm:text-sm whitespace-nowrap tabular-nums ${tx.type === 'Receita' ? 'text-green-700' : 'text-red-700'}`}>
                     {tx.type === 'Receita' ? '+' : '-'}{fmtBRL(tx.amount)}
+                  </td>
+                  <td className="px-2 sm:px-4 py-2 sm:py-3 text-center">
+                    {/* Polegar verde: pago/recebido; vermelho para baixo: em aberto. Tocar troca. */}
+                    <button type="button" onClick={() => void togglePaid(tx)} className={`rounded-lg p-1.5 ${tx.paid === false ? 'text-red-600 hover:bg-red-50' : 'text-green-700 hover:bg-green-50'}`}
+                      aria-label={t(tx.paid === false ? (tx.type === 'Receita' ? 'A receber: marcar como recebido' : 'A pagar: marcar como pago') : (tx.type === 'Receita' ? 'Recebido: marcar como a receber' : 'Pago: marcar como a pagar'))}
+                      title={t(tx.paid === false ? (tx.type === 'Receita' ? 'A receber' : 'A pagar') : (tx.type === 'Receita' ? 'Recebido' : 'Pago'))}>
+                      <svg viewBox="0 0 24 24" className={`h-5 w-5 ${tx.paid === false ? 'rotate-180' : ''}`} fill="currentColor" aria-hidden="true">
+                        <path d="M2 21h3V9H2v12zm20-11a2 2 0 0 0-2-2h-6.3l1-4.6v-.3c0-.4-.2-.8-.4-1.1L13.2 1 6.6 7.6C6.2 8 6 8.5 6 9v10a2 2 0 0 0 2 2h9c.8 0 1.5-.5 1.8-1.2l3-7.1c.1-.2.2-.5.2-.7v-2z" />
+                      </svg>
+                    </button>
                   </td>
                   <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
                     <button onClick={() => handleDelete(tx.id)} className="text-red-400 hover:text-red-600 p-1" aria-label={t('Excluir lançamento')}>
@@ -349,6 +377,10 @@ export default function FinanceiroPage() {
                   <input type="text" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
                     className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input type="checkbox" checked={form.paid} onChange={e => setForm({ ...form, paid: e.target.checked })} className="h-5 w-5 accent-green-700" />
+                  {t(form.type === 'Receita' ? 'Já recebido' : 'Já pago')}
+                </label>
                 {form.type === 'Receita' && form.category === 'Venda de Animal' && <div>
                   <label className="text-xs font-medium text-gray-600">{t('Animal (opcional)')}</label>
                   <select value={form.animalId} onChange={e => setForm({ ...form, animalId: e.target.value })}

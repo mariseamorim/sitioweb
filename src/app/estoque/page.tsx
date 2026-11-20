@@ -35,12 +35,19 @@ interface Supply {
   /** Preço por unidade (opcional) e peso do saco */
   unitPrice?: number | null
   packageKg?: number | null
+  /** Validade (opcional), "AAAA-MM-DD..." */
+  expiryDate?: string | null
 }
 
 const CATEGORIES = SUPPLY_CATEGORIES
 const MODULE = 'estoque'
 const EMPTY_MOV = () => ({ type: 'Entrada', quantity: '', date: todayISO(), description: '' })
-const EMPTY_FORM = { name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '' }
+const EMPTY_FORM = { name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '', expiryDate: '' }
+/** Quantos dias antes da validade o insumo entra em "Próximos a vencer" */
+const EXPIRY_WARNING_DAYS = 30
+/** Dias até a validade (negativo: já venceu); null sem validade */
+const daysToExpiry = (s: { expiryDate?: string | null }) => (s.expiryDate ? Math.round((Date.parse(s.expiryDate.slice(0, 10)) - Date.parse(todayISO())) / 86_400_000) : null)
+const fmtDay = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`
 /** Movimentações feitas sem internet, à espera de envio (fila própria, com saldo já refletido na tela) */
 const countMovPending = () => getPendingRecords('estoque-mov').length
 const parseDec = (v: string) => { const n = Number(v.replace(',', '.')); return v.trim() && Number.isFinite(n) && n > 0 ? n : null }
@@ -53,6 +60,7 @@ function pendingSupply(p: PendingRequest): Supply | null {
     id: pendingItemId(p), name: String(b.name ?? ''), category: String(b.category ?? ''), unit: String(b.unit ?? ''),
     currentQuantity: Number(b.currentQuantity ?? 0), minimumQuantity: Number(b.minimumQuantity ?? 0), movements: [],
     unitPrice: parseDec(String(b.unitPrice ?? '')), packageKg: parseDec(String(b.packageKg ?? '')),
+    expiryDate: b.expiryDate ? String(b.expiryDate) : null,
   }
 }
 
@@ -129,6 +137,9 @@ export default function EstoquePage() {
   })
   // Valor em estoque: só os insumos com preço informado entram na soma
   const priced = supplies.filter(s => s.unitPrice)
+  // Vencem nos próximos 30 dias ou já venceram
+  const expiring = supplies.filter(s => { const d = daysToExpiry(s); return d !== null && d <= EXPIRY_WARNING_DAYS })
+  const expired = expiring.filter(s => (daysToExpiry(s) ?? 0) < 0).length
   const stockValue = priced.reduce((sum, s) => sum + Math.max(0, s.currentQuantity) * (s.unitPrice ?? 0), 0)
   const unpriced = supplies.length - priced.length
   const { rows: sortedMovements, sort: movementSort } = useSort(detail?.movements ?? [], {
@@ -382,11 +393,13 @@ export default function EstoquePage() {
 
       {/* Números do estoque */}
       {!loading && supplies.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           <StatTile accent="blue" label={t('Insumos cadastrados')} value={supplies.length} />
           <StatTile accent="green" label={t('Valor total em estoque')} value={priced.length ? fmtMoney(stockValue) : '—'}
             detail={unpriced > 0 ? t('{n} sem preço informado', { n: unpriced }) : undefined} />
           <StatTile accent="red" label={t('Abaixo do mínimo')} value={alertCount} />
+          <StatTile accent="amber" label={t('Próximos a vencer')} value={expiring.length}
+            detail={expired ? t(expired === 1 ? '1 já venceu' : '{n} já venceram', { n: expired }) : t('Nos próximos {n} dias', { n: EXPIRY_WARNING_DAYS })} />
         </div>
       )}
 
@@ -427,6 +440,7 @@ export default function EstoquePage() {
                   <td className="px-4 py-3 font-medium text-gray-800">
                     {s.name}
                     {s.id.startsWith('pending_') && <span className="block text-xs font-medium text-blue-700">{t('Aguardando envio')}</span>}
+                    <ExpiryNote supply={s} />
                   </td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{t(s.category)}</td>
                   <td className={`px-4 py-3 text-right font-semibold tabular-nums ${isLow(s) ? 'text-red-700' : 'text-gray-800'}`}>
@@ -647,6 +661,11 @@ export default function EstoquePage() {
                     <input inputMode="decimal" value={form.unitPrice} onChange={e => setForm({ ...form, unitPrice: e.target.value.replace(/[^\d.,]/g, '') })} placeholder={t('Ex.: 85,00')}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">{t('Validade (opcional)')}</label>
+                    <input type="date" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })}
+                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                  </div>
                   {form.unit === 'sacos' && (
                     <div>
                       <label className="text-xs font-medium text-gray-600">{t('Peso do saco (kg, opcional)')}</label>
@@ -678,17 +697,18 @@ function PriceLine({ supply, farmId, canEdit, onSaved }: { supply: Supply; farmI
   const [editing, setEditing] = useState(false)
   const [price, setPrice] = useState(supply.unitPrice ? String(supply.unitPrice).replace('.', ',') : '')
   const [bag, setBag] = useState(supply.packageKg ? String(supply.packageKg).replace('.', ',') : '')
+  const [expiry, setExpiry] = useState(supply.expiryDate ? supply.expiryDate.slice(0, 10) : '')
   const [error, setError] = useState('')
   const unitName = t(supply.unit === 'sacos' ? 'saco' : supply.unit)
 
   async function save() {
     setError('')
     // Números já convertidos: sem internet o pedido fica na fila e a lista mostra estes valores até o envio
-    const body = { unitPrice: parseDec(price), ...(supply.unit === 'sacos' && { packageKg: parseDec(bag) }) }
-    const r = await sendOrQueue<{ unitPrice?: number | null; packageKg?: number | null }>(MODULE, { type: 'update', id: supply.id, url: `/api/estoque/${supply.id}`, method: 'PUT', body, local: { farmId } })
+    const body = { unitPrice: parseDec(price), expiryDate: expiry || null, ...(supply.unit === 'sacos' && { packageKg: parseDec(bag) }) }
+    const r = await sendOrQueue<{ unitPrice?: number | null; packageKg?: number | null; expiryDate?: string | null }>(MODULE, { type: 'update', id: supply.id, url: `/api/estoque/${supply.id}`, method: 'PUT', body, local: { farmId } })
     if (r.status === 'rejected') return setError(t(r.error))
-    if (r.status === 'sent') onSaved({ unitPrice: r.data.unitPrice ?? null, packageKg: r.data.packageKg ?? null }, false)
-    else onSaved({ unitPrice: body.unitPrice, packageKg: 'packageKg' in body ? body.packageKg ?? null : supply.packageKg }, true)
+    if (r.status === 'sent') onSaved({ unitPrice: r.data.unitPrice ?? null, packageKg: r.data.packageKg ?? null, expiryDate: r.data.expiryDate ?? null }, false)
+    else onSaved({ unitPrice: body.unitPrice, expiryDate: body.expiryDate, packageKg: 'packageKg' in body ? body.packageKg ?? null : supply.packageKg }, true)
     setEditing(false)
   }
 
@@ -704,6 +724,9 @@ function PriceLine({ supply, farmId, canEdit, onSaved }: { supply: Supply; farmI
               <input inputMode="decimal" value={bag} onChange={e => setBag(e.target.value.replace(/[^\d.,]/g, ''))} placeholder={t('Ex.: 25')} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </label>
           )}
+          <label className="text-xs font-medium text-gray-600">{t('Validade')}
+            <input type="date" value={expiry} onChange={e => setExpiry(e.target.value)} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          </label>
         </div>
         <p className="mt-1 text-xs text-gray-500">{t('Opcional. Deixe em branco para não usar.')}</p>
         {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
@@ -718,7 +741,20 @@ function PriceLine({ supply, farmId, canEdit, onSaved }: { supply: Supply; farmI
     <p className="mb-4 text-sm text-gray-600">
       {supply.unitPrice ? <>{t('Preço:')} <strong className="text-gray-800">{fmtMoney(supply.unitPrice)}</strong> {t('por {u}', { u: unitName })}</> : t('Sem preço informado')}
       {supply.unit === 'sacos' && supply.packageKg ? ` · ${t('saco de {n} kg', { n: supply.packageKg })}` : ''}
-      {canEdit && <button type="button" onClick={() => setEditing(true)} className="ml-2 font-semibold text-green-700 underline">{t(supply.unitPrice ? 'Alterar' : 'Informar preço')}</button>}
+      {supply.expiryDate ? ` · ${t('validade {date}', { date: fmtDay(supply.expiryDate) })}` : ''}
+      {canEdit && <button type="button" onClick={() => setEditing(true)} className="ml-2 font-semibold text-green-700 underline">{t(supply.unitPrice || supply.expiryDate ? 'Alterar' : 'Informar preço e validade')}</button>}
     </p>
+  )
+}
+
+/** Aviso de validade na lista: vencido em vermelho, vencendo em até 30 dias em laranja */
+function ExpiryNote({ supply }: { supply: Supply }) {
+  const t = useT()
+  const days = daysToExpiry(supply)
+  if (days === null || days > EXPIRY_WARNING_DAYS) return null
+  return (
+    <span className={`block text-xs font-medium ${days < 0 ? 'text-red-700' : 'text-amber-700'}`}>
+      {days < 0 ? t('Venceu em {date}', { date: fmtDay(supply.expiryDate!) }) : days === 0 ? t('Vence hoje') : t('Vence em {date}', { date: fmtDay(supply.expiryDate!) })}
+    </span>
   )
 }

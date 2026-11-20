@@ -246,6 +246,8 @@ model Transaction {
   date        DateTime
   amount      Float
   description String?
+  /// Já foi pago (despesa) ou recebido (receita); os lançamentos antigos contam como pagos
+  paid        Boolean  @default(true)
   animalId    String?
   animal      Animal?  @relation(fields: [animalId], references: [id])
   farmId      String
@@ -267,6 +269,8 @@ model Supply {
   packageKg       Float?
   /// Preço por unidade do estoque (por saco, por kg...), opcional: com ele o trato mostra o custo
   unitPrice       Float?
+  /// Validade do lote em estoque (remédio, vacina, sêmen...), opcional: alimenta "Próximos a vencer"
+  expiryDate      DateTime?
   farmId          String
   farm            Farm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
   lotSupplies     LotSupply[] // lotes que recebem este produto

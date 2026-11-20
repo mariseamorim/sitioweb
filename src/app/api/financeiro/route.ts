@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
         date: new Date(date),
         amount: parseFloat(amount),
         description: description || null,
+        // Sem a informação (app antigo), conta como pago, como antes
+        paid: body.paid !== false,
         animalId: animalId || null,
       },
       include: { animal: { select: { id: true, name: true, code: true } } },

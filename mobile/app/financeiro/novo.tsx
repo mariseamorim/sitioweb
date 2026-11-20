@@ -18,6 +18,7 @@ export default function FinanceiroNovo() {
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [animalId, setAnimalId] = useState<string | null>(null)
+  const [paid, setPaid] = useState<'sim' | 'nao'>('sim')
   const [error, setError] = useState('')
   const categories = type === 'Receita' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES
 
@@ -25,7 +26,7 @@ export default function FinanceiroNovo() {
     const a = parseNumber(amount)
     if (!category) { setError('Escolha a categoria'); return }
     if (a === null || !Number.isFinite(a) || a <= 0) { setError('Informe o valor'); return }
-    saveTransaction(farmId, { type, category, date, amount: a, description, animalId })
+    saveTransaction(farmId, { type, category, date, amount: a, description, animalId, paid: paid === 'sim' })
     router.back()
   }
 
@@ -36,6 +37,8 @@ export default function FinanceiroNovo() {
       <SelectField label="Categoria" value={category} options={categories.map(c => ({ value: c, label: c }))} onChange={setCategory} />
       <Field label="Valor (R$)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="Ex.: 1250,00" autoFocus />
       <DateField label="Data" value={date} onChange={setDate} />
+      <Chips options={[{ value: 'sim', label: type === 'Receita' ? 'Já recebido' : 'Já pago' }, { value: 'nao', label: type === 'Receita' ? 'A receber' : 'A pagar' }]} value={paid} onChange={setPaid} />
+      <View style={{ height: space.sm }} />
       {type === 'Receita' ? <SelectField label="Animal vendido (opcional)" value={animalId} options={animalOptions(farmId)} onChange={setAnimalId} searchable allowEmpty /> : null}
       <Field label="Descrição (opcional)" value={description} onChangeText={setDescription} multiline />
       {error ? <Notice tone="red" text={error} /> : null}
