@@ -2,10 +2,13 @@
 // com três propriedades fictícias (animais, coberturas, leite de 12 meses, vacinas), agenda, recibos e estoque.
 // Tudo fica marcado com isDemo, não aparece nas listas do administrador e é apagado depois de 24 horas.
 // O app Android tem a sua própria demonstração, só no aparelho (mobile/src/demo).
+// A conta fixa do consultor (DEMO_CONSULTANT_EMAIL) usa os mesmos dados, mas entra com e-mail e senha e não vence:
+// o administrador cria e renova em Contas e senhas.
 import { randomUUID } from 'node:crypto'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { newInviteCode } from '@/lib/vendors'
+import { hashPassword } from '@/lib/auth'
 import { VET_MODULES } from '@/lib/vets'
 
 const DAY = 86_400_000
@@ -14,6 +17,10 @@ const GESTATION = 283
 export const DEMO_HOURS = 24
 /** Limite de demonstrações ao mesmo tempo: acima disso as mais antigas saem antes do prazo */
 const MAX_ACTIVE = 300
+/** E-mail da conta fixa de demonstração do consultor */
+export const DEMO_CONSULTANT_EMAIL = 'consultor.demo@anotaaiagro.com.br'
+/** Propriedades de demonstração que pertencem a uma conta de verdade (a do consultor) não vencem */
+const NOT_PERMANENT: Prisma.FarmWhereInput = { members: { none: { user: { isDemo: false } } } }
 
 const FARMS = [
   { name: 'Estancia San José', owner: 'Ramón Benítez', city: 'Caaguazú', state: 'Caaguazú', cows: 14 },
@@ -40,20 +47,37 @@ export async function cleanupDemos() {
     const extra = await prisma.user.findMany({ where: { isDemo: true, createdAt: { gte: cutoff } }, orderBy: { createdAt: 'desc' }, skip: MAX_ACTIVE, select: { id: true } })
     const users = await prisma.user.findMany({ where: { isDemo: true, OR: [{ createdAt: { lt: cutoff } }, { id: { in: extra.map((u) => u.id) } }] }, select: { id: true } })
     if (!users.length) {
-      await prisma.farm.deleteMany({ where: { isDemo: true, createdAt: { lt: cutoff } } })
+      await prisma.farm.deleteMany({ where: { isDemo: true, createdAt: { lt: cutoff }, ...NOT_PERMANENT } })
       return
     }
     const ids = users.map((u) => u.id)
     // As propriedades da demonstração são só desses veterinários; apagar a propriedade apaga animais, leite e coberturas
-    await prisma.farm.deleteMany({ where: { isDemo: true, OR: [{ members: { some: { userId: { in: ids } } } }, { createdAt: { lt: cutoff } }] } })
+    await prisma.farm.deleteMany({ where: { isDemo: true, ...NOT_PERMANENT, OR: [{ members: { some: { userId: { in: ids } } } }, { createdAt: { lt: cutoff } }] } })
     await prisma.user.deleteMany({ where: { id: { in: ids } } })
   } catch (e) {
     console.error('[demo] limpeza falhou', e)
   }
 }
 
-/** Cria a conta de demonstração e devolve o id da pessoa. */
-export async function createDemoVet(): Promise<string> {
+/**
+ * Cria (ou recria, com as datas de hoje) a conta fixa de demonstração do consultor, com a senha informada.
+ * Recriar apaga a conta anterior e as propriedades fictícias dela.
+ */
+export async function resetDemoConsultant(password: string): Promise<{ email: string }> {
+  const old = await prisma.user.findUnique({ where: { email: DEMO_CONSULTANT_EMAIL }, select: { id: true, isDemo: true, vetProfile: { select: { id: true } } } })
+  if (old) {
+    // Segurança: só mexe numa conta que é mesmo a de demonstração (perfil de veterinário e só propriedades fictícias)
+    const real = await prisma.farmMember.count({ where: { userId: old.id, farm: { isDemo: false } } })
+    if (!old.vetProfile || real > 0) throw new Error('O e-mail da demonstração já é usado por uma conta de verdade.')
+    await prisma.farm.deleteMany({ where: { isDemo: true, members: { some: { userId: old.id } } } })
+    await prisma.user.delete({ where: { id: old.id } })
+  }
+  await createDemoVet({ email: DEMO_CONSULTANT_EMAIL, password: await hashPassword(password) })
+  return { email: DEMO_CONSULTANT_EMAIL }
+}
+
+/** Cria a conta de demonstração e devolve o id da pessoa. Com `login`, é a conta fixa do consultor (não vence). */
+export async function createDemoVet(login?: { email: string; password: string }): Promise<string> {
   const now = Date.now()
   const ago = (days: number) => dayStart(now - days * DAY)
   const ahead = (days: number) => dayStart(now + days * DAY)
@@ -63,7 +87,8 @@ export async function createDemoVet(): Promise<string> {
   const farmIds = FARMS.map(() => randomUUID())
   await prisma.user.create({
     data: {
-      id: userId, name: 'Dra. Ana Demonstração', role: 'editor', permissions: [...VET_MODULES], isDemo: true, farmId: null,
+      id: userId, name: 'Dra. Ana Demonstração', role: 'editor', permissions: [...VET_MODULES], isDemo: !login, farmId: null,
+      ...(login ? { email: login.email, password: login.password } : {}),
       vetProfile: { create: { crmv: 'CRMV-DEMO 0000', city: 'Patos de Minas', state: 'MG', inviteCode: newInviteCode() } },
     },
   })

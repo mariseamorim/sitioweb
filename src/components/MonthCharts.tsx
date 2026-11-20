@@ -15,7 +15,7 @@ export interface MonthPoint {
 
 const W = 360
 const H = 190
-const PAD = { top: 18, right: 18, bottom: 26, left: 46 }
+const PAD = { top: 18, right: 18, bottom: 26, left: 52 }
 /** Largura útil do gráfico; `width` maior deixa o gráfico mais largo sem aumentar letras e altura */
 const plotWidth = (width = W) => width - PAD.left - PAD.right
 const PLOT_H = H - PAD.top - PAD.bottom
@@ -32,8 +32,12 @@ export function niceMax(max: number): number {
   return step * power
 }
 
-// "mil" é igual em português e espanhol; o separador de milhar segue o idioma
-const compact = (n: number, locale: string) => (n >= 10000 ? `${Math.round(n / 1000)} mil` : n.toLocaleString(locale))
+// Número curto para caber na margem do eixo: 9.500 · 12 mil · 6,2 mi ("mil" é igual em português e espanhol; milhão é "mi" / "M")
+export function compact(n: number, locale: string): string {
+  if (n >= 1e6) return `${(n / 1e6).toLocaleString(locale, { maximumFractionDigits: n < 1e7 ? 1 : 0 })} ${locale.startsWith('es') ? 'M' : 'mi'}`
+  if (n >= 10000) return `${Math.round(n / 1000)} mil`
+  return n.toLocaleString(locale)
+}
 
 export function Frame({ max, unit, labels, name, children, width = W }: { max: number; unit: string; labels: string[]; name: string; children: React.ReactNode; width?: number }) {
   const band = plotWidth(width) / labels.length
@@ -59,13 +63,18 @@ export function Frame({ max, unit, labels, name, children, width = W }: { max: n
   )
 }
 
-/** Índices que levam rótulo: o maior valor e o último ponto com valor */
-function labeled(points: MonthPoint[]): Set<number> {
+/** Índices que levam rótulo: o maior valor e o último ponto com valor (este só se não encostar no do maior) */
+function labeled(points: MonthPoint[], band: number): Set<number> {
   const set = new Set<number>()
   let best = -1
   points.forEach((p, i) => { if (p.value !== null && p.value > 0 && (best < 0 || p.value > (points[best].value ?? 0))) best = i })
   if (best >= 0) set.add(best)
-  for (let i = points.length - 1; i >= 0; i--) if (points[i].value !== null && (points[i].value ?? 0) > 0) { set.add(i); break }
+  for (let i = points.length - 1; i >= 0; i--) {
+    if (points[i].value === null || (points[i].value ?? 0) <= 0) continue
+    // Rótulos vizinhos com colunas estreitas (gráfico de 30 dias) ficariam um em cima do outro
+    if (best < 0 || Math.abs(i - best) * band >= 48) set.add(i)
+    break
+  }
   return set
 }
 
@@ -74,7 +83,7 @@ export function ColumnChart({ points, name, unit = '', width }: { points: MonthP
   const band = plotWidth(width) / points.length
   const barWidth = Math.min(24, band - 4)
   const base = PAD.top + PLOT_H
-  const marks = labeled(points)
+  const marks = labeled(points, band)
   const locale = useLocale()
   return (
     <Frame max={max} unit={unit} labels={points.map((p) => p.label)} name={name} width={width}>
@@ -110,7 +119,7 @@ export function LineChart({ points, name, unit = '', max: fixedMax, width }: { p
     d += `${pen ? 'L' : 'M'}${x},${y} `
     pen = true
   })
-  const marks = labeled(points)
+  const marks = labeled(points, band)
   const locale = useLocale()
   return (
     <Frame max={max} unit={unit} labels={points.map((p) => p.label)} name={name} width={width}>
