@@ -311,7 +311,7 @@ export default function FinanceiroPage() {
                   </td>
                   <td className="px-2 sm:px-4 py-2 sm:py-3 text-center">
                     {/* Polegar verde: pago/recebido; vermelho para baixo: em aberto. Tocar troca. */}
-                    <button type="button" onClick={() => void togglePaid(tx)} className={`rounded-lg p-1.5 ${tx.paid === false ? 'text-red-600 hover:bg-red-50' : 'text-green-700 hover:bg-green-50'}`}
+                    <button type="button" onClick={() => void togglePaid(tx)} className={`rounded-lg p-1.5 ${tx.paid === false ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
                       aria-label={t(tx.paid === false ? (tx.type === 'Receita' ? 'A receber: marcar como recebido' : 'A pagar: marcar como pago') : (tx.type === 'Receita' ? 'Recebido: marcar como a receber' : 'Pago: marcar como a pagar'))}
                       title={t(tx.paid === false ? (tx.type === 'Receita' ? 'A receber' : 'A pagar') : (tx.type === 'Receita' ? 'Recebido' : 'Pago'))}>
                       <svg viewBox="0 0 24 24" className={`h-5 w-5 ${tx.paid === false ? 'rotate-180' : ''}`} fill="currentColor" aria-hidden="true">

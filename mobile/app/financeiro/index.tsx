@@ -85,7 +85,7 @@ export default function Financeiro() {
                 {/* Polegar verde: pago/recebido; vermelho para baixo: em aberto. Tocar troca. */}
                 <Pressable disabled={!canEdit} onPress={() => setPaid(farmId, tx.id, !isPaid(tx))} hitSlop={8} accessibilityRole="button"
                   accessibilityLabel={t(isPaid(tx) ? (income ? 'Recebido: marcar como a receber' : 'Pago: marcar como a pagar') : (income ? 'A receber: marcar como recebido' : 'A pagar: marcar como pago'))}>
-                  <Ionicons name={isPaid(tx) ? 'thumbs-up' : 'thumbs-down'} size={22} color={isPaid(tx) ? colors.green : colors.red} />
+                  <Ionicons name={isPaid(tx) ? 'thumbs-up' : 'thumbs-down'} size={22} color={isPaid(tx) ? '#16a34a' : '#dc2626'} />
                 </Pressable>
               </View>
             </Card>
