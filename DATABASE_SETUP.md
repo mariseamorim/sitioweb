@@ -90,3 +90,4 @@ No banco local (localhost) a senha padrão é `demo1234`. A conta `admin@demo.co
 | lite@demo.com | Anota Aí Leite, produtora |
 | motorista@demo.com | Anota Aí Leite, motorista com rota |
 | fornecedor@demo.com | Fornecedor aprovado (convite `DEMO2026`) |
+| veterinario@demo.com | Veterinário consultor com três propriedades fictícias. Não vem do seed: o administrador cria e renova em Contas e senhas › Demonstração do veterinário, com a senha que escolher |
