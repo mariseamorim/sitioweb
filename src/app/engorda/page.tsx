@@ -11,11 +11,12 @@ import { loadHerd as fetchHerd } from '@/lib/herdCache'
 import { useOfflineModule } from '@/lib/useOffline'
 import { useT } from '@/lib/i18n'
 import { SemSinalIcon, SincronizarIcon } from '@/components/ModuleIcons'
+import { StatTile } from '@/components/StatTile'
 import { LotDetail } from './LotDetail'
 import { RearingAnimals } from './RearingAnimals'
 import {
   AnimalPicker, HerdAnimal, LOTS_MODULE, Lot, Modal, ProductForm, ProductsEditor, QUEUED_MESSAGE, Stat, SupplyRef, WeightList, averageOf, decimal, input, isQueued, kg, label,
-  offlineMessage, parseKg, phaseLabel, productLines, productsPayload, send,
+  WeightProgress, offlineMessage, parseKg, phaseLabel, productLines, productsPayload, send,
 } from './shared'
 
 type Tab = 'todos' | 'recria' | 'engorda'
@@ -126,23 +127,19 @@ export default function EngordaPage() {
           ))}
         </nav>
 
-        <RearingAnimals farmId={farmId} herd={herd} canEdit={canEdit} canBreed={canEdit && canAccess('reproducao')} today={today} visible={tab !== 'engorda'} onCount={setRearingCount} onHerdChanged={loadHerd} onQueued={net.refresh} />
-
+        {/* Números dos lotes abertos da aba, antes das listas */}
         {openLots.length > 0 && (
           <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {[
-              [t('Lotes abertos'), String(openLots.length), 'text-gray-900'],
-              [t('Cabeças nos lotes'), String(totals.heads), 'text-gray-900'],
-              [t('Peso médio'), totals.avgWeight !== null ? kg(totals.avgWeight) : '—', 'text-gray-900'],
-              [t('Ganho por dia (média)'), totals.gmd !== null ? `${fmtNumber(totals.gmd, 3)} kg` : '—', 'text-green-700'],
-            ].map(([title, value, tone]) => (
-              <div key={title} className="rounded-xl border border-gray-200 bg-white p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
-                <p className={`mt-2 text-2xl font-bold ${tone}`}>{value}</p>
-              </div>
-            ))}
+            <StatTile accent="blue" label={t('Ganho por dia (média)')} value={totals.gmd !== null ? <>{fmtNumber(totals.gmd, 2)} <span className="text-lg font-semibold">{t('kg/dia')}</span></> : '—'} />
+            <StatTile accent="green" label={t('Peso médio')} value={totals.avgWeight !== null ? kg(totals.avgWeight) : '—'} />
+            <StatTile accent="teal" label={t('Cabeças nos lotes')} value={totals.heads} />
+            <StatTile accent="amber" label={t('Lotes abertos')} value={openLots.length} />
           </div>
         )}
+
+        <RearingAnimals farmId={farmId} herd={herd} canEdit={canEdit} canBreed={canEdit && canAccess('reproducao')} today={today} visible={tab !== 'engorda'} onCount={setRearingCount} onHerdChanged={loadHerd} onQueued={net.refresh} />
+
+        {openLots.length > 0 && <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">{t('Lotes')}</h2>}
 
         {error && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}
         {!lots ? <p className="text-sm text-gray-400">{t('Carregando...')}</p> : visible.length === 0 ? (
@@ -187,14 +184,16 @@ function LotCard({ lot, today, canEdit, onOpen }: { lot: Lot; today: string; can
   const females = lot.animals.filter((a) => a.gender === 'Fêmea').length
   return (
     <article className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-      <button type="button" onClick={() => onOpen()} className="flex w-full items-start justify-between gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3 text-left hover:bg-green-50">
+      {/* Cabeçalho na cor da fase: azul na recria, laranja na engorda (a fase também vem escrita) */}
+      <button type="button" onClick={() => onOpen()} className={`flex w-full items-start justify-between gap-2 border-b px-4 py-3 text-left ${lot.endDate ? 'border-gray-100 bg-gray-50 hover:bg-gray-100' : lot.phase === 'recria' ? 'border-sky-100 bg-sky-50 hover:bg-sky-100' : 'border-amber-100 bg-amber-50 hover:bg-amber-100'}`}>
         <span className="min-w-0">
-          <span className="block truncate text-lg font-bold text-gray-800">{lot.name}</span>
-          <span className="block text-xs text-gray-500">{s.days === 1 ? t('1 dia no lote') : t('{n} dias no lote', { n: s.days })}{lot.endDate ? ` · ${t('saiu em {date}', { date: fmtDate(lot.endDate) })}` : ''}</span>
+          <span className="block truncate text-lg font-bold text-gray-900">{lot.name}</span>
+          <span className="block text-sm text-gray-600">{s.days === 1 ? t('1 dia no lote') : t('{n} dias no lote', { n: s.days })}{lot.endDate ? ` · ${t('saiu em {date}', { date: fmtDate(lot.endDate) })}` : ''}</span>
         </span>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${lot.phase === 'recria' ? 'bg-sky-100 text-sky-800' : 'bg-amber-100 text-amber-800'}`}>{t(phaseLabel(lot.phase))}</span>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${lot.phase === 'recria' ? 'bg-sky-100 text-sky-800 ring-sky-200' : 'bg-amber-100 text-amber-800 ring-amber-200'}`}>{t(phaseLabel(lot.phase))}</span>
       </button>
       <div className="p-4">
+        {s.last && lot.targetWeight && !lot.endDate ? <div className="mb-2"><WeightProgress current={s.last.avgWeight} target={lot.targetWeight} /></div> : null}
         <div className="grid grid-cols-3 gap-2">
           <Stat title={t('Animais')} value={String(lot.animals.length || s.last?.headCount || 0)} />
           <Stat title={t('Peso médio')} value={s.last ? kg(s.last.avgWeight) : '—'} />
@@ -211,7 +210,7 @@ function LotCard({ lot, today, canEdit, onOpen }: { lot: Lot; today: string; can
         {canEdit && (
           <div className="mt-4 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3">
             <button type="button" onClick={() => onOpen('animais')} className="rounded-lg border border-gray-200 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">+ {t('Animais')}</button>
-            <button type="button" onClick={() => onOpen('pesar')} className="rounded-lg border border-green-200 bg-green-50 py-2 text-sm font-semibold text-green-800 hover:bg-green-100">{t('Pesar')}</button>
+            <button type="button" onClick={() => onOpen('pesar')} className="rounded-lg bg-green-800 py-2 text-sm font-semibold text-white hover:bg-green-700">{t('Pesar')}</button>
           </div>
         )}
       </div>
