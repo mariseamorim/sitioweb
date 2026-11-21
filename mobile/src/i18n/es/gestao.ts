@@ -343,4 +343,12 @@ export const gestao: Record<string, string> = {
   'Validade (opcional)': 'Vencimiento (opcional)',
   'Venceu em {date}': 'Venció el {date}',
   'Validade: {date}': 'Vencimiento: {date}',
+
+  // Novo visual: prévia dos relatórios, números de Ofertas e da Sincronização
+  'Leite por dia (L)': 'Leche por día (L)',
+  'Leite por mês (L)': 'Leche por mes (L)',
+  'Saldo por dia': 'Saldo por día',
+  'Pedidos abertos': 'Pedidos abiertos',
+  'Estoque baixo': 'Inventario bajo',
+  'Recusados': 'Rechazados',
 }

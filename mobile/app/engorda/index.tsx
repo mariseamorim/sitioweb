@@ -8,7 +8,7 @@ import { STOCK_WARNING_DAYS, lotSummary, projectTarget } from '@/lib/lots'
 import { isInRearing, rearingSummary } from '@/lib/rearing'
 import { listLots, productLines, type Lot } from '@/repos/lots'
 import { listRearing, type RearingRow } from '@/repos/rearing'
-import { Badge, Button, Card, Chips, Empty, Fab, Muted, Screen, Tile, TileGrid } from '@/ui'
+import { Badge, Button, Card, Chips, Empty, Fab, IconCircle, Muted, Screen, Tile, TileGrid } from '@/ui'
 import { Section, StatGrid, TextButton, coverageLine, kg, phaseLabel, plural, tag } from '@/ui/lots'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
@@ -45,6 +45,17 @@ export default function Engorda() {
     <View style={{ flex: 1 }}>
       <Screen>
         <Muted style={{ marginBottom: space.sm }}>{t('Na recria, acompanhe cada bezerro sozinho (desmama, pesagens, cobertura da novilha) ou em lote. Na engorda, junte os animais em lotes, pese e veja o ganho por dia, o trato e quando chegam ao peso de saída.')}</Muted>
+        {/* Atalho para os planos (etapas, ganho por dia esperado e meta), escolhidos depois no lote */}
+        <Card onPress={() => router.push('/engorda/planos')} style={{ marginBottom: space.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+            <IconCircle icon="trending-up-outline" tone="blue" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text }}>{t('Planos')}</Text>
+              <Muted>{t('Etapas, ganho por dia esperado e meta de peso dos lotes')}</Muted>
+            </View>
+            <Text style={{ color: colors.green, fontWeight: '700', fontSize: font.sm }}>{t('Abrir')}</Text>
+          </View>
+        </Card>
         <Chips value={tab} onChange={setTab} options={[{ value: 'todos', label: `${t('Todos')} (${count('recria') + count('engorda')})` }, { value: 'recria', label: `${t('Recria')} (${count('recria')})` }, { value: 'engorda', label: `${t('Engorda')} (${count('engorda')})` }]} />
 
         {/* Números dos lotes abertos da aba, antes das listas */}

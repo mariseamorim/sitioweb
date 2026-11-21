@@ -9,6 +9,20 @@ import { cellSortValue, compareValues } from '@/lib/useSort'
 import { HttpError, cachedGet } from '@/lib/offlineData'
 import { loadHerd } from '@/lib/herdCache'
 import { useT, type Vars } from '@/lib/i18n'
+import {
+  AnimalIcon, EstoqueIcon, EtiquetaIcon, FinanceiroIcon, LeiteIcon, RelatorioIcon, ReproducaoIcon, VacinaIcon,
+} from '@/components/ModuleIcons'
+
+// Ícone pequeno à esquerda de cada tipo de relatório (o que não estiver aqui usa o ícone de relatório)
+const TYPE_ICONS: Record<string, (p: { className?: string }) => React.ReactElement> = {
+  leite: LeiteIcon,
+  'ficha-animal': EtiquetaIcon,
+  vacinacao: VacinaIcon,
+  financeiro: FinanceiroIcon,
+  partos: ReproducaoIcon,
+  rebanho: AnimalIcon,
+  estoque: EstoqueIcon,
+}
 
 /**
  * O relatório vem do servidor em português: títulos, colunas e textos das células passam pelo dicionário
@@ -141,29 +155,38 @@ export default function RelatoriosPage() {
       ) : (
         <>
           {/* 1. Tipo */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {types.map((rt) => (
-              <button
-                key={rt.key}
-                type="button"
-                onClick={() => chooseType(rt.key)}
-                aria-pressed={typeKey === rt.key}
-                className={`text-left rounded-xl border-2 p-4 transition-colors ${
-                  typeKey === rt.key ? 'border-green-700 bg-green-50' : 'border-gray-100 bg-white hover:border-green-200'
-                }`}
-              >
-                <p className="text-base font-semibold text-gray-900">{t(rt.label)}</p>
-                <p className="mt-1 text-sm text-gray-500 leading-snug">{t(rt.description)}</p>
-              </button>
-            ))}
+          <div className="grid sm:grid-cols-2 gap-3">
+            {types.map((rt) => {
+              const Icon = TYPE_ICONS[rt.key] ?? RelatorioIcon
+              const active = typeKey === rt.key
+              return (
+                <button
+                  key={rt.key}
+                  type="button"
+                  onClick={() => chooseType(rt.key)}
+                  aria-pressed={active}
+                  className={`flex items-start gap-3 text-left rounded-xl border bg-white p-4 shadow-sm transition-colors ${
+                    active ? 'border-green-700 ring-1 ring-green-700' : 'border-gray-200 hover:border-green-300'
+                  }`}
+                >
+                  <span className={`shrink-0 rounded-lg p-2 ${active ? 'bg-green-800 text-white' : 'bg-green-50 text-green-800'}`}>
+                    <Icon className="w-5 h-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-base font-bold text-gray-900">{t(rt.label)}</span>
+                    <span className="mt-1 block text-sm text-gray-500 leading-snug">{t(rt.description)}</span>
+                  </span>
+                </button>
+              )
+            })}
           </div>
 
           {/* 2. Opções */}
           {type && (
-            <div className="mt-5 bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 flex flex-col gap-4">
+            <div className="mt-5 bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 flex flex-col gap-4">
               {type.needsPeriod && (
                 <div>
-                  <p className="text-sm font-medium text-gray-700 mb-2">{t('Período')}</p>
+                  <h2 className="text-base font-bold text-gray-900 mb-3">{t('Período')}</h2>
                   <div className="flex flex-wrap gap-2">
                     {PRESETS.map((p) => (
                       <button
@@ -227,8 +250,8 @@ export default function RelatoriosPage() {
             </p>
           )}
           {shown && (
-            <div className="mt-5 bg-white rounded-xl shadow-sm border border-gray-100">
-              <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="mt-5 bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="p-4 sm:p-5 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">{shown.title}</h2>
                   <p className="text-sm text-gray-500">{shown.subtitle}</p>
@@ -239,7 +262,7 @@ export default function RelatoriosPage() {
                     {t(exporting ? 'Gerando PDF...' : 'Baixar PDF')}
                   </button>
                   <button onClick={() => exportCSV(shown)}
-                    className="flex-1 sm:flex-none border-2 border-green-800 text-green-800 hover:bg-green-50 text-sm font-semibold px-4 py-2 rounded-lg">
+                    className="flex-1 sm:flex-none border border-green-700 text-green-800 hover:bg-green-50 text-sm font-semibold px-4 py-2.5 rounded-lg">
                     {t('Baixar planilha')}
                   </button>
                 </div>
@@ -248,7 +271,7 @@ export default function RelatoriosPage() {
               <div className="p-4 sm:p-5 flex flex-col gap-6">
                 {shown.sections.map((section, i) => (
                   <div key={i}>
-                    {section.title && <h3 className="text-sm font-semibold text-gray-700 mb-2">{section.title}</h3>}
+                    {section.title && <h3 className="text-sm font-bold text-gray-800 mb-2">{section.title}</h3>}
                     <SortableReportTable section={section} />
                   </div>
                 ))}
@@ -274,9 +297,9 @@ function SortableReportTable({ section }: { section: Report['sections'][number] 
   const toggle = (col: number) => setSortCol((s) => (s?.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'asc' }))
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-100">
+    <div className="overflow-x-auto rounded-lg border border-gray-200">
       <table className="w-full text-sm">
-        <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+        <thead className="bg-gray-50 text-gray-500 text-xs font-semibold uppercase tracking-wide border-b border-gray-200">
           <tr>
             {section.columns.map((c, j) => {
               const right = section.numeric?.includes(j)

@@ -12,14 +12,18 @@ import { useOfflineModule } from '@/lib/useOffline'
 import { useT } from '@/lib/i18n'
 import { SemSinalIcon, SincronizarIcon } from '@/components/ModuleIcons'
 import { StatTile } from '@/components/StatTile'
+import type { LotPlan } from '@/lib/lotPlans'
 import { LotDetail } from './LotDetail'
+import { PlanSelect, PlansPanel, sortPlans } from './Plans'
 import { RearingAnimals } from './RearingAnimals'
 import {
   AnimalPicker, HerdAnimal, LOTS_MODULE, Lot, Modal, ProductForm, ProductsEditor, QUEUED_MESSAGE, Stat, SupplyRef, WeightList, averageOf, decimal, input, isQueued, kg, label,
-  WeightProgress, offlineMessage, parseKg, phaseLabel, productLines, productsPayload, send,
+  WeightProgress, moneyField, offlineMessage, parseKg, phaseLabel, productLines, productsPayload, send, toField,
 } from './shared'
 
 type Tab = 'todos' | 'recria' | 'engorda'
+/** Lotes (com as fases) ou Planos de recria/engorda */
+type View = 'lotes' | 'planos'
 
 export default function EngordaPage() {
   const { user, canAccess, loading: userLoading } = useUser()
@@ -32,6 +36,8 @@ export default function EngordaPage() {
   const [fromCache, setFromCache] = useState(false)
   const [notice, setNotice] = useState('')
   const [tab, setTab] = useState<Tab>('todos')
+  const [view, setView] = useState<View>('lotes')
+  const [plans, setPlans] = useState<LotPlan[] | null>(null)
   const [creating, setCreating] = useState(false)
   const [open, setOpen] = useState<{ id: string; focus?: 'pesar' | 'animais' } | null>(null)
   const [rearingCount, setRearingCount] = useState(0)
@@ -58,7 +64,11 @@ export default function EngordaPage() {
         : t('Não foi possível carregar os lotes. Confira a internet. Depois do primeiro acesso com sinal, eles ficam guardados neste aparelho.')))
     loadHerd()
   }, [fid, loadHerd, t])
-  const reload = useCallback(() => { load(); loadSupplies() }, [load, loadSupplies])
+  // Planos de recria/engorda, também com cópia no aparelho
+  const loadPlans = useCallback(() => {
+    if (fid) cachedGet<LotPlan[]>(`cache_planos_${fid}`, '/api/lotes/planos').then((r) => setPlans(r.data)).catch(() => setPlans((p) => p ?? []))
+  }, [fid])
+  const reload = useCallback(() => { load(); loadSupplies(); loadPlans() }, [load, loadSupplies, loadPlans])
   // Fila dos lotes: contagem, "Enviar agora" e recarga quando a barra do topo terminar de enviar
   const net = useOfflineModule(LOTS_MODULE, reload)
   useEffect(() => { void Promise.resolve().then(reload) }, [reload])
@@ -97,7 +107,7 @@ export default function EngordaPage() {
       <div>
         <div className="page-toolbar mb-2 flex items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-gray-800">{t('Recria e engorda')}</h1>
-          {canEdit && <button type="button" onClick={() => setCreating(true)} className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600">{t('Novo lote')}</button>}
+          {canEdit && view === 'lotes' && <button type="button" onClick={() => setCreating(true)} className="rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-600">{t('Novo lote')}</button>}
         </div>
         <p className="mb-4 text-sm text-gray-600">{t('Na recria, acompanhe cada bezerro sozinho (desmama, pesagens, cobertura da novilha) ou em lote. Na engorda, junte os animais em lotes, pese e veja o ganho por dia, o trato e quando chegam ao peso de saída.')}</p>
 
@@ -120,6 +130,22 @@ export default function EngordaPage() {
           </p>
         )}
 
+        {/* Lotes ou Planos (o plano diz o ganho esperado por etapa; o lote escolhe um plano) */}
+        <div role="group" aria-label={t('Mostrar')} className="mb-4 flex flex-wrap gap-2">
+          {([['lotes', t('Lotes')], ['planos', t('Planos')]] as const).map(([key, text]) => (
+            <button key={key} type="button" onClick={() => setView(key)} aria-pressed={view === key}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${view === key ? 'bg-green-800 text-white' : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}>{text}</button>
+          ))}
+        </div>
+
+        {view === 'planos' && (
+          <PlansPanel plans={plans} canEdit={canEdit}
+            onSaved={(plan) => { setPlans((list) => sortPlans([plan, ...(list ?? []).filter((p) => p.id !== plan.id)])); load() }}
+            onDeleted={(id) => { setPlans((list) => (list ?? []).filter((p) => p.id !== id)); load() }}
+            onQueued={queued} />
+        )}
+
+        {view === 'lotes' && <>
         <nav aria-label={t('Fase')} className="mb-5 inline-flex rounded-xl border border-gray-200 bg-white p-1">
           {([['todos', t('Todos')], ['recria', `${t('Recria')} (${count('recria')})`], ['engorda', `${t('Engorda')} (${count('engorda')})`]] as const).map(([key, text]) => (
             <button key={key} type="button" onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined}
@@ -162,11 +188,12 @@ export default function EngordaPage() {
             )}
           </>
         )}
+        </>}
 
-        {creating && <LotForm supplies={supplies} herd={herd} lotNames={lotNames} defaultPhase={tab === 'recria' ? 'recria' : 'engorda'} onClose={() => setCreating(false)}
+        {creating && <LotForm supplies={supplies} herd={herd} lotNames={lotNames} plans={plans ?? []} defaultPhase={tab === 'recria' ? 'recria' : 'engorda'} onClose={() => setCreating(false)}
           onSaved={(lot) => { setCreating(false); setLots((list) => [lot, ...(list ?? [])]); replace(lot) }}
           onQueued={() => { setCreating(false); queued(`${t(QUEUED_MESSAGE)} ${t('O lote aparece na lista depois do envio.')}`) }} />}
-        {current && <LotDetail key={current.id} lot={current} supplies={supplies} herd={herd} lotNames={lotNames} canEdit={canEdit}
+        {current && <LotDetail key={current.id} lot={current} supplies={supplies} herd={herd} lotNames={lotNames} plans={plans ?? []} canEdit={canEdit}
           canBreed={canEdit && canAccess('reproducao')} today={today} focus={open?.focus} onClose={() => setOpen(null)} onChanged={replace} onReload={load} onQueued={net.refresh}
           onDeleted={() => { setLots((list) => (list ?? []).filter((l) => l.id !== current.id)); setOpen(null); loadHerd(); loadSupplies() }} />}
       </div>
@@ -220,10 +247,12 @@ function LotCard({ lot, today, canEdit, onOpen }: { lot: Lot; today: string; can
 
 // ── Novo lote ───────────────────────────────────────────────────────────
 
-function LotForm({ supplies, herd, lotNames, defaultPhase, onClose, onSaved, onQueued }: {
+function LotForm({ supplies, herd, lotNames, plans, defaultPhase, onClose, onSaved, onQueued }: {
   supplies: SupplyRef[]
   herd: HerdAnimal[]
   lotNames: Map<string, string>
+  /** Planos de recria/engorda (o select mostra os ativos) */
+  plans: LotPlan[]
   defaultPhase: string
   onClose: () => void
   onSaved: (lot: Lot) => void
@@ -232,7 +261,7 @@ function LotForm({ supplies, herd, lotNames, defaultPhase, onClose, onSaved, onQ
 }) {
   const t = useT()
   const [mode, setMode] = useState<'animais' | 'quantidade'>(herd.length ? 'animais' : 'quantidade')
-  const [form, setForm] = useState({ name: '', phase: defaultPhase, startDate: todayISO(), headCount: '', avgWeight: '', targetWeight: '' })
+  const [form, setForm] = useState({ name: '', phase: defaultPhase, startDate: todayISO(), headCount: '', avgWeight: '', targetWeight: '', planId: '', purchaseValue: '' })
   const [animalIds, setAnimalIds] = useState<string[]>([])
   const [weights, setWeights] = useState<Record<string, string>>({})
   const [products, setProducts] = useState<ProductForm[]>([])
@@ -248,7 +277,7 @@ function LotForm({ supplies, herd, lotNames, defaultPhase, onClose, onSaved, onQ
     setSaving(true)
     setError('')
     try {
-      const base = { ...form, supplies: productsPayload(products) }
+      const base = { ...form, planId: form.planId || null, purchaseValue: moneyField(form.purchaseValue), supplies: productsPayload(products) }
       const body = mode === 'animais'
         ? { ...base, animalIds, weights: Object.fromEntries(animalIds.map((id) => [id, weights[id] ?? ''])), headCount: animalIds.length }
         : base
@@ -319,6 +348,14 @@ function LotForm({ supplies, herd, lotNames, defaultPhase, onClose, onSaved, onQ
         <label className={label}>{t(form.phase === 'recria' ? 'Peso-alvo da recria por cabeça (kg, opcional)' : 'Peso de saída desejado por cabeça (kg, opcional)')}
           <input inputMode="decimal" value={form.targetWeight} onChange={(e) => setForm({ ...form, targetWeight: decimal(e.target.value) })} placeholder={t(form.phase === 'recria' ? 'Ex.: 320' : 'Ex.: 540')} className={input} />
         </label>
+        {/* Plano e valor de compra: entram no desempenho do lote */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <PlanSelect plans={plans} value={form.planId}
+            onChange={(planId, plan) => setForm((f) => ({ ...f, planId, targetWeight: !f.targetWeight.trim() && plan?.targetWeight ? toField(plan.targetWeight) : f.targetWeight }))} />
+          <label className={label}>{t('Valor de compra do lote (R$, opcional)')}
+            <input inputMode="decimal" value={form.purchaseValue} onChange={(e) => setForm({ ...form, purchaseValue: decimal(e.target.value) })} placeholder={t('Ex.: 150.000,00')} className={input} />
+          </label>
+        </div>
         <ProductsEditor supplies={supplies} value={products} onChange={setProducts} />
         {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         <div className="flex gap-2 pt-1">

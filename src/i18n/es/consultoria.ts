@@ -188,6 +188,9 @@ export const consultoria: Record<string, string> = {
   'Quem acompanha a propriedade': 'Quién acompaña el establecimiento',
   'Nenhum veterinário acompanha esta propriedade.': 'Ningún veterinario acompaña este establecimiento.',
   'desde': 'desde',
+  'Vê animais, reprodução, vacinas, tratamentos e leite': 'Ve animales, reproducción, vacunas, tratamientos y leche',
+  'Não vê financeiro nem estoque': 'No ve finanzas ni inventario',
+  'Informe o código de 8 caracteres para vincular.': 'Ingrese el código de 8 caracteres para vincular.',
   // Tarefas e agenda do painel do veterinário
   'O que fazer nas propriedades': 'Qué hacer en los establecimientos',
   'Nada pendente nas propriedades que você atende.': 'Nada pendiente en los establecimientos que usted atiende.',

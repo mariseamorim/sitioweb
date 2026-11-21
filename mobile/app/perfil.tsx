@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Alert, Text } from 'react-native'
+import { Alert, Text, View } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { api, HttpError } from '@/api/client'
 import { useFarmId, useSession } from '@/auth/session'
 import { getCache, setCache } from '@/db'
@@ -8,7 +9,7 @@ import { useLive } from '@/db/events'
 import { maskPhone, phoneDigits } from '@/lib/masks'
 import { queueRequest } from '@/sync/local'
 import { useSyncState } from '@/sync'
-import { Button, Card, Field, Muted, Notice, Screen } from '@/ui'
+import { Badge, Button, Card, Field, IconCircle, Muted, Notice, Screen, type Tone } from '@/ui'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 import { LanguagePicker } from '@/ui/LanguagePicker'
@@ -89,20 +90,41 @@ export default function Perfil() {
     ])
   }
 
-  const section = (title: string) => <Text style={{ fontWeight: '700', fontSize: font.md, color: colors.text, marginBottom: space.sm }}>{t(title)}</Text>
+  // Título de cada cartão com ícone colorido num círculo (novo visual)
+  const section = (title: string, icon: keyof typeof Ionicons.glyphMap, tone: Tone) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: space.md }}>
+      <IconCircle icon={icon} tone={tone} size={36} />
+      <Text style={{ flex: 1, fontWeight: '700', fontSize: font.md, color: colors.text }}>{t(title)}</Text>
+    </View>
+  )
 
   return (
     <Screen>
       {!sync.online ? <Notice text={t('Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho. Nome e contato podem ser alterados; a senha só com conexão.')} /> : null}
+      {/* Cabeçalho: nome, contato e a situação do cadastro em selos */}
+      <Card style={{ backgroundColor: colors.greenSoft, borderColor: colors.green }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+          <IconCircle icon="person" tone="green" size={48} />
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ fontWeight: '800', fontSize: font.lg, color: colors.greenDark }}>{profile.name || user?.name}</Text>
+            {profile.phone || profile.email ? <Muted>{[profile.phone ? maskPhone(phoneDigits(profile.phone)) : '', profile.email ?? ''].filter(Boolean).join(' · ')}</Muted> : null}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.xs, marginTop: space.xs }}>
+              {profile.hasPassword ? <Badge label="Com senha" tone="green" /> : null}
+              {profile.googleConnected ? <Badge label="Conta Google conectada." tone="blue" /> : null}
+              {sync.pending ? <Badge label={t('{n} para enviar', { n: sync.pending })} tone="amber" /> : null}
+            </View>
+          </View>
+        </View>
+      </Card>
       <Card>
-        {section('Dados da conta')}
+        {section('Dados da conta', 'person-outline', 'green')}
         <Field label={t('Nome *')} value={name} onChangeText={setName} autoCapitalize="words" textContentType="name" />
         <Field label={t('Telefone')} value={maskPhone(phone)} onChangeText={v => setPhone(phoneDigits(v))} keyboardType="phone-pad" placeholder="(35) 99999-0000" textContentType="telephoneNumber" />
         <Field label={t('E-mail (opcional)')} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress"
           hint={t('Você entra com o telefone ou com o e-mail. Informe pelo menos um.')} />
       </Card>
       <Card>
-        {section('Segurança')}
+        {section('Segurança', 'lock-closed-outline', 'blue')}
         <Muted style={{ marginBottom: space.md }}>
           {profile.hasPassword
             ? t('Para alterar o e-mail ou a senha, informe sua senha atual. Deixe a nova senha vazia para manter a atual.')
@@ -117,14 +139,14 @@ export default function Perfil() {
         <Button label={t('Salvar alterações')} onPress={() => void save()} loading={saving} />
       </Card>
       <Card>
-        {section('Este aparelho')}
+        {section('Este aparelho', 'phone-portrait-outline', 'red')}
         <Muted style={{ marginBottom: space.md }}>
           {t('O que você anota fica guardado no aparelho até o sinal voltar. “Sair da conta” no menu Mais também apaga tudo. Num aparelho emprestado, saia por aqui.')}
         </Muted>
         <Button label={t('Sair e apagar os dados deste aparelho')} variant="danger" onPress={wipeAndLogout} />
       </Card>
       <Card>
-        {section('Idioma')}
+        {section('Idioma', 'language-outline', 'purple')}
         <LanguagePicker />
       </Card>
     </Screen>

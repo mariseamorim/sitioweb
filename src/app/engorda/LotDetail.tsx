@@ -10,18 +10,23 @@ import { fmtDate, fmtMoney, fmtNumber } from '@/lib/reports'
 import { COVERAGE_METHODS, GESTATION_DAYS, isInsemination, methodLabel, plusDays } from '@/lib/coverage'
 import {
   AnimalPicker, Coverage, HerdAnimal, Lot, LotAnimal, Modal, ProductForm, ProductsEditor, SupplyRef, WeightList, averageOf, decimal, input, kg, label,
-  isQueued, lastWeight, offlineMessage, parseKg, phaseLabel, productLines, productsFromLot, productsPayload, send, tag, toField,
+  isQueued, lastWeight, moneyField, offlineMessage, parseKg, phaseLabel, productLines, productsFromLot, productsPayload, send, tag, toField,
 } from './shared'
 import { useLocale, useT, type Vars } from '@/lib/i18n'
+import type { LotPlan } from '@/lib/lotPlans'
+import { LotPerformance } from './LotPerformance'
+import { PlanSelect } from './Plans'
 
 /** Roda uma ação do lote. `onQueued` fecha o formulário quando o pedido ficou na fila do aparelho (não há lote atualizado para mostrar). */
 type Run = (action: () => Promise<Lot | null>, onQueued?: () => void) => Promise<void>
 
-export function LotDetail({ lot, supplies, herd, lotNames, canEdit, canBreed, today, focus, onClose, onChanged, onDeleted, onReload, onQueued }: {
+export function LotDetail({ lot, supplies, herd, lotNames, plans, canEdit, canBreed, today, focus, onClose, onChanged, onDeleted, onReload, onQueued }: {
   lot: Lot
   supplies: SupplyRef[]
   herd: HerdAnimal[]
   lotNames: Map<string, string>
+  /** Planos de recria/engorda, para escolher no editar lote */
+  plans: LotPlan[]
   canEdit: boolean
   /** Pode registrar cio e cobertura (módulo Reprodução) */
   canBreed: boolean
@@ -125,8 +130,8 @@ export function LotDetail({ lot, supplies, herd, lotNames, canEdit, canBreed, to
   return (
     <Modal title={lot.name} subtitle={`${t(phaseLabel(lot.phase))} · ${t('entrada em {date}', { date: fmtDate(lot.startDate) })}${lot.endDate ? ` · ${t('saiu em {date}', { date: fmtDate(lot.endDate) })}` : ''}`} onClose={onClose}>
       {canEdit && (editingLot
-        ? <LotEditForm lot={lot} busy={busy} run={run} onDone={() => setEditingLot(false)} />
-        : <button type="button" onClick={() => setEditingLot(true)} className="-mt-2 mb-3 text-sm font-semibold text-green-700 hover:underline">{t('Editar lote (nome, fase, data de entrada)')}</button>)}
+        ? <LotEditForm lot={lot} plans={plans} busy={busy} run={run} onDone={() => setEditingLot(false)} onTarget={setTarget} />
+        : <button type="button" onClick={() => setEditingLot(true)} className="-mt-2 mb-3 text-sm font-semibold text-green-700 hover:underline">{t('Editar lote (nome, fase, data de entrada, plano, valor de compra)')}</button>)}
 
       <div className={`grid grid-cols-2 gap-2 ${isRecria ? 'sm:grid-cols-4' : 'sm:grid-cols-5 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1'}`}>
         {[
@@ -146,6 +151,9 @@ export function LotDetail({ lot, supplies, herd, lotNames, canEdit, canBreed, to
         {t('{n} cabeças', { n: hasAnimals ? lot.animals.length : s.last?.headCount ?? 0 })} · {s.days === 1 ? t('1 dia no lote') : t('{n} dias no lote', { n: s.days })}
         {arrobas !== null && <span className="text-gray-500"> · {t('arrobas estimadas pelo peso vivo ({kg} kg = 1 @, rendimento de 50%)', { kg: LIVE_KG_PER_ARROBA })}</span>}
       </p>
+
+      {/* Desempenho: plano, ganho por animal e do lote, evolução do peso e despesas */}
+      <LotPerformance lot={lot} today={today} />
 
       {/* Peso-alvo: na engorda é a saída para o abate; na recria, o peso para ir para a reprodução ou a engorda */}
       <section className="mt-5">
@@ -311,16 +319,25 @@ export function LotDetail({ lot, supplies, herd, lotNames, canEdit, canBreed, to
 
 // ── Editar o lote ───────────────────────────────────────────────────────
 
-function LotEditForm({ lot, busy, run, onDone }: { lot: Lot; busy: boolean; run: Run; onDone: () => void }) {
+function LotEditForm({ lot, plans, busy, run, onDone, onTarget }: {
+  lot: Lot; plans: LotPlan[]; busy: boolean; run: Run; onDone: () => void
+  /** O plano escolhido preencheu o peso-alvo (o lote não tinha): atualiza o campo da tela */
+  onTarget: (value: string) => void
+}) {
   const t = useT()
-  const [form, setForm] = useState({ name: lot.name, phase: lot.phase, startDate: lot.startDate, notes: lot.notes ?? '' })
+  const [form, setForm] = useState({ name: lot.name, phase: lot.phase, startDate: lot.startDate, notes: lot.notes ?? '', planId: lot.planId ?? '', purchaseValue: toField(lot.purchaseValue) })
+  const chosenPlan = plans.find((p) => p.id === form.planId) ?? null
+  // Sem peso-alvo no lote: a meta do plano escolhido vira o peso-alvo
+  const fillTarget = !lot.targetWeight && form.planId !== (lot.planId ?? '') && chosenPlan?.targetWeight ? chosenPlan.targetWeight : null
   const save = (e: React.FormEvent) => {
     e.preventDefault()
+    const body = { ...form, planId: form.planId || null, purchaseValue: moneyField(form.purchaseValue), ...(fillTarget ? { targetWeight: toField(fillTarget) } : {}) }
+    const done = () => { if (fillTarget) onTarget(toField(fillTarget)); onDone() }
     void run(async () => {
-      const updated = await send(`/api/lotes/${lot.id}`, 'PATCH', form)
-      onDone()
+      const updated = await send(`/api/lotes/${lot.id}`, 'PATCH', body)
+      done()
       return updated
-    }, onDone)
+    }, done)
   }
   return (
     <form onSubmit={save} className="mb-4 flex flex-col gap-3 rounded-xl border border-gray-200 p-3">
@@ -336,6 +353,13 @@ function LotEditForm({ lot, busy, run, onDone }: { lot: Lot; busy: boolean; run:
       <label className={label}>{t('Data de entrada (a pesagem de entrada acompanha)')}
         <input type="date" required max={new Date().toISOString().slice(0, 10)} value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className={input} />
       </label>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <PlanSelect plans={plans} value={form.planId} onChange={(planId) => setForm({ ...form, planId })} />
+        <label className={label}>{t('Valor de compra do lote (R$, opcional)')}
+          <input inputMode="decimal" value={form.purchaseValue} onChange={(e) => setForm({ ...form, purchaseValue: decimal(e.target.value) })} placeholder={t('Ex.: 150.000,00')} className={input} />
+        </label>
+      </div>
+      {fillTarget && <p className="text-xs text-gray-600">{t('O peso-alvo do lote fica {weight}, a meta do plano.', { weight: kg(fillTarget) })}</p>}
       <label className={label}>{t('Observações')}
         <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} className={input} />
       </label>

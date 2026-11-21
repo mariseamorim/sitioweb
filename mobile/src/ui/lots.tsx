@@ -4,6 +4,7 @@ import { Pressable, Text, TextInput, View, type ViewStyle } from 'react-native'
 import { methodLabel } from '@/lib/coverage'
 import { brDate, brNumber } from '@/lib/format'
 import { LOT_PHASES, decimal, parseKg, toField } from '@/lib/lots'
+import { planDays, type LotPlan } from '@/lib/lotPlans'
 import type { Coverage, Lot, ProductInput, SupplyRef } from '@/repos/lots'
 import { Button, Muted, Search, SelectField, styles as ui } from '@/ui'
 import { colors, font, radius, space } from '@/theme'
@@ -264,6 +265,39 @@ export function ProductsEditor({ supplies, value, onChange }: { supplies: Supply
           onChange={id => { if (id) onChange([...value, { supplyId: id, percent: '', packageKg: '', unitPrice: '' }]) }} />
       ) : null}
       <Muted>{t('Exemplo: a 0,1% do peso vivo, um animal de 300 kg come 300 g por dia. O preço serve para mostrar o custo por animal.')}</Muted>
+    </View>
+  )
+}
+
+// ── Plano e valor de compra do lote (novo lote e editar lote) ───────────
+
+/** Valor em R$ do campo ("1.250,00", "1250,5"): vazio = null; 'invalid' se não for número (a mesma regra do servidor) */
+export function parseMoney(text: string): number | null | 'invalid' {
+  if (!text.trim()) return null
+  const n = Number(text.trim().replace(/\./g, '').replace(',', '.'))
+  return Number.isFinite(n) && n >= 0 && n < 1e9 ? Math.round(n * 100) / 100 : 'invalid'
+}
+
+/** Valor para o campo de R$, com vírgula e duas casas */
+export const moneyField = (n: number | null | undefined) => (n === null || n === undefined ? '' : n.toFixed(2).replace('.', ','))
+
+/** Escolher o plano: os ativos (e o atual do lote, mesmo inativo). Ao escolher, devolve o plano para quem chamou preencher a meta. */
+export function PlanField({ plans, value, onChange, offline }: { plans: LotPlan[]; value: string | null; onChange: (planId: string | null, plan: LotPlan | null) => void; offline?: boolean }) {
+  const t = useT()
+  const options = plans.filter(p => p.active || p.id === value).map(p => {
+    const days = planDays(p)
+    const parts = [days > 0 ? t('{n} dias', { n: days }) : '', p.targetWeight ? kg(p.targetWeight) : '', p.active ? '' : t('Inativo')].filter(Boolean)
+    return { value: p.id, label: p.name, detail: parts.join(' · ') || undefined }
+  })
+  return (
+    <View>
+      <SelectField label="Plano (opcional)" value={value} options={options} allowEmpty placeholder="— Nenhum —"
+        onChange={id => onChange(id, plans.find(p => p.id === id) ?? null)} />
+      {options.length === 0 ? (
+        <Muted style={{ marginTop: -space.sm, marginBottom: space.md }}>
+          {offline && !plans.length ? t('Sem internet: os planos aparecem quando o celular se conectar uma vez.') : t('Nenhum plano ativo. Crie em Recria e engorda > Planos.')}
+        </Muted>
+      ) : null}
     </View>
   )
 }

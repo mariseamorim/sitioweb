@@ -4,55 +4,66 @@ import { Alert, Text, View } from 'react-native'
 import { useSession } from '@/auth/session'
 import { isDemo } from '@/api/client'
 import { useSyncState } from '@/sync'
-import { Card, Muted, Notice, Row, Screen } from '@/ui'
+import { Card, IconCircle, Muted, Notice, Row, Screen, type Tone } from '@/ui'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 import { LanguagePicker } from '@/ui/LanguagePicker'
 
-type Item = { title: string; detail?: string; href: string; module?: string; adminOnly?: boolean; /** Só para o veterinário consultor */ vetOnly?: boolean; icon: keyof typeof Ionicons.glyphMap }
+type Item = { title: string; detail?: string; href: string; module?: string; adminOnly?: boolean; /** Só para o veterinário consultor */ vetOnly?: boolean; icon: keyof typeof Ionicons.glyphMap; tone: Tone }
 
-// Os mesmos grupos e itens do menu lateral do site (src/components/Navbar.tsx)
+// Os mesmos grupos do menu lateral do site (src/components/Navbar.tsx): o primeiro sem título, depois Rebanho, Manejo,
+// Gestão, Propriedade, Administração (só o administrador) e Ajuda. Cada item com ícone colorido num círculo.
 const GROUPS: { label: string; items: Item[] }[] = [
-  { label: 'Visão geral', items: [
-    { title: 'Consultoria', detail: 'Propriedades que você atende', href: '/consultoria', vetOnly: true, icon: 'briefcase-outline' },
-    { title: 'Painel', href: '/(tabs)', icon: 'grid-outline' },
-    { title: 'Propriedades', detail: 'Cadastro e troca de propriedade', href: '/fazendas', module: 'fazendas', icon: 'home-outline' },
+  { label: '', items: [
+    { title: 'Consultoria', detail: 'Propriedades que você atende', href: '/consultoria', vetOnly: true, icon: 'briefcase-outline', tone: 'green' },
+    { title: 'Painel', href: '/(tabs)', icon: 'grid-outline', tone: 'green' },
   ] },
-  { label: 'Rebanho e produção', items: [
-    { title: 'Animais', href: '/(tabs)/animais', module: 'animais', icon: 'paw-outline' },
-    { title: 'Recria e engorda', detail: 'Lotes, pesagens, trato e recria um a um', href: '/engorda', module: 'animais', icon: 'scale-outline' },
-    { title: 'Produção de leite', href: '/(tabs)/leite', module: 'leite', icon: 'water-outline' },
-    { title: 'Tratamentos', detail: 'Remédios e carência do leite', href: '/tratamentos', module: 'veterinario', icon: 'bandage-outline' },
-    { title: 'Vacinação', href: '/(tabs)/vacinas', module: 'vacinacao', icon: 'medkit-outline' },
-    { title: 'Reprodução', detail: 'Coberturas, prenhez e partos', href: '/reproducao', module: 'reproducao', icon: 'heart-outline' },
-    { title: 'Indicadores de reprodução', detail: 'Partos previstos, taxa de prenhez e leite por mês', href: '/reproducao/indicadores', module: 'reproducao', icon: 'bar-chart-outline' },
-    { title: 'Diagnóstico em lote', detail: 'Prenha ou vazia, uma depois da outra', href: '/reproducao/diagnostico', module: 'reproducao', icon: 'checkmark-done-outline' },
+  { label: 'Rebanho', items: [
+    { title: 'Animais', href: '/(tabs)/animais', module: 'animais', icon: 'paw-outline', tone: 'green' },
+    { title: 'Recria e engorda', detail: 'Lotes, pesagens, trato e recria um a um', href: '/engorda', module: 'animais', icon: 'scale-outline', tone: 'amber' },
+    { title: 'Reprodução', detail: 'Coberturas, prenhez e partos', href: '/reproducao', module: 'reproducao', icon: 'heart-outline', tone: 'red' },
+    { title: 'Indicadores de reprodução', detail: 'Partos previstos, taxa de prenhez e leite por mês', href: '/reproducao/indicadores', module: 'reproducao', icon: 'bar-chart-outline', tone: 'purple' },
+    { title: 'Diagnóstico em lote', detail: 'Prenha ou vazia, uma depois da outra', href: '/reproducao/diagnostico', module: 'reproducao', icon: 'checkmark-done-outline', tone: 'blue' },
+  ] },
+  { label: 'Manejo', items: [
+    { title: 'Produção de leite', href: '/(tabs)/leite', module: 'leite', icon: 'water-outline', tone: 'blue' },
+    { title: 'Vacinação', href: '/(tabs)/vacinas', module: 'vacinacao', icon: 'medkit-outline', tone: 'purple' },
+    { title: 'Tratamentos', detail: 'Remédios e carência do leite', href: '/tratamentos', module: 'veterinario', icon: 'bandage-outline', tone: 'red' },
   ] },
   { label: 'Gestão', items: [
-    { title: 'Financeiro', detail: 'Entradas, saídas e saldo', href: '/financeiro', module: 'financeiro', icon: 'cash-outline' },
-    { title: 'Estoque', detail: 'Ração, sal, remédios e vacinas', href: '/estoque', module: 'estoque', icon: 'cube-outline' },
-    { title: 'Relatórios', detail: 'Leite, rebanho, vacinas, caixa, partos e estoque', href: '/relatorios', icon: 'document-text-outline' },
-    { title: 'Usuários', detail: 'Equipe e permissões por módulo', href: '/usuarios', module: 'usuarios', icon: 'people-outline' },
+    { title: 'Financeiro', detail: 'Entradas, saídas e saldo', href: '/financeiro', module: 'financeiro', icon: 'cash-outline', tone: 'green' },
+    { title: 'Estoque', detail: 'Ração, sal, remédios e vacinas', href: '/estoque', module: 'estoque', icon: 'cube-outline', tone: 'amber' },
+    { title: 'Relatórios', detail: 'Leite, rebanho, vacinas, caixa, partos e estoque', href: '/relatorios', icon: 'document-text-outline', tone: 'blue' },
+    { title: 'Ofertas', detail: 'Insumos dos seus fornecedores e da sua região', href: '/ofertas', icon: 'pricetag-outline', tone: 'purple' },
   ] },
-  { label: 'Fornecedores', items: [
-    { title: 'Ofertas', detail: 'Insumos dos seus fornecedores e da sua região', href: '/ofertas', icon: 'pricetag-outline' },
+  { label: 'Propriedade', items: [
+    { title: 'Propriedades', detail: 'Cadastro e troca de propriedade', href: '/fazendas', module: 'fazendas', icon: 'home-outline', tone: 'green' },
+    { title: 'Usuários', detail: 'Equipe e permissões por módulo', href: '/usuarios', module: 'usuarios', icon: 'people-outline', tone: 'blue' },
   ] },
   { label: 'Administração', items: [
-    { title: 'Contas e senhas', href: '/admin/contas', adminOnly: true, icon: 'lock-closed-outline' },
-    { title: 'Aprovar fornecedores', href: '/admin/fornecedores', adminOnly: true, icon: 'storefront-outline' },
-    { title: 'Aprovar laticínios e associações', href: '/admin/organizacoes', adminOnly: true, icon: 'business-outline' },
+    { title: 'Contas e senhas', href: '/admin/contas', adminOnly: true, icon: 'lock-closed-outline', tone: 'muted' },
+    { title: 'Aprovar fornecedores', href: '/admin/fornecedores', adminOnly: true, icon: 'storefront-outline', tone: 'muted' },
+    { title: 'Aprovar laticínios e associações', href: '/admin/organizacoes', adminOnly: true, icon: 'business-outline', tone: 'muted' },
   ] },
   { label: 'Ajuda', items: [
-    { title: 'Ajuda e suporte', href: '/ajuda', icon: 'help-circle-outline' },
-    { title: 'Manual do usuário', detail: 'Passo a passo ilustrado e PDF', href: '/manual', icon: 'book-outline' },
+    { title: 'Ajuda e suporte', href: '/ajuda', icon: 'help-circle-outline', tone: 'green' },
+    { title: 'Manual do usuário', detail: 'Passo a passo ilustrado e PDF', href: '/manual', icon: 'book-outline', tone: 'amber' },
   ] },
 ]
+
+/** "Maria da Silva" → "MS" */
+function initials(name?: string | null): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(p => p.length > 2 || p === p.toUpperCase())
+  const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] ?? '?').slice(0, 2)
+  return letters.toUpperCase()
+}
 
 export default function Mais() {
   const { user, canAccess, logout } = useSession()
   const sync = useSyncState()
   const router = useRouter()
-  const icon = (name: keyof typeof Ionicons.glyphMap) => <Ionicons name={name} size={22} color={colors.muted} />
+  const icon = (name: keyof typeof Ionicons.glyphMap, tone: Tone = 'green') => <IconCircle icon={name} tone={tone} size={36} />
+  const chevron = <Ionicons name="chevron-forward" size={18} color={colors.muted} />
   const isAdmin = user?.role === 'admin'
   const t = useT()
 
@@ -69,23 +80,31 @@ export default function Mais() {
   return (
     <Screen>
       {isDemo() ? <Notice tone="blue" text={t('Demonstração: dados fictícios, guardados só neste celular. Nada é enviado ao servidor. Para sair, use "Sair da conta" em Mais.')} /> : null}
-      <Card onPress={() => router.push('/perfil')}>
-        <Text style={{ fontWeight: '700', fontSize: 18, color: colors.text }}>{user?.name}</Text>
-        <Muted>{user?.farmName ?? t('Sem propriedade aberta')}</Muted>
-        <Text style={{ color: colors.green, fontWeight: '600', fontSize: font.sm, marginTop: space.xs }}>{t('Meu cadastro')} ›</Text>
+      {/* Cartão do usuário: iniciais num círculo verde, nome, propriedade aberta e o atalho para o cadastro */}
+      <Card onPress={() => router.push('/perfil')} style={{ backgroundColor: colors.greenSoft, borderColor: colors.green }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+          <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: colors.white, fontWeight: '800', fontSize: font.lg }}>{initials(user?.name)}</Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ fontWeight: '700', fontSize: 18, color: colors.greenDark }}>{user?.name}</Text>
+            <Muted>{user?.farmName ?? t('Sem propriedade aberta')}</Muted>
+            <Text style={{ color: colors.green, fontWeight: '700', fontSize: font.sm, marginTop: space.xs }}>{t('Meu cadastro')} ›</Text>
+          </View>
+        </View>
       </Card>
       {groups.map(g => (
-        <View key={g.label}>
-          <Text style={{ fontSize: font.sm, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', marginBottom: space.xs, marginLeft: space.xs }}>{t(g.label)}</Text>
+        <View key={g.label || 'inicio'}>
+          {g.label ? <Text style={{ fontSize: font.sm, fontWeight: '700', color: colors.greenDark, textTransform: 'uppercase', marginBottom: space.xs, marginLeft: space.xs }}>{t(g.label)}</Text> : null}
           <Card style={{ paddingVertical: 4 }}>
-            {g.items.map(i => <Row key={i.href} title={t(i.title)} detail={i.detail && t(i.detail)} right={icon(i.icon)} onPress={() => router.push(i.href as never)} />)}
+            {g.items.map(i => <Row key={i.href} left={icon(i.icon, i.tone)} title={t(i.title)} detail={i.detail && t(i.detail)} right={chevron} onPress={() => router.push(i.href as never)} />)}
           </Card>
         </View>
       ))}
       <Card style={{ paddingVertical: 4 }}>
-        <Row title={t('Sincronização')} detail={sync.pending ? t('{n} para enviar', { n: sync.pending }) : t(sync.online ? 'Em dia' : 'Sem internet')} right={icon('sync-outline')} onPress={() => router.push('/sincronizacao')} />
-        {(user?.farms.length ?? 0) > 1 || isAdmin ? <Row title={t('Trocar de propriedade')} right={icon('swap-horizontal-outline')} onPress={() => router.push('/propriedade')} /> : null}
-        <Row title={t('Sair da conta')} right={icon('log-out-outline')} onPress={sair} />
+        <Row left={icon('sync-outline', sync.pending ? 'amber' : 'green')} title={t('Sincronização')} detail={sync.pending ? t('{n} para enviar', { n: sync.pending }) : t(sync.online ? 'Em dia' : 'Sem internet')} right={chevron} onPress={() => router.push('/sincronizacao')} />
+        {(user?.farms.length ?? 0) > 1 || isAdmin ? <Row left={icon('swap-horizontal-outline', 'blue')} title={t('Trocar de propriedade')} right={chevron} onPress={() => router.push('/propriedade')} /> : null}
+        <Row left={icon('log-out-outline', 'red')} title={t('Sair da conta')} right={chevron} onPress={sair} />
       </Card>
       <LanguagePicker />
       <View style={{ alignItems: 'center', marginTop: 8 }}><Muted>Anota Aí Agro · app Android</Muted></View>

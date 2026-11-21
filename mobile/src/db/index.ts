@@ -30,7 +30,7 @@ export const TABLES = {
     list: '/api/veterinary-treatment', module: 'veterinario',
   },
   transactions: {
-    columns: ['type', 'category', 'date', 'amount', 'description', 'paid', 'animalId', 'createdAt', 'updatedAt'],
+    columns: ['type', 'category', 'date', 'amount', 'description', 'paid', 'animalId', 'lotId', 'createdAt', 'updatedAt'],
     list: '/api/financeiro', module: 'financeiro',
   },
   supplies: {
@@ -45,9 +45,9 @@ export const TABLES = {
     columns: ['femaleId', 'maleName', 'method', 'heatDate', 'semenBatch', 'bullRegistry', 'inseminator', 'coverageDate', 'expectedBirthDate', 'actualBirthDate', 'status', 'calfId', 'observations', 'createdAt', 'updatedAt'],
     list: '/api/reproducao', module: 'reproducao',
   },
-  /** Lote de recria/engorda como o servidor devolve (supplies, feedings, weighings e animals em JSON). */
+  /** Lote de recria/engorda como o servidor devolve (plan, transactions, supplies, feedings, weighings e animals em JSON). */
   lots: {
-    columns: ['name', 'phase', 'startDate', 'endDate', 'targetWeight', 'notes', 'supplies', 'feedings', 'weighings', 'animals', 'createdAt', 'updatedAt'],
+    columns: ['name', 'phase', 'startDate', 'endDate', 'targetWeight', 'notes', 'planId', 'purchaseValue', 'plan', 'transactions', 'supplies', 'feedings', 'weighings', 'animals', 'createdAt', 'updatedAt'],
     list: '/api/lotes', module: 'animais',
   },
   /** Pesagens individuais (recria um a um); vêm dentro de /api/recria. */

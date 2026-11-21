@@ -5,7 +5,7 @@ import { useLive } from '@/db/events'
 import { isoDay, todayISO } from '@/lib/format'
 import { listReproductions, undoDiagnosis, updateStatus, type Reproduction } from '@/repos/reproductions'
 import { useSyncState } from '@/sync'
-import { Empty, Muted, useBottomInset } from '@/ui'
+import { Empty, IconCircle, Muted, useBottomInset } from '@/ui'
 import { colors, font, radius, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
@@ -70,6 +70,7 @@ export default function DiagnosticoEmLote() {
           return (
             <View style={[{ borderWidth: 1, borderRadius: radius.lg, padding: space.lg, marginBottom: space.md }, tone]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+                <IconCircle icon={given === 'Prenha' ? 'heart' : given === 'Vazia' ? 'close-circle-outline' : 'heart-outline'} tone={given === 'Prenha' ? 'green' : given === 'Vazia' ? 'red' : days < MIN_DAYS ? 'muted' : 'amber'} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={{ fontSize: font.md, fontWeight: '700', color: colors.text }} numberOfLines={2}>
                     {r.femaleName ?? t('Animal removido')} <Text style={{ fontWeight: '400', color: colors.muted }}>({r.femaleCustomCode || r.femaleCode})</Text>
