@@ -4,11 +4,12 @@ import { Text, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { todayISO } from '@/lib/format'
-import { decimal, isLotPhase, parseKg } from '@/lib/lots'
+import { decimal, isLotPhase, parseKg, toField } from '@/lib/lots'
+import { usePlans } from '@/repos/lotPlans'
 import { createLot, listHerd, listLots, openLotNames, supplyRef } from '@/repos/lots'
 import { listSupplies } from '@/repos/supplies'
 import { Button, DateField, Field, Muted, Notice, Screen } from '@/ui'
-import { AnimalPicker, OptionCards, ProductsEditor, WeightList, averageOf, kg, numericWeights, parseProducts, type ProductForm } from '@/ui/lots'
+import { AnimalPicker, OptionCards, PlanField, ProductsEditor, WeightList, averageOf, kg, numericWeights, parseMoney, parseProducts, type ProductForm } from '@/ui/lots'
 import { colors, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
@@ -34,7 +35,10 @@ export default function NovoLote() {
   const [animalIds, setAnimalIds] = useState<string[]>([])
   const [weights, setWeights] = useState<Record<string, string>>({})
   const [products, setProducts] = useState<ProductForm[]>([])
+  const [planId, setPlanId] = useState<string | null>(null)
+  const [purchaseValue, setPurchaseValue] = useState('')
   const [error, setError] = useState('')
+  const { plans, offline: plansOffline } = usePlans(farmId)
   const chosen = herd.filter(a => animalIds.includes(a.id))
   const chosenWeights = Object.fromEntries(animalIds.map(id => [id, weights[id] ?? '']))
   const avg = averageOf(chosenWeights)
@@ -46,18 +50,21 @@ export default function NovoLote() {
     if (targetWeight.trim() && (target === null || target > 2000)) return setError('Peso-alvo inválido')
     const parsedProducts = parseProducts(products)
     if (typeof parsedProducts === 'string') return setError(parsedProducts)
+    const purchase = parseMoney(purchaseValue)
+    if (purchase === 'invalid') return setError('Valor de compra inválido')
+    const extra = { planId, purchaseValue: purchase }
     const estimated = avgWeight.trim() ? parseKg(avgWeight) : null
     if (mode === 'animais') {
       if (!animalIds.length) return setError('Escolha os animais do lote')
       if (avg === null && !estimated) return setError('Informe o peso de entrada dos animais ou o peso médio do lote')
-      const id = createLot(farmId, { name, phase, startDate, targetWeight: target, supplies: parsedProducts, animals: { ids: animalIds, weights: numericWeights(chosenWeights) }, avgWeight: estimated ?? undefined })
+      const id = createLot(farmId, { name, phase, startDate, targetWeight: target, ...extra, supplies: parsedProducts, animals: { ids: animalIds, weights: numericWeights(chosenWeights) }, avgWeight: estimated ?? undefined })
       router.replace(`/engorda/${id}`)
       return
     }
     const heads = Number(headCount)
     if (!Number.isInteger(heads) || heads < 1) return setError('Informe quantas cabeças tem o lote')
     if (!estimated || estimated > 2000) return setError('Informe o peso médio por cabeça, em kg')
-    const id = createLot(farmId, { name, phase, startDate, targetWeight: target, supplies: parsedProducts, headCount: heads, avgWeight: estimated })
+    const id = createLot(farmId, { name, phase, startDate, targetWeight: target, ...extra, supplies: parsedProducts, headCount: heads, avgWeight: estimated })
     router.replace(`/engorda/${id}`)
   }
 
@@ -92,7 +99,10 @@ export default function NovoLote() {
         </View>
       )}
 
+      <PlanField plans={plans} value={planId} offline={plansOffline}
+        onChange={(id, plan) => { setPlanId(id); if (plan?.targetWeight && !targetWeight.trim()) setTargetWeight(toField(plan.targetWeight)) }} />
       <Field label={phase === 'recria' ? 'Peso-alvo da recria por cabeça (kg, opcional)' : 'Peso de saída desejado por cabeça (kg, opcional)'} value={targetWeight} onChangeText={v => setTargetWeight(decimal(v))} keyboardType="decimal-pad" placeholder={phase === 'recria' ? 'Ex.: 320' : 'Ex.: 540'} />
+      <Field label="Valor de compra do lote (R$, opcional)" value={purchaseValue} onChangeText={v => setPurchaseValue(decimal(v))} keyboardType="decimal-pad" placeholder="Ex.: 85000,00" />
       <ProductsEditor supplies={supplies} value={products} onChange={setProducts} />
       {error ? <Notice tone="red" text={error} /> : null}
       <Button label="Criar lote" onPress={save} disabled={!canEdit} />

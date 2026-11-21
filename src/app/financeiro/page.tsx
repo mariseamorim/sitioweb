@@ -26,7 +26,11 @@ interface Transaction {
   /** Já pago (despesa) ou recebido (receita); sem o campo (registro antigo) conta como pago */
   paid?: boolean
   animal?: Animal | null
+  /** Lote de recria/engorda da despesa (entra no desempenho do lote) */
+  lot?: { id: string; name: string } | null
 }
+/** Lote aberto, para ligar a despesa (mesma cópia do aparelho da tela de lotes) */
+interface LotRef { id: string; name: string; endDate: string | null }
 
 const CATEGORIES_RECEITA = ['Venda de Leite', 'Venda de Animal', 'Outros']
 const CATEGORIES_DESPESA = ['Medicamentos', 'Ração', 'Vacinas', 'Mão de Obra', 'Outros']
@@ -44,10 +48,10 @@ const OTHER_COLOR = { badge: 'bg-gray-100 text-gray-800', bar: 'bg-gray-400' }
 const categoryColor = (c: string) => CATEGORY_COLOR[c] ?? OTHER_COLOR
 
 const MODULE = 'financeiro'
-const EMPTY_FORM = { type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '', paid: true }
+const EMPTY_FORM = { type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '', lotId: '', paid: true }
 
 /** Lançamento guardado sem internet, como aparece na lista e nos totais. Registros antigos da fila têm os campos soltos, sem _body. */
-function pendingTransaction(p: PendingRequest, animals: Animal[]): Transaction | null {
+function pendingTransaction(p: PendingRequest, animals: Animal[], lots: LotRef[] = []): Transaction | null {
   if ((p._type ?? 'create') !== 'create') return null
   const b = (p._body ?? p) as Record<string, string | number | null | undefined>
   const date = String(b.date ?? '')
@@ -57,6 +61,7 @@ function pendingTransaction(p: PendingRequest, animals: Animal[]): Transaction |
     description: b.description ? String(b.description) : null,
     paid: b.paid !== (false as unknown),
     animal: animals.find(a => a.id === b.animalId) ?? null,
+    lot: b.lotId ? lots.find(l => l.id === b.lotId) ?? null : null,
   }
 }
 
@@ -70,10 +75,13 @@ export default function FinanceiroPage() {
   const { confirm } = useDialog()
   const t = useT()
   const locale = useLocale()
-  const { user } = useUser()
+  const { user, canAccess } = useUser()
   const farmId = user?.farmId ?? ''
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [animals, setAnimals] = useState<Animal[]>([])
+  const [lots, setLots] = useState<LotRef[]>([])
+  // Lotes de recria/engorda só para quem vê o módulo Animais (a rota de lotes usa essa permissão)
+  const canLots = canAccess('animais')
   const [loading, setLoading] = useState(true)
   const [fromCache, setFromCache] = useState(false)
   const [notice, setNotice] = useState('')
@@ -87,17 +95,21 @@ export default function FinanceiroPage() {
 
   // Lista e rebanho com cópia no aparelho; a fila (lançados e excluídos sem internet) entra por cima e nos totais
   const loadData = useCallback(async (fid: string) => {
-    const [txs, herd] = await Promise.all([
+    const [txs, herd, lotList] = await Promise.all([
       cachedGet<Transaction[]>(`cache_financeiro_${fid}`, `/api/financeiro?farmId=${fid}`).catch(() => null),
       loadHerd<Animal>(fid).catch(() => null),
+      canLots ? cachedGet<LotRef[]>('cache_lotes_' + fid, '/api/lotes').catch(() => null) : Promise.resolve(null),
     ])
     const anims = Array.isArray(herd?.data) ? herd.data : []
     const list = Array.isArray(txs?.data) ? txs.data : []
+    const lotRefs = Array.isArray(lotList?.data) ? lotList.data.map(l => ({ id: l.id, name: l.name, endDate: l.endDate })) : []
     setAnimals(anims)
-    setTransactions(withPending(list, pendingOf(MODULE, p => p.farmId === fid), p => pendingTransaction(p, anims)))
+    setLots(lotRefs)
+    setTransactions(withPending(list, pendingOf(MODULE, p => p.farmId === fid), p => pendingTransaction(p, anims, lotRefs)))
     setFromCache(!!(txs?.fromCache || herd?.fromCache))
     setLoading(false)
-  }, [])
+  }, [canLots])
+  const openLots = useMemo(() => lots.filter(l => !l.endDate), [lots])
   const reload = useCallback(() => { if (farmId) void loadData(farmId) }, [farmId, loadData])
   const net = useOfflineModule(MODULE, reload, legacyRequest)
   useEffect(() => { void Promise.resolve().then(reload) }, [reload])
@@ -171,6 +183,8 @@ export default function FinanceiroPage() {
       description: form.description || null,
       // Animal só na venda de animal; despesa não tem animal
       animalId: form.type === 'Receita' && form.category === 'Venda de Animal' ? form.animalId || null : null,
+      // Lote só na despesa (entra nas despesas do desempenho do lote)
+      lotId: form.type === 'Despesa' ? form.lotId || null : null,
       paid: form.paid,
     }
     const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/financeiro', method: 'POST', body, local: { farmId } })
@@ -305,7 +319,10 @@ export default function FinanceiroPage() {
                   <td className="px-2 sm:px-4 py-2 sm:py-3">
                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold truncate inline-block max-w-full ${categoryColor(tx.category).badge}`}>{t(tx.category)}</span>
                   </td>
-                  <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-gray-500 text-xs truncate">{tx.description || (tx.animal ? tx.animal.name : '—')}</td>
+                  <td className="hidden sm:table-cell px-2 sm:px-4 py-2 sm:py-3 text-gray-500 text-xs truncate">
+                    {tx.description || (tx.animal ? tx.animal.name : tx.lot ? '' : '—')}
+                    {tx.lot && <span className={`${tx.description || tx.animal ? 'block ' : ''}text-gray-600`}>{t('Lote: {name}', { name: tx.lot.name })}</span>}
+                  </td>
                   <td className={`px-2 sm:px-4 py-2 sm:py-3 text-right font-semibold text-xs sm:text-sm whitespace-nowrap tabular-nums ${tx.type === 'Receita' ? 'text-green-700' : 'text-red-700'}`}>
                     {tx.type === 'Receita' ? '+' : '-'}{fmtBRL(tx.amount)}
                   </td>
@@ -391,6 +408,15 @@ export default function FinanceiroPage() {
                   {!net.online && animals.length === 0 && (
                     <p className="text-xs text-gray-400 mt-1">{t('Lista de animais ainda não guardada neste aparelho. Abra Animais com internet uma vez.')}</p>
                   )}
+                </div>}
+                {form.type === 'Despesa' && canLots && <div>
+                  <label className="text-xs font-medium text-gray-600">{t('Lote (opcional)')}</label>
+                  <select value={form.lotId} onChange={e => setForm({ ...form, lotId: e.target.value })}
+                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
+                    <option value="">{t('— Nenhum —')}</option>
+                    {openLots.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">{t('A despesa entra no desempenho do lote, em Recria e engorda.')}</p>
                 </div>}
                 {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
                 <div className="flex gap-2 pt-1">

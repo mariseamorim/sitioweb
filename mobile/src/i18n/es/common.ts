@@ -127,4 +127,8 @@ export const common: Record<string, string> = {
   'O app fechou com erro da última vez. Tire um print e mande para o suporte:': 'La app se cerró con un error la última vez. Haga una captura y envíela al soporte:',
   'Mostrar senha': 'Mostrar contraseña',
   'Esconder senha': 'Ocultar contraseña',
+  // Novo visual: grupos do menu Mais (como o menu do site) e selo do Meu cadastro
+  'Rebanho': 'Rodeo',
+  'Manejo': 'Manejo',
+  'Com senha': 'Con contraseña',
 }

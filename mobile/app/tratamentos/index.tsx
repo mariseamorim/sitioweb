@@ -4,7 +4,7 @@ import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { brDate } from '@/lib/format'
 import { listTreatments, milkBlockedToday, withdrawalUntil } from '@/repos/treatments'
-import { Badge, Empty, Fab, IconCircle, Row } from '@/ui'
+import { Badge, Empty, Fab, IconCircle, Row, Tile, TileGrid } from '@/ui'
 import { colors, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
@@ -14,12 +14,19 @@ export default function Tratamentos() {
   const router = useRouter()
   const t = useT()
   const items = useLive(() => listTreatments(farmId), [farmId])
+  const blocked = items.filter(x => milkBlockedToday(x)).length
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <FlatList
         data={items}
         keyExtractor={x => x.id}
         contentContainerStyle={{ padding: space.lg, paddingBottom: 96 }}
+        ListHeaderComponent={items.length ? (
+          <TileGrid>
+            <Tile accent="blue" label={t('Tratamentos')} value={String(items.length)} />
+            <Tile accent={blocked ? 'red' : 'green'} label={t('Leite em carência')} value={String(blocked)} />
+          </TileGrid>
+        ) : undefined}
         renderItem={({ item }) => {
           const until = withdrawalUntil(item, item.milkWithdrawalDays)
           return (

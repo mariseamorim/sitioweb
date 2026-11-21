@@ -45,6 +45,7 @@ model Farm {
   milkPayees      MilkPayee[] // nomes da nota do laticínio (versão completa)
   members         FarmMember[] // quem tem acesso (o dono pode ter várias propriedades)
   lots            Lot[] // lotes de recria e engorda
+  lotPlans        LotPlan[] // planos de recria/engorda (etapas com ganho por dia e meta de peso)
   offerContacts   OfferContact[] // contatos e compras em ofertas de fornecedores
   vetClients      VetClient[] // veterinários consultores que atendem a propriedade
 
@@ -248,6 +249,9 @@ model Transaction {
   description String?
   /// Já foi pago (despesa) ou recebido (receita); os lançamentos antigos contam como pagos
   paid        Boolean  @default(true)
+  /// Despesa de um lote de recria/engorda (entra no desempenho do lote)
+  lotId       String?
+  lot         Lot?     @relation(fields: [lotId], references: [id], onDelete: SetNull)
   animalId    String?
   animal      Animal?  @relation(fields: [animalId], references: [id])
   farmId      String
@@ -255,6 +259,7 @@ model Transaction {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@index([lotId])
   @@map("transactions")
 }
 
@@ -471,27 +476,54 @@ model MilkEntry {
 /// Lote de recria ou engorda: acompanha o peso médio do lote ao longo do tempo (pesagens)
 /// e o suplemento dado, com consumo em % do peso vivo por dia.
 model Lot {
-  id           String        @id @default(cuid())
-  farmId       String
-  farm         Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  name         String
-  phase        String        @default("engorda") // recria | engorda
-  startDate    DateTime
+  id            String        @id @default(cuid())
+  farmId        String
+  farm          Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  name          String
+  phase         String        @default("engorda") // recria | engorda
+  startDate     DateTime
   /// Preenchido quando o lote sai (vendido, abatido ou passou de fase)
-  endDate      DateTime?
+  endDate       DateTime?
   /// Produtos dados ao lote (suplementos, sal, ração), cada um com seu consumo em % do peso vivo
-  supplies     LotSupply[]
+  supplies      LotSupply[]
   /// Peso de saída desejado por cabeça (kg), para prever quando o lote chega lá
-  targetWeight Float?
-  notes        String?
-  weighings    LotWeighing[]
-  animals      Animal[]
-  feedings     LotFeeding[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  targetWeight  Float?
+  notes         String?
+  /// Plano do lote (etapas e meta); o desempenho compara o lote com ele
+  planId        String?
+  plan          LotPlan?      @relation(fields: [planId], references: [id], onDelete: SetNull)
+  /// Quanto custou comprar os animais do lote (R$), opcional
+  purchaseValue Float?
+  /// Despesas do Financeiro ligadas ao lote
+  transactions  Transaction[]
+  weighings     LotWeighing[]
+  animals       Animal[]
+  feedings      LotFeeding[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@index([farmId])
   @@map("lots")
+}
+
+/// Plano de recria/engorda reaproveitável: até 5 etapas com ganho por dia (GMD), dias e peso ao fim, e a meta final
+model LotPlan {
+  id           String   @id @default(cuid())
+  farmId       String
+  farm         Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  active       Boolean  @default(true)
+  /// [{ name, gmd, days, weight }] (gmd em kg/dia, weight em kg ao fim da etapa)
+  stages       Json
+  /// Meta de peso final por cabeça (kg)
+  targetWeight Float?
+  lots         Lot[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([farmId])
+  @@map("lot_plans")
 }
 
 /// Pesagem do lote: peso médio e quantas cabeças tinha no dia. A primeira é a entrada.
@@ -831,15 +863,15 @@ model GroupPurchaseOrder {
 
 /// Veterinário consultor: uma conta de edição (role "editor") que atende várias propriedades.
 model VetProfile {
-  id         String      @id @default(cuid())
-  userId     String      @unique
-  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String       @id @default(cuid())
+  userId     String       @unique
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   crmv       String?
   city       String?
   state      String?
   /// Código que o produtor informa para liberar a propriedade ao veterinário
-  inviteCode String      @unique
-  createdAt  DateTime    @default(now())
+  inviteCode String       @unique
+  createdAt  DateTime     @default(now())
   clients    VetClient[]
   visits     VetVisit[]
   receipts   VetReceipt[]

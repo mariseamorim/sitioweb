@@ -8,8 +8,10 @@ import { isoDay, todayISO } from '@/lib/format'
 import {
   average, dailySupplyKg, daysOfStock, kgInStockUnit, lotSummary, pricePerKg, stockKg, type Feeding, type Weighing,
 } from '@/lib/lots'
+import type { LotPlan } from '@/lib/lotPlans'
 import { createLocal, currentId, deleteLocal, isLocalId, updateLocal } from '@/sync/local'
 import type { Animal } from './animals'
+import { cachedPlans } from './lotPlans'
 import type { Supply } from './supplies'
 
 export interface SupplyRef { id: string; name: string; unit: string; currentQuantity: number; packageKg: number | null; unitPrice: number | null }
@@ -38,6 +40,8 @@ export interface LotAnimal {
 export type LotWeighing = Weighing & { id: string }
 export type LotFeeding = Feeding & { id: string; supplyId: string | null }
 export interface LotSupply { id: string; percent: number | null; supply: SupplyRef }
+/** Despesa do Financeiro ligada ao lote (entra no desempenho) */
+export interface LotTransaction { id: string; category: string; amount: number; date: string; description: string | null }
 export interface Lot {
   id: string
   name: string
@@ -46,6 +50,11 @@ export interface Lot {
   endDate: string | null
   targetWeight: number | null
   notes: string | null
+  planId: string | null
+  /** Valor de compra do lote (R$) */
+  purchaseValue: number | null
+  plan: LotPlan | null
+  transactions: LotTransaction[]
   supplies: LotSupply[]
   weighings: LotWeighing[]
   feedings: LotFeeding[]
@@ -61,6 +70,12 @@ export const isPending = (id: string) => isLocalId(id)
 const localId = () => 'local_' + Crypto.randomUUID()
 const byDate = <T extends { date: string }>(list: T[]) => [...list].sort((a, b) => a.date.localeCompare(b.date))
 
+/** Plano guardado no JSON do lote; etapas sempre como lista */
+const toPlan = (p: LotPlan | null): LotPlan | null => (p && typeof p === 'object' && p.id ? { ...p, stages: Array.isArray(p.stages) ? p.stages : [] } : null)
+
+/** Plano pelo id, da cópia de planos do aparelho (para o lote mostrar o plano escolhido antes do envio) */
+const planById = (farmId: string, planId: string | null): LotPlan | null => (planId ? cachedPlans(farmId).find(p => p.id === planId) ?? null : null)
+
 function toLot(row: Row): Lot {
   return {
     id: String(row.id),
@@ -70,6 +85,10 @@ function toLot(row: Row): Lot {
     endDate: row.endDate ? isoDay(row.endDate as string) : null,
     targetWeight: row.targetWeight === null || row.targetWeight === undefined ? null : Number(row.targetWeight),
     notes: (row.notes as string | null) ?? null,
+    planId: row.planId ? String(row.planId) : null,
+    purchaseValue: row.purchaseValue === null || row.purchaseValue === undefined || row.purchaseValue === '' ? null : Number(row.purchaseValue),
+    plan: toPlan(parseJson<LotPlan | null>(row.plan, null)),
+    transactions: byDate(parseJson<LotTransaction[]>(row.transactions, []).map(x => ({ ...x, amount: Number(x.amount), date: isoDay(x.date) }))),
     supplies: parseJson<LotSupply[]>(row.supplies, []),
     weighings: byDate(parseJson<LotWeighing[]>(row.weighings, []).map(w => ({ ...w, date: isoDay(w.date) }))),
     feedings: byDate(parseJson<LotFeeding[]>(row.feedings, []).map(f => ({ ...f, date: isoDay(f.date) }))),
@@ -166,6 +185,10 @@ export interface LotInput {
   startDate: string
   targetWeight: number | null
   notes?: string
+  /** Plano de recria/engorda (opcional) */
+  planId?: string | null
+  /** Valor de compra do lote em R$ (opcional) */
+  purchaseValue?: number | null
   supplies: ProductInput[]
   /** Com animais cadastrados: ids e o peso de entrada de cada um (os sem peso ficam de fora de `weights`) */
   animals?: { ids: string[]; weights: Record<string, number> }
@@ -184,12 +207,15 @@ export function createLot(farmId: string, input: LotInput): string {
   const body: Row = {
     name: input.name.trim(), phase: input.phase, startDate: input.startDate, targetWeight: input.targetWeight,
     notes: input.notes?.trim() || null, supplies: productsPayload(input.supplies),
+    planId: input.planId ?? null, purchaseValue: input.purchaseValue ?? null,
   }
   if (ids.length) Object.assign(body, { animalIds: ids, weights, headCount, avgWeight: input.avgWeight })
   else Object.assign(body, { headCount, avgWeight })
   const herd = ids.map(id => one<HerdAnimal>('SELECT * FROM animals WHERE id = ?', [id])).filter((a): a is HerdAnimal => !!a)
   const row: Row = {
     endDate: null,
+    plan: planById(farmId, input.planId ?? null),
+    transactions: [],
     supplies: lotSupplies(null, input.supplies),
     feedings: [],
     weighings: [{ id: localId(), date: input.startDate, headCount, avgWeight }],
@@ -209,6 +235,10 @@ export interface LotPatch {
   startDate?: string
   notes?: string
   targetWeight?: number | null
+  /** null tira o plano */
+  planId?: string | null
+  /** null tira o valor */
+  purchaseValue?: number | null
   supplies?: ProductInput[]
   addAnimalIds?: string[]
   removeAnimalIds?: string[]
@@ -224,6 +254,12 @@ export function patchLot(farmId: string, lot: Lot, patch: LotPatch) {
   if (patch.notes !== undefined) body.notes = patch.notes.trim() || null
   if (patch.targetWeight !== undefined) body.targetWeight = patch.targetWeight
   if (patch.endDate !== undefined) body.endDate = patch.endDate
+  if (patch.purchaseValue !== undefined) body.purchaseValue = patch.purchaseValue
+  if (patch.planId !== undefined && patch.planId !== lot.planId) {
+    body.planId = patch.planId
+    // O objeto do plano vem da cópia de planos do aparelho, para o desempenho já comparar com o plano novo
+    row.plan = planById(farmId, patch.planId)
+  }
   if (patch.supplies !== undefined) {
     body.supplies = productsPayload(patch.supplies)
     row.supplies = lotSupplies(lot, patch.supplies)

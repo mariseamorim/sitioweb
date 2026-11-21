@@ -12,7 +12,8 @@ import {
 } from '@/repos/vendors'
 import { useSyncState } from '@/sync'
 import { isLocalId } from '@/sync/local'
-import { Badge, Button, Card, Chips, Empty, Field, Muted, Notice, Screen } from '@/ui'
+import { Ionicons } from '@expo/vector-icons'
+import { Badge, Button, Card, Chips, Empty, Field, IconCircle, Muted, Notice, Screen, Tile, TileGrid, type Tone } from '@/ui'
 import { RequestQuote } from '@/ui/RequestQuote'
 import { TextButton } from '@/ui/TextButton'
 import { colors, font, radius, space } from '@/theme'
@@ -35,6 +36,7 @@ export default function Ofertas() {
 
   const categories = [...new Set(offers.map(o => o.category))]
   const visible = offers.filter(o => !category || o.category === category)
+  const openRequests = requests.filter(r => r.status === 'novo' || r.status === 'respondido').length
 
   function callVendor(offer: Offer) {
     const phone = offer.vendor?.whatsapp || offer.vendor?.phone || ''
@@ -60,6 +62,12 @@ export default function Ofertas() {
   return (
     <Screen>
       <Muted style={{ marginBottom: space.md }}>{t('Insumos dos seus fornecedores e da sua região')}</Muted>
+      <TileGrid>
+        <Tile accent="green" label={t('Ofertas')} value={String(offers.length)} />
+        <Tile accent={openRequests ? 'blue' : 'plain'} label={t('Pedidos abertos')} value={String(openRequests)} />
+        <Tile accent="plain" label={t('Fornecedores')} value={String(vendors.length)} />
+        <Tile accent={low.length ? 'amber' : 'plain'} label={t('Estoque baixo')} value={String(low.length)} />
+      </TileGrid>
       {actionError ? <Notice tone="red" text={actionError} /> : null}
       {low.length > 0 ? <Notice tone="amber" text={t('Estoque baixo em {list}. As ofertas dessas categorias aparecem primeiro.', { list: low.map(c => t(c)).join(', ') })} /> : null}
       {categories.length > 1 ? (
@@ -72,13 +80,13 @@ export default function Ofertas() {
 
       {requests.length > 0 ? (
         <View style={{ marginTop: space.xl }}>
-          <Text style={sectionTitle}>{t('Meus pedidos e mensagens')}</Text>
+          <SectionTitle icon="chatbubbles-outline" tone="blue" title={t('Meus pedidos e mensagens')} />
           {requests.map(r => <RequestCard key={r.id} request={r} canEdit={canEdit} onClose={status => closeRequest(r, status)} />)}
         </View>
       ) : null}
 
       <View style={{ marginTop: space.xl }}>
-        <Text style={sectionTitle}>{t('Meus fornecedores')}</Text>
+        <SectionTitle icon="storefront-outline" tone="purple" title={t('Meus fornecedores')} />
         <Muted style={{ marginBottom: space.md }}>
           {t('Seus fornecedores veem os itens do seu estoque que estão abaixo do mínimo, para oferecer a reposição. Você pode desligar para cada um.')}
         </Muted>
@@ -97,8 +105,18 @@ export default function Ofertas() {
   )
 }
 
-const sectionTitle = { fontSize: font.lg, fontWeight: '700' as const, color: colors.text, marginBottom: space.sm }
+const sectionTitle = { flex: 1, fontSize: font.lg, fontWeight: '700' as const, color: colors.text }
 const smallText = { fontSize: font.sm, color: colors.muted }
+
+/** Título de seção com ícone colorido num círculo */
+function SectionTitle({ icon, tone, title }: { icon: keyof typeof Ionicons.glyphMap; tone: Tone; title: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: space.sm }}>
+      <IconCircle icon={icon} tone={tone} size={36} />
+      <Text style={sectionTitle}>{title}</Text>
+    </View>
+  )
+}
 
 function OfferCard({ offer: o, onCall }: { offer: Offer; onCall: () => void }) {
   const t = useT()
@@ -107,7 +125,7 @@ function OfferCard({ offer: o, onCall }: { offer: Offer; onCall: () => void }) {
   return (
     <Card style={o.matchesLowStock ? { borderColor: '#fcd34d' } : undefined}>
       <View style={{ flexDirection: 'row', gap: space.md }}>
-        {o.imageUrl ? <Image source={{ uri: o.imageUrl }} style={{ width: 88, height: 88, borderRadius: radius.md, backgroundColor: colors.border }} /> : null}
+        {o.imageUrl ? <Image source={{ uri: o.imageUrl }} style={{ width: 88, height: 88, borderRadius: radius.md, backgroundColor: colors.border }} /> : <IconCircle icon="pricetag-outline" tone={o.matchesLowStock ? 'amber' : 'green'} size={44} />}
         <View style={{ flex: 1, minWidth: 0 }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
             {o.matchesLowStock ? <Badge label="Seu estoque está baixo" tone="amber" /> : null}
@@ -177,11 +195,19 @@ function VendorCard({ vendor: v, canEdit, onMessage, onToggleMute, onToggleShare
   const place = [v.city, v.state].filter(Boolean).join('/')
   return (
     <Card>
-      <Text style={{ fontSize: font.md, fontWeight: '600', color: colors.text }}>{v.companyName}</Text>
-      <Text style={smallText}>{[v.contactName, place].filter(Boolean).join(' · ')}</Text>
-      <Text style={[smallText, { marginTop: 4 }]}>
-        {t(v.shareStock ? 'Vê seu estoque baixo' : 'Não vê seu estoque')}{v.muted ? ` · ${t('ofertas silenciadas')}` : ''}{v.status === 'pendente' ? ` · ${t('cadastro em análise')}` : ''}
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+        <IconCircle icon="storefront-outline" tone="purple" />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ fontSize: font.md, fontWeight: '600', color: colors.text }}>{v.companyName}</Text>
+          {v.contactName || place ? <Text style={smallText}>{[v.contactName, place].filter(Boolean).join(' · ')}</Text> : null}
+        </View>
+      </View>
+      {/* Situação em selos; com letra grande passam para a linha de baixo */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: space.sm }}>
+        <Badge label={v.shareStock ? 'Vê seu estoque baixo' : 'Não vê seu estoque'} tone={v.shareStock ? 'green' : 'muted'} />
+        {v.muted ? <Badge label="ofertas silenciadas" tone="amber" /> : null}
+        {v.status === 'pendente' ? <Badge label="cadastro em análise" tone="blue" /> : null}
+      </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.md }}>
         {canEdit ? <Button label="Mandar mensagem" onPress={onMessage} style={{ minHeight: 44 }} /> : null}
         <Button label="WhatsApp" variant="secondary" onPress={() => void openWhatsApp(v.whatsapp || v.phone, t('Olá! Te encontrei pelo Anota Aí Agro.'))} style={{ minHeight: 44 }} />

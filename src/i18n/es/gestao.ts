@@ -395,4 +395,8 @@ export const gestao: Record<string, string> = {
   'Espere o lançamento ser enviado para mudar se foi pago.': 'Espere a que se envíe el registro para cambiar si fue pagado.',
   'Informar preço e validade': 'Informar precio y vencimiento',
   'Vence hoje': 'Vence hoy',
+  // Financeiro: despesa ligada a um lote de recria/engorda
+  'Lote (opcional)': 'Lote (opcional)',
+  'Lote: {name}': 'Lote: {name}',
+  'A despesa entra no desempenho do lote, em Recria e engorda.': 'El gasto entra en el desempeño del lote, en Recría y engorde.',
 }

@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
           },
         } : {}),
       },
-      include: { animal: { select: { id: true, name: true, code: true } } },
+      include: { animal: { select: { id: true, name: true, code: true } }, lot: { select: { id: true, name: true } } },
       orderBy: { date: 'desc' },
     })
 
@@ -46,6 +46,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Campos obrigatórios faltando' }, { status: 400 })
     }
 
+    // Despesa de um lote de recria/engorda (entra no desempenho do lote)
+    const lotId = type === 'Despesa' && typeof body.lotId === 'string' && body.lotId ? body.lotId : null
+    if (lotId && !(await prisma.lot.count({ where: { id: lotId, farmId } }))) return notFound('Lote não encontrado')
+
     if (animalId) {
       const animal = await prisma.animal.findFirst({ where: { id: animalId, farmId }, select: { id: true } })
       if (!animal) return notFound('Animal não encontrado')
@@ -62,8 +66,9 @@ export async function POST(request: NextRequest) {
         // Sem a informação (app antigo), conta como pago, como antes
         paid: body.paid !== false,
         animalId: animalId || null,
+        lotId,
       },
-      include: { animal: { select: { id: true, name: true, code: true } } },
+      include: { animal: { select: { id: true, name: true, code: true } }, lot: { select: { id: true, name: true } } },
     })
 
     return NextResponse.json(transaction, { status: 201 })

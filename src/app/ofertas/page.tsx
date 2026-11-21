@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useUser } from '@/contexts/UserContext'
 import { useDialog } from '@/components/DialogProvider'
-import { AlertaIcon } from '@/components/ModuleIcons'
+import { AlertaIcon, LojaIcon } from '@/components/ModuleIcons'
 import { fmtDate, fmtMoney } from '@/lib/reports'
 import { whatsappLink } from '@/lib/utils'
 import { RequestQuote } from '@/components/RequestQuote'
@@ -209,8 +209,8 @@ export default function OfertasPage() {
       {actionError && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{actionError}</p>}
 
       {lowCategories.length > 0 && (
-        <div className="mb-5 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
-          <AlertaIcon className="w-5 h-5 shrink-0 mt-0.5" />
+        <div role="status" className="mb-5 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+          <AlertaIcon className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
           <p className="text-sm">
             {t('Estoque baixo em')} <strong>{lowCategories.map((c) => t(c)).join(', ')}</strong>. {t('As ofertas dessas categorias aparecem primeiro.')}
           </p>
@@ -235,16 +235,17 @@ export default function OfertasPage() {
       ) : !offers ? (
         <p className="text-gray-400 text-sm">{t('Carregando...')}</p>
       ) : visible.length === 0 ? (
-        <div className="py-12 text-center text-gray-500 bg-white rounded-xl border border-gray-200">
-          <p className="text-lg">{t('Nenhuma oferta no momento')}</p>
-          <p className="text-sm mt-1">{t('Peça ao seu fornecedor o link de convite ou procure por ele abaixo.')}</p>
+        <div className="py-12 px-4 flex flex-col items-center text-center bg-white rounded-xl border border-gray-200 shadow-sm">
+          <span className="rounded-full bg-gray-100 p-3 text-gray-400"><LojaIcon className="w-8 h-8" /></span>
+          <p className="mt-3 text-lg font-bold text-gray-800">{t('Nenhuma oferta no momento')}</p>
+          <p className="text-sm text-gray-500 mt-1 max-w-sm">{t('Peça ao seu fornecedor o link de convite ou procure por ele abaixo.')}</p>
         </div>
       ) : (
         <ul className="grid gap-3 md:grid-cols-2">
           {visible.map((o) => {
             const phone = o.vendor.whatsapp || o.vendor.phone
             return (
-              <li key={o.id} className={`bg-white rounded-xl border p-4 flex gap-4 ${o.matchesLowStock ? 'border-amber-300' : 'border-gray-200'}`}>
+              <li key={o.id} className={`bg-white rounded-xl border shadow-sm p-4 flex gap-4 ${o.matchesLowStock ? 'border-amber-300' : 'border-gray-200'}`}>
                 {o.imageUrl && <img src={o.imageUrl} alt="" className="w-24 h-24 rounded-lg object-cover shrink-0" />}
                 <div className="flex-1 min-w-0 flex flex-col">
                   <div className="flex flex-wrap gap-1.5 mb-1">
@@ -280,30 +281,32 @@ export default function OfertasPage() {
               const open = r.status === 'novo' || r.status === 'respondido'
               const isMessage = !r.supplyId && !r.quantity
               return (
-                <li key={r.id} className={`bg-white rounded-xl border p-4 ${r.status === 'respondido' ? 'border-blue-300' : 'border-gray-200'}`}>
+                <li key={r.id} className={`flex flex-col bg-white rounded-xl border shadow-sm p-4 ${r.status === 'respondido' ? 'border-blue-300' : 'border-gray-200'}`}>
+                  {/* Título (item · quantidade) com a situação à direita */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-900">
+                      <p className="font-bold text-gray-900">
                         {r.itemName}
-                        {r.quantity && <span className="font-normal text-gray-600"> · {r.quantity.toLocaleString(locale)}{r.unit ? ` ${t(r.unit)}` : ''}</span>}
+                        {r.quantity && <span className="font-semibold text-gray-600"> · {r.quantity.toLocaleString(locale)}{r.unit ? ` ${t(r.unit)}` : ''}</span>}
                       </p>
-                      <p className="text-sm text-gray-500">{r.vendor.companyName} · {t(isMessage ? 'mensagem enviada em {date}' : 'pedido em {date}', { date: fmtDate(r.createdAt) })}</p>
+                      <p className="mt-0.5 text-sm text-gray-500">{r.vendor.companyName} · {t(isMessage ? 'mensagem enviada em {date}' : 'pedido em {date}', { date: fmtDate(r.createdAt) })}</p>
                     </div>
                     <span className={`shrink-0 text-xs font-semibold px-2.5 py-0.5 rounded-full ${status.style}`}>{t(status.label)}</span>
                   </div>
-                  {r.note && <p className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700"><span className="text-gray-500">{t('Você:')} </span>{r.note}</p>}
+                  {/* Conversa: mensagem do produtor (cinza) e resposta do fornecedor (azul) */}
+                  {r.note && <p className="mt-3 rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-700"><span className="font-semibold text-gray-500">{t('Você:')} </span>{r.note}</p>}
                   {r.reply && (
                     <div className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900">
-                      <p><span className="font-semibold">{r.vendor.companyName}: </span>{r.reply}</p>
-                      {r.replyPrice !== null && <p className="mt-1 text-base font-bold">{fmtMoney(r.replyPrice)}</p>}
+                      <p><span className="font-bold">{r.vendor.companyName}: </span>{r.reply}</p>
+                      {r.replyPrice !== null && <p className="mt-1 text-lg font-bold tabular-nums text-blue-900">{fmtMoney(r.replyPrice)}</p>}
                     </div>
                   )}
                   {open && (
-                    <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                    <div className="mt-3 flex flex-wrap items-center gap-4 text-sm">
                       <a href={whatsappLink(r.vendor.whatsapp || r.vendor.phone, t('Olá! Sobre o meu pedido de {item} pelo Anota Aí Agro.', { item: r.itemName }))}
                         target="_blank" rel="noopener noreferrer"
-                        className="bg-green-800 hover:bg-green-700 text-white font-semibold px-3 py-2 rounded-lg">WhatsApp</a>
-                      {canEdit && <button onClick={() => setRequestStatus(r, 'fechado')} className="font-medium text-green-700 hover:underline">{t('Resolvido')}</button>}
+                        className="bg-green-800 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg">WhatsApp</a>
+                      {canEdit && <button onClick={() => setRequestStatus(r, 'fechado')} className="font-semibold text-green-800 hover:underline">{t('Resolvido')}</button>}
                       {canEdit && r.status === 'novo' && <button onClick={() => setRequestStatus(r, 'cancelado')} className="font-medium text-red-600 hover:underline">{t('Cancelar')}</button>}
                     </div>
                   )}
@@ -324,7 +327,7 @@ export default function OfertasPage() {
         ) : (
           <ul className="mt-3 grid gap-3 md:grid-cols-2">
             {vendors.map((v) => (
-              <li key={v.id} className="bg-white rounded-xl border border-gray-200 p-4">
+              <li key={v.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
                 {/* Dados em cima, ações embaixo: no celular o nome não fica espremido pelos botões */}
                 <p className="font-semibold text-gray-900">{v.companyName}</p>
                 <p className="text-sm text-gray-500">

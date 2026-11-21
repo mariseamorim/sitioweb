@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireFarmAccess } from '@/lib/auth'
 import { isLotPhase } from '@/lib/lots'
-import { LOT_SELECT, farmAnimals, findLot, parseDay, parseLotSupplies, parseTarget, serializeLot, setLotSupplies } from '../shared'
+import { LOT_SELECT, farmAnimals, findLot, parseDay, parseLotSupplies, parseMoney, parsePlanId, parseTarget, serializeLot, setLotSupplies } from '../shared'
 
 // PATCH: altera o lote, encerra (endDate) ou reabre (endDate null), põe (addAnimalIds) ou tira (removeAnimalIds) animais
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -35,6 +35,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const target = parseTarget(body.targetWeight)
     if (target === 'invalid') return NextResponse.json({ error: 'Peso-alvo inválido' }, { status: 400 })
     data.targetWeight = target
+  }
+  if ('planId' in body) {
+    const planId = await parsePlanId(auth.farmId, body.planId)
+    if (planId === 'invalid') return NextResponse.json({ error: 'Plano não encontrado' }, { status: 400 })
+    data.planId = planId
+  }
+  if ('purchaseValue' in body) {
+    const value = parseMoney(body.purchaseValue)
+    if (value === 'invalid') return NextResponse.json({ error: 'Valor de compra inválido' }, { status: 400 })
+    data.purchaseValue = value
   }
   const add = body.addAnimalIds === undefined ? [] : await farmAnimals(auth.farmId, body.addAnimalIds)
   if (!add) return NextResponse.json({ error: 'Escolha animais vivos desta propriedade' }, { status: 400 })

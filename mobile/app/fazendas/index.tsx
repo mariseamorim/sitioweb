@@ -9,7 +9,7 @@ import { OWNER_FILTERS, STALE_DAYS, activityLabel, filterOwnerGroups, groupFarms
 import { listFarms, removeFarm, type Farm } from '@/repos/farms'
 import { pendingCount } from '@/sync/local'
 import { useSyncState } from '@/sync'
-import { Badge, Button, Card, Chips, Empty, Fab, Muted, Notice, Screen, Search, Tile, TileGrid } from '@/ui'
+import { Badge, Button, Card, Chips, Empty, Fab, IconCircle, Muted, Notice, Screen, Search, Tile, TileGrid } from '@/ui'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
@@ -89,9 +89,14 @@ export default function Fazendas() {
         {header}
         {active.length === 0 ? <Empty title="Nenhuma propriedade cadastrada" text={canEdit ? 'Toque em “Cadastrar” para começar' : undefined} /> : active.map(f => (
           <Card key={f.id}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.sm }}>
-              <Text style={{ flex: 1, fontSize: font.lg, fontWeight: '700', color: colors.text }}>{f.name}</Text>
-              {f.propertyType ? <Badge label={f.propertyType} tone={f.propertyType === 'Sítio' ? 'amber' : 'green'} /> : null}
+            {/* Ícone colorido (verde na propriedade aberta), nome e tipo em selo; o selo desce de linha com letra grande */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.xs }}>
+              <IconCircle icon="home-outline" tone={f.id === farmId ? 'green' : 'blue'} />
+              <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm }}>
+                <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text }}>{f.name}</Text>
+                {f.propertyType ? <Badge label={f.propertyType} tone={f.propertyType === 'Sítio' ? 'amber' : 'green'} /> : null}
+                {f.id === farmId ? <Badge label="Aberta" tone="green" /> : null}
+              </View>
             </View>
             {f.documentType || f.documentNumber ? <Muted>{f.documentType}: {f.documentNumber}</Muted> : null}
             {f.owner ? <Muted>{t('Proprietário:')} {f.owner}</Muted> : null}
