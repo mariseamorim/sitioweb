@@ -14,7 +14,7 @@ export type Row = Record<string, unknown>
  */
 export const TABLES = {
   animals: {
-    columns: ['code', 'customCode', 'name', 'species', 'gender', 'birthDate', 'status', 'isCastrated', 'acquisitionType', 'gta', 'observations', 'motherId', 'lowDate', 'lowReason', 'lotId', 'rearingStart', 'rearingEnd', 'rearingTarget', 'createdAt', 'updatedAt'],
+    columns: ['code', 'customCode', 'name', 'species', 'breed', 'gender', 'birthDate', 'status', 'isCastrated', 'acquisitionType', 'gta', 'observations', 'motherId', 'lowDate', 'lowReason', 'lotId', 'rearingStart', 'rearingEnd', 'rearingTarget', 'createdAt', 'updatedAt'],
     list: '/api/animals', module: 'animais',
   },
   milk: {
