@@ -22,6 +22,21 @@ const PERIOD_KEY = 'dashboard_meses'
 
 type WakeLock = { release: () => Promise<void> }
 
+/** Cartão com número: some quando está vazio ou zerado */
+const hasValue = (tile: Tile) => tile.value !== null && tile.value !== 0
+
+/** Gráfico só aparece com dados; nas barras, as linhas zeradas somem (ex.: "Receitas R$ 0") */
+function withData(chart: Chart): Chart | null {
+  if (chart.kind === 'columns' || chart.kind === 'line') return chart.points.some((p) => p.value) ? chart : null
+  if (chart.kind === 'stacked') return chart.series.some((s) => s.values.some(Boolean)) ? chart : null
+  if (chart.kind === 'bars') {
+    const rows = chart.rows.filter((r) => r.value)
+    return rows.length ? { ...chart, rows } : null
+  }
+  if (chart.kind === 'table' || chart.kind === 'list') return chart.rows.length ? chart : null
+  return chart
+}
+
 export default function DashboardPage() {
   const t = useT()
   const locale = useLocale()
@@ -90,6 +105,8 @@ export default function DashboardPage() {
   }
 
   const time = (d: Date) => d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+  const tiles = board?.tiles.filter(hasValue) ?? []
+  const charts = (board?.charts ?? []).flatMap((c) => { const shown = withData(c); return shown ? [shown] : [] })
 
   return (
     <div ref={root} className={full ? 'h-full overflow-auto bg-gray-50 p-6' : ''}>
@@ -121,15 +138,15 @@ export default function DashboardPage() {
 
       {board && (
         <>
-          {board.tiles.length > 0 && (
+          {tiles.length > 0 && (
             <div className="mb-5 grid grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] gap-3">
-              {board.tiles.map((tile, i) => <TileCard key={tile.label} tile={tile} index={i} />)}
+              {tiles.map((tile, i) => <TileCard key={tile.label} tile={tile} index={i} />)}
             </div>
           )}
           <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-            {board.charts.map((chart) => <ChartCard key={chart.title} chart={chart} />)}
+            {charts.map((chart) => <ChartCard key={chart.title} chart={chart} />)}
           </div>
-          {!board.tiles.length && !board.charts.length && <p className="py-12 text-center text-gray-500">{t('Ainda não há dados para mostrar.')}</p>}
+          {!tiles.length && !charts.length && <p className="py-12 text-center text-gray-500">{t('Ainda não há dados para mostrar.')}</p>}
         </>
       )}
     </div>
