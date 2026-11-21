@@ -202,30 +202,25 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
       <Link href="/" aria-label="Anota Aí Agro, painel" className="flex h-16 shrink-0 items-center justify-center border-b border-gray-100">{logo}</Link>
       {navigation}{account}
     </aside>
-    {/* Menu recolhido: só os ícones numa faixa estreita. Atalhos do topo abrem direto; um grupo abre o menu já com ele aberto. */}
+    {/* Menu recolhido: todas as telas do menu em ícones numa faixa estreita, separadas por grupo; o nome aparece ao passar o mouse */}
     {!desktopOpen && (
       <nav aria-label={t('Menu principal')} className="fixed inset-y-0 left-0 z-40 hidden w-16 flex-col items-center gap-1 overflow-y-auto border-r border-gray-200 bg-white py-3 lg:flex">
-        <button type="button" onClick={onToggleDesktop} aria-label={t('Abrir menu lateral')} title={t('Abrir menu lateral')} className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100"><MenuIcon className="h-5 w-5" /></button>
-        {visibleGroups.map((group, index) => {
-          if (index === 0 || !group.Icon || group.links.length === 1) {
-            return group.links.map(({ href, label, Icon }) => {
+        <button type="button" onClick={onToggleDesktop} aria-label={t('Abrir menu lateral')} aria-expanded={false} aria-controls="menu-computador" title={t('Abrir menu lateral')} className="mb-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100"><MenuIcon className="h-5 w-5" /></button>
+        {visibleGroups.map((group, index) => (
+          <div key={group.label} className={`flex w-full flex-col items-center gap-1 ${index > 0 ? 'mt-1 border-t border-gray-100 pt-2' : ''}`} role="group" aria-label={t(group.label)}>
+            {group.links.map(({ href, label, Icon }) => {
               const active = activeLink?.href === href;
               return <Link key={href} href={href} aria-label={t(label)} title={t(label)} aria-current={active ? 'page' : undefined}
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${active ? 'bg-green-100 text-green-800' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}><Icon className="h-5 w-5" /></Link>;
-            });
-          }
-          const GroupIcon = group.Icon;
-          const hasActive = group.links.some(link => link.href === activeLink?.href);
-          return <button key={group.label} type="button" aria-label={t(group.label)} title={t(group.label)}
-            onClick={() => { setToggled(prev => ({ ...prev, [group.label]: true })); onToggleDesktop(); }}
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${hasActive ? 'bg-green-100 text-green-800' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}><GroupIcon className="h-5 w-5" /></button>;
-        })}
+            })}
+          </div>
+        ))}
       </nav>
     )}
     <header className={`sticky top-0 z-30 border-b border-gray-200 bg-white ${desktopOpen ? 'lg:ml-64' : 'lg:ml-16'}`}>
       <div className="flex min-h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
-          <button type="button" onClick={onToggleDesktop} aria-label={t(desktopOpen ? 'Recolher menu' : 'Abrir menu lateral')} aria-expanded={desktopOpen} aria-controls="menu-computador" className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 lg:flex"><MenuIcon className="h-5 w-5" /></button>
+          <button type="button" onClick={onToggleDesktop} aria-label={t(desktopOpen ? 'Recolher menu' : 'Abrir menu lateral')} aria-expanded={desktopOpen} aria-controls="menu-computador" className={`hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 ${desktopOpen ? 'lg:flex' : ''}`}><MenuIcon className="h-5 w-5" /></button>
           <button ref={trigger} type="button" onClick={() => setOpenPath(pathname)} aria-label={t('Abrir menu')} aria-expanded={drawerOpen} aria-controls={drawerOpen ? 'menu-lateral' : undefined} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 lg:hidden"><MenuIcon className="h-5 w-5" /></button>
           {/* Fora do painel, um "voltar" visível: o menu ☰ não é óbvio para quem não é de tecnologia */}
           {pathname !== homeHref && (
