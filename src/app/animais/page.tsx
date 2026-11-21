@@ -15,7 +15,7 @@ import Link from 'next/link'
 import { useDialog } from '@/components/DialogProvider'
 import { SemSinalIcon, SincronizarIcon, AnimalIcon, FecharIcon } from '@/components/ModuleIcons'
 import { CalfSection } from '@/components/CalfSection'
-import { CALF_AT_FOOT_DAYS, animalCategory, animalRuleError, animalToday, canAddCalf, fixedAnimalGender, isBovine } from '@/lib/animalRules'
+import { CALF_AT_FOOT_DAYS, animalCategory, animalRuleError, animalToday, CATTLE_BREEDS, canAddCalf, fixedAnimalGender, isBovine } from '@/lib/animalRules'
 import { animalCodes, animalSearchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
@@ -29,6 +29,8 @@ interface Animal {
   customCode?: string | null
   name: string
   species: string
+  /** Raça (só bovinos) */
+  breed?: string | null
   gender: string
   birthDate: string
   isCastrated?: boolean
@@ -52,6 +54,7 @@ const EMPTY_FORM = {
   customCode: '',
   name: '',
   species: 'Bezerro' as Especie,
+  breed: '',
   gender: 'Fêmea',
   birthDate: '',
   isCastrated: false,
@@ -119,6 +122,7 @@ export default function AnimaisPage() {
         customCode: r.customCode || null,
         name: r.name,
         species: r.species,
+        breed: r.breed || null,
         gender: r.gender,
         birthDate: r.birthDate,
         isCastrated: r.isCastrated ?? false,
@@ -215,6 +219,7 @@ export default function AnimaisPage() {
       customCode: a.customCode || '',
       name: a.name,
       species: a.species as Especie,
+      breed: a.breed || '',
       gender: fixedAnimalGender(a.species) ?? a.gender,
       birthDate: a.birthDate.slice(0, 10),
       isCastrated: a.isCastrated ?? ['Boi', 'Boi de engorda'].includes(a.species),
@@ -539,7 +544,7 @@ export default function AnimaisPage() {
                     <p className="text-xs text-gray-500">{t('Código')}</p>
                     <p className="text-base sm:text-lg font-semibold text-gray-800 break-words">{selectedAnimal.code}</p>
                     {selectedAnimal.customCode && <p className="text-xs sm:text-sm text-gray-600 break-words">{t('Outro código:')} <strong>{selectedAnimal.customCode}</strong></p>}
-                    <p className="text-xs sm:text-sm text-gray-500 truncate">{t(selectedAnimal.species)}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 truncate">{t(selectedAnimal.species)}{selectedAnimal.breed ? ` · ${selectedAnimal.breed}` : ''}</p>
                   </div>
                 </div>
                 <button
@@ -762,6 +767,16 @@ export default function AnimaisPage() {
                   </div>
                 </div>
 
+                {/* Raça: só para bovinos; sugestões, mas aceita qualquer raça digitada */}
+                {isBovine(form.species) && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">{t('Raça')}
+                      <input list="racas-bovinas" value={form.breed} maxLength={40} onChange={(e) => setForm({ ...form, breed: e.target.value })} placeholder={t('Ex.: Nelore, Girolando, Holandesa')}
+                        className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                    </label>
+                    <datalist id="racas-bovinas">{CATTLE_BREEDS.map((b) => <option key={b} value={b} />)}</datalist>
+                  </div>
+                )}
                 {isBovine(form.species) && <div className="rounded-lg bg-green-50 p-3 text-sm text-green-900">
                   <p>{t('Classificação por idade e sexo:')} <strong>{form.birthDate ? t(animalCategory(form)) : t('Informe a data de nascimento')}</strong></p>
                   {form.gender === 'Macho' && <label className="mt-2 flex items-center gap-2"><input type="checkbox" checked={form.isCastrated} onChange={e => setForm({ ...form, isCastrated: e.target.checked })} />{t('Animal castrado')}</label>}

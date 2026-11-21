@@ -93,4 +93,6 @@ export const animais: Record<string, string> = {
   'GTA (Guia de Trânsito Animal)': 'Guía de traslado de animales',
   'Salvando...': 'Guardando...',
   'Carregando...': 'Cargando...',
+  'Raça': 'Raza',
+  'Ex.: Nelore, Girolando, Holandesa': 'Ej.: Nelore, Girolando, Holando',
 }
