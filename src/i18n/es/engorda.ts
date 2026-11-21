@@ -343,4 +343,6 @@ export const engorda: Record<string, string> = {
   'Para ver as despesas, lance o trato com o preço do produto ou anote a despesa no Financeiro escolhendo este lote.': 'Para ver los gastos, registre la ración con el precio del producto o anote el gasto en Finanzas eligiendo este lote.',
   'Despesas por categoria': 'Gastos por categoría',
   'Trato': 'Ración',
+  'Abrir o lote': 'Abrir el lote',
+  'encerrado': 'cerrado',
 }

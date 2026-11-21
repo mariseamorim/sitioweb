@@ -14,6 +14,7 @@ import { SemSinalIcon, SincronizarIcon } from '@/components/ModuleIcons'
 import { StatTile } from '@/components/StatTile'
 import type { LotPlan } from '@/lib/lotPlans'
 import { LotDetail } from './LotDetail'
+import { LotPerformance } from './LotPerformance'
 import { PlanSelect, PlansPanel, sortPlans } from './Plans'
 import { RearingAnimals } from './RearingAnimals'
 import {
@@ -23,7 +24,7 @@ import {
 
 type Tab = 'todos' | 'recria' | 'engorda'
 /** Lotes (com as fases) ou Planos de recria/engorda */
-type View = 'lotes' | 'planos'
+type View = 'lotes' | 'planos' | 'desempenho'
 
 export default function EngordaPage() {
   const { user, canAccess, loading: userLoading } = useUser()
@@ -37,6 +38,8 @@ export default function EngordaPage() {
   const [notice, setNotice] = useState('')
   const [tab, setTab] = useState<Tab>('todos')
   const [view, setView] = useState<View>('lotes')
+  // Desempenho: o lote escolhido (sem escolha, o primeiro aberto)
+  const [perfLotId, setPerfLotId] = useState<string | null>(null)
   const [plans, setPlans] = useState<LotPlan[] | null>(null)
   const [creating, setCreating] = useState(false)
   const [open, setOpen] = useState<{ id: string; focus?: 'pesar' | 'animais' } | null>(null)
@@ -130,13 +133,35 @@ export default function EngordaPage() {
           </p>
         )}
 
-        {/* Lotes ou Planos (o plano diz o ganho esperado por etapa; o lote escolhe um plano) */}
+        {/* Lotes, Planos (ganho esperado por etapa) ou Desempenho de um lote comparado com o plano */}
         <div role="group" aria-label={t('Mostrar')} className="mb-4 flex flex-wrap gap-2">
-          {([['lotes', t('Lotes')], ['planos', t('Planos')]] as const).map(([key, text]) => (
+          {([['lotes', t('Lotes')], ['planos', t('Planos')], ['desempenho', t('Desempenho')]] as const).map(([key, text]) => (
             <button key={key} type="button" onClick={() => setView(key)} aria-pressed={view === key}
               className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${view === key ? 'bg-green-800 text-white' : 'border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}>{text}</button>
           ))}
         </div>
+
+        {view === 'desempenho' && (() => {
+          // Abertos primeiro, depois os encerrados
+          const all = [...(lots ?? []).filter((l) => !l.endDate), ...(lots ?? []).filter((l) => l.endDate)]
+          const chosen = all.find((l) => l.id === perfLotId) ?? all[0]
+          if (!lots) return <p className="text-sm text-gray-400">{t('Carregando...')}</p>
+          if (!chosen) return <p className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center text-gray-600">{t('Nenhum lote ainda')}</p>
+          return (
+            <section>
+              <div className="mb-4 flex flex-wrap items-end gap-3">
+                <label className="text-sm font-medium text-gray-700">{t('Lote')}
+                  <select value={chosen.id} onChange={(e) => setPerfLotId(e.target.value)}
+                    className="mt-1 block w-72 max-w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600">
+                    {all.map((l) => <option key={l.id} value={l.id}>{l.name}{l.endDate ? ` (${t('encerrado')})` : ''}</option>)}
+                  </select>
+                </label>
+                <button type="button" onClick={() => { setView('lotes'); setOpen({ id: chosen.id }) }} className="rounded-lg border border-green-700 px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-50">{t('Abrir o lote')}</button>
+              </div>
+              <LotPerformance lot={chosen} today={today} />
+            </section>
+          )
+        })()}
 
         {view === 'planos' && (
           <PlansPanel plans={plans} canEdit={canEdit}
