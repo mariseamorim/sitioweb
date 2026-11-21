@@ -1,6 +1,16 @@
 export const BOVINE_CATEGORIES = ['Vaca', 'Boi', 'Boi de engorda', 'Touro', 'Bezerro', 'Bezerra']
 export const isBovine = (species: string) => BOVINE_CATEGORIES.includes(species)
 
+/** Raças sugeridas no cadastro de bovinos (o produtor pode digitar outra) */
+export const CATTLE_BREEDS = ['Nelore', 'Gir', 'Girolando', 'Holandesa', 'Jersey', 'Guzerá', 'Sindi', 'Tabapuã', 'Brahman', 'Angus', 'Senepol', 'Pardo-Suíço', 'Simental', 'Mestiço']
+
+/** Raça informada: só para bovino, até 40 letras; vazio = sem raça */
+export function cleanBreed(value: unknown, species: string): string | null {
+  if (!isBovine(species) || typeof value !== 'string') return null
+  const breed = value.trim().slice(0, 40)
+  return breed || null
+}
+
 /** Até quantos dias de vida a cria conta como "bezerro ao pé" da mãe (desmama por volta dos 8 meses) */
 export const CALF_AT_FOOT_DAYS = 240
 

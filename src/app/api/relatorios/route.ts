@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireFarmAccess } from '@/lib/auth'
 import { formatarIdade } from '@/lib/utils'
 import { REPORT_TYPES, Report, fmtDate, fmtMoney, fmtNumber } from '@/lib/reports'
-import { cowCalving, herdCalving, LATE_MONTHS } from '@/lib/calving'
+import { calvingStatus, cowCalving, herdCalving, LATE_MONTHS } from '@/lib/calving'
 import { animalCodes } from '@/lib/animalCode'
 import { animalCategory } from '@/lib/animalRules'
 
@@ -94,6 +94,17 @@ async function milkReport(farmId: string, period: Period): Promise<Report> {
   const days = [...byDay.entries()]
   const sections: Report['sections'] = [
     {
+      title: 'Resumo',
+      kind: 'cards',
+      columns: ['Indicador', 'Valor'],
+      numeric: [1],
+      rows: [
+        ['Total no período (L)', fmtNumber(total)],
+        ['Dias com registro', days.length],
+        ['Média por dia (L)', days.length ? fmtNumber(total / days.length) : '—'],
+      ],
+    },
+    {
       title: 'Por dia',
       columns: ['Data', 'Vacas ordenhadas', 'Total (L)'],
       numeric: [1, 2],
@@ -181,11 +192,13 @@ async function animalReport(farmId: string, animalId: string | null): Promise<Re
       {
         title: 'Reprodução',
         columns: ['Cobertura', 'Reprodutor', 'Parto previsto', 'Parto', 'Situação'],
+        badgeColumn: 4,
         rows: a.reproductions.map((r) => [fmtDate(r.coverageDate), r.maleName || '—', fmtDate(r.expectedBirthDate), fmtDate(r.actualBirthDate), r.status]),
       },
       ...(a.calves.length ? [{
         title: 'Crias',
         columns: ['Nascimento', 'Código', 'Cria', 'Sexo', 'Situação'],
+        badgeColumn: 4,
         rows: a.calves.map((c) => [fmtDate(c.birthDate), c.code, c.name, c.gender === 'Fêmea' ? 'Bezerra' : 'Bezerro', c.status]),
       }] : []),
       {
@@ -212,17 +225,28 @@ async function vaccinationReport(farmId: string, period: Period): Promise<Report
     v.appliedDate ? 'Aplicada' : v.scheduledDate < today ? 'Atrasada' : 'Pendente'
 
   const applied = vaccinations.filter((v) => v.appliedDate).length
+  const late = vaccinations.filter((v) => status(v) === 'Atrasada').length
+  const pending = vaccinations.length - applied
   return {
     title: 'Vacinação do rebanho',
     subtitle: period.label,
     sections: [
       {
+        title: 'Resumo',
+        kind: 'cards',
+        columns: ['Indicador', 'Valor'],
+        numeric: [1],
+        rows: [['Registros', vaccinations.length], ['Aplicadas', applied], ['Pendentes', pending], ['Atrasadas', late]],
+        tones: [null, 'good', pending ? 'warn' : null, late ? 'bad' : null],
+      },
+      {
         columns: ['Código', 'Animal', 'Vacina', 'Prevista', 'Aplicada', 'Lote', 'Fabricante', 'Situação'],
+        badgeColumn: 7,
         rows: vaccinations.map((v) => [
           v.animal.code, v.animal.name, v.vaccineName, fmtDate(v.scheduledDate), fmtDate(v.appliedDate),
           v.batch || '—', v.manufacturer || '—', status(v),
         ]),
-        footer: ['', `${vaccinations.length} registros`, '', '', `${applied} aplicadas`, '', '', `${vaccinations.length - applied} pendentes`],
+        footer: ['', `${vaccinations.length} registros`, '', '', `${applied} aplicadas`, '', '', `${pending} pendentes`],
       },
     ],
   }
@@ -255,14 +279,18 @@ async function financeReport(farmId: string, period: Period): Promise<Report> {
     sections: [
       {
         title: 'Resumo',
-        columns: ['Receitas', 'Despesas', 'Saldo'],
-        numeric: [0, 1, 2],
-        rows: [[fmtMoney(income), fmtMoney(expense), fmtMoney(income - expense)]],
+        kind: 'cards',
+        columns: ['Indicador', 'Valor'],
+        numeric: [1],
+        rows: [['Receitas', fmtMoney(income)], ['Despesas', fmtMoney(expense)], ['Saldo', fmtMoney(income - expense)]],
+        // Saldo verde se positivo, vermelho suave se negativo; receitas e despesas em cores neutras
+        tones: [null, null, income - expense < 0 ? 'bad' : 'good'],
       },
       {
         title: 'Por categoria',
         columns: ['Tipo', 'Categoria', 'Total'],
         numeric: [2],
+        badgeColumn: 0,
         rows: [...byCategory.entries()]
           .sort((a, b) => a[1].type.localeCompare(b[1].type) || b[1].total - a[1].total)
           .map(([key, c]) => [c.type, key.split('|')[1], fmtMoney(c.total)]),
@@ -271,11 +299,14 @@ async function financeReport(farmId: string, period: Period): Promise<Report> {
         title: 'Lançamentos',
         columns: ['Data', 'Tipo', 'Categoria', 'Descrição', 'Animal', 'Valor'],
         numeric: [5],
+        badgeColumn: 1,
+        signedColumn: 5,
         rows: transactions.map((t) => [
           fmtDate(t.date), t.type, t.category, t.description || '—', t.animal?.name || '—',
           fmtMoney(t.type === 'Receita' ? t.amount : -t.amount),
         ]),
-        footer: ['', '', '', '', 'Saldo', fmtMoney(income - expense)],
+        paid: transactions.map((t) => t.paid),
+        footer: ['', '', '', '', 'Saldo do período', fmtMoney(income - expense)],
       },
     ],
   }
@@ -310,9 +341,12 @@ async function herdReport(farmId: string): Promise<Report> {
       },
       {
         title: 'Animais',
-        columns: ['Código', 'Nome', 'Espécie', 'Sexo', 'Nascimento', 'Idade', 'Situação', 'GTA'],
+        // Identificação padronizada "Código · Nome" (só o código quando não há nome)
+        columns: ['Animal', 'Espécie', 'Sexo', 'Nascimento', 'Idade', 'Situação', 'GTA'],
+        badgeColumn: 5,
         rows: animals.map((a) => [
-          animalCodes(a), a.name, a.species, a.gender, fmtDate(a.birthDate), formatarIdade(a.birthDate.toISOString()), a.status, a.gta || '—',
+          [animalCodes(a), a.name].filter(Boolean).join(' · '), a.species, a.gender, fmtDate(a.birthDate),
+          formatarIdade(a.birthDate.toISOString()), a.status, a.gta || '—',
         ]),
       },
     ],
@@ -330,6 +364,7 @@ async function calvingReport(farmId: string): Promise<Report> {
   const byId = new Map(animals.map((a) => [a.id, a]))
   const calves = animals.filter((a) => a.motherId).sort((a, b) => a.birthDate.getTime() - b.birthDate.getTime())
   const months = (n: number | null) => (n === null ? '—' : String(n))
+  const late = stats.late.filter((l) => l.reason === 'sem-parir')
 
   return {
     title: 'Crias e partos',
@@ -337,31 +372,39 @@ async function calvingReport(farmId: string): Promise<Report> {
     sections: [
       {
         title: 'Resumo',
-        columns: ['Vacas', 'Crias anotadas', 'Intervalo médio entre partos (meses)', 'Idade média na 1ª cria (meses)', 'Demorando para criar'],
-        numeric: [0, 1, 2, 3, 4],
-        rows: [[
-          stats.cows.length, calves.length, months(stats.averageInterval), months(stats.averageAgeAtFirst),
-          stats.late.filter((l) => l.reason === 'sem-parir').length,
-        ]],
+        kind: 'cards',
+        columns: ['Indicador', 'Valor'],
+        numeric: [1],
+        rows: [
+          ['Vacas', stats.cows.length],
+          ['Crias anotadas', calves.length],
+          ['Idade média na 1ª cria (meses)', months(stats.averageAgeAtFirst)],
+          ['Demorando para criar', late.length],
+        ],
+        tones: [null, null, null, late.length ? 'warn' : 'good'],
       },
       {
+        // Tabela enxuta (sem rolagem): o status segue calvingStatus() de src/lib/calving.ts
         title: 'Por vaca',
-        columns: ['Código', 'Vaca', 'Crias', 'Partos', 'Último parto', 'Meses desde o último', 'Intervalo médio (meses)', 'Idade na 1ª cria (meses)'],
-        numeric: [2, 3, 5, 6, 7],
+        columns: ['Código', 'Vaca', 'Crias', 'Partos', 'Último parto', 'Meses s/ parto', 'Status'],
+        numeric: [2, 3, 5],
+        badgeColumn: 6,
         rows: stats.cows.map((c) => [
           c.cow.code, c.cow.name, c.calves, c.calvings, c.lastCalving ? fmtDate(c.lastCalving) : '—',
-          months(c.monthsSinceLast), months(c.averageInterval), months(c.ageAtFirstCalving),
+          months(c.monthsSinceLast), calvingStatus(c, stats),
         ]),
       },
       {
         title: `Demorando para criar (mais de ${LATE_MONTHS} meses sem parir, sem prenhez anotada)`,
         columns: ['Código', 'Vaca', 'Último parto', 'Meses sem parir'],
-        numeric: [3],
-        rows: stats.late.filter((l) => l.reason === 'sem-parir').map(({ stats: s }) => [s.cow.code, s.cow.name, fmtDate(s.lastCalving), months(s.monthsSinceLast)]),
+        badgeColumn: 3,
+        alert: 'warn',
+        rows: late.map(({ stats: s }) => [s.cow.code, s.cow.name, fmtDate(s.lastCalving), `${s.monthsSinceLast} meses sem parir`]),
       },
       {
         title: 'Crias',
         columns: ['Nascimento', 'Mãe', 'Código', 'Cria', 'Sexo', 'Situação'],
+        badgeColumn: 5,
         rows: calves.map((c) => [fmtDate(c.birthDate), byId.get(c.motherId!)?.name ?? '—', c.code, c.name, c.gender === 'Fêmea' ? 'Bezerra' : 'Bezerro', c.status]),
       },
     ],
@@ -388,12 +431,14 @@ async function stockReport(farmId: string, period: Period): Promise<Report> {
         title: 'Entradas e saídas',
         columns: ['Data', 'Item', 'Tipo', 'Quantidade', 'Unidade', 'Descrição'],
         numeric: [3],
+        badgeColumn: 2,
         rows: movements.map((m) => [fmtDate(m.date), m.supply.name, m.type, fmtNumber(m.quantity, 2), m.supply.unit, m.description || '—']),
       },
       {
         title: 'Saldo atual',
         columns: ['Item', 'Categoria', 'Quantidade', 'Mínimo', 'Unidade', 'Situação'],
         numeric: [2, 3],
+        badgeColumn: 5,
         rows: supplies.map((s) => [
           s.name, s.category, fmtNumber(s.currentQuantity, 2), fmtNumber(s.minimumQuantity, 2), s.unit,
           s.currentQuantity <= s.minimumQuantity ? 'Repor' : 'OK',

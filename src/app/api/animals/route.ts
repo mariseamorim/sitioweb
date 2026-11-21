@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireFarmAccess } from '@/lib/auth'
 import { closeOpenPregnancy, findValidMother } from '@/lib/calves'
-import { animalCategory, animalRuleError } from '@/lib/animalRules'
+import { animalCategory, animalRuleError, cleanBreed } from '@/lib/animalRules'
 import { cleanCustomCode, duplicateCodeMessage } from '@/lib/animalCode'
 
 export async function GET() {
@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
         code: code || await getNextCode(farmId),
         name,
         species: animalCategory(classification),
+        breed: cleanBreed(body.breed, animalCategory(classification)),
         gender,
         birthDate: new Date(birthDate),
         isCastrated,

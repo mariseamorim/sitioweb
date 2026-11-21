@@ -64,4 +64,7 @@ export const animais: Record<string, string> = {
   'O número da propriedade é dado automaticamente': 'El número del establecimiento se asigna automáticamente',
   'Origem': 'Origen',
   'Mãe (opcional)': 'Madre (opcional)',
+  'Raça': 'Raza',
+  'Outra': 'Otra',
+  'Qual raça?': '¿Qué raza?',
 }
