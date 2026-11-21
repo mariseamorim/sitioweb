@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rebanho (Animais, Recria, Engorda e Reprodução) — Manual Anota Aí Agro</title>
+  <style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; max-width: 100%; overflow-x: hidden; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f3f6f4; color: #111827; }
+  .container { max-width: 1120px; margin: 0 auto; padding: 18px 14px 48px; display: flex; flex-direction: column; gap: 18px; }
+  .hero { background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
+  .hero-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #15803d; margin-bottom: 4px; }
+  .hero h1 { margin: 0; font-size: 21px; font-weight: 800; color: #111827; }
+  .hero p { margin: 6px 0 0; font-size: 13.5px; color: #4b5563; line-height: 1.45; }
+  .hero-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn-top { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 12px; font-size: 12.5px; font-weight: 700; text-decoration: none; border: 1px solid #166534; background: #166534; color: #fff; cursor: pointer; }
+  .btn-top.outline { background: #fff; color: #166534; }
+  .btn-top:hover { opacity: 0.92; }
+  .block-nav { display: flex; flex-wrap: wrap; gap: 6px; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 10px 12px; }
+  .block-pill { padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; text-decoration: none; border: 1px solid #e5e7eb; background: #f9fafb; color: #111827; }
+  .block-pill.active { background: #166534; border-color: #166534; color: #fff; font-weight: 700; }
+  .step-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 20px; box-shadow: 0 2px 8px rgba(15,23,42,0.04); page-break-inside: avoid; }
+  .step-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 16px; }
+  .step-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .badge-step { background: #166534; color: #fff; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; }
+  .badge-prof { background: #f3f4f6; color: #111827; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .file-tag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: #6b7280; }
+  .step-card h2 { margin: 0 0 4px; font-size: 18px; font-weight: 800; color: #111827; }
+  .summary { margin: 0; font-size: 13.5px; color: #4b5563; line-height: 1.45; }
+  .step-grid { display: grid; grid-template-columns: 1fr; gap: 22px; align-items: start; }
+  @media (min-width: 860px) { .step-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); } }
+  .screen-box { width: 100%; display: flex; justify-content: center; overflow: hidden; }
+  .screen-box img { width: 100%; max-width: 560px; height: auto; display: block; }
+  .instructions-box h3 { margin: 0 0 12px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; }
+  .step-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .step-list li { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 12px; background: #f9fafb; border: 1px solid #e5e7eb; font-size: 13.5px; line-height: 1.5; }
+  .step-num-dot { width: 20px; height: 20px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 11.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .tip-box { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.32); border-radius: 12px; padding: 13px; font-size: 13.5px; color: #14532d; line-height: 1.5; }
+  .hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+  .hub-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; text-decoration: none; color: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
+  .hub-card:hover { border-color: #15803d; box-shadow: 0 6px 16px rgba(21,128,61,0.1); }
+  .hub-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .hub-icon { width: 40px; height: 40px; border-radius: 12px; background: #f0fdf4; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; }
+  .hub-count { font-size: 11.5px; font-weight: 700; color: #166534; background: #dcfce7; padding: 3px 10px; border-radius: 999px; }
+  .hub-card h2 { margin: 0; font-size: 16px; font-weight: 800; color: #111827; }
+  .hub-card p { margin: 0; font-size: 13px; color: #4b5563; line-height: 1.45; }
+  .hub-cta { font-size: 13px; font-weight: 700; color: #15803d; }
+  @media print { .hero-actions, .block-nav { display: none !important; } body { background: #fff; } .step-card { border: 1px solid #ccc; box-shadow: none; } }
+</style>
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <div>
+        <div class="hero-kicker">
+          <span>🐄 Bloco do Manual</span>
+          <span>•</span>
+          <span>Propriedade Pro</span>
+          <span>•</span>
+          <span>4 telas reais</span>
+        </div>
+        <h1>Rebanho (Animais, Recria, Engorda e Reprodução)</h1>
+        <p>Cadastro de animais, foto, crias, recria individual (um a um), lotes de engorda, trato no cocho, coberturas, IATF e indicadores zootécnicos.</p>
+      </div>
+      <div class="hero-actions">
+        <a href="/manual-usuario.html" class="btn-top outline">📚 Todos os blocos</a>
+        <a href="/ajuda" target="_top" class="btn-top outline">← Voltar para Ajuda</a>
+        <button type="button" class="btn-top" onclick="window.print()">🖨️ Imprimir / PDF</button>
+      </div>
+    </header>
+    <nav class="block-nav" aria-label="Blocos do manual">
+      <a href="/manual-usuario.html" class="block-pill">📚 Todos os blocos</a>
+      <a href="/manual/bloco-rebanho.html" class="block-pill active">🐄 Rebanho</a>
+      <a href="/manual/bloco-acesso-e-painel.html" class="block-pill ">🏡 Acesso, Painel, Dashboard TV e Ajuda</a>
+      <a href="/manual/bloco-leite-lite.html" class="block-pill ">🥛 Anota Aí Leite</a>
+      <a href="/manual/bloco-leite-e-sanidade.html" class="block-pill ">💉 Produção de Leite e Sanidade</a>
+      <a href="/manual/bloco-gestao.html" class="block-pill ">📊 Gestão</a>
+      <a href="/manual/bloco-motorista-e-laticinio.html" class="block-pill ">🚚 Motorista e Laticínio</a>
+      <a href="/manual/bloco-associacao-e-fornecedor.html" class="block-pill ">🤝 Associação / Cooperativa e Fornecedor de Insumos</a>
+    </nav>
+    
+    <article class="step-card">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 1</span>
+            <span class="badge-prof">Animais</span>
+          </div>
+          <h2>1. Cadastro de Animais, Foto, Busca Rápida e Crias</h2>
+          <p class="summary">Cadastre animais com código, brinco e foto, pesquise pelo nome ou código e edite a ficha ou registre crias.</p>
+        </div>
+        <span class="file-tag">public/manual/passo-07-animais-crias.svg</span>
+      </div>
+      <div class="step-grid">
+        <div class="screen-box">
+          <img src="/manual/passo-07-animais-crias.svg" alt="Cadastro de Animais, Foto, Busca Rápida e Crias" loading="lazy" />
+        </div>
+        <div class="instructions-box">
+          <h3>Passo a passo na tela:</h3>
+          <ol class="step-list">
+            
+              <li>
+                <span class="step-num-dot">1</span>
+                <span>Na aba &quot;Animais&quot;, toque em &quot;Cadastrar animal&quot; para incluir vacas, touros, novilhas ou bezerros.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">2</span>
+                <span>Use a barra de busca para localizar qualquer animal pelo nome, código ou brinco.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">3</span>
+                <span>Toque em um animal ou em &quot;Editar&quot; para ver foto, crias da matriz e enviar bezerros à recria.</span>
+              </li>
+            
+          </ol>
+          <div class="tip-box"><strong>💡 Dica prática:</strong> Ao cadastrar uma cria vinculada à mãe, o sistema calcula o intervalo entre partos da vaca.</div>
+        </div>
+      </div>
+    </article>
+  
+
+    <article class="step-card">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 2</span>
+            <span class="badge-prof">Recria e engorda</span>
+          </div>
+          <h2>2. Recria Individual (Um a Um, da Desmama à 1ª Cobertura)</h2>
+          <p class="summary">Acompanhe bezerros e novilhas individualmente sem precisar criar lote, com peso inicial, ganho diário e alvo.</p>
+        </div>
+        <span class="file-tag">public/manual/passo-10-recria-individual.svg</span>
+      </div>
+      <div class="step-grid">
+        <div class="screen-box">
+          <img src="/manual/passo-10-recria-individual.svg" alt="Recria Individual (Um a Um, da Desmama à 1ª Cobertura)" loading="lazy" />
+        </div>
+        <div class="instructions-box">
+          <h3>Passo a passo na tela:</h3>
+          <ol class="step-list">
+            
+              <li>
+                <span class="step-num-dot">1</span>
+                <span>Em &quot;Recria e engorda&quot;, toque em &quot;Acompanhar um animal&quot; na seção RECRIA UM A UM.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">2</span>
+                <span>Informe o bezerro ou novilha, a data da desmama, o peso inicial e o peso-alvo.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">3</span>
+                <span>A cada nova pesagem, o app calcula o ganho/dia (kg/dia) e projeta a chegada ao alvo.</span>
+              </li>
+            
+          </ol>
+          <div class="tip-box"><strong>💡 Dica prática:</strong> Novilhas em recria a partir de 13 meses já permitem lançar a 1ª cobertura pela própria ficha.</div>
+        </div>
+      </div>
+    </article>
+  
+
+    <article class="step-card">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 3</span>
+            <span class="badge-prof">Recria e engorda</span>
+          </div>
+          <h2>3. Lotes de Recria e Engorda + Pesagens e Trato no Cocho</h2>
+          <p class="summary">Gerencie lotes fechados ou abertos com peso médio, ganho médio diário (kg/dia) e suplemento no cocho.</p>
+        </div>
+        <span class="file-tag">public/manual/passo-11-lotes-engorda-trato.svg</span>
+      </div>
+      <div class="step-grid">
+        <div class="screen-box">
+          <img src="/manual/passo-11-lotes-engorda-trato.svg" alt="Lotes de Recria e Engorda + Pesagens e Trato no Cocho" loading="lazy" />
+        </div>
+        <div class="instructions-box">
+          <h3>Passo a passo na tela:</h3>
+          <ol class="step-list">
+            
+              <li>
+                <span class="step-num-dot">1</span>
+                <span>Filtre por &quot;Engorda&quot; ou &quot;Recria&quot; e toque em &quot;Novo lote&quot; (ou abra um lote existente como Lote A).</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">2</span>
+                <span>Confira o resumo consolidado: lotes abertos, cabeças, peso médio e ganho por dia.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">3</span>
+                <span>Dentro do lote, lance pesagens e o trato diário no cocho (com baixa automática no estoque).</span>
+              </li>
+            
+          </ol>
+          <div class="tip-box"><strong>💡 Dica prática:</strong> Ao vincular um suplemento do estoque em % do peso vivo, o sistema sugere os quilos do trato.</div>
+        </div>
+      </div>
+    </article>
+  
+
+    <article class="step-card">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 4</span>
+            <span class="badge-prof">Reprodução</span>
+          </div>
+          <h2>4. Reprodução: Cobertura, IATF, Diagnóstico e Indicadores Zootécnicos</h2>
+          <p class="summary">Acompanhe concepção, partos previstos, diagnósticos pendentes e índices zootécnicos completos do rebanho.</p>
+        </div>
+        <span class="file-tag">public/manual/passo-09-reproducao-iatf.svg</span>
+      </div>
+      <div class="step-grid">
+        <div class="screen-box">
+          <img src="/manual/passo-09-reproducao-iatf.svg" alt="Reprodução: Cobertura, IATF, Diagnóstico e Indicadores Zootécnicos" loading="lazy" />
+        </div>
+        <div class="instructions-box">
+          <h3>Passo a passo na tela:</h3>
+          <ol class="step-list">
+            
+              <li>
+                <span class="step-num-dot">1</span>
+                <span>Em &quot;Reprodução&quot;, registre coberturas (IA, IATF, Monta ou Repasse) e diagnósticos de prenhez.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">2</span>
+                <span>Toque na aba &quot;Indicadores&quot; para acompanhar taxa de serviço, concepção, prenhez e IEP.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">3</span>
+                <span>Use &quot;Relatório de visita&quot; para compartilhar os números com o veterinário.</span>
+              </li>
+            
+          </ol>
+          <div class="tip-box"><strong>💡 Dica prática:</strong> O sistema calcula automaticamente o parto previsto (+280 dias) após a cobertura.</div>
+        </div>
+      </div>
+    </article>
+  
+  </main>
+</body>
+</html>

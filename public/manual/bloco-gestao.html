@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestão (Estoque, Ofertas, Financeiro e Usuários) — Manual Anota Aí Agro</title>
+  <style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; max-width: 100%; overflow-x: hidden; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f3f6f4; color: #111827; }
+  .container { max-width: 1120px; margin: 0 auto; padding: 18px 14px 48px; display: flex; flex-direction: column; gap: 18px; }
+  .hero { background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
+  .hero-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #15803d; margin-bottom: 4px; }
+  .hero h1 { margin: 0; font-size: 21px; font-weight: 800; color: #111827; }
+  .hero p { margin: 6px 0 0; font-size: 13.5px; color: #4b5563; line-height: 1.45; }
+  .hero-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn-top { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 12px; font-size: 12.5px; font-weight: 700; text-decoration: none; border: 1px solid #166534; background: #166534; color: #fff; cursor: pointer; }
+  .btn-top.outline { background: #fff; color: #166534; }
+  .btn-top:hover { opacity: 0.92; }
+  .block-nav { display: flex; flex-wrap: wrap; gap: 6px; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 10px 12px; }
+  .block-pill { padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; text-decoration: none; border: 1px solid #e5e7eb; background: #f9fafb; color: #111827; }
+  .block-pill.active { background: #166534; border-color: #166534; color: #fff; font-weight: 700; }
+  .step-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 20px; box-shadow: 0 2px 8px rgba(15,23,42,0.04); page-break-inside: avoid; }
+  .step-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 16px; }
+  .step-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .badge-step { background: #166534; color: #fff; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; }
+  .badge-prof { background: #f3f4f6; color: #111827; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .file-tag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: #6b7280; }
+  .step-card h2 { margin: 0 0 4px; font-size: 18px; font-weight: 800; color: #111827; }
+  .summary { margin: 0; font-size: 13.5px; color: #4b5563; line-height: 1.45; }
+  .step-grid { display: grid; grid-template-columns: 1fr; gap: 22px; align-items: start; }
+  @media (min-width: 860px) { .step-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); } }
+  .screen-box { width: 100%; display: flex; justify-content: center; overflow: hidden; }
+  .screen-box img { width: 100%; max-width: 560px; height: auto; display: block; }
+  .instructions-box h3 { margin: 0 0 12px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; }
+  .step-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .step-list li { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 12px; background: #f9fafb; border: 1px solid #e5e7eb; font-size: 13.5px; line-height: 1.5; }
+  .step-num-dot { width: 20px; height: 20px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 11.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .tip-box { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.32); border-radius: 12px; padding: 13px; font-size: 13.5px; color: #14532d; line-height: 1.5; }
+  .hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+  .hub-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; text-decoration: none; color: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
+  .hub-card:hover { border-color: #15803d; box-shadow: 0 6px 16px rgba(21,128,61,0.1); }
+  .hub-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .hub-icon { width: 40px; height: 40px; border-radius: 12px; background: #f0fdf4; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; }
+  .hub-count { font-size: 11.5px; font-weight: 700; color: #166534; background: #dcfce7; padding: 3px 10px; border-radius: 999px; }
+  .hub-card h2 { margin: 0; font-size: 16px; font-weight: 800; color: #111827; }
+  .hub-card p { margin: 0; font-size: 13px; color: #4b5563; line-height: 1.45; }
+  .hub-cta { font-size: 13px; font-weight: 700; color: #15803d; }
+  @media print { .hero-actions, .block-nav { display: none !important; } body { background: #fff; } .step-card { border: 1px solid #ccc; box-shadow: none; } }
+</style>
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <div>
+        <div class="hero-kicker">
+          <span>📊 Bloco do Manual</span>
+          <span>•</span>
+          <span>Propriedade Pro</span>
+          <span>•</span>
+          <span>4 telas reais</span>
+        </div>
+        <h1>Gestão (Estoque, Ofertas, Financeiro e Usuários)</h1>
+        <p>Controle de estoque mínimo e previsão em dias, ofertas para reposição, caixa financeiro offline, relatórios PDF/CSV e permissões da equipe.</p>
+      </div>
+      <div class="hero-actions">
+        <a href="/manual-usuario.html" class="btn-top outline">📚 Todos os blocos</a>
+        <a href="/ajuda" target="_top" class="btn-top outline">← Voltar para Ajuda</a>
+        <button type="button" class="btn-top" onclick="window.print()">🖨️ Imprimir / PDF</button>
+      </div>
+    </header>
+    <nav class="block-nav" aria-label="Blocos do manual">
+      <a href="/manual-usuario.html" class="block-pill">📚 Todos os blocos</a>
+      <a href="/manual/bloco-rebanho.html" class="block-pill ">🐄 Rebanho</a>
+      <a href="/manual/bloco-acesso-e-painel.html" class="block-pill ">🏡 Acesso, Painel, Dashboard TV e Ajuda</a>
+      <a href="/manual/bloco-leite-lite.html" class="block-pill ">🥛 Anota Aí Leite</a>
+      <a href="/manual/bloco-leite-e-sanidade.html" class="block-pill ">💉 Produção de Leite e Sanidade</a>
+      <a href="/manual/bloco-gestao.html" class="block-pill active">📊 Gestão</a>
+      <a href="/manual/bloco-motorista-e-laticinio.html" class="block-pill ">🚚 Motorista e Laticínio</a>
+      <a href="/manual/bloco-associacao-e-fornecedor.html" class="block-pill ">🤝 Associação / Cooperativa e Fornecedor de Insumos</a>
+    </nav>
+    
+    <article class="step-card">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 1</span>
+            <span class="badge-prof">Estoque</span>
+          </div>
+          <h2>1. Estoque de Insumos, Alerta de Mínimo e Duração em Dias</h2>
+          <p class="summary">Controle ração, sal mineral e medicamentos, veja alertas vermelhos de estoque baixo e previsão de duração.</p>
+        </div>
+        <span class="file-tag">public/manual/passo-13-estoque-insumos.svg</span>
+      </div>
+      <div class="step-grid">
+        <div class="screen-box">
+          <img src="/manual/passo-13-estoque-insumos.svg" alt="Estoque de Insumos, Alerta de Mínimo e Duração em Dias" loading="lazy" />
+        </div>
+        <div class="instructions-box">
+          <h3>Passo a passo na tela:</h3>
+          <ol class="step-list">
+            
+              <li>
+                <span class="step-num-dot">1</span>
+                <span>Em &quot;Mais &gt; Estoque&quot;, toque em &quot;Cadastrar produto&quot; informando unidade, preço e estoque mínimo.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">2</span>
+                <span>Toque em um insumo para lançar entradas (compras) ou saídas, ou pedir orçamento ao fornecedor.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">3</span>
+                <span>Acompanhe a coluna STATUS (OK ou Baixo) e a previsão de quantos dias o suplemento dura.</span>
+              </li>
+            
+          </ol>
+          <div class="tip-box"><strong>💡 Dica prática:</strong> Os tratos lançados nos lotes de engorda descontam automaticamente do saldo do estoque.</div>
+        </div>
+      </div>
+    </article>
+  
+
+    <article class="step-card">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 2</span>
+            <span class="badge-prof">Ofertas</span>
+          </div>
+          <h2>2. Ofertas de Fornecedores, Estoque Baixo e Meus Pedidos</h2>
+          <p class="summary">Veja em destaque ofertas das categorias em falta no seu estoque e acompanhe cotações respondidas no WhatsApp.</p>
+        </div>
+        <span class="file-tag">public/manual/passo-14-ofertas-fornecedores.svg</span>
+      </div>
+      <div class="step-grid">
+        <div class="screen-box">
+          <img src="/manual/passo-14-ofertas-fornecedores.svg" alt="Ofertas de Fornecedores, Estoque Baixo e Meus Pedidos" loading="lazy" />
+        </div>
+        <div class="instructions-box">
+          <h3>Passo a passo na tela:</h3>
+          <ol class="step-list">
+            
+              <li>
+                <span class="step-num-dot">1</span>
+                <span>Acesse &quot;Mais &gt; Ofertas&quot;: itens com estoque baixo (ex.: Ração, Sal mineral) são priorizados no topo.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">2</span>
+                <span>Toque em &quot;Chamar no WhatsApp&quot; em qualquer oferta para negociar direto com o fornecedor.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">3</span>
+                <span>Acompanhe em &quot;Meus pedidos e mensagens&quot; os orçamentos já respondidos.</span>
+              </li>
+            
+          </ol>
+          <div class="tip-box"><strong>💡 Dica prática:</strong> Vincule fornecedores da sua confiança pelo link ou código de convite deles.</div>
+        </div>
+      </div>
+    </article>
+  
+
+    <article class="step-card">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 3</span>
+            <span class="badge-prof">Financeiro &amp; Relatórios</span>
+          </div>
+          <h2>3. Financeiro (Entradas/Saídas) e Exportação de Relatórios</h2>
+          <p class="summary">Lance receitas e despesas por período (funciona offline) e exporte relatórios completos em PDF ou CSV.</p>
+        </div>
+        <span class="file-tag">public/manual/passo-15-financeiro-relatorios.svg</span>
+      </div>
+      <div class="step-grid">
+        <div class="screen-box">
+          <img src="/manual/passo-15-financeiro-relatorios.svg" alt="Financeiro (Entradas/Saídas) e Exportação de Relatórios" loading="lazy" />
+        </div>
+        <div class="instructions-box">
+          <h3>Passo a passo na tela:</h3>
+          <ol class="step-list">
+            
+              <li>
+                <span class="step-num-dot">1</span>
+                <span>Em &quot;Mais &gt; Financeiro&quot;, toque em &quot;Anotar entrada ou saída&quot; para lançar receitas e despesas.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">2</span>
+                <span>Use os campos &quot;De&quot; e &quot;Até&quot; para consultar o saldo de qualquer período.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">3</span>
+                <span>Em &quot;Mais &gt; Relatórios&quot;, gere relatórios em PDF ou planilha CSV para imprimir ou enviar no WhatsApp.</span>
+              </li>
+            
+          </ol>
+          <div class="tip-box"><strong>💡 Dica prática:</strong> Lançamentos financeiros feitos no campo sem sinal sincronizam assim que a internet volta.</div>
+        </div>
+      </div>
+    </article>
+  
+
+    <article class="step-card">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 4</span>
+            <span class="badge-prof">Usuários</span>
+          </div>
+          <h2>4. Equipe da Propriedade e Permissões por Módulo</h2>
+          <p class="summary">Cadastre gerentes, funcionários ou visualizadores e defina quais módulos cada usuário pode ver e editar.</p>
+        </div>
+        <span class="file-tag">public/manual/passo-16-usuarios-permissoes.svg</span>
+      </div>
+      <div class="step-grid">
+        <div class="screen-box">
+          <img src="/manual/passo-16-usuarios-permissoes.svg" alt="Equipe da Propriedade e Permissões por Módulo" loading="lazy" />
+        </div>
+        <div class="instructions-box">
+          <h3>Passo a passo na tela:</h3>
+          <ol class="step-list">
+            
+              <li>
+                <span class="step-num-dot">1</span>
+                <span>Em &quot;Mais &gt; Usuários&quot;, toque em &quot;+ Novo Usuário&quot; e preencha nome, telefone (ou e-mail) e senha.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">2</span>
+                <span>Escolha o perfil (Administrador, Editor ou Visualizador) e marque os módulos autorizados.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">3</span>
+                <span>Toque no ícone de edição ao lado de qualquer membro para ajustar permissões a qualquer hora.</span>
+              </li>
+            
+          </ol>
+          <div class="tip-box"><strong>💡 Dica prática:</strong> Módulos desmarcados ficam ocultos no menu e nos resumos daquele usuário.</div>
+        </div>
+      </div>
+    </article>
+  
+  </main>
+</body>
+</html>

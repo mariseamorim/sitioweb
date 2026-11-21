@@ -3,50 +3,50 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Manual do Usuário Ilustrado (Sem Sobreposição) — Anota Aí Agro</title>
+  <title>Manual do Usuário por Blocos — Anota Aí Agro</title>
   <style>
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; max-width: 100%; overflow-x: hidden; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f3f6f4; color: #111827; }
-    .container { max-width: 1120px; margin: 0 auto; padding: 18px 14px 48px; display: flex; flex-direction: column; gap: 18px; }
-    .hero { background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
-    .hero-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #15803d; margin-bottom: 4px; }
-    .hero h1 { margin: 0; font-size: 22px; font-weight: 800; color: #111827; }
-    .hero p { margin: 6px 0 0; font-size: 13.5px; color: #4b5563; line-height: 1.45; }
-    .hero-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    .btn-top { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 12px; font-size: 12.5px; font-weight: 700; text-decoration: none; border: 1px solid #166534; background: #166534; color: #fff; cursor: pointer; }
-    .btn-top.outline { background: #fff; color: #166534; }
-    .btn-top:hover { opacity: 0.92; }
-    .controls { position: sticky; top: 8px; z-index: 20; background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 14px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 4px 12px rgba(15,23,42,0.05); }
-    .filters { display: flex; flex-wrap: wrap; gap: 6px; }
-    .filter-btn { padding: 7px 12px; border-radius: 999px; border: 1px solid #e5e7eb; background: #f3f4f6; font-size: 12px; font-weight: 600; color: #111827; cursor: pointer; }
-    .filter-btn.active { background: #166534; border-color: #166534; color: #fff; font-weight: 700; }
-    .search-input { width: 100%; max-width: 280px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 12px; font-size: 12.5px; outline: none; }
-    .search-input:focus { border-color: #15803d; box-shadow: 0 0 0 3px rgba(21,128,61,0.15); }
-    .step-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 20px; margin-bottom: 18px; box-shadow: 0 2px 8px rgba(15,23,42,0.04); page-break-inside: avoid; }
-    .step-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 16px; }
-    .step-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .badge-step { background: #166534; color: #fff; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; }
-    .badge-prof { background: #f3f4f6; color: #111827; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-    .sec-label { font-size: 12px; color: #6b7280; font-weight: 600; }
-    .file-tag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: #6b7280; }
-    .step-card h2 { margin: 0 0 4px; font-size: 18px; font-weight: 800; color: #111827; }
-    .summary { margin: 0; font-size: 13.5px; color: #4b5563; line-height: 1.45; }
-    .step-grid { display: grid; grid-template-columns: 1fr; gap: 22px; align-items: start; }
-    @media (min-width: 860px) { .step-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); } }
-    .screen-box { width: 100%; display: flex; justify-content: center; overflow: hidden; }
-    .screen-box img { width: 100%; max-width: 560px; height: auto; display: block; }
-    .instructions-box h3 { margin: 0 0 12px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; }
-    .step-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-    .step-list li { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 12px; background: #f9fafb; border: 1px solid #e5e7eb; font-size: 13.5px; line-height: 1.5; }
-    .step-num-dot { width: 20px; height: 20px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 11.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
-    .tip-box { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.32); border-radius: 12px; padding: 13px; font-size: 13.5px; color: #14532d; line-height: 1.5; }
-    .hidden { display: none !important; }
-    @media print {
-      .hero-actions, .controls { display: none !important; }
-      body { background: #fff; }
-      .step-card { border: 1px solid #ccc; box-shadow: none; }
-    }
-  </style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; max-width: 100%; overflow-x: hidden; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f3f6f4; color: #111827; }
+  .container { max-width: 1120px; margin: 0 auto; padding: 18px 14px 48px; display: flex; flex-direction: column; gap: 18px; }
+  .hero { background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
+  .hero-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #15803d; margin-bottom: 4px; }
+  .hero h1 { margin: 0; font-size: 21px; font-weight: 800; color: #111827; }
+  .hero p { margin: 6px 0 0; font-size: 13.5px; color: #4b5563; line-height: 1.45; }
+  .hero-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn-top { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 12px; font-size: 12.5px; font-weight: 700; text-decoration: none; border: 1px solid #166534; background: #166534; color: #fff; cursor: pointer; }
+  .btn-top.outline { background: #fff; color: #166534; }
+  .btn-top:hover { opacity: 0.92; }
+  .block-nav { display: flex; flex-wrap: wrap; gap: 6px; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 10px 12px; }
+  .block-pill { padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; text-decoration: none; border: 1px solid #e5e7eb; background: #f9fafb; color: #111827; }
+  .block-pill.active { background: #166534; border-color: #166534; color: #fff; font-weight: 700; }
+  .step-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 20px; box-shadow: 0 2px 8px rgba(15,23,42,0.04); page-break-inside: avoid; }
+  .step-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 16px; }
+  .step-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .badge-step { background: #166534; color: #fff; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; }
+  .badge-prof { background: #f3f4f6; color: #111827; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .file-tag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: #6b7280; }
+  .step-card h2 { margin: 0 0 4px; font-size: 18px; font-weight: 800; color: #111827; }
+  .summary { margin: 0; font-size: 13.5px; color: #4b5563; line-height: 1.45; }
+  .step-grid { display: grid; grid-template-columns: 1fr; gap: 22px; align-items: start; }
+  @media (min-width: 860px) { .step-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); } }
+  .screen-box { width: 100%; display: flex; justify-content: center; overflow: hidden; }
+  .screen-box img { width: 100%; max-width: 560px; height: auto; display: block; }
+  .instructions-box h3 { margin: 0 0 12px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; }
+  .step-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .step-list li { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 12px; background: #f9fafb; border: 1px solid #e5e7eb; font-size: 13.5px; line-height: 1.5; }
+  .step-num-dot { width: 20px; height: 20px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 11.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .tip-box { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.32); border-radius: 12px; padding: 13px; font-size: 13.5px; color: #14532d; line-height: 1.5; }
+  .hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+  .hub-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; text-decoration: none; color: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
+  .hub-card:hover { border-color: #15803d; box-shadow: 0 6px 16px rgba(21,128,61,0.1); }
+  .hub-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .hub-icon { width: 40px; height: 40px; border-radius: 12px; background: #f0fdf4; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; }
+  .hub-count { font-size: 11.5px; font-weight: 700; color: #166534; background: #dcfce7; padding: 3px 10px; border-radius: 999px; }
+  .hub-card h2 { margin: 0; font-size: 16px; font-weight: 800; color: #111827; }
+  .hub-card p { margin: 0; font-size: 13px; color: #4b5563; line-height: 1.45; }
+  .hub-cta { font-size: 13px; font-weight: 700; color: #15803d; }
+  @media print { .hero-actions, .block-nav { display: none !important; } body { background: #fff; } .step-card { border: 1px solid #ccc; box-shadow: none; } }
+</style>
 </head>
 <body>
   <main class="container">
@@ -55,1047 +55,108 @@
         <div class="hero-kicker">
           <span>🌱 Anota Aí Agro</span>
           <span>•</span>
-          <span>Telas Reais com Identificação Lateral Sem Sobreposição</span>
+          <span>Manual Separado por Bloco (Telas Reais)</span>
         </div>
-        <h1>Manual do Usuário Ilustrado (23 Passos)</h1>
-        <p>Cada ponto-chave da tela real do sistema é contornado por uma moldura vermelha transparente e ligado à legenda lateral <strong>① ② ③</strong> fora da tela, sem cobrir nenhum botão ou texto.</p>
+        <h1>Escolha o bloco do manual que você precisa</h1>
+        <p>Em vez de carregar todas as telas de uma vez, abra somente o bloco correspondente ao módulo que deseja consultar (ex.: <strong>Rebanho</strong> com Animais, Recria, Engorda e Reprodução).</p>
       </div>
       <div class="hero-actions">
         <a href="/ajuda" target="_top" class="btn-top outline">← Voltar para Ajuda</a>
-        <button type="button" class="btn-top" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
       </div>
     </header>
-
-    <section class="controls">
-      <div class="filters" id="filterBar">
-        <button class="filter-btn active" data-filter="all">Todos (23)</button>
-        <button class="filter-btn" data-filter="lite">🥛 Anota Aí Leite</button>
-        <button class="filter-btn" data-filter="pro">🏡 Propriedade Pro</button>
-        <button class="filter-btn" data-filter="motorista">🚚 Motorista</button>
-        <button class="filter-btn" data-filter="laticinio">🏭 Laticínio e Rotas</button>
-        <button class="filter-btn" data-filter="associacao">🤝 Associação</button>
-        <button class="filter-btn" data-filter="fornecedor">🛒 Fornecedor</button>
+    <section class="hub-grid">
+      
+  <a href="/manual/bloco-rebanho.html" class="hub-card">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="hub-top">
+        <span class="hub-icon">🐄</span>
+        <span class="hub-count">4 passos · Propriedade Pro</span>
       </div>
-      <input id="searchBox" class="search-input" type="search" placeholder="🔍 Buscar passo (ex: folha, IATF, recria, vacina, ajuda)..." />
+      <h2>Rebanho (Animais, Recria, Engorda e Reprodução)</h2>
+      <p>Cadastro de animais, foto, crias, recria individual (um a um), lotes de engorda, trato no cocho, coberturas, IATF e indicadores zootécnicos.</p>
+    </div>
+    <span class="hub-cta">Abrir apenas este bloco →</span>
+  </a>
+
+
+  <a href="/manual/bloco-acesso-e-painel.html" class="hub-card">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="hub-top">
+        <span class="hub-icon">🏡</span>
+        <span class="hub-count">5 passos · Todos os Perfis</span>
+      </div>
+      <h2>Acesso, Painel, Dashboard TV e Ajuda</h2>
+      <p>Entrada no sistema (telefone/e-mail/Google), troca de idioma (PT/ES), painel principal, resumo mensal/anual, Dashboard para TV e tela de Ajuda.</p>
+    </div>
+    <span class="hub-cta">Abrir apenas este bloco →</span>
+  </a>
+
+
+  <a href="/manual/bloco-leite-lite.html" class="hub-card">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="hub-top">
+        <span class="hub-icon">🥛</span>
+        <span class="hub-count">3 passos · Produtor Lite &amp; Pro</span>
+      </div>
+      <h2>Anota Aí Leite (Modo Rápido / Sem Internet)</h2>
+      <p>Anotação diária por digitação ou voz offline, divisão da nota do tanque entre titulares e conferência da folha do motorista por foto (OCR).</p>
+    </div>
+    <span class="hub-cta">Abrir apenas este bloco →</span>
+  </a>
+
+
+  <a href="/manual/bloco-leite-e-sanidade.html" class="hub-card">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="hub-top">
+        <span class="hub-icon">💉</span>
+        <span class="hub-count">2 passos · Propriedade Pro</span>
+      </div>
+      <h2>Produção de Leite e Sanidade (Vacinas e Carência)</h2>
+      <p>Lançamento de ordenha total ou por vaca, trava de carência de antibiótico no tanque, calendário de vacinação e tratamentos.</p>
+    </div>
+    <span class="hub-cta">Abrir apenas este bloco →</span>
+  </a>
+
+
+  <a href="/manual/bloco-gestao.html" class="hub-card">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="hub-top">
+        <span class="hub-icon">📊</span>
+        <span class="hub-count">4 passos · Propriedade Pro</span>
+      </div>
+      <h2>Gestão (Estoque, Ofertas, Financeiro e Usuários)</h2>
+      <p>Controle de estoque mínimo e previsão em dias, ofertas para reposição, caixa financeiro offline, relatórios PDF/CSV e permissões da equipe.</p>
+    </div>
+    <span class="hub-cta">Abrir apenas este bloco →</span>
+  </a>
+
+
+  <a href="/manual/bloco-motorista-e-laticinio.html" class="hub-card">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="hub-top">
+        <span class="hub-icon">🚚</span>
+        <span class="hub-count">3 passos · Motorista &amp; Laticínio</span>
+      </div>
+      <h2>Motorista e Laticínio (Coleta e Criação de Rotas)</h2>
+      <p>Rota do dia no celular do motorista (offline e voz), painel do laticínio (Recebido × Coletado) e criação/ordenação de rotas de coleta.</p>
+    </div>
+    <span class="hub-cta">Abrir apenas este bloco →</span>
+  </a>
+
+
+  <a href="/manual/bloco-associacao-e-fornecedor.html" class="hub-card">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="hub-top">
+        <span class="hub-icon">🤝</span>
+        <span class="hub-count">2 passos · Associação &amp; Fornecedor</span>
+      </div>
+      <h2>Associação / Cooperativa e Fornecedor de Insumos</h2>
+      <p>Compras coletivas, visitas técnicas, mensalidades e comunicados da associação; ofertas, orçamentos e vendas do fornecedor.</p>
+    </div>
+    <span class="hub-cta">Abrir apenas este bloco →</span>
+  </a>
+
     </section>
-
-    <div id="stepsList">
-  <article class="step-card" data-profile="todos" data-search="passo 1.1 1. primeiros passos entrar no sistema (telefone com ddd, e-mail ou google) e idioma (pt/es) acesse usando seu telefone com ddd ou e-mail, alterne entre português e español, ou crie sua conta gratuita. no topo direito, escolha o idioma do sistema (português ou español). digite seu telefone com ddd (ex.: 35 99999-0000) ou seu e-mail cadastrado e a senha. toque em &quot;entrar&quot;. se ainda não tem cadastro, toque em &quot;criar conta&quot; ou &quot;peça ajuda&quot;.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 1.1</span>
-          <span class="badge-prof">Todos os Perfis</span>
-          <span class="sec-label">1. Primeiros Passos</span>
-        </div>
-        <h2>1. Entrar no Sistema (Telefone com DDD, E-mail ou Google) e Idioma (PT/ES)</h2>
-        <p class="summary">Acesse usando seu telefone com DDD ou e-mail, alterne entre Português e Español, ou crie sua conta gratuita.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-01-acesso-login.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-01-acesso-login.svg" alt="Entrar no Sistema (Telefone com DDD, E-mail ou Google) e Idioma (PT/ES)" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>No topo direito, escolha o idioma do sistema (Português ou Español).</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Digite seu Telefone com DDD (ex.: 35 99999-0000) ou seu E-mail cadastrado e a senha.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Toque em &quot;Entrar&quot;. Se ainda não tem cadastro, toque em &quot;Criar conta&quot; ou &quot;Peça ajuda&quot;.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Em &quot;Meu cadastro&quot; você pode manter telefone e e-mail salvos — os dois funcionam para entrar.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="lite" data-search="passo 2.1 2. anota aí leite (gratuito) anotar o leite do dia (digitando ou falando pelo microfone) digite os litros ou fale pelo microfone (funciona sem internet) e acompanhe a estimativa pelo preço do litro. na aba &quot;anotar&quot;, confira a data da ordenha. digite os litros do dia ou toque em &quot;falar o número&quot; e diga a quantidade pelo microfone. toque em &quot;alterar&quot; abaixo do valor para definir o preço por litro e ver a estimativa do dia.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 2.1</span>
-          <span class="badge-prof">Anota Aí Leite</span>
-          <span class="sec-label">2. Anota Aí Leite (Gratuito)</span>
-        </div>
-        <h2>2. Anotar o Leite do Dia (Digitando ou Falando pelo Microfone)</h2>
-        <p class="summary">Digite os litros ou fale pelo microfone (funciona sem internet) e acompanhe a estimativa pelo preço do litro.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-02-anota-ai-leite.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-02-anota-ai-leite.svg" alt="Anotar o Leite do Dia (Digitando ou Falando pelo Microfone)" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Na aba &quot;Anotar&quot;, confira a data da ordenha.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Digite os litros do dia OU toque em &quot;Falar o número&quot; e diga a quantidade pelo microfone.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Toque em &quot;Alterar&quot; abaixo do valor para definir o preço por litro e ver a estimativa do dia.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Você pode baixar o pacote de voz sem internet (32 MB) uma única vez no Wi-Fi para usar no curral.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="lite" data-search="passo 2.2 2. anota aí leite (gratuito) dividir a nota do tanque entre mais de um nome no laticínio cadastre os titulares que entregam no mesmo tanque para repartir os litros de cada coleta. abra a aba &quot;nomes&quot; para ver ou editar os titulares vinculados ao tanque. toque em &quot;+ adicionar outro nome&quot; para incluir mais um produtor com código e sequência. nos dias de coleta na aba &quot;anotar&quot;, toque em &quot;coleta hoje? dividir a nota&quot; para repartir os litros.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 2.2</span>
-          <span class="badge-prof">Anota Aí Leite</span>
-          <span class="sec-label">2. Anota Aí Leite (Gratuito)</span>
-        </div>
-        <h2>3. Dividir a Nota do Tanque entre Mais de um Nome no Laticínio</h2>
-        <p class="summary">Cadastre os titulares que entregam no mesmo tanque para repartir os litros de cada coleta.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-03-lite-divisao-nota.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-03-lite-divisao-nota.svg" alt="Dividir a Nota do Tanque entre Mais de um Nome no Laticínio" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Abra a aba &quot;Nomes&quot; para ver ou editar os titulares vinculados ao tanque.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Toque em &quot;+ Adicionar outro nome&quot; para incluir mais um produtor com código e sequência.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Nos dias de coleta na aba &quot;Anotar&quot;, toque em &quot;Coleta hoje? Dividir a nota&quot; para repartir os litros.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Quando o motorista envia a coleta pelo laticínio, os nomes e sequências aparecem sincronizados.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="lite" data-search="passo 2.3 2. anota aí leite (gratuito) conferir a folha do motorista pela foto (leitura ocr) fotografe ou envie a folha do carreteiro: o sistema lê litros, temperatura, amostra e régua e compara com o anotado. abra a aba &quot;folha&quot; e toque em &quot;tirar foto&quot; ou &quot;da galeria&quot; (ou &quot;digitar a folha&quot;). confira os litros, temperatura, amostra e régua extraídos automaticamente da imagem. compare com o total anotado no sítio; diferenças acima de 5% ficam destacadas em vermelho.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 2.3</span>
-          <span class="badge-prof">Anota Aí Leite</span>
-          <span class="sec-label">2. Anota Aí Leite (Gratuito)</span>
-        </div>
-        <h2>4. Conferir a Folha do Motorista pela Foto (Leitura OCR)</h2>
-        <p class="summary">Fotografe ou envie a folha do carreteiro: o sistema lê litros, temperatura, amostra e régua e compara com o anotado.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-04-lite-folha-ocr.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-04-lite-folha-ocr.svg" alt="Conferir a Folha do Motorista pela Foto (Leitura OCR)" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Abra a aba &quot;Folha&quot; e toque em &quot;Tirar foto&quot; ou &quot;Da galeria&quot; (ou &quot;Digitar a folha&quot;).</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Confira os litros, temperatura, amostra e régua extraídos automaticamente da imagem.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Compare com o total anotado no sítio; diferenças acima de 5% ficam destacadas em vermelho.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> A foto fica guardada junto da coleta como comprovante para conferência no fim do mês.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="pro" data-search="passo 3.1 3. gestão completa da propriedade painel inicial da propriedade, troca de fazenda e atalhos veja todas as suas propriedades com avisos do dia, troque de fazenda com 1 toque e acesse as tarefas principais. no topo, use o seletor de fazenda ou toque no sino (🔔) para ver os avisos pendentes. se gerenciar mais de uma propriedade (ex.: leite e engorda), toque em &quot;abrir&quot; no cartão desejado. use &quot;o que você quer fazer?&quot; ou a barra inferior para ir direto a leite, animais, vacinas ou mais.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 3.1</span>
-          <span class="badge-prof">Propriedade Pro</span>
-          <span class="sec-label">3. Gestão Completa da Propriedade</span>
-        </div>
-        <h2>5. Painel Inicial da Propriedade, Troca de Fazenda e Atalhos</h2>
-        <p class="summary">Veja todas as suas propriedades com avisos do dia, troque de fazenda com 1 toque e acesse as tarefas principais.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-05-painel-propriedade.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-05-painel-propriedade.svg" alt="Painel Inicial da Propriedade, Troca de Fazenda e Atalhos" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>No topo, use o seletor de fazenda ou toque no sino (🔔) para ver os avisos pendentes.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Se gerenciar mais de uma propriedade (ex.: Leite e Engorda), toque em &quot;Abrir&quot; no cartão desejado.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Use &quot;O que você quer fazer?&quot; ou a barra inferior para ir direto a Leite, Animais, Vacinas ou Mais.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Cada membro da equipe vê apenas os módulos liberados para o perfil dele.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="pro" data-search="passo 3.2 3. gestão completa da propriedade resumo do período (visão mensal e anual) e indicadores da fazenda alterne entre visão mensal e visão anual para acompanhar leite produzido, receitas, despesas, saldo e nascimentos. no painel inicial, role até &quot;resumo do período&quot;. toque em &quot;visão mensal&quot; ou &quot;visão anual&quot; para comparar mês a mês. abaixo, acompanhe o resumo geral do rebanho (animais vivos, registros e tratamentos).">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 3.2</span>
-          <span class="badge-prof">Propriedade Pro</span>
-          <span class="sec-label">3. Gestão Completa da Propriedade</span>
-        </div>
-        <h2>6. Resumo do Período (Visão Mensal e Anual) e Indicadores da Fazenda</h2>
-        <p class="summary">Alterne entre Visão mensal e Visão anual para acompanhar leite produzido, receitas, despesas, saldo e nascimentos.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-06-sino-resumo-anual.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-06-sino-resumo-anual.svg" alt="Resumo do Período (Visão Mensal e Anual) e Indicadores da Fazenda" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>No Painel inicial, role até &quot;Resumo do período&quot;.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Toque em &quot;Visão mensal&quot; ou &quot;Visão anual&quot; para comparar mês a mês.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Abaixo, acompanhe o resumo geral do rebanho (animais vivos, registros e tratamentos).</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Os valores estimados de leite usam o preço por litro configurado na propriedade.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="pro" data-search="passo 3.2b 3. gestão completa da propriedade dashboard para tv / monitor (indicadores ao vivo em tela cheia) exiba os números da fazenda em tempo real na tv do escritório ou sala de ordenha com atualização automática. abra a rota /dashboard no computador, tablet ou smart tv da propriedade. toque em &quot;tela cheia&quot; para destacar os cartões de rebanho, leite, reprodução, vacinas e saldo. use &quot;atualizar&quot; sempre que quiser forçar uma leitura imediata.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 3.2b</span>
-          <span class="badge-prof">Propriedade Pro</span>
-          <span class="sec-label">3. Gestão Completa da Propriedade</span>
-        </div>
-        <h2>7. Dashboard para TV / Monitor (Indicadores ao Vivo em Tela Cheia)</h2>
-        <p class="summary">Exiba os números da fazenda em tempo real na TV do escritório ou sala de ordenha com atualização automática.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-06b-dashboard-tv.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-06b-dashboard-tv.svg" alt="Dashboard para TV / Monitor (Indicadores ao Vivo em Tela Cheia)" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Abra a rota /dashboard no computador, tablet ou Smart TV da propriedade.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Toque em &quot;Tela cheia&quot; para destacar os cartões de rebanho, leite, reprodução, vacinas e saldo.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Use &quot;Atualizar&quot; sempre que quiser forçar uma leitura imediata.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Ideal para manter em um monitor no escritório acompanhando vacinas atrasadas e partos próximos.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="pro" data-search="passo 3.3 3. gestão completa da propriedade cadastro de animais, foto, busca rápida e crias cadastre animais com código, brinco e foto, pesquise pelo nome ou código e edite a ficha ou registre crias. na aba &quot;animais&quot;, toque em &quot;cadastrar animal&quot; para incluir vacas, touros, novilhas ou bezerros. use a barra de busca para localizar qualquer animal pelo nome, código ou brinco. toque em um animal ou em &quot;editar&quot; para ver foto, crias da matriz e enviar bezerros à recria.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 3.3</span>
-          <span class="badge-prof">Propriedade Pro</span>
-          <span class="sec-label">3. Gestão Completa da Propriedade</span>
-        </div>
-        <h2>8. Cadastro de Animais, Foto, Busca Rápida e Crias</h2>
-        <p class="summary">Cadastre animais com código, brinco e foto, pesquise pelo nome ou código e edite a ficha ou registre crias.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-07-animais-crias.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-07-animais-crias.svg" alt="Cadastro de Animais, Foto, Busca Rápida e Crias" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Na aba &quot;Animais&quot;, toque em &quot;Cadastrar animal&quot; para incluir vacas, touros, novilhas ou bezerros.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Use a barra de busca para localizar qualquer animal pelo nome, código ou brinco.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Toque em um animal ou em &quot;Editar&quot; para ver foto, crias da matriz e enviar bezerros à recria.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Ao cadastrar uma cria vinculada à mãe, o sistema calcula o intervalo entre partos da vaca.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="pro" data-search="passo 3.4 3. gestão completa da propriedade produção de leite na propriedade (total do dia ou por vaca) lance a ordenha diária, defina o preço padrão por litro e consulte o histórico por período. na aba &quot;anotar&quot; (ou em produção de leite), toque em &quot;anotar leite&quot;. informe os litros totais do dia ou individuais por vaca (vacas em carência ficam bloqueadas). defina o preço padrão por litro e toque em &quot;salvar preço&quot; para os próximos lançamentos.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 3.4</span>
-          <span class="badge-prof">Propriedade Pro</span>
-          <span class="sec-label">3. Gestão Completa da Propriedade</span>
-        </div>
-        <h2>9. Produção de Leite na Propriedade (Total do Dia ou Por Vaca)</h2>
-        <p class="summary">Lance a ordenha diária, defina o preço padrão por litro e consulte o histórico por período.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-08-producao-leite-pro.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-08-producao-leite-pro.svg" alt="Produção de Leite na Propriedade (Total do Dia ou Por Vaca)" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Na aba &quot;Anotar&quot; (ou em Produção de Leite), toque em &quot;Anotar leite&quot;.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Informe os litros totais do dia ou individuais por vaca (vacas em carência ficam bloqueadas).</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Defina o preço padrão por litro e toque em &quot;Salvar preço&quot; para os próximos lançamentos.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Alterar o preço padrão não modifica o valor histórico dos lançamentos já salvos.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="pro" data-search="passo 3.5 3. gestão completa da propriedade reprodução: cobertura, iatf, diagnóstico e indicadores zootécnicos acompanhe concepção, partos previstos, diagnósticos pendentes e índices zootécnicos completos do rebanho. em &quot;mais &gt; reprodução&quot;, registre coberturas (ia, iatf, monta ou repasse) e diagnósticos de prenhez. toque na aba &quot;indicadores&quot; para acompanhar taxa de serviço, concepção, prenhez e iep. use &quot;relatório de visita&quot; para compartilhar os números com o veterinário.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 3.5</span>
-          <span class="badge-prof">Propriedade Pro</span>
-          <span class="sec-label">3. Gestão Completa da Propriedade</span>
-        </div>
-        <h2>10. Reprodução: Cobertura, IATF, Diagnóstico e Indicadores Zootécnicos</h2>
-        <p class="summary">Acompanhe concepção, partos previstos, diagnósticos pendentes e índices zootécnicos completos do rebanho.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-09-reproducao-iatf.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-09-reproducao-iatf.svg" alt="Reprodução: Cobertura, IATF, Diagnóstico e Indicadores Zootécnicos" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Em &quot;Mais &gt; Reprodução&quot;, registre coberturas (IA, IATF, Monta ou Repasse) e diagnósticos de prenhez.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Toque na aba &quot;Indicadores&quot; para acompanhar taxa de serviço, concepção, prenhez e IEP.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Use &quot;Relatório de visita&quot; para compartilhar os números com o veterinário.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> O sistema calcula automaticamente o parto previsto (+280 dias) após a cobertura.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="pro" data-search="passo 3.6 3. gestão completa da propriedade recria individual (um a um, da desmama à 1ª cobertura) acompanhe bezerros e novilhas individualmente sem precisar criar lote, com peso inicial, ganho diário e alvo. em &quot;mais &gt; recria e engorda&quot;, toque em &quot;acompanhar um animal&quot; na seção recria um a um. informe o bezerro ou novilha, a data da desmama, o peso inicial e o peso-alvo. a cada nova pesagem, o app calcula o ganho/dia (kg/dia) e projeta a chegada ao alvo.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 3.6</span>
-          <span class="badge-prof">Propriedade Pro</span>
-          <span class="sec-label">3. Gestão Completa da Propriedade</span>
-        </div>
-        <h2>11. Recria Individual (Um a Um, da Desmama à 1ª Cobertura)</h2>
-        <p class="summary">Acompanhe bezerros e novilhas individualmente sem precisar criar lote, com peso inicial, ganho diário e alvo.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-10-recria-individual.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-10-recria-individual.svg" alt="Recria Individual (Um a Um, da Desmama à 1ª Cobertura)" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Em &quot;Mais &gt; Recria e engorda&quot;, toque em &quot;Acompanhar um animal&quot; na seção RECRIA UM A UM.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Informe o bezerro ou novilha, a data da desmama, o peso inicial e o peso-alvo.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>A cada nova pesagem, o app calcula o ganho/dia (kg/dia) e projeta a chegada ao alvo.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Novilhas em recria a partir de 13 meses já permitem lançar a 1ª cobertura pela própria ficha.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="pro" data-search="passo 3.7 3. gestão completa da propriedade lotes de recria e engorda + pesagens e trato no cocho gerencie lotes fechados ou abertos com peso médio, ganho médio diário (kg/dia) e suplemento no cocho. filtre por &quot;engorda&quot; ou &quot;recria&quot; e toque em &quot;novo lote&quot; (ou abra um lote existente como lote a). confira o resumo consolidado: lotes abertos, cabeças, peso médio e ganho por dia. dentro do lote, lance pesagens e o trato diário no cocho (com baixa automática no estoque).">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 3.7</span>
-          <span class="badge-prof">Propriedade Pro</span>
-          <span class="sec-label">3. Gestão Completa da Propriedade</span>
-        </div>
-        <h2>12. Lotes de Recria e Engorda + Pesagens e Trato no Cocho</h2>
-        <p class="summary">Gerencie lotes fechados ou abertos com peso médio, ganho médio diário (kg/dia) e suplemento no cocho.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-11-lotes-engorda-trato.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-11-lotes-engorda-trato.svg" alt="Lotes de Recria e Engorda + Pesagens e Trato no Cocho" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Filtre por &quot;Engorda&quot; ou &quot;Recria&quot; e toque em &quot;Novo lote&quot; (ou abra um lote existente como Lote A).</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Confira o resumo consolidado: lotes abertos, cabeças, peso médio e ganho por dia.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Dentro do lote, lance pesagens e o trato diário no cocho (com baixa automática no estoque).</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Ao vincular um suplemento do estoque em % do peso vivo, o sistema sugere os quilos do trato.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="pro" data-search="passo 3.8 3. gestão completa da propriedade vacinação e tratamentos veterinários (carência e baixa) controle o calendário de vacinas por animal (pendente, aplicada, vencida) e registre tratamentos com carência. na aba &quot;vacinas&quot;, filtre entre pendente, aplicada ou vencida, ou busque pelo nome do animal. toque em &quot;+ registrar&quot; para agendar uma vacina futura ou dar baixa em uma dose aplicada. em &quot;mais &gt; tratamentos&quot;, registre medicamentos informando os dias de carência de leite e abate.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 3.8</span>
-          <span class="badge-prof">Propriedade Pro</span>
-          <span class="sec-label">3. Gestão Completa da Propriedade</span>
-        </div>
-        <h2>13. Vacinação e Tratamentos Veterinários (Carência e Baixa)</h2>
-        <p class="summary">Controle o calendário de vacinas por animal (Pendente, Aplicada, Vencida) e registre tratamentos com carência.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-12-tratamentos-vacinas.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-12-tratamentos-vacinas.svg" alt="Vacinação e Tratamentos Veterinários (Carência e Baixa)" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Na aba &quot;Vacinas&quot;, filtre entre Pendente, Aplicada ou Vencida, ou busque pelo nome do animal.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Toque em &quot;+ Registrar&quot; para agendar uma vacina futura ou dar baixa em uma dose aplicada.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Em &quot;Mais &gt; Tratamentos&quot;, registre medicamentos informando os dias de carência de leite e abate.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Vacinas vencidas e carências ativas aparecem em destaque vermelho no sino do Painel.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="pro" data-search="passo 3.9 3. gestão completa da propriedade estoque de insumos, alerta de mínimo e duração em dias controle ração, sal mineral e medicamentos, veja alertas vermelhos de estoque baixo e previsão de duração. em &quot;mais &gt; estoque&quot;, toque em &quot;cadastrar produto&quot; informando unidade, preço e estoque mínimo. toque em um insumo para lançar entradas (compras) ou saídas, ou pedir orçamento ao fornecedor. acompanhe a coluna status (ok ou baixo) e a previsão de quantos dias o suplemento dura.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 3.9</span>
-          <span class="badge-prof">Propriedade Pro</span>
-          <span class="sec-label">3. Gestão Completa da Propriedade</span>
-        </div>
-        <h2>14. Estoque de Insumos, Alerta de Mínimo e Duração em Dias</h2>
-        <p class="summary">Controle ração, sal mineral e medicamentos, veja alertas vermelhos de estoque baixo e previsão de duração.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-13-estoque-insumos.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-13-estoque-insumos.svg" alt="Estoque de Insumos, Alerta de Mínimo e Duração em Dias" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Em &quot;Mais &gt; Estoque&quot;, toque em &quot;Cadastrar produto&quot; informando unidade, preço e estoque mínimo.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Toque em um insumo para lançar entradas (compras) ou saídas, ou pedir orçamento ao fornecedor.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Acompanhe a coluna STATUS (OK ou Baixo) e a previsão de quantos dias o suplemento dura.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Os tratos lançados nos lotes de engorda descontam automaticamente do saldo do estoque.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="pro" data-search="passo 3.10 3. gestão completa da propriedade ofertas de fornecedores, estoque baixo e meus pedidos veja em destaque ofertas das categorias em falta no seu estoque e acompanhe cotações respondidas no whatsapp. acesse &quot;mais &gt; ofertas&quot;: itens com estoque baixo (ex.: ração, sal mineral) são priorizados no topo. toque em &quot;chamar no whatsapp&quot; em qualquer oferta para negociar direto com o fornecedor. acompanhe em &quot;meus pedidos e mensagens&quot; os orçamentos já respondidos.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 3.10</span>
-          <span class="badge-prof">Propriedade Pro</span>
-          <span class="sec-label">3. Gestão Completa da Propriedade</span>
-        </div>
-        <h2>15. Ofertas de Fornecedores, Estoque Baixo e Meus Pedidos</h2>
-        <p class="summary">Veja em destaque ofertas das categorias em falta no seu estoque e acompanhe cotações respondidas no WhatsApp.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-14-ofertas-fornecedores.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-14-ofertas-fornecedores.svg" alt="Ofertas de Fornecedores, Estoque Baixo e Meus Pedidos" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Acesse &quot;Mais &gt; Ofertas&quot;: itens com estoque baixo (ex.: Ração, Sal mineral) são priorizados no topo.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Toque em &quot;Chamar no WhatsApp&quot; em qualquer oferta para negociar direto com o fornecedor.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Acompanhe em &quot;Meus pedidos e mensagens&quot; os orçamentos já respondidos.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Vincule fornecedores da sua confiança pelo link ou código de convite deles.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="pro" data-search="passo 3.11 3. gestão completa da propriedade financeiro (entradas/saídas) e exportação de relatórios lance receitas e despesas por período (funciona offline) e exporte relatórios completos em pdf ou csv. em &quot;mais &gt; financeiro&quot;, toque em &quot;anotar entrada ou saída&quot; para lançar receitas e despesas. use os campos &quot;de&quot; e &quot;até&quot; para consultar o saldo de qualquer período. em &quot;mais &gt; relatórios&quot;, gere relatórios em pdf ou planilha csv para imprimir ou enviar no whatsapp.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 3.11</span>
-          <span class="badge-prof">Propriedade Pro</span>
-          <span class="sec-label">3. Gestão Completa da Propriedade</span>
-        </div>
-        <h2>16. Financeiro (Entradas/Saídas) e Exportação de Relatórios</h2>
-        <p class="summary">Lance receitas e despesas por período (funciona offline) e exporte relatórios completos em PDF ou CSV.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-15-financeiro-relatorios.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-15-financeiro-relatorios.svg" alt="Financeiro (Entradas/Saídas) e Exportação de Relatórios" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Em &quot;Mais &gt; Financeiro&quot;, toque em &quot;Anotar entrada ou saída&quot; para lançar receitas e despesas.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Use os campos &quot;De&quot; e &quot;Até&quot; para consultar o saldo de qualquer período.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Em &quot;Mais &gt; Relatórios&quot;, gere relatórios em PDF ou planilha CSV para imprimir ou enviar no WhatsApp.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Lançamentos financeiros feitos no campo sem sinal sincronizam assim que a internet volta.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="pro" data-search="passo 3.12 3. gestão completa da propriedade equipe da propriedade e permissões por módulo cadastre gerentes, funcionários ou visualizadores e defina quais módulos cada usuário pode ver e editar. em &quot;mais &gt; usuários&quot;, toque em &quot;+ novo usuário&quot; e preencha nome, telefone (ou e-mail) e senha. escolha o perfil (administrador, editor ou visualizador) e marque os módulos autorizados. toque no ícone de edição ao lado de qualquer membro para ajustar permissões a qualquer hora.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 3.12</span>
-          <span class="badge-prof">Propriedade Pro</span>
-          <span class="sec-label">3. Gestão Completa da Propriedade</span>
-        </div>
-        <h2>17. Equipe da Propriedade e Permissões por Módulo</h2>
-        <p class="summary">Cadastre gerentes, funcionários ou visualizadores e defina quais módulos cada usuário pode ver e editar.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-16-usuarios-permissoes.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-16-usuarios-permissoes.svg" alt="Equipe da Propriedade e Permissões por Módulo" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Em &quot;Mais &gt; Usuários&quot;, toque em &quot;+ Novo Usuário&quot; e preencha nome, telefone (ou e-mail) e senha.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Escolha o perfil (Administrador, Editor ou Visualizador) e marque os módulos autorizados.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Toque no ícone de edição ao lado de qualquer membro para ajustar permissões a qualquer hora.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Módulos desmarcados ficam ocultos no menu e nos resumos daquele usuário.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="motorista" data-search="passo 4.1 4. guia do motorista / carreteiro rota do dia no celular do motorista (funciona sem internet) veja as paradas na ordem da linha, instruções de porteira, anote litros digitando ou por voz, ou marque não coletado. na aba &quot;rota&quot;, confira todas as paradas da linha de hoje na ordem de coleta. veja o telefone do produtor e as instruções de acesso/porteira em destaque amarelo. digite os litros ou toque no microfone para falar (ou toque em &quot;não coletado&quot; informando o motivo).">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 4.1</span>
-          <span class="badge-prof">Motorista</span>
-          <span class="sec-label">4. Guia do Motorista / Carreteiro</span>
-        </div>
-        <h2>18. Rota do Dia no Celular do Motorista (Funciona Sem Internet)</h2>
-        <p class="summary">Veja as paradas na ordem da linha, instruções de porteira, anote litros digitando ou por voz, ou marque Não coletado.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-17-motorista-rota.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-17-motorista-rota.svg" alt="Rota do Dia no Celular do Motorista (Funciona Sem Internet)" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Na aba &quot;Rota&quot;, confira todas as paradas da linha de hoje na ordem de coleta.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Veja o telefone do produtor e as instruções de acesso/porteira em destaque amarelo.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Digite os litros ou toque no microfone para falar (ou toque em &quot;Não coletado&quot; informando o motivo).</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Tudo salva automaticamente no aparelho mesmo sem sinal e sobe para o laticínio ao conectar.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="laticinio" data-search="passo 5.1 5. guia do laticínio e rotas painel do laticínio: paradas pendentes, rotas e recebido × coletado acompanhe as coletas do dia em tempo real e compare o volume coletado pelos motoristas com o recebido na plataforma. use os cartões do painel para gerenciar &quot;pontos de coleta&quot;, &quot;rotas&quot;, &quot;motoristas&quot; e &quot;recebido&quot;. em &quot;hoje: paradas pendentes&quot;, acompanhe em tempo real cada coleta feita na estrada. lance o volume descarregado em &quot;recebido no período&quot; para conferir com a soma das rotas.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 5.1</span>
-          <span class="badge-prof">Laticínio</span>
-          <span class="sec-label">5. Guia do Laticínio e Rotas</span>
-        </div>
-        <h2>19. Painel do Laticínio: Paradas Pendentes, Rotas e Recebido × Coletado</h2>
-        <p class="summary">Acompanhe as coletas do dia em tempo real e compare o volume coletado pelos motoristas com o recebido na plataforma.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-18-laticinio-painel.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-18-laticinio-painel.svg" alt="Painel do Laticínio: Paradas Pendentes, Rotas e Recebido × Coletado" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Use os cartões do painel para gerenciar &quot;Pontos de coleta&quot;, &quot;Rotas&quot;, &quot;Motoristas&quot; e &quot;Recebido&quot;.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Em &quot;Hoje: paradas pendentes&quot;, acompanhe em tempo real cada coleta feita na estrada.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Lance o volume descarregado em &quot;Recebido no período&quot; para conferir com a soma das rotas.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Ao vincular o ponto de coleta à propriedade do produtor, a coleta aparece automaticamente para ele.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="laticinio" data-search="passo 5.2 5. guia do laticínio e rotas criar e organizar a rota de coleta (dias da semana, motorista e paradas) configure cada linha definindo o nome da rota, dias da semana em que o caminhão passa, motorista e ordem das paradas. no painel do laticínio, toque no cartão &quot;rotas&quot; e depois no botão &quot;+ nova rota&quot;. digite o &quot;nome da rota *&quot; e marque os dias da semana (dom, seg, ter, qua, qui, sex, sáb). escolha o &quot;motorista&quot;, adicione os pontos de coleta na ordem da linha e toque em &quot;salvar rota&quot;.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 5.2</span>
-          <span class="badge-prof">Laticínio & Rotas</span>
-          <span class="sec-label">5. Guia do Laticínio e Rotas</span>
-        </div>
-        <h2>20. Criar e Organizar a Rota de Coleta (Dias da Semana, Motorista e Paradas)</h2>
-        <p class="summary">Configure cada linha definindo o nome da rota, dias da semana em que o caminhão passa, motorista e ordem das paradas.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-18b-criar-rota-coleta.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-18b-criar-rota-coleta.svg" alt="Criar e Organizar a Rota de Coleta (Dias da Semana, Motorista e Paradas)" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>No painel do Laticínio, toque no cartão &quot;Rotas&quot; e depois no botão &quot;+ Nova rota&quot;.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Digite o &quot;Nome da rota *&quot; e marque os dias da semana (Dom, Seg, Ter, Qua, Qui, Sex, Sáb).</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Escolha o &quot;Motorista&quot;, adicione os pontos de coleta na ordem da linha e toque em &quot;Salvar rota&quot;.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> O motorista recebe automaticamente no celular dele a lista de paradas nos dias marcados.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="associacao" data-search="passo 6.1 6. guia da associação / cooperativa painel da associação: compras coletivas, visitas, mensalidades e avisos gerencie associados ativos, some pedidos em compras coletivas, agende visitas técnicas e controle mensalidades. use &quot;convidar produtores&quot; para enviar o link de vínculo da associação pelo whatsapp. abra &quot;compras coletivas abertas&quot; para reunir os pedidos dos associados em um único lote. acompanhe &quot;visitas técnicas pendentes&quot;, &quot;comunicados&quot; e &quot;mensalidades atrasadas&quot;.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 6.1</span>
-          <span class="badge-prof">Associação</span>
-          <span class="sec-label">6. Guia da Associação / Cooperativa</span>
-        </div>
-        <h2>21. Painel da Associação: Compras Coletivas, Visitas, Mensalidades e Avisos</h2>
-        <p class="summary">Gerencie associados ativos, some pedidos em compras coletivas, agende visitas técnicas e controle mensalidades.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-19-associacao-cooperativa.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-19-associacao-cooperativa.svg" alt="Painel da Associação: Compras Coletivas, Visitas, Mensalidades e Avisos" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Use &quot;Convidar produtores&quot; para enviar o link de vínculo da associação pelo WhatsApp.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Abra &quot;Compras coletivas abertas&quot; para reunir os pedidos dos associados em um único lote.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Acompanhe &quot;Visitas técnicas pendentes&quot;, &quot;Comunicados&quot; e &quot;Mensalidades atrasadas&quot;.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Comunicados e avisos da associação aparecem automaticamente no sino do produtor associado.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="fornecedor" data-search="passo 7.1 7. guia do fornecedor de insumos painel do fornecedor: orçamentos, estoque baixo de clientes e vendas veja pedidos novos, identifique clientes com estoque baixo, publique ofertas e acompanhe vendas no mês. acompanhe em &quot;pedidos novos&quot; as cotações enviadas pelos produtores e responda pelo app ou whatsapp. em &quot;precisando repor&quot;, veja quais clientes estão com estoque baixo para oferecer reposição. use &quot;+ convidar clientes&quot; para fidelizar produtores da região e confira o fechamento em &quot;vendas no mês&quot;.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 7.1</span>
-          <span class="badge-prof">Fornecedor</span>
-          <span class="sec-label">7. Guia do Fornecedor de Insumos</span>
-        </div>
-        <h2>22. Painel do Fornecedor: Orçamentos, Estoque Baixo de Clientes e Vendas</h2>
-        <p class="summary">Veja pedidos novos, identifique clientes com estoque baixo, publique ofertas e acompanhe vendas no mês.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-20-fornecedor-painel-vendas.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-20-fornecedor-painel-vendas.svg" alt="Painel do Fornecedor: Orçamentos, Estoque Baixo de Clientes e Vendas" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Acompanhe em &quot;Pedidos novos&quot; as cotações enviadas pelos produtores e responda pelo app ou WhatsApp.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Em &quot;Precisando repor&quot;, veja quais clientes estão com estoque baixo para oferecer reposição.</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Use &quot;+ Convidar clientes&quot; para fidelizar produtores da região e confira o fechamento em &quot;Vendas no mês&quot;.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> Produtores com estoque baixo na categoria da sua oferta recebem alerta destacando sua promoção.</div>
-      </div>
-    </div>
-  </article>
-
-
-  <article class="step-card" data-profile="todos" data-search="passo 8.1 8. central de ajuda (/ajuda) e manual botão na tela de ajuda (/ajuda) para abrir o manual ilustrado na tela de ajuda do site, pwa ou aplicativo, toque em &quot;abrir manual ilustrado&quot; para consultar este guia a qualquer hora. abra &quot;ajuda&quot; no menu lateral (web/pwa) ou na aba &quot;mais&quot; (aplicativo). toque no botão verde &quot;abrir manual ilustrado&quot; para abrir o guia dentro do sistema (/manual). se preferir salvar ou imprimir, toque em &quot;abrir em tela cheia / imprimir pdf&quot;.">
-    <div class="step-head">
-      <div class="step-head-left">
-        <div class="step-meta">
-          <span class="badge-step">Passo 8.1</span>
-          <span class="badge-prof">Todos os Perfis</span>
-          <span class="sec-label">8. Central de Ajuda (/ajuda) e Manual</span>
-        </div>
-        <h2>23. Botão na Tela de Ajuda (/ajuda) para Abrir o Manual Ilustrado</h2>
-        <p class="summary">Na tela de Ajuda do site, PWA ou aplicativo, toque em &quot;Abrir manual ilustrado&quot; para consultar este guia a qualquer hora.</p>
-      </div>
-      <span class="file-tag">public/manual/passo-21-ajuda-botao-manual.svg</span>
-    </div>
-    <div class="step-grid">
-      <div class="screen-box">
-        <img src="/manual/passo-21-ajuda-botao-manual.svg" alt="Botão na Tela de Ajuda (/ajuda) para Abrir o Manual Ilustrado" loading="lazy" />
-      </div>
-      <div class="instructions-box">
-        <h3>Passo a passo na tela:</h3>
-        <ol class="step-list">
-          
-            <li>
-              <span class="step-num-dot">1</span>
-              <span>Abra &quot;Ajuda&quot; no menu lateral (Web/PWA) ou na aba &quot;Mais&quot; (Aplicativo).</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">2</span>
-              <span>Toque no botão verde &quot;Abrir manual ilustrado&quot; para abrir o guia dentro do sistema (/manual).</span>
-            </li>
-          
-            <li>
-              <span class="step-num-dot">3</span>
-              <span>Se preferir salvar ou imprimir, toque em &quot;Abrir em tela cheia / Imprimir PDF&quot;.</span>
-            </li>
-          
-        </ol>
-        <div class="tip-box"><strong>💡 Dica prática:</strong> A rota /manual funciona no navegador, no PWA instalado e também 100% offline no aplicativo Android.</div>
-      </div>
-    </div>
-  </article>
-</div>
   </main>
-
-  <script>
-    const buttons = document.querySelectorAll('.filter-btn');
-    const cards = document.querySelectorAll('.step-card');
-    const searchBox = document.getElementById('searchBox');
-    let currentFilter = 'all';
-
-    function applyFilter() {
-      const q = (searchBox.value || '').trim().toLowerCase();
-      cards.forEach(c => {
-        const p = c.getAttribute('data-profile');
-        const hay = c.getAttribute('data-search') || '';
-        const okP = currentFilter === 'all' || p === currentFilter || p === 'todos';
-        const okQ = !q || hay.includes(q);
-        c.classList.toggle('hidden', !(okP && okQ));
-      });
-    }
-
-    buttons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        buttons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentFilter = btn.getAttribute('data-filter');
-        applyFilter();
-      });
-    });
-    searchBox.addEventListener('input', applyFilter);
-  </script>
 </body>
 </html>

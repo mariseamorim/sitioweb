@@ -2,14 +2,26 @@
 import { Ionicons } from '@expo/vector-icons'
 import * as Print from 'expo-print'
 import * as Sharing from 'expo-sharing'
-import { useMemo, useState } from 'react'
+import { useLocalSearchParams } from 'expo-router'
+import { useEffect, useMemo, useState } from 'react'
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { API_BASE } from '@/api/client'
 import { colors, font, radius, space } from '@/theme'
 import { Button, Card, Muted, Screen, Title } from '@/ui'
 import { TextButton } from '@/ui/TextButton'
 
-type ProfileKey = 'all' | 'lite' | 'pro' | 'motorista' | 'laticinio' | 'associacao' | 'fornecedor'
+type BlockKey =
+  | 'hub'
+  | 'rebanho'
+  | 'acesso-e-painel'
+  | 'leite-lite'
+  | 'leite-e-sanidade'
+  | 'gestao'
+  | 'motorista-e-laticinio'
+  | 'associacao-e-fornecedor'
+  | 'all'
+
+type StepBlockKey = Exclude<BlockKey, 'hub' | 'all'>
 
 interface ScreenBlock {
   num: number
@@ -21,7 +33,7 @@ interface ScreenBlock {
 
 interface ManualStep {
   num: string
-  profile: Exclude<ProfileKey, 'all'> | 'todos'
+  block: StepBlockKey
   profileBadge: string
   section: string
   title: string
@@ -33,19 +45,31 @@ interface ManualStep {
   tip: string
 }
 
-const FILTERS: { key: ProfileKey; label: string }[] = [
+const BLOCK_CARDS: { key: StepBlockKey; label: string; desc: string }[] = [
+  { key: 'rebanho', label: 'Rebanho (Animais, Recria e Reprodução)', desc: 'Cadastro de animais, crias, recria 1 a 1, lotes de engorda, trato e IATF.' },
+  { key: 'acesso-e-painel', label: 'Acesso, Painel, Offline e Dashboard TV', desc: 'Login, modo offline, painel inicial, resumo anual e Dashboard TV.' },
+  { key: 'leite-lite', label: 'Anota Aí Leite', desc: 'Anotar litros digitando ou por voz, dividir a nota do tanque e folha OCR.' },
+  { key: 'leite-e-sanidade', label: 'Leite Pro e Sanidade', desc: 'Produção por vaca ou total, trava de carência, vacinas e tratamentos.' },
+  { key: 'gestao', label: 'Gestão (Estoque, Ofertas, Caixa e Equipe)', desc: 'Estoque mínimo, cotações, ofertas, financeiro/PDF/CSV e permissões.' },
+  { key: 'motorista-e-laticinio', label: 'Motorista e Laticínio', desc: 'Rota do dia offline no celular, painel do laticínio e criação de rotas.' },
+  { key: 'associacao-e-fornecedor', label: 'Associação e Fornecedor', desc: 'Compras coletivas, visitas técnicas, ofertas e pedidos de orçamento.' },
+]
+
+const FILTERS: { key: BlockKey; label: string }[] = [
+  { key: 'hub', label: 'Blocos' },
+  { key: 'rebanho', label: 'Rebanho' },
+  { key: 'acesso-e-painel', label: 'Acesso e Painel' },
+  { key: 'leite-lite', label: 'Anota Aí Leite' },
+  { key: 'leite-e-sanidade', label: 'Leite e Sanidade' },
+  { key: 'gestao', label: 'Gestão' },
+  { key: 'motorista-e-laticinio', label: 'Motorista e Laticínio' },
+  { key: 'associacao-e-fornecedor', label: 'Associação e Fornecedor' },
   { key: 'all', label: 'Todos (23)' },
-  { key: 'lite', label: 'Anota Aí Leite' },
-  { key: 'pro', label: 'Propriedade Pro' },
-  { key: 'motorista', label: 'Motorista' },
-  { key: 'laticinio', label: 'Laticínio e Rotas' },
-  { key: 'associacao', label: 'Associação' },
-  { key: 'fornecedor', label: 'Fornecedor' },
 ]
 
 const MANUAL_STEPS: ManualStep[] = [
   {
-    num: 'Passo 1.1', profile: 'todos', profileBadge: 'Todos os Perfis', section: '1. Primeiros Passos',
+    num: 'Passo 1.1', block: 'acesso-e-painel', profileBadge: 'Todos os Perfis', section: '1. Primeiros Passos',
     title: 'Entrar no Sistema (Telefone com DDD, E-mail ou Google) e Criar Conta',
     summary: 'Acesse usando seu número de telefone com DDD ou e-mail, entre com Google ou crie sua conta por perfil.',
     pageHeader: 'Anota Aí Agro · Entrar', pageSub: 'Acesso por telefone (DDD) ou e-mail',
@@ -62,7 +86,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Em "Meu cadastro" você pode manter tanto o telefone quanto o e-mail salvos — os dois funcionam para entrar.',
   },
   {
-    num: 'Passo 1.2', profile: 'todos', profileBadge: 'Todos os Perfis', section: '1. Primeiros Passos',
+    num: 'Passo 1.2', block: 'acesso-e-painel', profileBadge: 'Todos os Perfis', section: '1. Primeiros Passos',
     title: 'Uso Sem Internet (Modo Offline e Sincronização)',
     summary: 'Continue registrando leite, animais, coberturas, recria, estoque, financeiro e coletas da rota mesmo sem sinal.',
     pageHeader: 'Sincronização Offline', pageSub: 'Banco local salvo no celular',
@@ -79,7 +103,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Antes de sair da conta, aguarde o envio dos itens pendentes na fila.',
   },
   {
-    num: 'Passo 2.1', profile: 'lite', profileBadge: 'Produtor Lite', section: '2. Anota Aí Leite (Gratuito)',
+    num: 'Passo 2.1', block: 'leite-lite', profileBadge: 'Produtor Lite', section: '2. Anota Aí Leite (Gratuito)',
     title: 'Anotar o Leite do Dia (Digitando ou Falando pelo Microfone)',
     summary: 'Digite os litros ou fale pelo microfone (funciona sem internet) e acompanhe o valor estimado no mês.',
     pageHeader: 'Anota Aí Leite · Aba Anotar', pageSub: 'Sítio Primavera · Leite do dia',
@@ -97,7 +121,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Você pode baixar o modelo de voz offline (32 MB) uma única vez no Wi-Fi para usar o microfone sem sinal.',
   },
   {
-    num: 'Passo 2.2', profile: 'lite', profileBadge: 'Produtor Lite & Pro', section: '2. Anota Aí Leite (Gratuito)',
+    num: 'Passo 2.2', block: 'leite-lite', profileBadge: 'Produtor Lite & Pro', section: '2. Anota Aí Leite (Gratuito)',
     title: 'Dividir a Nota do Tanque entre Mais de um Nome no Laticínio',
     summary: 'Quando dois ou mais produtores entregam leite no mesmo tanque, reparta os litros em cada coleta.',
     pageHeader: 'Anota Aí Leite · Divisão da Nota', pageSub: 'Acumulado desde a última coleta: 370,0 L',
@@ -114,7 +138,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Com dois nomes cadastrados, ao digitar os litros de um nome o aplicativo completa o outro automaticamente.',
   },
   {
-    num: 'Passo 2.3', profile: 'lite', profileBadge: 'Produtor Lite & Pro', section: '2. Anota Aí Leite (Gratuito)',
+    num: 'Passo 2.3', block: 'leite-lite', profileBadge: 'Produtor Lite & Pro', section: '2. Anota Aí Leite (Gratuito)',
     title: 'Conferir a Folha do Motorista pela Foto (Leitura OCR)',
     summary: 'Tire foto da folha do carreteiro: o sistema lê litros, temperatura, amostra e régua e guarda a foto como prova.',
     pageHeader: 'Anota Aí Leite · Aba Folha', pageSub: 'Conferência da folha do motorista',
@@ -131,7 +155,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Diferenças acima de 5% entre o anotado no sítio e a folha do carreteiro ficam destacadas em vermelho no Histórico.',
   },
   {
-    num: 'Passo 3.1', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    num: 'Passo 3.1', block: 'acesso-e-painel', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
     title: 'Painel Inicial da Propriedade e Atalhos Rápidos',
     summary: 'Veja os atalhos das tarefas mais usadas do dia, troque de fazenda e navegue pelas abas inferiores.',
     pageHeader: 'Painel · Sítio Boa Vista', pageSub: 'Bem-vindo de volta, João Produtor',
@@ -147,7 +171,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'O aplicativo funciona conectado ao mesmo banco de dados do site, mantendo tudo sincronizado.',
   },
   {
-    num: 'Passo 3.2', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    num: 'Passo 3.2', block: 'acesso-e-painel', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
     title: 'Alertas do Dia (Carência / Vacinas) e Resumo Mensal e Anual',
     summary: 'Acompanhe alertas urgentes de carência, vacinas e partos e alterne entre o balanço mensal e anual.',
     pageHeader: 'Painel · Alertas & Resumo', pageSub: 'Tarefas do dia e balanço Mensal / Anual',
@@ -163,7 +187,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Tocar em qualquer tarefa pendente abre diretamente o módulo para resolvê-la.',
   },
   {
-    num: 'Passo 3.2b', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    num: 'Passo 3.2b', block: 'acesso-e-painel', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
     title: 'Dashboard para TV / Monitor (Indicadores ao Vivo)',
     summary: 'Exiba os números da fazenda em tempo real na TV do escritório ou sala de ordenha com atualização automática.',
     pageHeader: 'Dashboard TV (/dashboard)', pageSub: 'Atualização automática em tela cheia',
@@ -180,7 +204,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Ideal para manter em um monitor no escritório acompanhando vacinas atrasadas e partos próximos.',
   },
   {
-    num: 'Passo 3.3', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    num: 'Passo 3.3', block: 'rebanho', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
     title: 'Cadastro de Animais, Crias da Vaca e Entrada na Recria',
     summary: 'Cadastre animais com código automático e brinco opcional, veja os filhos de cada matriz e mande bezerros para a recria.',
     pageHeader: 'Animais · Ficha e Crias', pageSub: '#07 Mimosa (Brinco BR-99412) · Vaca',
@@ -197,7 +221,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Marcar um macho como castrado atualiza automaticamente sua classificação para Boi de engorda.',
   },
   {
-    num: 'Passo 3.4', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    num: 'Passo 3.4', block: 'leite-e-sanidade', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
     title: 'Produção de Leite na Propriedade (Total do Dia ou Por Vaca)',
     summary: 'Lance a ordenha total do tanque ou individual por vaca, com trava automática para vacas em carência.',
     pageHeader: 'Produção de Leite', pageSub: 'Lançamento diário e preço por litro',
@@ -214,7 +238,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Lançamentos na mesma data são somados automaticamente (ex.: ordenha da manhã + ordenha da tarde).',
   },
   {
-    num: 'Passo 3.5', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    num: 'Passo 3.5', block: 'rebanho', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
     title: 'Reprodução: Cobertura, Lotes de IATF e Diagnóstico de Prenhez',
     summary: 'Registre IA, IATF, monta ou repasse com botão "Salvar e repetir para outra fêmea" e acompanhe os 280 dias de gestação.',
     pageHeader: 'Reprodução · Cobertura & IATF', pageSub: 'Repetição rápida em lote e previsão de parto',
@@ -232,7 +256,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Funciona 100% offline no curral.',
   },
   {
-    num: 'Passo 3.6', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    num: 'Passo 3.6', block: 'rebanho', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
     title: 'Recria Individual (Um a Um, da Desmama à 1ª Cobertura)',
     summary: 'Acompanhe o ganho de peso de cada bezerro ou novilha individualmente sem precisar criar lote.',
     pageHeader: 'Recria e Engorda · Aba Recria', pageSub: 'Acompanhamento individual um a um',
@@ -249,7 +273,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Desmama, pesagens e saída da recria individual funcionam mesmo sem internet.',
   },
   {
-    num: 'Passo 3.7', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    num: 'Passo 3.7', block: 'rebanho', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
     title: 'Lotes de Recria e Engorda + Trato no Cocho (Baixa no Estoque)',
     summary: 'Gerencie lotes em grupo, defina suplemento em % do peso vivo, pese o lote e lance o trato descontando do estoque.',
     pageHeader: 'Lotes · Engorda e Cocho', pageSub: 'Lote 02 — Garrotes Pasto 4 (25 cabeças)',
@@ -266,7 +290,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Excluir um trato devolve automaticamente a quantidade para o saldo do estoque.',
   },
   {
-    num: 'Passo 3.8', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    num: 'Passo 3.8', block: 'leite-e-sanidade', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
     title: 'Tratamentos Veterinários (Carência) e Vacinação',
     summary: 'Registre medicamentos com dias de carência para leite/abate e controle o calendário de vacinas.',
     pageHeader: 'Sanidade · Vacinas e Tratamentos', pageSub: 'Controle de carência e doses aplicadas',
@@ -282,7 +306,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Enquanto a carência estiver ativa, o animal fica destacado em vermelho no Painel e na Produção de Leite.',
   },
   {
-    num: 'Passo 3.9', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    num: 'Passo 3.9', block: 'gestao', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
     title: 'Estoque de Insumos, Duração em Dias e Pedido de Orçamento',
     summary: 'Controle entradas e saídas de ração, sal e remédios, veja em quantos dias o suplemento acaba e peça orçamento.',
     pageHeader: 'Estoque de Insumos', pageSub: 'Saldo, consumo dos lotes e cotação',
@@ -299,7 +323,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Os tratos lançados nos lotes descontam o suplemento do estoque automaticamente.',
   },
   {
-    num: 'Passo 3.10', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    num: 'Passo 3.10', block: 'gestao', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
     title: 'Ofertas de Fornecedores (Destaque para Estoque Baixo e WhatsApp)',
     summary: 'Veja em primeiro lugar as promoções dos itens que estão acabando no seu estoque e chame o vendedor no WhatsApp.',
     pageHeader: 'Ofertas de Fornecedores', pageSub: 'Insumos dos seus fornecedores e da região',
@@ -315,7 +339,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Você pode vincular novos fornecedores usando o código de convite deles.',
   },
   {
-    num: 'Passo 3.11', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    num: 'Passo 3.11', block: 'gestao', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
     title: 'Financeiro (Online/Offline) e Exportação de Relatórios em PDF e CSV',
     summary: 'Controle receitas e despesas da propriedade e compartilhe relatórios completos em PDF ou planilha CSV.',
     pageHeader: 'Financeiro & Relatórios', pageSub: 'Fluxo de caixa e exportação PDF/CSV',
@@ -332,7 +356,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'A geração de PDF e CSV no aplicativo funciona mesmo sem internet usando os dados sincronizados no celular!',
   },
   {
-    num: 'Passo 3.12', profile: 'pro', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
+    num: 'Passo 3.12', block: 'gestao', profileBadge: 'Propriedade Pro', section: '3. Gestão Completa da Propriedade',
     title: 'Equipe da Propriedade e Permissões por Módulo',
     summary: 'Cadastre funcionários, familiares ou técnicos e escolha quais módulos cada pessoa pode acessar.',
     pageHeader: 'Usuários e Permissões', pageSub: 'Controle de acesso da equipe',
@@ -348,7 +372,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Módulos desmarcados não aparecem no menu nem nos resumos daquele usuário.',
   },
   {
-    num: 'Passo 4.1', profile: 'motorista', profileBadge: 'Motorista', section: '4. Guia do Motorista / Carreteiro',
+    num: 'Passo 4.1', block: 'motorista-e-laticinio', profileBadge: 'Motorista', section: '4. Guia do Motorista / Carreteiro',
     title: 'Rota do Dia no Celular do Motorista (Funciona Sem Internet)',
     summary: 'Veja as paradas na ordem da linha, instruções de porteira/acesso, anote litros por voz ou marque "Não coletado".',
     pageHeader: 'Rota de Hoje · Rota do Ipê', pageSub: 'Coleta em campo sem precisar de sinal',
@@ -365,7 +389,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Assim que o celular tiver sinal, todas as coletas da rota sobem automaticamente para o laticínio.',
   },
   {
-    num: 'Passo 5.1', profile: 'laticinio', profileBadge: 'Laticínio', section: '5. Guia do Laticínio e Rotas',
+    num: 'Passo 5.1', block: 'motorista-e-laticinio', profileBadge: 'Laticínio', section: '5. Guia do Laticínio e Rotas',
     title: 'Painel do Laticínio: Pontos, Rotas, Motoristas e Recebido × Coletado',
     summary: 'Acompanhe paradas pendentes do dia em tempo real e compare o volume coletado nas rotas com o recebido na plataforma.',
     pageHeader: 'Laticínio Serra Verde', pageSub: 'Painel do laticínio',
@@ -382,7 +406,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Vincular o ponto de coleta à propriedade do produtor faz as coletas aparecerem automaticamente para ele.',
   },
   {
-    num: 'Passo 5.2', profile: 'laticinio', profileBadge: 'Laticínio & Motorista', section: '5. Guia do Laticínio e Rotas',
+    num: 'Passo 5.2', block: 'motorista-e-laticinio', profileBadge: 'Laticínio & Motorista', section: '5. Guia do Laticínio e Rotas',
     title: 'Criar e Organizar a Rota de Coleta (Dias da Semana, Motorista e Paradas)',
     summary: 'Crie cada linha de coleta definindo o nome da rota, os dias da semana, o motorista responsável e a sequência das paradas.',
     pageHeader: 'Laticínio · Rotas > + Nova rota', pageSub: 'Configuração de dias, motorista e paradas',
@@ -400,7 +424,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'O motorista independente (sem laticínio) também cria e ordena seus locais diretamente na aba "Rota" do Anota Aí Leite.',
   },
   {
-    num: 'Passo 6.1', profile: 'associacao', profileBadge: 'Associação', section: '6. Guia da Associação / Cooperativa',
+    num: 'Passo 6.1', block: 'associacao-e-fornecedor', profileBadge: 'Associação', section: '6. Guia da Associação / Cooperativa',
     title: 'Painel da Associação: Compras Coletivas, Visitas Técnicas, Mensalidades e Avisos',
     summary: 'Reúna pedidos de associados em compras coletivas, agende assistência técnica, controle mensalidades e envie comunicados.',
     pageHeader: 'Associação Serra Verde', pageSub: 'Painel da associação · 54 associados',
@@ -417,7 +441,7 @@ const MANUAL_STEPS: ManualStep[] = [
     tip: 'Comunicados e avisos de mensalidade da associação aparecem automaticamente no sino do produtor.',
   },
   {
-    num: 'Passo 7.1', profile: 'fornecedor', profileBadge: 'Fornecedor', section: '7. Guia do Fornecedor de Insumos',
+    num: 'Passo 7.1', block: 'associacao-e-fornecedor', profileBadge: 'Fornecedor', section: '7. Guia do Fornecedor de Insumos',
     title: 'Painel do Fornecedor: Ofertas, Orçamentos, Clientes e Vendas no Mês',
     summary: 'Publique ofertas para a região, responda cotações de produtores com estoque baixo e confirme vendas vindas do WhatsApp.',
     pageHeader: 'Casa da Ração Boa Safra', pageSub: 'Painel do fornecedor',
@@ -436,23 +460,31 @@ const MANUAL_STEPS: ManualStep[] = [
 ]
 
 export default function ManualScreen() {
-  const [profile, setProfile] = useState<ProfileKey>('all')
+  const params = useLocalSearchParams<{ bloco?: string }>()
+  const [block, setBlock] = useState<BlockKey>('hub')
   const [query, setQuery] = useState('')
   const [printing, setPrinting] = useState(false)
 
+  useEffect(() => {
+    const b = params.bloco
+    if (b && FILTERS.some(f => f.key === b)) setBlock(b as BlockKey)
+  }, [params.bloco])
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
+    if (block === 'hub' && !q) return []
     return MANUAL_STEPS.filter(s => {
-      const okProfile = profile === 'all' || s.profile === profile || s.profile === 'todos'
+      const okBlock = block === 'all' || block === 'hub' || s.block === block
       const hay = `${s.title} ${s.summary} ${s.section} ${s.steps.join(' ')}`.toLowerCase()
-      return okProfile && (!q || hay.includes(q))
+      return okBlock && (!q || hay.includes(q))
     })
-  }, [profile, query])
+  }, [block, query])
 
   async function exportarPdfManual() {
+    const listToPrint = filtered.length > 0 ? filtered : MANUAL_STEPS
     try {
       setPrinting(true)
-      const htmlSteps = MANUAL_STEPS.map((s, idx) => `
+      const htmlSteps = listToPrint.map((s, idx) => `
         <div style="border:1px solid #d1d5db;border-radius:12px;padding:14px;margin-bottom:14px;page-break-inside:avoid;">
           <div style="font-size:11px;color:#15803d;font-weight:700;">${s.num} · ${s.profileBadge} · ${s.section}</div>
           <h2 style="font-size:16px;margin:4px 0 6px;color:#111827;">${idx + 1}. ${s.title}</h2>
@@ -492,38 +524,56 @@ export default function ManualScreen() {
     }
   }
 
+  const webHref = block !== 'hub' && block !== 'all' ? `${API_BASE}/manual/bloco-${block}.html` : `${API_BASE}/manual-usuario.html`
+
   return (
     <Screen>
-      <Title sub="Passo a passo visual com as telas do sistema e marcadores numerados fora dos campos para não cobrir nenhuma informação.">
-        Manual do usuário ilustrado
+      <Title sub="Escolha apenas o bloco que precisa consultar (ex.: Rebanho) com telas guiadas e marcadores fora dos campos.">
+        Manual do usuário por blocos
       </Title>
 
       <Card>
         <View style={{ flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' }}>
-          <Button label="Baixar / Compartilhar PDF" onPress={() => void exportarPdfManual()} loading={printing} style={{ flex: 1 }} />
+          <Button label={filtered.length > 0 && block !== 'all' ? 'Baixar PDF deste bloco' : 'Baixar / Compartilhar PDF'} onPress={() => void exportarPdfManual()} loading={printing} style={{ flex: 1 }} />
         </View>
-        <TextButton label="Abrir versão Web completa no navegador" onPress={() => void Linking.openURL(`${API_BASE}/manual-usuario.html`)} />
+        <TextButton label="Abrir versão Web deste bloco no navegador" onPress={() => void Linking.openURL(webHref)} />
       </Card>
 
       <View style={{ marginBottom: space.md }}>
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Buscar passo (ex: rota, folha, IATF, recria, vacina)..."
+          placeholder="Buscar passo (ex: animais, recria, rota, folha, IATF, vacina)..."
           placeholderTextColor={colors.muted}
           style={styles.search}
         />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm, paddingVertical: space.xs }}>
           {FILTERS.map(f => {
-            const active = profile === f.key
+            const active = block === f.key
             return (
-              <Pressable key={f.key} onPress={() => setProfile(f.key)} style={[styles.chip, active && styles.chipActive]}>
+              <Pressable key={f.key} onPress={() => setBlock(f.key)} style={[styles.chip, active && styles.chipActive]}>
                 <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
               </Pressable>
             )
           })}
         </ScrollView>
       </View>
+
+      {block === 'hub' && !query.trim() ? (
+        <View style={{ gap: space.sm, marginBottom: space.lg }}>
+          {BLOCK_CARDS.map(c => (
+            <Card key={c.key} onPress={() => setBlock(c.key)}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: font.md, fontWeight: '700', color: colors.text }}>{c.label}</Text>
+                  <Muted style={{ fontSize: 12, marginTop: 2 }}>{c.desc}</Muted>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.green} />
+              </View>
+            </Card>
+          ))}
+        </View>
+      ) : null}
 
       {filtered.map((step, index) => (
         <Card key={step.num} style={{ marginBottom: space.lg }}>
