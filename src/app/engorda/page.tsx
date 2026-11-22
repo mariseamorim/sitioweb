@@ -242,7 +242,10 @@ function LotCard({ lot, today, canEdit, onOpen }: { lot: Lot; today: string; can
           <span className="block truncate text-lg font-bold text-gray-900">{lot.name}</span>
           <span className="block text-sm text-gray-600">{s.days === 1 ? t('1 dia no lote') : t('{n} dias no lote', { n: s.days })}{lot.endDate ? ` · ${t('saiu em {date}', { date: fmtDate(lot.endDate) })}` : ''}</span>
         </span>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${lot.phase === 'recria' ? 'bg-sky-100 text-sky-800 ring-sky-200' : 'bg-amber-100 text-amber-800 ring-amber-200'}`}>{t(phaseLabel(lot.phase))}</span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${lot.phase === 'recria' ? 'bg-sky-100 text-sky-800 ring-sky-200' : 'bg-amber-100 text-amber-800 ring-amber-200'}`}>{t(phaseLabel(lot.phase))}</span>
+          <span aria-hidden="true" className="text-2xl leading-none text-gray-400">›</span>
+        </span>
       </button>
       <div className="p-4">
         {s.last && lot.targetWeight && !lot.endDate ? <div className="mb-2"><WeightProgress current={s.last.avgWeight} target={lot.targetWeight} /></div> : null}
@@ -259,12 +262,15 @@ function LotCard({ lot, today, canEdit, onOpen }: { lot: Lot; today: string; can
             {p.supply.name}: {kg(p.perDay!)}/{t('dia')}{p.days !== null ? ` · ${p.days === 1 ? t('estoque para 1 dia') : t('estoque para {n} dias', { n: p.days })}` : ''}
           </p>
         ))}
+        <div className={`mt-4 grid gap-2 border-t border-gray-100 pt-3 ${canEdit ? 'grid-cols-3' : 'grid-cols-1'}`}>
+          <button type="button" onClick={() => onOpen()} className="rounded-lg border-2 border-green-700 py-2 text-sm font-semibold text-green-800 hover:bg-green-50">{t('Abrir')}</button>
         {canEdit && (
-          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3">
+          <>
             <button type="button" onClick={() => onOpen('animais')} className="rounded-lg border border-gray-200 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">+ {t('Animais')}</button>
             <button type="button" onClick={() => onOpen('pesar')} className="rounded-lg bg-green-800 py-2 text-sm font-semibold text-white hover:bg-green-700">{t('Pesar')}</button>
-          </div>
+          </>
         )}
+        </div>
       </div>
     </article>
   )
