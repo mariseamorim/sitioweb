@@ -15,6 +15,7 @@ import {
 import { useLocale, useT, type Vars } from '@/lib/i18n'
 import type { LotPlan } from '@/lib/lotPlans'
 import { LotPerformance } from './LotPerformance'
+import { BalancaIcon, GraoIcon, LapisIcon } from '@/components/ModuleIcons'
 import { PlanSelect } from './Plans'
 
 /** Roda uma ação do lote. `onQueued` fecha o formulário quando o pedido ficou na fila do aparelho (não há lote atualizado para mostrar). */
@@ -144,9 +145,9 @@ export function LotDetail({ lot, supplies, herd, lotNames, plans, canEdit, canBr
       {/* Ações principais sempre à vista */}
       {canEdit && !editingLot && (
         <div className="-mt-1 mb-4 flex flex-wrap gap-2">
-          {open && <button type="button" onClick={() => setTab('pesagens')} className={`${actionBtn} bg-green-700 text-white hover:bg-green-600`}>⚖️ {t('Pesar')}</button>}
-          {open && lot.supplies.length > 0 && <button type="button" onClick={() => setTab('trato')} className={`${actionBtn} bg-amber-600 text-white hover:bg-amber-500`}>🌾 {t('Dar trato')}</button>}
-          <button type="button" onClick={() => setEditingLot(true)} className={outlineBtn}>✏️ {t('Editar lote')}</button>
+          {open && <button type="button" onClick={() => setTab('pesagens')} className={`${actionBtn} bg-green-700 text-white hover:bg-green-600`}><BalancaIcon className="h-4 w-4" />{t('Pesar')}</button>}
+          {open && lot.supplies.length > 0 && <button type="button" onClick={() => setTab('trato')} className={`${actionBtn} bg-amber-600 text-white hover:bg-amber-500`}><GraoIcon className="h-4 w-4" />{t('Dar trato')}</button>}
+          <button type="button" onClick={() => setEditingLot(true)} className={outlineBtn}><LapisIcon />{t('Editar lote')}</button>
         </div>
       )}
       {canEdit && editingLot && <LotEditForm lot={lot} plans={plans} busy={busy} run={run} onDone={() => setEditingLot(false)} onTarget={setTarget} />}
@@ -315,7 +316,7 @@ export function LotDetail({ lot, supplies, herd, lotNames, plans, canEdit, canBr
               <h3 className="text-sm font-semibold text-gray-700">{t('Produtos do lote')}</h3>
               {canEdit && !editingProducts && (
                 <button type="button" onClick={() => setEditingProducts(productsFromLot(lot))} className={outlineBtn}>
-                  {lot.supplies.length ? `✏️ ${t('Alterar produtos')}` : `+ ${t('Ligar produtos')}`}
+                  {lot.supplies.length ? <><LapisIcon />{t('Alterar produtos')}</> : `+ ${t('Ligar produtos')}`}
                 </button>
               )}
             </div>
