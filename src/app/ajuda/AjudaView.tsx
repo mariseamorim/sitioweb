@@ -98,9 +98,9 @@ export function AjudaView({ support, loggedIn }: { support: boolean; loggedIn: b
 
         <section aria-labelledby="ajuda-manual" className="rounded-xl border border-gray-200 bg-white p-5 md:col-span-2">
           <span aria-hidden="true" className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-700 text-xl font-bold">📖</span>
-          <h2 id="ajuda-manual" className="text-lg font-bold text-gray-900">Manual do usuário ilustrado</h2>
+          <h2 id="ajuda-manual" className="text-lg font-bold text-gray-900">Manual do usuário ilustrado por blocos</h2>
           <p className="mt-1 text-sm text-gray-600">
-            Veja o passo a passo completo com imagens das telas do sistema para produtor (Anota Aí Leite e propriedade completa), motorista, laticínio (incluindo criação de rotas), associação e fornecedor. Você também pode imprimir ou salvar em PDF.
+            Escolha apenas o bloco que precisa consultar (ex.: Rebanho com Animais, Recria, Engorda e Reprodução) com telas reais do sistema e passo a passo ilustrado.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <Link href="/manual" className={BUTTON}>
@@ -109,6 +109,25 @@ export function AjudaView({ support, loggedIn }: { support: boolean; loggedIn: b
             <a href="/manual-usuario.html" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-green-700 hover:underline">
               Abrir em tela cheia / Imprimir PDF
             </a>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+            {[
+              { id: 'rebanho', label: '🐄 Rebanho (Animais, Recria e Reprodução)' },
+              { id: 'acesso-e-painel', label: '🏡 Acesso e Painel' },
+              { id: 'leite-lite', label: '🥛 Anota Aí Leite' },
+              { id: 'leite-e-sanidade', label: '💉 Leite e Sanidade' },
+              { id: 'gestao', label: '📊 Gestão' },
+              { id: 'motorista-e-laticinio', label: '🚚 Motorista e Laticínio' },
+              { id: 'associacao-e-fornecedor', label: '🤝 Associação e Fornecedor' },
+            ].map((b) => (
+              <Link
+                key={b.id}
+                href={`/manual?bloco=${b.id}`}
+                className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-green-600 hover:bg-green-50 hover:text-green-800"
+              >
+                {b.label}
+              </Link>
+            ))}
           </div>
         </section>
       </div>

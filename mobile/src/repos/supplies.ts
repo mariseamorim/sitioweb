@@ -1,5 +1,5 @@
 import { all, one, patchRow } from '@/db'
-import { createLocal, deleteLocal, updateLocal } from '@/sync/local'
+import { createLocal, currentId, deleteLocal, updateLocal } from '@/sync/local'
 
 export interface Supply {
   id: string
@@ -28,8 +28,8 @@ export function supplyStatus(s: Supply): { label: 'Crítico' | 'Baixo' | 'OK'; t
 }
 
 export const listSupplies = (farmId: string) => all<Supply>('SELECT * FROM supplies WHERE farmId = ? ORDER BY name COLLATE NOCASE', [farmId])
-export const getSupply = (id: string) => one<Supply>('SELECT * FROM supplies WHERE id = ?', [id])
-export const listMovements = (supplyId: string) => all<Movement>('SELECT * FROM supply_movements WHERE supplyId = ? ORDER BY date DESC, createdAt DESC LIMIT 30', [supplyId])
+export const getSupply = (id: string) => one<Supply>('SELECT * FROM supplies WHERE id = ?', [currentId(id)])
+export const listMovements = (supplyId: string) => all<Movement>('SELECT * FROM supply_movements WHERE supplyId = ? ORDER BY date DESC, createdAt DESC LIMIT 30', [currentId(supplyId)])
 
 export interface SupplyInput { name: string; category: string; unit: string; currentQuantity: number; minimumQuantity: number; packageKg: number | null; unitPrice: number | null; expiryDate: string | null }
 

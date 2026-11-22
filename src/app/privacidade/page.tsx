@@ -2,8 +2,9 @@ import type { Metadata } from 'next'
 import { BackLink } from '@/components/BackLink'
 
 export const metadata: Metadata = {
-  title: 'Política de privacidade — Anota Aí Agro',
+  title: 'Política de privacidade',
   description: 'Quais dados o Anota Aí Agro guarda, para que servem, com quem são compartilhados e como pedir a exclusão da conta.',
+  alternates: { canonical: '/privacidade' },
 }
 
 // Página aberta (sem login), exigida pela Play Store e pela LGPD. O endereço /privacidade#excluir é o que se informa

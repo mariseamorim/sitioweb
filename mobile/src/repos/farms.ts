@@ -2,7 +2,7 @@
 import { all, one, parseJson, patchRow, upsert, type Row } from '@/db'
 import { notifyChange } from '@/db/events'
 import type { AdminFarmSummary } from '@/lib/ownerGroups'
-import { createLocal, deleteLocal, isLocalId, queueRequest, updateLocal } from '@/sync/local'
+import { createLocal, currentId, deleteLocal, isLocalId, queueRequest, updateLocal } from '@/sync/local'
 
 export type Farm = AdminFarmSummary
 
@@ -35,7 +35,7 @@ export function listFarms(farmId: string): Farm[] {
 }
 
 export function getFarm(id: string): Farm | null {
-  const r = one('SELECT * FROM farms WHERE id = ?', [id])
+  const r = one('SELECT * FROM farms WHERE id = ?', [currentId(id)])
   return r ? fromRow(r) : null
 }
 

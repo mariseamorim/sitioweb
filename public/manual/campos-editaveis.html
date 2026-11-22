@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual dos Campos Editáveis — Anota Aí Agro</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      max-width: 100%;
+      overflow-x: hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f3f6f4;
+      color: #111827;
+    }
+    .container {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 18px 14px 56px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .hero {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      padding: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+    .hero-kicker {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #15803d;
+      margin-bottom: 4px;
+    }
+    .hero h1 { margin: 0; font-size: 21px; font-weight: 800; color: #111827; }
+    .hero p { margin: 6px 0 0; font-size: 13.5px; color: #4b5563; line-height: 1.45; max-width: 720px; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn-top {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 14px;
+      border-radius: 12px;
+      font-size: 12.5px;
+      font-weight: 700;
+      text-decoration: none;
+      border: 1px solid #166534;
+      background: #166534;
+      color: #fff;
+      cursor: pointer;
+    }
+    .btn-top.outline { background: #fff; color: #166534; }
+    .btn-top:hover { opacity: 0.92; }
+
+    .block-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 10px 12px;
+      position: sticky;
+      top: 8px;
+      z-index: 20;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
+    }
+    .block-pill {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      color: #111827;
+      cursor: pointer;
+    }
+    .block-pill.active {
+      background: #166534;
+      border-color: #166534;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .step-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+      page-break-inside: avoid;
+    }
+    .step-card.hidden { display: none; }
+    .step-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 12px;
+      margin-bottom: 18px;
+    }
+    .step-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .badge-step { background: #166534; color: #fff; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; }
+    .badge-prof { background: #f3f4f6; color: #111827; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .badge-sect { font-size: 12.5px; color: #4b5563; font-weight: 600; }
+    .file-tag { display: none; }
+    .step-card h2 { margin: 0 0 4px; font-size: 18px; font-weight: 800; color: #111827; }
+    .summary { margin: 0; font-size: 13.5px; color: #4b5563; line-height: 1.45; }
+
+    .step-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+    @media (min-width: 900px) {
+      .step-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+    }
+
+    .mockup-wrap {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 12px;
+      padding: 4px 0;
+    }
+    .phone-real {
+      position: relative;
+      width: 280px;
+      flex-shrink: 0;
+      background: #0f172a;
+      border: 4px solid #1e293b;
+      border-radius: 24px;
+      overflow: visible;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+    }
+    .phone-real img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 20px;
+    }
+    .hl-box {
+      position: absolute;
+      left: 5%;
+      width: 90%;
+      border: none;
+      background: transparent;
+      pointer-events: none;
+    }
+    .hl-dot {
+      position: absolute;
+      right: -11px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      background: #dc2626;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.28);
+    }
+
+    .callouts-col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-top: 24px;
+      flex: 1;
+      min-width: 170px;
+    }
+    .callout-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #0f172a;
+      color: #fff;
+      border: 1.5px solid #dc2626;
+      border-radius: 10px;
+      padding: 7px 10px;
+      font-size: 11.5px;
+      font-weight: 700;
+      line-height: 1.3;
+      box-shadow: 0 3px 8px rgba(15, 23, 42, 0.12);
+    }
+    .callout-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #dc2626;
+      color: #fff;
+      font-size: 10.5px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 560px) {
+      .mockup-wrap { flex-direction: column; align-items: center; }
+      .callouts-col { padding-top: 6px; width: 100%; }
+    }
+
+    .instructions-box h3 {
+      margin: 0 0 12px;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6b7280;
+    }
+    .step-list {
+      list-style: none;
+      margin: 0 0 12px;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .step-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 11px 12px;
+      border-radius: 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      font-size: 13.5px;
+      line-height: 1.48;
+    }
+    .step-num-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      background: #dc2626;
+      color: #fff;
+      font-size: 11.5px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .req-tag {
+      display: inline-block;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 999px;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+    .req-sim { background: #fee2e2; color: #991b1b; }
+    .req-opc { background: #e2e8f0; color: #334155; }
+    .tip-box {
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.32);
+      border-radius: 12px;
+      padding: 13px;
+      font-size: 13.5px;
+      color: #14532d;
+      line-height: 1.5;
+    }
+    @media print {
+      .hero-actions, .block-nav { display: none !important; }
+      body { background: #fff; }
+      .step-card { border: 1px solid #ccc; box-shadow: none; margin-bottom: 14px; }
+      .step-card.hidden { display: block !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <div>
+        <div class="hero-kicker">
+          <span>🌱 Anota Aí Agro</span>
+          <span>•</span>
+          <span>Manual do Usuário Final (Telas Reais do App Android)</span>
+        </div>
+        <h1>Como preencher cada campo editável do aplicativo</h1>
+        <p>Guia visual com capturas reais do aplicativo em funcionamento, explicando todos os campos de texto, datas, seletores e botões de escolha rápida.</p>
+      </div>
+      <div class="hero-actions">
+        <a href="/manual-usuario.html" class="btn-top outline">📚 Manual por Blocos</a>
+        <button type="button" class="btn-top" onclick="window.print()">🖨️ Imprimir / Salvar PDF</button>
+      </div>
+    </header>
+
+    <nav class="block-nav" aria-label="Filtrar módulos">
+      <button type="button" class="block-pill active" data-filter="all">Todas as telas (11)</button>
+      <button type="button" class="block-pill" data-filter="acesso">🔐 Acesso e Cadastro</button>
+      <button type="button" class="block-pill" data-filter="fazendas">🏡 Propriedades</button>
+      <button type="button" class="block-pill" data-filter="animais">🐄 Animais</button>
+      <button type="button" class="block-pill" data-filter="leite">🥛 Leite</button>
+      <button type="button" class="block-pill" data-filter="reproducao">🐮 Reprodução</button>
+      <button type="button" class="block-pill" data-filter="engorda">⚖️ Recria e Engorda</button>
+      <button type="button" class="block-pill" data-filter="sanidade">💉 Sanidade</button>
+      <button type="button" class="block-pill" data-filter="gestao">📦 Estoque e Caixa</button>
+      <button type="button" class="block-pill" data-filter="ofertas">📊 Relatórios</button>
+      <button type="button" class="block-pill" data-filter="equipe">👥 Equipe</button>
+    </nav>
+
+    <!-- PASSO 1: MEU CADASTRO -->
+    <article class="step-card" data-cat="acesso">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 1</span>
+            <span class="badge-prof">Todos os Perfis</span>
+            <span class="badge-sect">1. Acesso e Meu Cadastro</span>
+          </div>
+          <h2>1. Entrar no App e Atualizar Meu Cadastro</h2>
+          <p class="summary">Entre com e-mail ou telefone e mantenha seus dados e senha atualizados em "Meu cadastro".</p>
+        </div>
+        <span class="file-tag">public/manual/screens/tela-01-perfil.png</span>
+      </div>
+      <div class="step-grid">
+        <div class="mockup-wrap">
+          <div class="phone-real">
+            <img src="./screens/tela-01-perfil.png" alt="Tela real Meu cadastro" />
+            <div class="hl-box" style="top: 17%; height: 8.5%;"><span class="hl-dot">1</span></div>
+            <div class="hl-box" style="top: 26%; height: 8.5%;"><span class="hl-dot">2</span></div>
+            <div class="hl-box" style="top: 35%; height: 9%;"><span class="hl-dot">3</span></div>
+            <div class="hl-box" style="top: 61.5%; height: 8.5%;"><span class="hl-dot">4</span></div>
+            <div class="hl-box" style="top: 70.5%; height: 17%;"><span class="hl-dot">5</span></div>
+          </div>
+          <div class="callouts-col">
+            <div class="callout-pill"><span class="callout-dot">1</span> Nome exibido na propriedade</div>
+            <div class="callout-pill"><span class="callout-dot">2</span> Telefone com DDD para login</div>
+            <div class="callout-pill"><span class="callout-dot">3</span> E-mail opcional de acesso</div>
+            <div class="callout-pill"><span class="callout-dot">4</span> Senha atual (para confirmar)</div>
+            <div class="callout-pill"><span class="callout-dot">5</span> Nova senha (mín. 6 dígitos)</div>
+          </div>
+        </div>
+        <div class="instructions-box">
+          <h3>PASSO A PASSO NA TELA:</h3>
+          <ol class="step-list">
+            <li><span class="step-num-dot">1</span><div><strong>Nome *</strong> <span class="req-tag req-sim">Obrigatório</span>: digite seu nome completo ou como prefere ser identificado.</div></li>
+            <li><span class="step-num-dot">2</span><div><strong>Telefone</strong> <span class="req-tag req-opc">Opcional*</span>: celular com DDD (ex.: <code>(35) 99999-0000</code>). Pode ser usado para entrar no app.</div></li>
+            <li><span class="step-num-dot">3</span><div><strong>E-mail (opcional)</strong> <span class="req-tag req-opc">Opcional*</span>: informe telefone ou e-mail (pelo menos um deve estar preenchido).</div></li>
+            <li><span class="step-num-dot">4</span><div><strong>Senha atual</strong> <span class="req-tag req-opc">Ao alterar</span>: necessária para confirmar troca de e-mail ou senha.</div></li>
+            <li><span class="step-num-dot">5</span><div><strong>Nova senha e Confirmação</strong> <span class="req-tag req-opc">Opcional</span>: mínimo de 6 caracteres. Deixe em branco para manter a senha atual.</div></li>
+          </ol>
+          <div class="tip-box">💡 <strong>Dica prática:</strong> A conta só precisa de internet na primeira vez que você entra. Depois disso, o aplicativo abre e grava normalmente mesmo sem sinal no curral.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- PASSO 2: PROPRIEDADES -->
+    <article class="step-card" data-cat="fazendas">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 2</span>
+            <span class="badge-prof">Produtor / Admin</span>
+            <span class="badge-sect">2. Propriedades</span>
+          </div>
+          <h2>2. Cadastrar ou Editar Sítio / Fazenda</h2>
+          <p class="summary">Preencha os dados da propriedade para separar rebanho, leite e financeiro de cada local.</p>
+        </div>
+        <span class="file-tag">public/manual/screens/tela-02-propriedades.png</span>
+      </div>
+      <div class="step-grid">
+        <div class="mockup-wrap">
+          <div class="phone-real">
+            <img src="./screens/tela-02-propriedades.png" alt="Tela real Propriedade" />
+            <div class="hl-box" style="top: 13%; height: 7.5%;"><span class="hl-dot">1</span></div>
+            <div class="hl-box" style="top: 29.5%; height: 7.5%;"><span class="hl-dot">2</span></div>
+            <div class="hl-box" style="top: 37.5%; height: 7.5%;"><span class="hl-dot">3</span></div>
+            <div class="hl-box" style="top: 46%; height: 16%;"><span class="hl-dot">4</span></div>
+            <div class="hl-box" style="top: 62.5%; height: 32%;"><span class="hl-dot">5</span></div>
+          </div>
+          <div class="callouts-col">
+            <div class="callout-pill"><span class="callout-dot">1</span> Escolha Sítio ou Fazenda</div>
+            <div class="callout-pill"><span class="callout-dot">2</span> Nome da propriedade</div>
+            <div class="callout-pill"><span class="callout-dot">3</span> Nome do proprietário</div>
+            <div class="callout-pill"><span class="callout-dot">4</span> CPF ou CNPJ com máscara</div>
+            <div class="callout-pill"><span class="callout-dot">5</span> Telefone, Endereço, Cidade e UF</div>
+          </div>
+        </div>
+        <div class="instructions-box">
+          <h3>PASSO A PASSO NA TELA:</h3>
+          <ol class="step-list">
+            <li><span class="step-num-dot">1</span><div><strong>Tipo (Sítio / Fazenda)</strong> <span class="req-tag req-sim">Obrigatório</span>: toque no botão correspondente ao perfil da sua propriedade.</div></li>
+            <li><span class="step-num-dot">2</span><div><strong>Nome *</strong> <span class="req-tag req-sim">Obrigatório</span>: digite o nome do sítio ou fazenda (ex.: <em>Teste Sítio Boa Vista</em>).</div></li>
+            <li><span class="step-num-dot">3</span><div><strong>Proprietário</strong> <span class="req-tag req-opc">Opcional</span>: informe o nome completo do responsável.</div></li>
+            <li><span class="step-num-dot">4</span><div><strong>Doc. Tipo e Documento (CPF/CNPJ)</strong> <span class="req-tag req-opc">Opcional</span>: escolha CPF ou CNPJ e digite apenas números — o app formata sozinho.</div></li>
+            <li><span class="step-num-dot">5</span><div><strong>Telefone, Endereço, Cidade e Estado</strong> <span class="req-tag req-opc">Opcionais</span>: telefone com DDD, referência rural, município e sigla do estado (2 letras em maiúsculas, ex.: <code>MG</code>).</div></li>
+          </ol>
+          <div class="tip-box">💡 <strong>Dica prática:</strong> Se você gerencia mais de uma propriedade, use <em>Mais &gt; Propriedades</em> para alternar entre elas com um toque.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- PASSO 3: ANIMAIS -->
+    <article class="step-card" data-cat="animais">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 3</span>
+            <span class="badge-prof">Rebanho</span>
+            <span class="badge-sect">3. Animais</span>
+          </div>
+          <h2>3. Cadastrar e Editar Ficha do Animal</h2>
+          <p class="summary">Registre cada animal com foto, categoria, sexo, nascimento, brinco, mãe e observações.</p>
+        </div>
+        <span class="file-tag">public/manual/screens/tela-03-animais.png</span>
+      </div>
+      <div class="step-grid">
+        <div class="mockup-wrap">
+          <div class="phone-real">
+            <img src="./screens/tela-03-animais.png" alt="Tela real Cadastrar animal" />
+            <div class="hl-box" style="top: 13.5%; height: 14.5%;"><span class="hl-dot">1</span></div>
+            <div class="hl-box" style="top: 29%; height: 8.5%;"><span class="hl-dot">2</span></div>
+            <div class="hl-box" style="top: 38.5%; height: 17%;"><span class="hl-dot">3</span></div>
+            <div class="hl-box" style="top: 56%; height: 17.5%;"><span class="hl-dot">4</span></div>
+            <div class="hl-box" style="top: 74%; height: 11%;"><span class="hl-dot">5</span></div>
+          </div>
+          <div class="callouts-col">
+            <div class="callout-pill"><span class="callout-dot">1</span> Tirar foto ou escolher da galeria</div>
+            <div class="callout-pill"><span class="callout-dot">2</span> Nome ou apelido do animal</div>
+            <div class="callout-pill"><span class="callout-dot">3</span> Espécie/categoria e Sexo</div>
+            <div class="callout-pill"><span class="callout-dot">4</span> Data de nascimento e Situação</div>
+            <div class="callout-pill"><span class="callout-dot">5</span> Brinco, Origem, Mãe e Castrado</div>
+          </div>
+        </div>
+        <div class="instructions-box">
+          <h3>PASSO A PASSO NA TELA:</h3>
+          <ol class="step-list">
+            <li><span class="step-num-dot">1</span><div><strong>Foto</strong> <span class="req-tag req-opc">Opcional</span>: toque em <em>Tirar foto</em> ou <em>Escolher da galeria</em> para identificar o animal visualmente.</div></li>
+            <li><span class="step-num-dot">2</span><div><strong>Nome</strong> <span class="req-tag req-sim">Obrigatório</span>: digite o nome/apelido (ex.: <em>Mimosa</em>).</div></li>
+            <li><span class="step-num-dot">3</span><div><strong>Espécie / categoria e Sexo</strong> <span class="req-tag req-sim">Obrigatórios</span>: selecione na lista (ex.: <em>Vaca</em>, <em>Fêmea</em>).</div></li>
+            <li><span class="step-num-dot">4</span><div><strong>Data de nascimento e Situação</strong> <span class="req-tag req-sim">Obrigatórios</span>: escolha a data no calendário e o status (<em>Vivo</em>, <em>Vendido</em>, etc.).</div></li>
+            <li><span class="step-num-dot">5</span><div><strong>Brinco, Origem, Mãe, Castrado e Observações</strong> <span class="req-tag req-opc">Opcionais</span>: ao escolher Origem = <em>Nascimento</em>, você pode vincular a vaca mãe na busca.</div></li>
+          </ol>
+          <div class="tip-box">💡 <strong>Dica prática:</strong> O número interno da propriedade é gerado automaticamente; use o campo <em>Brinco</em> para o código físico da orelha.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- PASSO 4: PRODUÇÃO DE LEITE -->
+    <article class="step-card" data-cat="leite">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 4</span>
+            <span class="badge-prof">Leite</span>
+            <span class="badge-sect">4. Produção de Leite</span>
+          </div>
+          <h2>4. Anotar Leite (Total do Dia ou Por Vaca)</h2>
+          <p class="summary">Lance os litros digitando ou falando pelo botão "Falar o número", com salvamento automático.</p>
+        </div>
+        <span class="file-tag">public/manual/screens/tela-04-leite.png</span>
+      </div>
+      <div class="step-grid">
+        <div class="mockup-wrap">
+          <div class="phone-real">
+            <img src="./screens/tela-04-leite.png" alt="Tela real Anotar leite" />
+            <div class="hl-box" style="top: 13%; height: 6.5%;"><span class="hl-dot">1</span></div>
+            <div class="hl-box" style="top: 21%; height: 9%;"><span class="hl-dot">2</span></div>
+            <div class="hl-box" style="top: 31%; height: 17.5%;"><span class="hl-dot">3</span></div>
+            <div class="hl-box" style="top: 50%; height: 9.5%;"><span class="hl-dot">4</span></div>
+            <div class="hl-box" style="top: 60.5%; height: 26%;"><span class="hl-dot">5</span></div>
+          </div>
+          <div class="callouts-col">
+            <div class="callout-pill"><span class="callout-dot">1</span> Total do dia ou Por vaca</div>
+            <div class="callout-pill"><span class="callout-dot">2</span> Data da ordenha</div>
+            <div class="callout-pill"><span class="callout-dot">3</span> Campo Litros ou Falar o número</div>
+            <div class="callout-pill"><span class="callout-dot">4</span> Vacas ordenhadas (ou Vaca)</div>
+            <div class="callout-pill"><span class="callout-dot">5</span> Preço por litro (R$) e Notas</div>
+          </div>
+        </div>
+        <div class="instructions-box">
+          <h3>PASSO A PASSO NA TELA:</h3>
+          <ol class="step-list">
+            <li><span class="step-num-dot">1</span><div><strong>Modo (Total do dia / Por vaca)</strong> <span class="req-tag req-sim">Obrigatório</span>: escolha <em>Total do dia</em> para o tanque geral ou <em>Por vaca</em> para controle individual.</div></li>
+            <li><span class="step-num-dot">2</span><div><strong>Data</strong> <span class="req-tag req-sim">Obrigatório</span>: já vem com a data de hoje; toque para alterar se for retroativo.</div></li>
+            <li><span class="step-num-dot">3</span><div><strong>Litros e Falar o número</strong> <span class="req-tag req-sim">Obrigatório</span>: digite os litros (ex.: <code>180</code>) ou toque em <strong>Falar o número</strong> para ditar pelo microfone.</div></li>
+            <li><span class="step-num-dot">4</span><div><strong>Vacas ordenhadas / Vaca</strong> <span class="req-tag req-opc">Conforme modo</span>: informe quantas vacas ordenhou ou selecione a fêmea no modo individual.</div></li>
+            <li><span class="step-num-dot">5</span><div><strong>Preço por litro (R$) e Observações</strong> <span class="req-tag req-opc">Opcionais</span>: o preço fica guardado no lançamento para calcular o valor estimado.</div></li>
+          </ol>
+          <div class="tip-box">💡 <strong>Dica prática:</strong> O aplicativo salva sozinho 1,5 segundo após você parar de digitar, mesmo sem sinal de internet.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- PASSO 5: REPRODUÇÃO -->
+    <article class="step-card" data-cat="reproducao">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 5</span>
+            <span class="badge-prof">Reprodução</span>
+            <span class="badge-sect">5. Cobertura e IATF</span>
+          </div>
+          <h2>5. Registrar Cobertura, Inseminação ou Monta</h2>
+          <p class="summary">Escolha a fêmea, o método, o touro e a data; partida do sêmen e inseminador ficam em "Mais detalhes".</p>
+        </div>
+        <span class="file-tag">public/manual/screens/tela-05-reproducao.png</span>
+      </div>
+      <div class="step-grid">
+        <div class="mockup-wrap">
+          <div class="phone-real">
+            <img src="./screens/tela-05-reproducao.png" alt="Tela real Registrar cobertura" />
+            <div class="hl-box" style="top: 13.5%; height: 9%;"><span class="hl-dot">1</span></div>
+            <div class="hl-box" style="top: 23.5%; height: 19%;"><span class="hl-dot">2</span></div>
+            <div class="hl-box" style="top: 43.5%; height: 9%;"><span class="hl-dot">3</span></div>
+            <div class="hl-box" style="top: 53.5%; height: 14%;"><span class="hl-dot">4</span></div>
+            <div class="hl-box" style="top: 67.5%; height: 4%;"><span class="hl-dot">5</span></div>
+            <div class="hl-box" style="top: 72%; height: 4.5%;"><span class="hl-dot">6</span></div>
+            <div class="hl-box" style="top: 77%; height: 4.5%;"><span class="hl-dot">7</span></div>
+          </div>
+          <div class="callouts-col">
+            <div class="callout-pill"><span class="callout-dot">1</span> Busque e escolha a fêmea</div>
+            <div class="callout-pill"><span class="callout-dot">2</span> Inseminação, IATF, Monta ou Repasse</div>
+            <div class="callout-pill"><span class="callout-dot">3</span> Nome ou código do touro</div>
+            <div class="callout-pill"><span class="callout-dot">4</span> Data da cobertura e Status</div>
+            <div class="callout-pill"><span class="callout-dot">5</span> Mais detalhes (Sêmen, Cio, Notas)</div>
+            <div class="callout-pill"><span class="callout-dot">6</span> Salvar</div>
+            <div class="callout-pill"><span class="callout-dot">7</span> Salvar e repetir</div>
+          </div>
+        </div>
+        <div class="instructions-box">
+          <h3>PASSO A PASSO NA TELA:</h3>
+          <ol class="step-list">
+            <li><span class="step-num-dot">1</span><div><strong>Fêmea</strong> <span class="req-tag req-sim">Obrigatório</span>: toque em <em>Escolher a fêmea</em> para buscar pelo nome ou brinco.</div></li>
+            <li><span class="step-num-dot">2</span><div><strong>Como foi</strong> <span class="req-tag req-opc">Opcional</span>: toque em <em>Inseminação</em>, <em>IATF</em>, <em>Monta natural</em> ou <em>Repasse</em>.</div></li>
+            <li><span class="step-num-dot">3</span><div><strong>Touro</strong> <span class="req-tag req-opc">Opcional</span>: digite o nome ou código do touro usado.</div></li>
+            <li><span class="step-num-dot">4</span><div><strong>Data da cobertura * e Status</strong> <span class="req-tag req-sim">Obrigatórios</span>: informe a data e mantenha o status (<em>Coberta</em>, <em>Prenha</em>, <em>Vazia</em>, <em>Parida</em>).</div></li>
+            <li><span class="step-num-dot">5</span><div><strong>Mais detalhes (opcional)</strong> <span class="req-tag req-opc">Opcional</span>: abre os campos <em>Partida do sêmen</em>, <em>Inseminador</em>, <em>Registro do touro</em>, <em>Data do cio</em> e <em>Observações</em>.</div></li>
+            <li><span class="step-num-dot">6</span><div><strong>Salvar</strong>: grava a cobertura da fêmea e volta para a lista de reprodução.</div></li>
+            <li><span class="step-num-dot">7</span><div><strong>Salvar e repetir para outra fêmea</strong>: grava e já abre o próximo lançamento mantendo data, tipo, touro, partida e inseminador preenchidos.</div></li>
+          </ol>
+          <div class="tip-box">💡 <strong>Dica prática:</strong> Em dias de IATF em várias vacas, use <em>Salvar e repetir para outra fêmea</em> para manter touro e data preenchidos.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- PASSO 6: DIAGNÓSTICO EM LOTE -->
+    <article class="step-card" data-cat="reproducao">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 6</span>
+            <span class="badge-prof">Reprodução</span>
+            <span class="badge-sect">6. Diagnóstico de Gestação</span>
+          </div>
+          <h2>6. Confirmar Prenhez em Lote (Toque / Ultrassom)</h2>
+          <p class="summary">Todas as fêmeas aguardando diagnóstico aparecem em lista com dois botões grandes de resposta.</p>
+        </div>
+        <span class="file-tag">public/manual/screens/tela-06-diagnostico.png</span>
+      </div>
+      <div class="step-grid">
+        <div class="mockup-wrap">
+          <div class="phone-real">
+            <img src="./screens/tela-06-diagnostico.png" alt="Tela real Diagnóstico de gestação" />
+            <div class="hl-box" style="top: 18%; height: 4%;"><span class="hl-dot">1</span></div>
+            <div class="hl-box" style="top: 22%; height: 3.5%;"><span class="hl-dot">2</span></div>
+            <div class="hl-box" style="top: 25.5%; height: 6%;"><span class="hl-dot">3</span></div>
+          </div>
+          <div class="callouts-col">
+            <div class="callout-pill"><span class="callout-dot">1</span> Lista de coberturas pendentes</div>
+            <div class="callout-pill"><span class="callout-dot">2</span> Contador de dias pós-cobertura</div>
+            <div class="callout-pill"><span class="callout-dot">3</span> Botões rápidos Prenha / Vazia</div>
+          </div>
+        </div>
+        <div class="instructions-box">
+          <h3>PASSO A PASSO NA TELA:</h3>
+          <ol class="step-list">
+            <li><span class="step-num-dot">1</span><div><strong>Fêmeas pendentes</strong>: o app lista automaticamente todas as coberturas com status <em>Coberta</em>, ordenadas da mais antiga para a mais nova.</div></li>
+            <li><span class="step-num-dot">2</span><div><strong>Dias desde a cobertura</strong>: mostra há quantos dias foi coberta (avisa se ainda estiver com menos de 28 dias).</div></li>
+            <li><span class="step-num-dot">3</span><div><strong>Botões ✓ Prenha / ✕ Vazia</strong>: toque para gravar na hora no aparelho (com opção de <em>desfazer</em> se errar o toque).</div></li>
+          </ol>
+          <div class="tip-box">💡 <strong>Dica prática:</strong> Funciona 100% sem internet no curral e calcula automaticamente a data prevista de parto ao marcar <strong>Prenha</strong>.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- PASSO 7: ENGORDA E LOTES -->
+    <article class="step-card" data-cat="engorda">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 7</span>
+            <span class="badge-prof">Recria e Engorda</span>
+            <span class="badge-sect">7. Lotes e Trato no Cocho</span>
+          </div>
+          <h2>7. Novo Lote de Recria ou Engorda</h2>
+          <p class="summary">Monte lotes selecionando animais cadastrados ou informando apenas a quantidade de cabeças e o peso médio.</p>
+        </div>
+        <span class="file-tag">public/manual/screens/tela-07-engorda.png</span>
+      </div>
+      <div class="step-grid">
+        <div class="mockup-wrap">
+          <div class="phone-real">
+            <img src="./screens/tela-07-engorda.jpg" alt="Tela real Novo lote" />
+            <div class="hl-box" style="top: 12%; height: 7%;"><span class="hl-dot">1</span></div>
+            <div class="hl-box" style="top: 19.5%; height: 14%;"><span class="hl-dot">2</span></div>
+            <div class="hl-box" style="top: 36%; height: 9%;"><span class="hl-dot">3</span></div>
+            <div class="hl-box" style="top: 47.5%; height: 8.5%;"><span class="hl-dot">4</span></div>
+            <div class="hl-box" style="top: 58.5%; height: 8.5%;"><span class="hl-dot">5</span></div>
+          </div>
+          <div class="callouts-col">
+            <div class="callout-pill"><span class="callout-dot">1</span> Nome do lote (ex.: Garrotes)</div>
+            <div class="callout-pill"><span class="callout-dot">2</span> Fase (Recria/Engorda) e Data de entrada</div>
+            <div class="callout-pill"><span class="callout-dot">3</span> Animais cadastrados ou Só a quantidade</div>
+            <div class="callout-pill"><span class="callout-dot">4</span> Cabeças e Peso médio de entrada (kg)</div>
+            <div class="callout-pill"><span class="callout-dot">5</span> Peso de saída desejado (kg)</div>
+          </div>
+        </div>
+        <div class="instructions-box">
+          <h3>PASSO A PASSO NA TELA:</h3>
+          <ol class="step-list">
+            <li><span class="step-num-dot">1</span><div><strong>Nome do lote</strong> <span class="req-tag req-sim">Obrigatório</span>: identifique o grupo (ex.: <em>Garrotes de julho</em>).</div></li>
+            <li><span class="step-num-dot">2</span><div><strong>Fase e Data de entrada</strong> <span class="req-tag req-sim">Obrigatórios</span>: selecione <em>Recria</em> ou <em>Engorda</em> e a data em que os animais entraram no lote.</div></li>
+            <li><span class="step-num-dot">3</span><div><strong>Animais cadastrados ou Só a quantidade</strong>: escolha entre selecionar animais individuais ou informar apenas o total do lote.</div></li>
+            <li><span class="step-num-dot">4</span><div><strong>Cabeças e Peso médio de entrada (kg)</strong> <span class="req-tag req-sim">Obrigatórios</span>: informe a quantidade de animais e o peso médio (ex.: <code>300</code>).</div></li>
+            <li><span class="step-num-dot">5</span><div><strong>Peso de saída desejado por cabeça (kg, opcional)</strong> <span class="req-tag req-opc">Opcional</span>: meta por cabeça para encerrar a fase (ex.: <code>540</code> kg).</div></li>
+          </ol>
+          <div class="tip-box">💡 <strong>Dica prática:</strong> Dentro do lote criado, você pode adicionar a dieta com produtos do Estoque e lançar o trato diário em quilos.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- PASSO 8: TRATAMENTOS E VACINAS -->
+    <article class="step-card" data-cat="sanidade">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 8</span>
+            <span class="badge-prof">Sanidade</span>
+            <span class="badge-sect">8. Tratamentos e Vacinação</span>
+          </div>
+          <h2>8. Registrar Tratamento (com Carência) e Vacinas</h2>
+          <p class="summary">Anote medicamento, datas, dias de carência de leite e carne, lote e fabricante.</p>
+        </div>
+        <span class="file-tag">public/manual/screens/tela-08-tratamentos.png · tela-08b-vacinas.png</span>
+      </div>
+      <div class="step-grid">
+        <div class="mockup-wrap">
+          <div class="phone-real">
+            <img src="./screens/tela-08-tratamentos.png" alt="Tela real Novo tratamento" />
+            <div class="hl-box" style="top: 12.5%; height: 8%;"><span class="hl-dot">1</span></div>
+            <div class="hl-box" style="top: 21%; height: 8%;"><span class="hl-dot">2</span></div>
+            <div class="hl-box" style="top: 29.5%; height: 17%;"><span class="hl-dot">3</span></div>
+            <div class="hl-box" style="top: 47%; height: 19%;"><span class="hl-dot">4</span></div>
+            <div class="hl-box" style="top: 66.5%; height: 28%;"><span class="hl-dot">5</span></div>
+          </div>
+          <div class="callouts-col">
+            <div class="callout-pill"><span class="callout-dot">1</span> Escolher o animal na busca</div>
+            <div class="callout-pill"><span class="callout-dot">2</span> Nome do medicamento</div>
+            <div class="callout-pill"><span class="callout-dot">3</span> Data de Início e Fim (opcional)</div>
+            <div class="callout-pill"><span class="callout-dot">4</span> Carência do leite e carne (dias)</div>
+            <div class="callout-pill"><span class="callout-dot">5</span> Lote, Fabricante, Descrição e Notas</div>
+          </div>
+        </div>
+        <div class="instructions-box">
+          <h3>PASSO A PASSO NA TELA:</h3>
+          <ol class="step-list">
+            <li><span class="step-num-dot">1</span><div><strong>Animal</strong> <span class="req-tag req-sim">Obrigatório</span>: toque para buscar e selecionar o animal.</div></li>
+            <li><span class="step-num-dot">2</span><div><strong>Medicamento / Vacina</strong> <span class="req-tag req-sim">Obrigatório</span>: em Tratamentos, digite o remédio; em Vacinas, selecione da lista ou escolha <em>Outra (digitar)</em>.</div></li>
+            <li><span class="step-num-dot">3</span><div><strong>Início e Fim (ou Agendada/Aplicação)</strong> <span class="req-tag req-sim">Início obrigatório</span>: deixe <em>Fim</em> ou <em>Aplicação</em> vazios se ainda estiver em andamento.</div></li>
+            <li><span class="step-num-dot">4</span><div><strong>Carência do leite / carne (dias)</strong> <span class="req-tag req-opc">Tratamentos</span>: dias após o fim em que o leite não pode ir para o tanque nem o animal para o abate.</div></li>
+            <li><span class="step-num-dot">5</span><div><strong>Lote, Fabricante, Descrição e Observações</strong> <span class="req-tag req-opc">Opcionais</span>: registre o número do lote do frasco, laboratório e posologia.</div></li>
+          </ol>
+          <div class="tip-box">💡 <strong>Dica prática:</strong> A tela de Vacinação também usa o mesmo padrão, com filtros rápidos para <em>Pendente</em>, <em>Aplicada</em> e <em>Vencida</em>.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- PASSO 9: ESTOQUE E FINANCEIRO -->
+    <article class="step-card" data-cat="gestao">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 9</span>
+            <span class="badge-prof">Gestão</span>
+            <span class="badge-sect">9. Estoque e Financeiro</span>
+          </div>
+          <h2>9. Cadastrar Produto no Estoque e Lançar no Financeiro</h2>
+          <p class="summary">Controle saldo mínimo de insumos e registre entradas e saídas de caixa com categoria e valor.</p>
+        </div>
+        <span class="file-tag">public/manual/screens/tela-09-estoque.png · tela-09b-financeiro.png</span>
+      </div>
+      <div class="step-grid">
+        <div class="mockup-wrap">
+          <div class="phone-real">
+            <img src="./screens/tela-09-estoque.png" alt="Tela real Novo produto no estoque" />
+            <div class="hl-box" style="top: 12.5%; height: 8%;"><span class="hl-dot">1</span></div>
+            <div class="hl-box" style="top: 21%; height: 16.5%;"><span class="hl-dot">2</span></div>
+            <div class="hl-box" style="top: 38%; height: 16.5%;"><span class="hl-dot">3</span></div>
+            <div class="hl-box" style="top: 55%; height: 16.5%;"><span class="hl-dot">4</span></div>
+            <div class="hl-box" style="top: 73%; height: 6.5%;"><span class="hl-dot">5</span></div>
+          </div>
+          <div class="callouts-col">
+            <div class="callout-pill"><span class="callout-dot">1</span> Nome do produto (ex.: Ração)</div>
+            <div class="callout-pill"><span class="callout-dot">2</span> Categoria e Unidade (kg, saco, L)</div>
+            <div class="callout-pill"><span class="callout-dot">3</span> Quantidade atual e Mínima</div>
+            <div class="callout-pill"><span class="callout-dot">4</span> Kg por unidade e Preço (R$)</div>
+            <div class="callout-pill"><span class="callout-dot">5</span> Salvar</div>
+          </div>
+        </div>
+        <div class="instructions-box">
+          <h3>PASSO A PASSO NA TELA:</h3>
+          <ol class="step-list">
+            <li><span class="step-num-dot">1</span><div><strong>Nome</strong> <span class="req-tag req-sim">Obrigatório</span>: informe o insumo (ex.: <em>Ração 22% proteína</em>).</div></li>
+            <li><span class="step-num-dot">2</span><div><strong>Categoria e Unidade</strong> <span class="req-tag req-sim">Obrigatórios</span>: escolha na lista (ex.: <em>Ração</em>, <em>Saco</em>, <em>kg</em>, <em>L</em>).</div></li>
+            <li><span class="step-num-dot">3</span><div><strong>Quantidade atual e Quantidade mínima</strong> <span class="req-tag req-opc">Mínima opcional</span>: quando o saldo baixar do mínimo, o Painel avisa que precisa repor.</div></li>
+            <li><span class="step-num-dot">4</span><div><strong>Kg por unidade e Preço por unidade (R$)</strong> <span class="req-tag req-opc">Opcionais</span>: usados para calcular custos dos lotes de engorda.</div></li>
+            <li><span class="step-num-dot">5</span><div><strong>Salvar</strong>: toque em <em>Salvar</em> para cadastrar o produto. Para lançar entradas e saídas de caixa, acesse <em>Financeiro</em>, escolha <em>Entrada</em> ou <em>Saída</em>, categoria, valor em R$ e data.</div></li>
+          </ol>
+          <div class="tip-box">💡 <strong>Dica prática:</strong> Abra um produto já cadastrado no Estoque para lançar rapidamente uma <em>Saída (usou)</em> ou <em>Entrada (comprou)</em>.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- PASSO 10: RELATÓRIOS E OFERTAS -->
+    <article class="step-card" data-cat="ofertas">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 10</span>
+            <span class="badge-prof">Comercial e Gestão</span>
+            <span class="badge-sect">10. Relatórios e Ofertas</span>
+          </div>
+          <h2>10. Gerar Relatórios (PDF/CSV)</h2>
+          <p class="summary">Escolha o tipo de relatório, defina o período e toque em "Ver relatório".</p>
+        </div>
+        <span class="file-tag">public/manual/screens/tela-10-relatorios.jpg</span>
+      </div>
+      <div class="step-grid">
+        <div class="mockup-wrap">
+          <div class="phone-real">
+            <img src="./screens/tela-10-relatorios.jpg" alt="Tela real Relatórios" />
+            <div class="hl-box" style="top: 44%; height: 10%;"><span class="hl-dot">1</span></div>
+            <div class="hl-box" style="top: 57%; height: 18%;"><span class="hl-dot">2</span></div>
+            <div class="hl-box" style="top: 75.5%; height: 6%;"><span class="hl-dot">3</span></div>
+          </div>
+          <div class="callouts-col">
+            <div class="callout-pill"><span class="callout-dot">1</span> Escolha o relatório</div>
+            <div class="callout-pill"><span class="callout-dot">2</span> O Período</div>
+            <div class="callout-pill"><span class="callout-dot">3</span> Clicar em Ver relatório</div>
+          </div>
+        </div>
+        <div class="instructions-box">
+          <h3>PASSO A PASSO NA TELA:</h3>
+          <ol class="step-list">
+            <li><span class="step-num-dot">1</span><div><strong>Escolha o relatório</strong> <span class="req-tag req-sim">Obrigatório</span>: toque no relatório desejado (<em>Produção de leite</em>, <em>Ficha do animal</em>, <em>Vacinação</em>, <em>Fluxo de caixa</em>, <em>Crias e partos</em>, <em>Inventário</em> ou <em>Movimentação de estoque</em>).</div></li>
+            <li><span class="step-num-dot">2</span><div><strong>O Período</strong> <span class="req-tag req-sim">Obrigatório</span>: escolha um atalho (<em>Este mês</em>, <em>Mês passado</em>, <em>Este ano</em>) ou toque em <em>Outro período</em> para informar as datas <em>De</em> e <em>Até</em>.</div></li>
+            <li><span class="step-num-dot">3</span><div><strong>Clicar em Ver relatório</strong>: abre o relatório pronto na tela com opção de baixar ou compartilhar em <strong>PDF</strong> ou planilha <strong>CSV</strong>.</div></li>
+          </ol>
+          <div class="tip-box">💡 <strong>Dica prática:</strong> Os relatórios são recalculados no próprio celular, funcionando mesmo sem internet.</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- PASSO 11: USUÁRIOS -->
+    <article class="step-card" data-cat="equipe">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 11</span>
+            <span class="badge-prof">Administrador</span>
+            <span class="badge-sect">11. Equipe e Permissões</span>
+          </div>
+          <h2>11. Cadastrar Usuários e Definir Módulos Permitidos</h2>
+          <p class="summary">Crie logins para sua equipe definindo perfil e marcando quais módulos cada pessoa pode acessar.</p>
+        </div>
+        <span class="file-tag">public/manual/screens/tela-11-usuarios.png</span>
+      </div>
+      <div class="step-grid">
+        <div class="mockup-wrap">
+          <div class="phone-real">
+            <img src="./screens/tela-11-usuarios.png" alt="Tela real Novo usuário" />
+            <div class="hl-box" style="top: 14.5%; height: 8%;"><span class="hl-dot">1</span></div>
+            <div class="hl-box" style="top: 23%; height: 8%;"><span class="hl-dot">2</span></div>
+            <div class="hl-box" style="top: 31.5%; height: 11%;"><span class="hl-dot">3</span></div>
+            <div class="hl-box" style="top: 44%; height: 8.5%;"><span class="hl-dot">4</span></div>
+            <div class="hl-box" style="top: 53.5%; height: 28%;"><span class="hl-dot">5</span></div>
+          </div>
+          <div class="callouts-col">
+            <div class="callout-pill"><span class="callout-dot">1</span> Nome do colaborador</div>
+            <div class="callout-pill"><span class="callout-dot">2</span> Telefone com DDD</div>
+            <div class="callout-pill"><span class="callout-dot">3</span> E-mail (opcional)</div>
+            <div class="callout-pill"><span class="callout-dot">4</span> Senha inicial obrigatória</div>
+            <div class="callout-pill"><span class="callout-dot">5</span> Perfil e Módulos permitidos</div>
+          </div>
+        </div>
+        <div class="instructions-box">
+          <h3>PASSO A PASSO NA TELA:</h3>
+          <ol class="step-list">
+            <li><span class="step-num-dot">1</span><div><strong>Nome *</strong> <span class="req-tag req-sim">Obrigatório</span>: nome completo do colaborador ou familiar.</div></li>
+            <li><span class="step-num-dot">2</span><div><strong>Telefone</strong> <span class="req-tag req-opc">Telefone ou E-mail</span>: celular com DDD para o login da pessoa.</div></li>
+            <li><span class="step-num-dot">3</span><div><strong>E-mail (opcional)</strong> <span class="req-tag req-opc">Opcional</span>: caso a pessoa prefira entrar por e-mail.</div></li>
+            <li><span class="step-num-dot">4</span><div><strong>Senha *</strong> <span class="req-tag req-sim">Na criação</span>: senha inicial para o primeiro acesso.</div></li>
+            <li><span class="step-num-dot">5</span><div><strong>Perfil e Módulos permitidos</strong> <span class="req-tag req-sim">Obrigatórios</span>: defina o perfil e marque as caixas dos módulos liberados (ex.: Leite, Animais).</div></li>
+          </ol>
+          <div class="tip-box">💡 <strong>Dica prática:</strong> A nova conta só passa a existir para login depois que o celular enviar o cadastro ao servidor (se estiver sem internet, aguarde sincronizar).</div>
+        </div>
+      </div>
+    </article>
+  </main>
+
+  <script>
+    const pills = document.querySelectorAll('.block-pill[data-filter]');
+    const cards = document.querySelectorAll('.step-card[data-cat]');
+    pills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        const filter = pill.getAttribute('data-filter');
+        pills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        cards.forEach(card => {
+          const match = filter === 'all' || card.getAttribute('data-cat') === filter;
+          card.classList.toggle('hidden', !match);
+        });
+      });
+    });
+  </script>
+</body>
+</html>

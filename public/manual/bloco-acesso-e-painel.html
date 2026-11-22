@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Acesso, Painel, Dashboard TV e Ajuda — Manual Anota Aí Agro</title>
+  <style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; max-width: 100%; overflow-x: hidden; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f3f6f4; color: #111827; }
+  .container { max-width: 1120px; margin: 0 auto; padding: 18px 14px 48px; display: flex; flex-direction: column; gap: 18px; }
+  .hero { background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
+  .hero-kicker { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #15803d; margin-bottom: 4px; }
+  .hero h1 { margin: 0; font-size: 21px; font-weight: 800; color: #111827; }
+  .hero p { margin: 6px 0 0; font-size: 13.5px; color: #4b5563; line-height: 1.45; }
+  .hero-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn-top { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 12px; font-size: 12.5px; font-weight: 700; text-decoration: none; border: 1px solid #166534; background: #166534; color: #fff; cursor: pointer; }
+  .btn-top.outline { background: #fff; color: #166534; }
+  .btn-top:hover { opacity: 0.92; }
+  .block-nav { display: flex; flex-wrap: wrap; gap: 6px; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 10px 12px; }
+  .block-pill { padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; text-decoration: none; border: 1px solid #e5e7eb; background: #f9fafb; color: #111827; }
+  .block-pill.active { background: #166534; border-color: #166534; color: #fff; font-weight: 700; }
+  .step-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 20px; box-shadow: 0 2px 8px rgba(15,23,42,0.04); page-break-inside: avoid; }
+  .step-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; margin-bottom: 16px; }
+  .step-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .badge-step { background: #166534; color: #fff; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 800; }
+  .badge-prof { background: #f3f4f6; color: #111827; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+  .file-tag { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: #6b7280; }
+  .step-card h2 { margin: 0 0 4px; font-size: 18px; font-weight: 800; color: #111827; }
+  .summary { margin: 0; font-size: 13.5px; color: #4b5563; line-height: 1.45; }
+  .step-grid { display: grid; grid-template-columns: 1fr; gap: 22px; align-items: start; }
+  @media (min-width: 860px) { .step-grid { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); } }
+  .screen-box { width: 100%; display: flex; justify-content: center; overflow: hidden; }
+  .screen-box img { width: 100%; max-width: 560px; height: auto; display: block; }
+  .instructions-box h3 { margin: 0 0 12px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; }
+  .step-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  .step-list li { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border-radius: 12px; background: #f9fafb; border: 1px solid #e5e7eb; font-size: 13.5px; line-height: 1.5; }
+  .step-num-dot { width: 20px; height: 20px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 11.5px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .tip-box { background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.32); border-radius: 12px; padding: 13px; font-size: 13.5px; color: #14532d; line-height: 1.5; }
+  .hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+  .hub-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px; text-decoration: none; color: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
+  .hub-card:hover { border-color: #15803d; box-shadow: 0 6px 16px rgba(21,128,61,0.1); }
+  .hub-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .hub-icon { width: 40px; height: 40px; border-radius: 12px; background: #f0fdf4; display: inline-flex; align-items: center; justify-content: center; font-size: 20px; }
+  .hub-count { font-size: 11.5px; font-weight: 700; color: #166534; background: #dcfce7; padding: 3px 10px; border-radius: 999px; }
+  .hub-card h2 { margin: 0; font-size: 16px; font-weight: 800; color: #111827; }
+  .hub-card p { margin: 0; font-size: 13px; color: #4b5563; line-height: 1.45; }
+  .hub-cta { font-size: 13px; font-weight: 700; color: #15803d; }
+  @media print { .hero-actions, .block-nav { display: none !important; } body { background: #fff; } .step-card { border: 1px solid #ccc; box-shadow: none; } }
+</style>
+</head>
+<body>
+  <main class="container">
+    <header class="hero">
+      <div>
+        <div class="hero-kicker">
+          <span>🏡 Bloco do Manual</span>
+          <span>•</span>
+          <span>Todos os Perfis</span>
+          <span>•</span>
+          <span>5 telas reais</span>
+        </div>
+        <h1>Acesso, Painel, Dashboard TV e Ajuda</h1>
+        <p>Entrada no sistema (telefone/e-mail/Google), troca de idioma (PT/ES), painel principal, resumo mensal/anual, Dashboard para TV e tela de Ajuda.</p>
+      </div>
+      <div class="hero-actions">
+        <a href="/manual-usuario.html" class="btn-top outline">📚 Todos os blocos</a>
+        <a href="/ajuda" target="_top" class="btn-top outline">← Voltar para Ajuda</a>
+        <button type="button" class="btn-top" onclick="window.print()">🖨️ Imprimir / PDF</button>
+      </div>
+    </header>
+    <nav class="block-nav" aria-label="Blocos do manual">
+      <a href="/manual-usuario.html" class="block-pill">📚 Todos os blocos</a>
+      <a href="/manual/bloco-rebanho.html" class="block-pill ">🐄 Rebanho</a>
+      <a href="/manual/bloco-acesso-e-painel.html" class="block-pill active">🏡 Acesso, Painel, Dashboard TV e Ajuda</a>
+      <a href="/manual/bloco-leite-lite.html" class="block-pill ">🥛 Anota Aí Leite</a>
+      <a href="/manual/bloco-leite-e-sanidade.html" class="block-pill ">💉 Produção de Leite e Sanidade</a>
+      <a href="/manual/bloco-gestao.html" class="block-pill ">📊 Gestão</a>
+      <a href="/manual/bloco-motorista-e-laticinio.html" class="block-pill ">🚚 Motorista e Laticínio</a>
+      <a href="/manual/bloco-associacao-e-fornecedor.html" class="block-pill ">🤝 Associação / Cooperativa e Fornecedor de Insumos</a>
+    </nav>
+    
+    <article class="step-card">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 1</span>
+            <span class="badge-prof">Login e Idioma</span>
+          </div>
+          <h2>1. Entrar no Sistema (Telefone com DDD ou E-mail) e Idioma (PT/ES)</h2>
+          <p class="summary">Acesse usando seu telefone com DDD ou e-mail, alterne entre Português e Español, ou crie sua conta gratuita.</p>
+        </div>
+        <span class="file-tag">public/manual/passo-01-acesso-login.svg</span>
+      </div>
+      <div class="step-grid">
+        <div class="screen-box">
+          <img src="/manual/passo-01-acesso-login.svg" alt="Entrar no Sistema (Telefone com DDD ou E-mail) e Idioma (PT/ES)" loading="lazy" />
+        </div>
+        <div class="instructions-box">
+          <h3>Passo a passo na tela:</h3>
+          <ol class="step-list">
+            
+              <li>
+                <span class="step-num-dot">1</span>
+                <span>No topo direito, escolha o idioma do sistema (Português ou Español).</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">2</span>
+                <span>Digite seu Telefone com DDD (ex.: 35 99999-0000) ou seu E-mail cadastrado e a senha.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">3</span>
+                <span>Toque em &quot;Entrar&quot;. Se ainda não tem cadastro, toque em &quot;Criar conta&quot; ou &quot;Peça ajuda&quot;.</span>
+              </li>
+            
+          </ol>
+          <div class="tip-box"><strong>💡 Dica prática:</strong> Em &quot;Meu cadastro&quot; você pode manter telefone e e-mail salvos — os dois funcionam para entrar.</div>
+        </div>
+      </div>
+    </article>
+  
+
+    <article class="step-card">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 2</span>
+            <span class="badge-prof">Painel</span>
+          </div>
+          <h2>2. Painel Inicial da Propriedade, Troca de Fazenda e Atalhos</h2>
+          <p class="summary">Veja todas as suas propriedades com avisos do dia, troque de fazenda com 1 toque e acesse as tarefas principais.</p>
+        </div>
+        <span class="file-tag">public/manual/passo-05-painel-propriedade.svg</span>
+      </div>
+      <div class="step-grid">
+        <div class="screen-box">
+          <img src="/manual/passo-05-painel-propriedade.svg" alt="Painel Inicial da Propriedade, Troca de Fazenda e Atalhos" loading="lazy" />
+        </div>
+        <div class="instructions-box">
+          <h3>Passo a passo na tela:</h3>
+          <ol class="step-list">
+            
+              <li>
+                <span class="step-num-dot">1</span>
+                <span>No topo, use o seletor de fazenda ou toque no sino (🔔) para ver os avisos pendentes.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">2</span>
+                <span>Se gerenciar mais de uma propriedade (ex.: Leite e Engorda), toque em &quot;Abrir&quot; no cartão desejado.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">3</span>
+                <span>Use &quot;O que você quer fazer?&quot; ou a barra inferior para ir direto a Leite, Animais, Vacinas ou Mais.</span>
+              </li>
+            
+          </ol>
+          <div class="tip-box"><strong>💡 Dica prática:</strong> Cada membro da equipe vê apenas os módulos liberados para o perfil dele.</div>
+        </div>
+      </div>
+    </article>
+  
+
+    <article class="step-card">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 3</span>
+            <span class="badge-prof">Resumo</span>
+          </div>
+          <h2>3. Resumo do Período (Visão Mensal e Anual) e Indicadores da Fazenda</h2>
+          <p class="summary">Alterne entre Visão mensal e Visão anual para acompanhar leite produzido, receitas, despesas, saldo e nascimentos.</p>
+        </div>
+        <span class="file-tag">public/manual/passo-06-sino-resumo-anual.svg</span>
+      </div>
+      <div class="step-grid">
+        <div class="screen-box">
+          <img src="/manual/passo-06-sino-resumo-anual.svg" alt="Resumo do Período (Visão Mensal e Anual) e Indicadores da Fazenda" loading="lazy" />
+        </div>
+        <div class="instructions-box">
+          <h3>Passo a passo na tela:</h3>
+          <ol class="step-list">
+            
+              <li>
+                <span class="step-num-dot">1</span>
+                <span>No Painel inicial, role até &quot;Resumo do período&quot;.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">2</span>
+                <span>Toque em &quot;Visão mensal&quot; ou &quot;Visão anual&quot; para comparar mês a mês.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">3</span>
+                <span>Abaixo, acompanhe o resumo geral do rebanho (animais vivos, registros e tratamentos).</span>
+              </li>
+            
+          </ol>
+          <div class="tip-box"><strong>💡 Dica prática:</strong> Os valores estimados de leite usam o preço por litro configurado na propriedade.</div>
+        </div>
+      </div>
+    </article>
+  
+
+    <article class="step-card">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 4</span>
+            <span class="badge-prof">Dashboard TV</span>
+          </div>
+          <h2>4. Dashboard para TV / Monitor (Indicadores ao Vivo em Tela Cheia)</h2>
+          <p class="summary">Exiba os números da fazenda em tempo real na TV do escritório ou sala de ordenha com atualização automática.</p>
+        </div>
+        <span class="file-tag">public/manual/passo-06b-dashboard-tv.svg</span>
+      </div>
+      <div class="step-grid">
+        <div class="screen-box">
+          <img src="/manual/passo-06b-dashboard-tv.svg" alt="Dashboard para TV / Monitor (Indicadores ao Vivo em Tela Cheia)" loading="lazy" />
+        </div>
+        <div class="instructions-box">
+          <h3>Passo a passo na tela:</h3>
+          <ol class="step-list">
+            
+              <li>
+                <span class="step-num-dot">1</span>
+                <span>Abra a rota /dashboard no computador, tablet ou Smart TV da propriedade.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">2</span>
+                <span>Toque em &quot;Tela cheia&quot; para destacar os cartões de rebanho, leite, reprodução, vacinas e saldo.</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">3</span>
+                <span>Use &quot;Atualizar&quot; sempre que quiser forçar uma leitura imediata.</span>
+              </li>
+            
+          </ol>
+          <div class="tip-box"><strong>💡 Dica prática:</strong> Ideal para manter em um monitor no escritório acompanhando vacinas atrasadas e partos próximos.</div>
+        </div>
+      </div>
+    </article>
+  
+
+    <article class="step-card">
+      <div class="step-head">
+        <div>
+          <div class="step-meta">
+            <span class="badge-step">Passo 5</span>
+            <span class="badge-prof">Ajuda</span>
+          </div>
+          <h2>5. Botão na Tela de Ajuda (/ajuda) para Abrir o Manual Ilustrado</h2>
+          <p class="summary">Na tela de Ajuda do site, PWA ou aplicativo, toque em &quot;Abrir manual ilustrado&quot; para consultar este guia a qualquer hora.</p>
+        </div>
+        <span class="file-tag">public/manual/passo-21-ajuda-botao-manual.svg</span>
+      </div>
+      <div class="step-grid">
+        <div class="screen-box">
+          <img src="/manual/passo-21-ajuda-botao-manual.svg" alt="Botão na Tela de Ajuda (/ajuda) para Abrir o Manual Ilustrado" loading="lazy" />
+        </div>
+        <div class="instructions-box">
+          <h3>Passo a passo na tela:</h3>
+          <ol class="step-list">
+            
+              <li>
+                <span class="step-num-dot">1</span>
+                <span>Abra &quot;Ajuda&quot; no menu lateral (Web/PWA) ou na aba &quot;Mais&quot; (Aplicativo).</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">2</span>
+                <span>Toque no botão verde &quot;Abrir manual ilustrado&quot; para abrir o guia dentro do sistema (/manual).</span>
+              </li>
+            
+              <li>
+                <span class="step-num-dot">3</span>
+                <span>Se preferir salvar ou imprimir, toque em &quot;Abrir em tela cheia / Imprimir PDF&quot;.</span>
+              </li>
+            
+          </ol>
+          <div class="tip-box"><strong>💡 Dica prática:</strong> A rota /manual funciona no navegador, no PWA instalado e também 100% offline no aplicativo Android.</div>
+        </div>
+      </div>
+    </article>
+  
+  </main>
+</body>
+</html>

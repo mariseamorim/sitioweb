@@ -1,0 +1,45 @@
+ANÁLISE E VALIDAÇÃO DO MANUAL VISUAL — ANOTA AÍ AGRO
+=====================================================
+
+1. ANÁLISE DO PROCESSO (LIÇÕES APRENDIDAS NA CONSTRUÇÃO)
+--------------------------------------------------------
+Durante a criação do manual do usuário final a partir do zero, os seguintes pontos causaram retrabalho e foram padronizados no script `docs/agente-atualizar-manual.md`:
+
+A) Ambiente de Emulação e APK:
+- O APK de loja (`arm64-v8a`) fecha imediatamente no emulador do PC (`x86_64`) com `couldn't find DSO to load: libreactnative.so`.
+- Solução definitiva: compilar `assembleRelease` com `-PreactNativeArchitectures=x86_64`, usando `C:/a` como `buildStagingDirectory`, `CMake 3.31.0` e `Ninja 1.13+` com `-DCMAKE_OBJECT_PATH_MAX=160` para evitar o limite de 260 caracteres do Windows.
+- O emulador `Pixel_Fold` gera telas largas/quadradas (`1380x1840` útil) que deixam os prints desproporcionais. O emulador correto para o manual é o `Pixel_10_Pro` (`1280x2856`).
+
+B) Automação de Navegação e Captura:
+- O `adb shell exec-out screencap` redirecionado via `>` no PowerShell corrompe o binário PNG com UTF-16. Usar sempre `screencap -p /data/local/tmp/s.png` + `adb pull`.
+- O `adb shell input text` pode perder caracteres se o teclado virtual estiver abrindo; aguardar 1s após tocar no campo e fechar o teclado com `keyevent 111` antes de capturar.
+- Deep links do Expo Router funcionam com 3 barras (`anotaaiagro:///rota`), mas telas que dependem de estado/botão da lista (como `Editar cadastro` em Propriedades e `+ Registrar` em Reprodução) devem ser abertas via `uiautomator dump` + toque no botão.
+
+C) Padrão Visual do Manual (`public/manual/campos-editaveis.html`):
+- Mockups desenhados em HTML/CSS não atendem: é obrigatório usar os prints reais do aplicativo em execução.
+- Bordas/caixas vermelhas ao redor dos campos sobrepõem os textos e atrapalham a leitura. Deve-se exibir APENAS o círculo vermelho numerado (`.hl-dot`) posicionado na lateral do campo.
+- Linhas técnicas com caminho de arquivo (`public/manual/screens/...`) e nomes de arquivos `.png`/`.tsx` devem ficar ocultos no manual do usuário final.
+- Os botões finais de ação (`Salvar`, `Salvar e repetir`, `Ver relatório`) e seletores de período/filtro devem receber numeração e explicação no passo a passo quando fazem parte do fluxo da tela.
+
+--------------------------------------------------------
+2. VALIDAÇÃO DO SCRIPT `docs/agente-atualizar-manual.md`
+--------------------------------------------------------
+Checklist de verificação do arquivo `.md`:
+[OK] Define o emulador padrão (`Pixel_10_Pro`, `1280x2856`) e proíbe `Pixel_Fold`.
+[OK] Documenta a compilação `x86_64` completa (`prebuild`, `CMake 3.31.0`, `Ninja 1.13+`, `C:/a`, `CMAKE_OBJECT_PATH_MAX=160`).
+[OK] Documenta login automático via `uiautomator dump` + `keyevent 111` + conta demo (`produtor@demo.com`).
+[OK] Inclui descoberta dinâmica de todas as telas e campos editáveis em `mobile/app/` (sem limite fixo de passos), cobrindo novos módulos automaticamente.
+[OK] Define explicitamente a regra visual: prints reais + apenas `.hl-dot` numerado sem borda vermelha (`border: none`).
+[OK] Exige ocultação de `.file-tag` e remoção de caminhos técnicos nos textos.
+[OK] Inclui etapa de verificação dos campos editáveis em `mobile/app/` e validação visual via Chrome headless.
+
+--------------------------------------------------------
+3. VALIDAÇÃO DO MANUAL GERADO (`public/manual/campos-editaveis.html`)
+--------------------------------------------------------
+Checklist para rodar após qualquer execução do agente:
+[ ] Todas as telas com campos editáveis encontradas na varredura de `mobile/app/` (sem limite fixo) possuem passo correspondente e exibem imagens reais em `public/manual/screens/` (nenhum SVG/mockup artificial).
+[ ] Todas as imagens carregam no navegador (`naturalWidth > 0`) e estão na proporção de celular (`9:20` / `Pixel_10_Pro`).
+[ ] Nenhuma linha/borda vermelha sobrepõe textos das imagens (apenas círculos numerados `.hl-dot`).
+[ ] Cada `.hl-dot` na tela possui seu `.callout-pill` e item correspondente em `PASSO A PASSO NA TELA:`.
+[ ] Nenhum caminho de arquivo (`public/manual/...`, `.tsx`, `.png`) aparece visível ao usuário.
+[ ] Filtros por módulo no topo e botão `Imprimir / Salvar PDF` funcionam corretamente.
