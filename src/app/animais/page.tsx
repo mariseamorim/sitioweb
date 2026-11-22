@@ -3,7 +3,7 @@ import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
 
 import { useEffect, useState, useCallback } from 'react'
-import { ESPECIES, STATUS_LIST, type Especie, type StatusAnimal } from '@/lib/types'
+import { ESPECIE_GRUPOS, STATUS_LIST, type Especie, type StatusAnimal } from '@/lib/types'
 import { ImagePicker } from '@/components/ImagePicker'
 import { getPendingRecords, addPendingRecord, removePendingRecord } from '@/lib/offlineStorage'
 import { loadHerd, readHerdCache } from '@/lib/herdCache'
@@ -724,7 +724,7 @@ export default function AnimaisPage() {
                       }}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
                     >
-                      {ESPECIES.map((s) => <option key={s} value={s}>{t(s)}</option>)}
+                      {ESPECIE_GRUPOS.map((g) => <optgroup key={g.label} label={t(g.label)}>{g.species.map((s) => <option key={s} value={s}>{t(s)}</option>)}</optgroup>)}
                     </select>
                   </div>
                   <div>

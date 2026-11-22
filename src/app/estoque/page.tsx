@@ -16,6 +16,7 @@ import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 import { STOCK_WARNING_DAYS } from '@/lib/lots'
 import { fmtMoney } from '@/lib/reports'
+import { expenseCategoryFor, purchaseDescription, suggestedAmount } from '@/lib/stockFinance'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 import { useLocale, useT } from '@/lib/i18n'
 import { StatTile } from '@/components/StatTile'
@@ -78,7 +79,7 @@ export default function EstoquePage() {
   const { confirm } = useDialog()
   const t = useT()
   const locale = useLocale()
-  const { user } = useUser()
+  const { user, canAccess } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const [supplies, setSupplies] = useState<Supply[]>([])
   const [loading, setLoading] = useState(true)
@@ -600,6 +601,10 @@ export default function EstoquePage() {
                     : movStatus === 'error' ? movError
                     : t('Informe a quantidade: o lançamento é salvo sozinho.')}
                 </p>
+                {/* Entrada salva no servidor: oferece lançar a compra no financeiro, ligada a ela */}
+                {movStatus === 'saved' && mov.type === 'Entrada' && savedRef.current.id && canAccess('financeiro') && (
+                  <PurchaseAfterEntry key={savedRef.current.id} supply={detail} movementId={savedRef.current.id} quantity={parseMovement(mov)?.quantity ?? 0} date={mov.date} description={mov.description} />
+                )}
                 <div className="flex gap-2 pt-1">
                   {movSaved ? (
                     <>
@@ -761,5 +766,70 @@ function ExpiryNote({ supply }: { supply: Supply }) {
     <span className={`block text-xs font-medium ${days < 0 ? 'text-red-700' : 'text-amber-700'}`}>
       {days < 0 ? t('Venceu em {date}', { date: fmtDay(supply.expiryDate!) }) : days === 0 ? t('Vence hoje') : t('Vence em {date}', { date: fmtDay(supply.expiryDate!) })}
     </span>
+  )
+}
+
+/** Depois de salvar uma entrada: lança a compra no financeiro como despesa, ligada à entrada (valor sugerido pelo preço) */
+function PurchaseAfterEntry({ supply, movementId, quantity, date, description }: {
+  supply: { name: string; unit: string; category: string; unitPrice?: number | null }
+  movementId: string
+  quantity: number
+  date: string
+  description: string
+}) {
+  const t = useT()
+  const suggested = suggestedAmount(quantity, supply.unitPrice)
+  const [open, setOpen] = useState(false)
+  const [amount, setAmount] = useState(suggested ? suggested.toFixed(2).replace('.', ',') : '')
+  const [paid, setPaid] = useState(false)
+  const [state, setState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle')
+  const [message, setMessage] = useState('')
+
+  async function launch() {
+    setState('saving')
+    try {
+      const res = await fetchWithTimeout('/api/financeiro', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'Despesa', category: expenseCategoryFor(supply.category), date, amount: amount.includes(',') ? amount.replace(/\./g, '').replace(',', '.') : amount, paid,
+          description: description.trim() || purchaseDescription(supply.name, quantity, supply.unit), supplyMovementId: movementId,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Não foi possível lançar a compra.')
+      setState('done')
+      setMessage(t(paid ? 'Despesa lançada no financeiro como paga.' : 'Despesa lançada no financeiro como a pagar.'))
+    } catch (err) {
+      setState('error')
+      setMessage(t(navigator.onLine ? (err as Error).message : 'Sem internet. Tente de novo quando a conexão voltar.'))
+    }
+  }
+
+  if (state === 'done') return <p className="rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-800">✓ {message}</p>
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="rounded-lg border-2 border-green-700 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-green-50">
+        {t('Lançar a compra no financeiro')}
+      </button>
+    )
+  }
+  return (
+    <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+      <p className="mb-2 text-sm font-semibold text-green-900">{t('Lançar a compra no financeiro')}</p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs font-medium text-gray-700">{t('Valor da compra (R$)')}
+          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d,.]/g, ''))} placeholder="0,00"
+            className="mt-1 block w-36 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+        </label>
+        <label className="flex items-center gap-2 pb-2 text-sm font-medium text-gray-700">
+          <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="h-5 w-5 accent-green-700" />{t('Já pago')}
+        </label>
+        <button type="button" disabled={state === 'saving' || !amount} onClick={() => void launch()} className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-gray-300">
+          {t(state === 'saving' ? 'Salvando…' : 'Lançar despesa')}
+        </button>
+      </div>
+      {!suggested && <p className="mt-2 text-xs text-gray-600">{t('Dica: com o preço por unidade no cadastro do produto, o valor vem calculado.')}</p>}
+      {state === 'error' && <p role="alert" className="mt-2 text-sm text-red-700">{message}</p>}
+    </div>
   )
 }

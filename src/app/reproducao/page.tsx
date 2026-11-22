@@ -15,7 +15,7 @@ import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, FecharIcon, ReproducaoIcon } from '@/components/ModuleIcons'
 import { HerdCalvingPanel, PregnancyCheckPanel } from '@/components/HerdCalvingPanel'
-import { canBreed } from '@/lib/animalRules'
+import { CATTLE_BREEDS, canBreed } from '@/lib/animalRules'
 import { isInRearing } from '@/lib/rearing'
 import { pregnancyChecks, type PregnancyCheck } from '@/lib/calving'
 import { AddCalfForm } from '@/components/CalfSection'
@@ -41,6 +41,7 @@ interface Reproduction {
   heatDate?: string | null
   semenBatch?: string | null
   bullRegistry?: string | null
+  bullBreed?: string | null
   inseminator?: string | null
 }
 
@@ -68,7 +69,7 @@ function pendingReproduction(p: PendingRequest, herd: Animal[]): Reproduction | 
     // O servidor calcula o parto previsto; aqui a mesma conta, para a lista e o painel de partos
     expectedBirthDate: b.expectedBirthDate || (b.coverageDate ? plusDays(b.coverageDate, GESTATION_DAYS) : null),
     actualBirthDate: b.actualBirthDate || null, status: b.status || 'Coberta', calfId: null, observations: b.observations || null,
-    method: b.method || null, heatDate: b.heatDate || null, semenBatch: b.semenBatch || null, bullRegistry: b.bullRegistry || null, inseminator: b.inseminator || null,
+    method: b.method || null, heatDate: b.heatDate || null, semenBatch: b.semenBatch || null, bullRegistry: b.bullRegistry || null, bullBreed: b.bullBreed || null, inseminator: b.inseminator || null,
   }
 }
 
@@ -362,7 +363,7 @@ export default function ReproducaoPage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
-                <div><p className="text-xs text-gray-500">{t('Touro')}</p><p className="font-medium text-gray-800">{detail.maleName || '—'}{detail.bullRegistry ? ` · ${detail.bullRegistry}` : ''}</p></div>
+                <div><p className="text-xs text-gray-500">{t('Touro')}</p><p className="font-medium text-gray-800">{detail.maleName || '—'}{detail.bullBreed ? ` · ${detail.bullBreed}` : ''}{detail.bullRegistry ? ` · ${detail.bullRegistry}` : ''}</p></div>
                 {detail.method && <div><p className="text-xs text-gray-500">{t('Como foi')}</p><p className="font-medium text-gray-800">{t(methodLabel(detail.method))}{detail.semenBatch ? ` · ${t('partida')} ${detail.semenBatch}` : ''}</p></div>}
                 {detail.inseminator && <div><p className="text-xs text-gray-500">{t('Inseminador')}</p><p className="font-medium text-gray-800">{detail.inseminator}</p></div>}
                 {detail.heatDate && <div><p className="text-xs text-gray-500">{t('Cio')}</p><p className="font-medium text-gray-800">{fmt(detail.heatDate)}</p></div>}
@@ -453,10 +454,18 @@ export default function ReproducaoPage() {
                     ))}
                   </div>
                 </fieldset>
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Touro')}</label>
-                  <input type="text" value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} placeholder={t('Nome ou código do touro')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">{t('Touro')}</label>
+                    <input type="text" value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} placeholder={t('Nome ou código do touro')}
+                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">{t('Raça do touro')}</label>
+                    <input type="text" list="racas-touro" value={form.bullBreed} onChange={e => setForm({ ...form, bullBreed: e.target.value })} placeholder={t('Ex.: Gir, Holandesa')}
+                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                    <datalist id="racas-touro">{CATTLE_BREEDS.map((b) => <option key={b} value={b} />)}</datalist>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -524,7 +533,7 @@ function RecordEditor({ record, farmId, onCancel, onSaved }: { record: Reproduct
   const day = (v?: string | null) => (v ? v.slice(0, 10) : '')
   const [form, setForm] = useState({
     coverageDate: day(record.coverageDate), expectedBirthDate: day(record.expectedBirthDate), heatDate: day(record.heatDate),
-    method: record.method ?? '', maleName: record.maleName ?? '', bullRegistry: record.bullRegistry ?? '', semenBatch: record.semenBatch ?? '',
+    method: record.method ?? '', maleName: record.maleName ?? '', bullBreed: record.bullBreed ?? '', bullRegistry: record.bullRegistry ?? '', semenBatch: record.semenBatch ?? '',
     inseminator: record.inseminator ?? '', observations: record.observations ?? '',
   })
   const [saving, setSaving] = useState(false)
@@ -563,6 +572,10 @@ function RecordEditor({ record, farmId, onCancel, onSaved }: { record: Reproduct
       </label>
       <label className="text-xs font-medium text-gray-600">{t('Touro (nome)')}
         <input value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} className={field} />
+      </label>
+      <label className="text-xs font-medium text-gray-600">{t('Raça do touro')}
+        <input list="racas-touro-editar" value={form.bullBreed} onChange={e => setForm({ ...form, bullBreed: e.target.value })} className={field} />
+        <datalist id="racas-touro-editar">{CATTLE_BREEDS.map((b) => <option key={b} value={b} />)}</datalist>
       </label>
       <label className="text-xs font-medium text-gray-600">{t('Registro do touro')}
         <input value={form.bullRegistry} onChange={e => setForm({ ...form, bullRegistry: e.target.value })} className={field} />

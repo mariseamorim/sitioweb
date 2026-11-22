@@ -59,9 +59,10 @@ export function removeSupply(farmId: string, id: string) {
   deleteLocal({ table: 'supplies', farmId, id, path: `/api/estoque/${id}` })
 }
 
-/** Entrada ou saída: ajusta a quantidade local na hora e manda a movimentação para o servidor, que recalcula. */
-export function addMovement(farmId: string, supply: Supply, input: { type: 'Entrada' | 'Saída'; quantity: number; date: string; description: string }) {
-  const body = { type: input.type, quantity: input.quantity, date: input.date, description: input.description.trim() || null }
+/** Entrada ou saída: ajusta a quantidade local na hora e manda a movimentação para o servidor, que recalcula.
+ * Com `purchase` numa entrada, o servidor lança a compra no financeiro junto (aparece no Financeiro depois do envio). */
+export function addMovement(farmId: string, supply: Supply, input: { type: 'Entrada' | 'Saída'; quantity: number; date: string; description: string; purchase?: { amount: number; paid: boolean } | null }) {
+  const body = { type: input.type, quantity: input.quantity, date: input.date, description: input.description.trim() || null, ...(input.type === 'Entrada' && input.purchase ? { purchase: input.purchase } : {}) }
   createLocal({ table: 'supply_movements', farmId, path: `/api/estoque/${supply.id}/movimentacao`, body, row: { supplyId: supply.id } })
   patchRow('supplies', supply.id, { currentQuantity: supply.currentQuantity + (input.type === 'Entrada' ? input.quantity : -input.quantity) })
 }

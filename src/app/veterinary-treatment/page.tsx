@@ -34,6 +34,7 @@ interface Treatment {
   meatWithdrawalDays?: number | null
   batch?: string | null
   manufacturer?: string | null
+  responsible?: string | null
   description?: string | null
   observations?: string | null
   animal: Animal
@@ -42,7 +43,7 @@ interface Treatment {
 const MODULE = 'veterinary-treatment'
 const EMPTY_FORM = {
   animalId: '', startDate: todayISO(), endDate: '',
-  medicine: '', milkWithdrawalDays: '', meatWithdrawalDays: '', batch: '', manufacturer: '', description: '', observations: '',
+  medicine: '', milkWithdrawalDays: '', meatWithdrawalDays: '', batch: '', manufacturer: '', responsible: '', description: '', observations: '',
 }
 
 /** Tratamento guardado sem internet, como aparece na lista. Registros antigos da fila têm os campos soltos, sem _body. */
@@ -55,7 +56,7 @@ function pendingTreatment(p: PendingRequest, animals: Animal[]): Treatment | nul
   return {
     id: pendingItemId(p), animalId: String(b.animalId ?? ''), animal, startDate: String(b.startDate ?? ''), endDate: str(b.endDate), medicine: String(b.medicine ?? ''),
     milkWithdrawalDays: days(b.milkWithdrawalDays), meatWithdrawalDays: days(b.meatWithdrawalDays),
-    batch: str(b.batch), manufacturer: str(b.manufacturer), description: str(b.description), observations: str(b.observations),
+    batch: str(b.batch), manufacturer: str(b.manufacturer), responsible: str(b.responsible), description: str(b.description), observations: str(b.observations),
   }
 }
 
@@ -183,6 +184,7 @@ export default function VeterinaryTreatmentPage() {
       meatWithdrawalDays: form.meatWithdrawalDays || null,
       batch: form.batch || null,
       manufacturer: form.manufacturer || null,
+      responsible: form.responsible || null,
       description: form.description || null,
       observations: form.observations || null,
     }
@@ -382,6 +384,12 @@ export default function VeterinaryTreatmentPage() {
                             <p className={`font-medium ${withdrawalText(item, t, locale)!.active ? 'text-red-700' : 'text-gray-700'}`}>{withdrawalText(item, t, locale)!.text}</p>
                           </div>
                         )}
+                        {item.responsible && (
+                          <div>
+                            <p className="text-xs text-gray-500">{t('Responsável')}</p>
+                            <p className="text-gray-700">{item.responsible}</p>
+                          </div>
+                        )}
                         {item.manufacturer && (
                           <div>
                             <p className="text-xs text-gray-500">{t('Fabricante')}</p>
@@ -462,6 +470,13 @@ export default function VeterinaryTreatmentPage() {
                   </div>
                 </div>
                 <p className="-mt-1 text-xs text-gray-500">{t('Está na bula. Conta a partir do fim do tratamento. O app avisa até quando o leite não pode ir para o tanque e o animal não pode ir para o abate.')}</p>
+
+                <div>
+                  <label className="text-xs font-medium text-gray-600">{t('Responsável')}</label>
+                  <input type="text" value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })}
+                    placeholder={t('Quem cuida do tratamento')}
+                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>

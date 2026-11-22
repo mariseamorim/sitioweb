@@ -48,7 +48,7 @@ const OTHER_COLOR = { badge: 'bg-gray-100 text-gray-800', bar: 'bg-gray-400' }
 const categoryColor = (c: string) => CATEGORY_COLOR[c] ?? OTHER_COLOR
 
 const MODULE = 'financeiro'
-const EMPTY_FORM = { type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '', lotId: '', paid: false }
+const EMPTY_FORM = { type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '', lotId: '', paid: false, toStock: false, supplyId: '', stockQty: '' }
 
 /** Lançamento guardado sem internet, como aparece na lista e nos totais. Registros antigos da fila têm os campos soltos, sem _body. */
 function pendingTransaction(p: PendingRequest, animals: Animal[], lots: LotRef[] = []): Transaction | null {
@@ -92,6 +92,10 @@ export default function FinanceiroPage() {
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
+  // Despesa que também dá entrada no estoque (ração, remédio, vacina...)
+  const canStock = canAccess('estoque') && (user?.role === 'admin' || user?.role === 'editor')
+  const [stockItems, setStockItems] = useState<{ id: string; name: string; unit: string; category: string }[] | null>(null)
+  const loadStock = () => { if (stockItems === null) fetch('/api/estoque').then(r => (r.ok ? r.json() : [])).then(l => setStockItems(Array.isArray(l) ? l : [])).catch(() => setStockItems([])) }
 
   // Lista e rebanho com cópia no aparelho; a fila (lançados e excluídos sem internet) entra por cima e nos totais
   const loadData = useCallback(async (fid: string) => {
@@ -186,6 +190,11 @@ export default function FinanceiroPage() {
       // Lote só na despesa (entra nas despesas do desempenho do lote)
       lotId: form.type === 'Despesa' ? form.lotId || null : null,
       paid: form.paid,
+      ...(form.type === 'Despesa' && form.toStock && form.supplyId ? { stock: { supplyId: form.supplyId, quantity: form.stockQty } } : {}),
+    }
+    if (form.type === 'Despesa' && form.toStock && (!form.supplyId || !(Number(form.stockQty.replace(',', '.')) > 0))) {
+      setSaving(false)
+      return setSaveError(t('Escolha o item do estoque e a quantidade'))
     }
     const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/financeiro', method: 'POST', body, local: { farmId } })
     setSaving(false)
@@ -398,6 +407,27 @@ export default function FinanceiroPage() {
                   <input type="checkbox" checked={form.paid} onChange={e => setForm({ ...form, paid: e.target.checked })} className="h-5 w-5 accent-green-700" />
                   {t(form.type === 'Receita' ? 'Já recebido' : 'Já pago')}
                 </label>
+                {form.type === 'Despesa' && canStock && (
+                  <div className="rounded-xl border border-gray-200 p-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <input type="checkbox" checked={form.toStock} onChange={e => { setForm({ ...form, toStock: e.target.checked }); if (e.target.checked) loadStock() }} className="h-5 w-5 accent-green-700" />
+                      {t('Dar entrada no estoque')}
+                    </label>
+                    {form.toStock && (
+                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <label className="text-xs font-medium text-gray-600">{t('Item do estoque')} *
+                          <select value={form.supplyId} onChange={e => setForm({ ...form, supplyId: e.target.value })} className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
+                            <option value="">{stockItems === null ? t('Carregando…') : stockItems.length ? t('Escolha') : t('Nenhum item no estoque')}</option>
+                            {(stockItems ?? []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          </select>
+                        </label>
+                        <label className="text-xs font-medium text-gray-600">{t('Quantidade')}{form.supplyId ? ` (${t(stockItems?.find(s => s.id === form.supplyId)?.unit ?? '')})` : ''} *
+                          <input inputMode="decimal" value={form.stockQty} onChange={e => setForm({ ...form, stockQty: e.target.value.replace(/[^\d,.]/g, '') })} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {form.type === 'Receita' && form.category === 'Venda de Animal' && <div>
                   <label className="text-xs font-medium text-gray-600">{t('Animal (opcional)')}</label>
                   <select value={form.animalId} onChange={e => setForm({ ...form, animalId: e.target.value })}

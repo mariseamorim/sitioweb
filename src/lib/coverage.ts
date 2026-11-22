@@ -56,6 +56,7 @@ export interface CoverageForm {
   method: string
   maleName: string
   bullRegistry: string
+  bullBreed: string
   semenBatch: string
   inseminator: string
   heatDate: string
@@ -64,7 +65,7 @@ export interface CoverageForm {
 }
 
 export const EMPTY_COVERAGE: Omit<CoverageForm, 'coverageDate'> = {
-  femaleId: '', method: '', maleName: '', bullRegistry: '', semenBatch: '', inseminator: '', heatDate: '', status: 'Coberta', observations: '',
+  femaleId: '', method: '', maleName: '', bullRegistry: '', bullBreed: '', semenBatch: '', inseminator: '', heatDate: '', status: 'Coberta', observations: '',
 }
 
 /**
@@ -91,6 +92,7 @@ export interface CoverageDetails {
   heatDate: string | null
   semenBatch: string | null
   bullRegistry: string | null
+  bullBreed: string | null
   inseminator: string | null
 }
 
@@ -106,6 +108,7 @@ export function parseCoverageDetails(body: Record<string, unknown>): CoverageDet
     heatDate: typeof body.heatDate === 'string' && ISO_DAY.test(body.heatDate) ? body.heatDate : null,
     semenBatch: byBull ? null : text(body.semenBatch, 60),
     bullRegistry: text(body.bullRegistry, 60),
+    bullBreed: text(body.bullBreed, 40),
     inseminator: byBull ? null : text(body.inseminator, 80),
   }
 }

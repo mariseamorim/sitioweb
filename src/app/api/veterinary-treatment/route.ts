@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
 import { parseWithdrawalDays } from '@/lib/withdrawal'
 
+/** Nome de quem aplicou ou cuida (opcional) */
+const optionalText = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null)
+
 export async function GET(request: NextRequest) {
   const auth = await requireFarmAccess('veterinario', 'view')
   if (auth.error) return auth.error
@@ -35,7 +38,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { animalId, startDate, endDate, medicine, batch, manufacturer, description, observations } = body
+    const { animalId, startDate, endDate, medicine, batch, manufacturer, description, observations, responsible } = body
     const milkWithdrawalDays = parseWithdrawalDays(body.milkWithdrawalDays)
     const meatWithdrawalDays = parseWithdrawalDays(body.meatWithdrawalDays)
     if (milkWithdrawalDays === 'invalid' || meatWithdrawalDays === 'invalid') {
@@ -58,6 +61,7 @@ export async function POST(request: NextRequest) {
         meatWithdrawalDays,
         batch,
         manufacturer,
+        responsible: optionalText(responsible, 80),
         description,
         observations,
       },

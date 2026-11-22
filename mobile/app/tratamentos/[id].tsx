@@ -25,6 +25,7 @@ export default function TratamentoForm() {
   const [meatDays, setMeatDays] = useState(editing?.meatWithdrawalDays === null || editing?.meatWithdrawalDays === undefined ? '' : String(editing.meatWithdrawalDays))
   const [batch, setBatch] = useState(editing?.batch ?? '')
   const [manufacturer, setManufacturer] = useState(editing?.manufacturer ?? '')
+  const [responsible, setResponsible] = useState(editing?.responsible ?? '')
   const [description, setDescription] = useState(editing?.description ?? '')
   const [observations, setObservations] = useState(editing?.observations ?? '')
   const [error, setError] = useState('')
@@ -36,7 +37,7 @@ export default function TratamentoForm() {
       if (d.trim() && (!/^\d+$/.test(d.trim()) || Number(d) > 365)) { setError('A carência deve ser em dias, de 0 a 365'); return }
     }
     if (endDate && endDate < startDate) { setError('O fim não pode ser antes do início'); return }
-    saveTreatment(farmId, { animalId, medicine, startDate, endDate, milkWithdrawalDays: milkDays, meatWithdrawalDays: meatDays, batch, manufacturer, description, observations }, editing?.id)
+    saveTreatment(farmId, { animalId, medicine, startDate, endDate, milkWithdrawalDays: milkDays, meatWithdrawalDays: meatDays, batch, manufacturer, responsible, description, observations }, editing?.id)
     router.back()
   }
 
@@ -57,6 +58,7 @@ export default function TratamentoForm() {
       <DateField label="Fim (opcional)" value={endDate} onChange={setEndDate} allowEmpty />
       <Field label="Carência do leite (dias)" value={milkDays} onChangeText={setMilkDays} keyboardType="number-pad" hint="Dias após o fim do tratamento em que o leite não vai para o tanque" />
       <Field label="Carência da carne (dias)" value={meatDays} onChangeText={setMeatDays} keyboardType="number-pad" />
+      <Field label="Responsável" value={responsible} onChangeText={setResponsible} hint="Quem cuida do tratamento" />
       <Field label="Lote (opcional)" value={batch} onChangeText={setBatch} autoCapitalize="characters" />
       <Field label="Fabricante (opcional)" value={manufacturer} onChangeText={setManufacturer} />
       <Field label="Descrição" value={description} onChangeText={setDescription} multiline />
