@@ -10,7 +10,7 @@ import { colors, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
 export default function EstoqueItem() {
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, saved } = useLocalSearchParams<{ id: string; saved?: string }>()
   const farmId = useFarmId()
   const { canEdit } = useSession()
   const router = useRouter()
@@ -22,13 +22,14 @@ export default function EstoqueItem() {
   const t = useT()
 
   if (!isNew && !supply) return <Screen><Stack.Screen options={{ title: t('Produto') }} /><Notice text="Produto não encontrado." /></Screen>
-  if (editing) return <SupplyForm farmId={farmId} supply={supply} canEdit={canEdit} onDone={(newId) => { if (isNew) router.replace(`/estoque/${newId}`); else setEditing(false) }} />
+  if (editing) return <SupplyForm farmId={farmId} supply={supply} canEdit={canEdit} onDone={(newId) => { if (isNew) router.replace({ pathname: '/estoque/[id]', params: { id: newId, saved: '1' } }); else setEditing(false) }} />
   const s = supply!
   if (moving) return <MovementForm farmId={farmId} supply={s} onDone={() => setMoving(false)} />
 
   return (
     <Screen>
       <Stack.Screen options={{ title: s.name }} />
+      {saved === '1' ? <Notice tone="green" text={t('Produto cadastrado com sucesso!')} /> : null}
       <Card>
         <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text }}>{s.name}</Text>
         <Muted>{t(s.category)}{s.unitPrice ? ` · ${brMoney(s.unitPrice)} ${t('por')} ${t(s.unit)}` : ''}{s.packageKg ? ` · ${brNumber(s.packageKg, 0)} kg ${t('por')} ${t(s.unit)}` : ''}</Muted>

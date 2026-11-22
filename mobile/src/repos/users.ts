@@ -2,7 +2,7 @@
 import { all, one, parseJson, type Row } from '@/db'
 import { tr } from '@/lib/i18n'
 import { phoneDigits } from '@/lib/masks'
-import { createLocal, deleteLocal, updateLocal } from '@/sync/local'
+import { createLocal, currentId, deleteLocal, updateLocal } from '@/sync/local'
 
 export interface TeamUser {
   id: string
@@ -31,7 +31,7 @@ export function listUsers(farmId: string): TeamUser[] {
 }
 
 export function getUser(id: string): TeamUser | null {
-  const r = one('SELECT * FROM users WHERE id = ?', [id])
+  const r = one('SELECT * FROM users WHERE id = ?', [currentId(id)])
   return r ? fromRow(r) : null
 }
 

@@ -1,5 +1,5 @@
 import { all, one } from '@/db'
-import { createLocal, deleteLocal, updateLocal } from '@/sync/local'
+import { createLocal, currentId, deleteLocal, updateLocal } from '@/sync/local'
 
 export interface Animal {
   id: string
@@ -33,10 +33,10 @@ export function listAnimals(farmId: string, q = ''): Animal[] {
   )
 }
 
-export const getAnimal = (id: string) => one<Animal>('SELECT * FROM animals WHERE id = ?', [id])
+export const getAnimal = (id: string) => one<Animal>('SELECT * FROM animals WHERE id = ?', [currentId(id)])
 
 /** Foto do animal (data URL) ou null. Fica fora da tabela animals: ver db/index.ts. */
-export const getAnimalPhoto = (id: string) => one<{ imageUrl: string }>('SELECT imageUrl FROM animal_photos WHERE id = ?', [id])?.imageUrl ?? null
+export const getAnimalPhoto = (id: string) => one<{ imageUrl: string }>('SELECT imageUrl FROM animal_photos WHERE id = ?', [currentId(id)])?.imageUrl ?? null
 
 export const animalLabel = (a: Pick<Animal, 'name' | 'code' | 'customCode'> | null | undefined) =>
   a ? `${a.name} (${a.customCode || a.code})` : 'Animal removido'

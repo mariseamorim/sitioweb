@@ -13,7 +13,7 @@ import { colors, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
 export default function AnimalScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, saved } = useLocalSearchParams<{ id: string; saved?: string }>()
   const farmId = useFarmId()
   const { canEdit } = useSession()
   const router = useRouter()
@@ -24,7 +24,7 @@ export default function AnimalScreen() {
   const t = useT()
 
   if (!isNew && !animal) return <Screen><Stack.Screen options={{ title: t('Animal') }} /><Notice text={t('Animal não encontrado.')} /></Screen>
-  if (editing) return <AnimalForm farmId={farmId} animal={animal} photo={photo} onDone={(newId) => { if (isNew) router.replace(`/animais/${newId}`); else setEditing(false) }} canEdit={canEdit} />
+  if (editing) return <AnimalForm farmId={farmId} animal={animal} photo={photo} onDone={(newId) => { if (isNew) router.replace({ pathname: '/animais/[id]', params: { id: newId, saved: '1' } }); else setEditing(false) }} canEdit={canEdit} />
 
   const vacc = listVaccinations(farmId).filter(v => v.animalId === animal!.id)
   const treats = listTreatments(farmId).filter(tr => tr.animalId === animal!.id)
@@ -32,6 +32,7 @@ export default function AnimalScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: a.name }} />
+      {saved === '1' ? <Notice tone="green" text={t('Animal cadastrado com sucesso!')} /> : null}
       <Card>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
           <PhotoView uri={photo} name={a.name} size={72} />
