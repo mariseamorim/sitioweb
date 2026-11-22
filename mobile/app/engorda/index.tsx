@@ -126,12 +126,11 @@ function LotCard({ lot, today, canEdit }: { lot: Lot; today: string; canEdit: bo
         const warn = p.days !== null && p.days <= STOCK_WARNING_DAYS
         return <Text key={p.id} style={{ marginTop: 4, fontSize: font.sm, color: warn ? colors.amber : colors.muted, fontWeight: warn ? '700' : '400' }}>{p.supply.name}: {kg(p.perDay!)}/{t('dia')}{p.days !== null ? ` · ${t('estoque para {days}', { days: plural(p.days, 'dia', 'dias') })}` : ''}</Text>
       })}
-      {canEdit ? (
-        <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: space.md }}>
-          <Button label="+ Animais" variant="secondary" onPress={() => open('animais')} style={{ flex: 1 }} />
-          <Button label="Pesar" onPress={() => open('pesar')} style={{ flex: 1 }} />
-        </View>
-      ) : null}
+      <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: space.md }}>
+        <Button label="Abrir" variant="secondary" onPress={() => open()} style={{ flex: 1, paddingHorizontal: space.sm }} />
+        {canEdit ? <Button label="Animais" icon="add" variant="secondary" onPress={() => open('animais')} style={{ flex: 1, paddingHorizontal: space.sm }} /> : null}
+        {canEdit ? <Button label="Pesar" icon="scale-outline" onPress={() => open('pesar')} style={{ flex: 1, paddingHorizontal: space.sm }} /> : null}
+      </View>
     </Card>
   )
 }
