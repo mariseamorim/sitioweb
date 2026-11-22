@@ -175,6 +175,25 @@ export function CheckIcon({ className = 'w-5 h-5' }: IconProps) {
   )
 }
 
+export function CalendarioIcon({ className = 'w-6 h-6' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
+      <path d="M8 14h2M14 14h2M8 17h2" />
+    </svg>
+  )
+}
+
+export function WhatsAppLineIcon({ className = 'w-5 h-5' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20l1.3-3.9A8 8 0 1 1 8 18.8L4 20z" />
+      <path d="M9.2 8.6c.2-.4.5-.5.8-.5h.4c.2 0 .4.1.5.4l.6 1.4c.1.2 0 .5-.1.6l-.5.6a5.5 5.5 0 0 0 2.4 2.3l.6-.5c.2-.2.4-.2.6-.1l1.4.6c.3.1.4.3.4.5v.4c0 .3-.2.6-.5.8-.6.4-1.4.5-2.1.2a8.4 8.4 0 0 1-4.8-4.7c-.2-.8-.1-1.6.3-2z" />
+    </svg>
+  )
+}
+
 export function FecharIcon({ className = 'w-5 h-5' }: IconProps) {
   return (
     <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">

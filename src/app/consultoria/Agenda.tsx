@@ -15,9 +15,15 @@ const SHOWN = 4
 const input = 'mt-1 w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 
 /** O topo da Consultoria abre o formulário de nova visita pelo botão "+ Marcar visita" */
-export interface AgendaHandle { openNew: () => void }
+export interface AgendaHandle {
+  openNew: () => void
+  /** Remarcar uma visita (pela Agenda nova) */
+  edit: (visit: { id: string; date: string; time: string | null; purpose: string | null }) => void
+  /** Concluir ou cancelar uma visita */
+  setStatus: (id: string, status: 'realizada' | 'cancelada') => Promise<boolean>
+}
 
-export function Agenda({ clients, onChanged, ref }: { clients: { id: string; name: string }[]; onChanged?: () => void; ref?: React.Ref<AgendaHandle> }) {
+export function Agenda({ clients, onChanged, ref, formOnly = false }: { clients: { id: string; name: string }[]; onChanged?: () => void; ref?: React.Ref<AgendaHandle>; formOnly?: boolean }) {
   const [upcoming, setUpcoming] = useState<Visit[] | null>(null)
   const [form, setForm] = useState<Form | null>(null)
   const [error, setError] = useState('')
@@ -34,9 +40,13 @@ export function Agenda({ clients, onChanged, ref }: { clients: { id: string; nam
       if (res.ok) setUpcoming((await res.json()).upcoming)
     } catch { /* sem internet: o painel já avisa */ }
   }, [])
-  useEffect(() => { void load() }, [load])
+  useEffect(() => { if (!formOnly) void load() }, [load, formOnly])
   const openNew = () => { setError(''); setForm({ clientId: clients[0]?.id ?? '', date: today, time: '', purpose: '' }) }
-  useImperativeHandle(ref, () => ({ openNew }))
+  useImperativeHandle(ref, () => ({
+    openNew,
+    edit: (v) => { setError(''); setForm({ id: v.id, clientId: '', date: v.date.slice(0, 10), time: v.time ?? '', purpose: v.purpose ?? '' }) },
+    setStatus: (id, status) => send(`/api/veterinario/visitas/${id}`, 'PATCH', { status }),
+  }))
 
   async function send(url: string, method: 'POST' | 'PATCH' | 'DELETE', body?: unknown) {
     setError('')
@@ -66,6 +76,7 @@ export function Agenda({ clients, onChanged, ref }: { clients: { id: string; nam
 
   return (
     <section aria-label={t('Agenda de visitas')}>
+      {!formOnly && <>
       <div className="flex items-center justify-between gap-3 mb-3">
         <h2 className="text-lg font-semibold text-gray-800">{t('Agenda de visitas')}</h2>
         <button type="button" disabled={!clients.length} onClick={openNew} className="rounded-lg border border-green-700 px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-50 disabled:border-gray-300">{t('+ Marcar visita')}</button>
@@ -100,6 +111,7 @@ export function Agenda({ clients, onChanged, ref }: { clients: { id: string; nam
           )}
         </ul>
       )}
+      </>}
 
       {form && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={t(form.id ? 'Remarcar visita' : 'Marcar visita')}>

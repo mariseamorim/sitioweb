@@ -230,10 +230,12 @@ export function VetToday() {
   const { panel, reload } = useVetPanel()
   const [error, setError] = useState('')
   const { open, busy } = useOpenFarm(setError)
+  const router = useRouter()
   if (!panel) return null
   return (
     <>
       {error ? <Notice tone="red" text={error} /> : null}
+      <Button label="Abrir a agenda da semana" icon="calendar-outline" onPress={() => router.push('/agenda')} style={{ marginBottom: space.md }} />
       <VetTasks panel={panel} onOpen={(farmId, href) => void open(farmId, href)} busy={busy} />
       <VetAgenda panel={panel} onChanged={reload} compact />
     </>
