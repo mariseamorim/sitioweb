@@ -184,6 +184,8 @@ model VeterinaryTreatment {
   meatWithdrawalDays Int?
   batch              String?
   manufacturer       String?
+  /// Quem cuida do tratamento (aplica o remédio)
+  responsible        String?
   description        String?
   observations       String?
   createdAt          DateTime  @default(now())
@@ -199,6 +201,8 @@ model Vaccination {
   vaccineName   String
   scheduledDate DateTime
   appliedDate   DateTime?
+  /// Quem aplicou a vacina
+  appliedBy     String?
   batch         String?
   manufacturer  String?
   observations  String?
@@ -221,6 +225,8 @@ model Reproduction {
   semenBatch        String?
   /// Registro do touro (do sêmen ou da monta)
   bullRegistry      String?
+  /// Raça do touro (do sêmen ou da monta)
+  bullBreed         String?
   /// Quem inseminou (a taxa de prenhez muda por inseminador)
   inseminator       String?
   coverageDate      DateTime
@@ -256,6 +262,9 @@ model Transaction {
   lot         Lot?     @relation(fields: [lotId], references: [id], onDelete: SetNull)
   animalId    String?
   animal      Animal?  @relation(fields: [animalId], references: [id])
+  /// Compra ligada a uma entrada no estoque (criadas juntas, pelo estoque ou pelo financeiro)
+  supplyMovementId String?         @unique
+  supplyMovement   SupplyMovement? @relation(fields: [supplyMovementId], references: [id], onDelete: SetNull)
   farmId      String
   farm        Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
@@ -300,6 +309,8 @@ model SupplyMovement {
   description String?
   /// Saída gerada por um trato de lote (apagar o trato devolve ao estoque)
   feeding     LotFeeding?
+  /// Despesa do financeiro ligada a esta entrada (a compra)
+  transaction Transaction?
   createdAt   DateTime    @default(now())
 
   @@map("supply_movements")

@@ -95,7 +95,7 @@ export default function AgendaScreen() {
     const v = getVaccination(item.refId)
     if (!v) return
     saveVaccination(farmId, {
-      animalId: v.animalId, vaccineName: v.vaccineName, scheduledDate: isoDay(v.scheduledDate), appliedDate: today,
+      animalId: v.animalId, vaccineName: v.vaccineName, scheduledDate: isoDay(v.scheduledDate), appliedDate: today, appliedBy: v.appliedBy ?? '',
       batch: v.batch ?? '', manufacturer: v.manufacturer ?? '', observations: v.observations ?? '',
     }, v.id)
   }

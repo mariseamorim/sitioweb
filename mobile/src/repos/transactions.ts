@@ -40,12 +40,21 @@ export function totals(items: Transaction[]) {
   return { income, expense, balance: income - expense, toReceive, toPay }
 }
 
-export interface TransactionInput { type: 'Receita' | 'Despesa'; category: string; date: string; amount: number; description: string; animalId: string | null; paid: boolean; lotId?: string | null }
+export interface TransactionInput {
+  type: 'Receita' | 'Despesa'; category: string; date: string; amount: number; description: string; animalId: string | null; paid: boolean; lotId?: string | null
+  /** Despesa que também dá entrada no estoque (o servidor cria a entrada ligada) */
+  stock?: { supplyId: string; quantity: number } | null
+}
 
 export function saveTransaction(farmId: string, input: TransactionInput): string {
   const lotId = input.type === 'Despesa' ? input.lotId || null : null
-  const body = { type: input.type, category: input.category, date: input.date, amount: input.amount, description: input.description.trim() || null, animalId: input.type === 'Receita' ? input.animalId || null : null, paid: input.paid, lotId }
+  const body = { type: input.type, category: input.category, date: input.date, amount: input.amount, description: input.description.trim() || null, animalId: input.type === 'Receita' ? input.animalId || null : null, paid: input.paid, lotId, ...(input.type === 'Despesa' && input.stock ? { stock: input.stock } : {}) }
   const id = createLocal({ table: 'transactions', farmId, path: '/api/financeiro', body })
+  // A entrada no estoque já aparece no saldo do item (o servidor recalcula no envio)
+  if (input.type === 'Despesa' && input.stock) {
+    const supply = one<{ currentQuantity: number }>('SELECT currentQuantity FROM supplies WHERE id = ?', [currentId(input.stock.supplyId)])
+    if (supply) { patchRow('supplies', currentId(input.stock.supplyId), { currentQuantity: supply.currentQuantity + input.stock.quantity }); notifyChange() }
+  }
   // A despesa entra na cópia do lote na hora, para o desempenho do lote já contar com ela (mesmo sem internet)
   const lot = lotId ? getLot(lotId) : null
   if (lot) {

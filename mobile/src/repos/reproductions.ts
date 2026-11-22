@@ -15,6 +15,7 @@ export interface Reproduction {
   heatDate: string | null
   semenBatch: string | null
   bullRegistry: string | null
+  bullBreed: string | null
   inseminator: string | null
   coverageDate: string
   expectedBirthDate: string | null
@@ -84,6 +85,7 @@ export interface CoverageInput {
   method: string
   maleName: string
   bullRegistry: string
+  bullBreed: string
   semenBatch: string
   inseminator: string
   heatDate: string
@@ -148,7 +150,7 @@ export function removeReproduction(farmId: string, id: string) {
 export function markEmptyAfterCalving(farmId: string, femaleId: string) {
   return createCoverage(farmId, {
     femaleId, coverageDate: todayISO(), status: 'Vazia', observations: 'Confirmada vazia depois do parto',
-    method: '', maleName: '', bullRegistry: '', semenBatch: '', inseminator: '', heatDate: '',
+    method: '', maleName: '', bullRegistry: '', bullBreed: '', semenBatch: '', inseminator: '', heatDate: '',
   })
 }
 

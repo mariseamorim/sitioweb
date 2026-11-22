@@ -12,6 +12,7 @@ export interface Treatment {
   meatWithdrawalDays: number | null
   batch: string | null
   manufacturer: string | null
+  responsible: string | null
   description: string | null
   observations: string | null
   animalName: string | null
@@ -39,7 +40,7 @@ export const getTreatment = (id: string) => one<Treatment>(
 
 export interface TreatmentInput {
   animalId: string; startDate: string; endDate: string; medicine: string; milkWithdrawalDays: string; meatWithdrawalDays: string
-  batch: string; manufacturer: string; description: string; observations: string
+  batch: string; manufacturer: string; responsible: string; description: string; observations: string
 }
 
 const days = (s: string) => (s.trim() === '' ? null : Number(s))
@@ -48,7 +49,7 @@ export function saveTreatment(farmId: string, input: TreatmentInput, id?: string
   const body = {
     animalId: input.animalId, startDate: input.startDate, endDate: input.endDate || null, medicine: input.medicine.trim(),
     milkWithdrawalDays: days(input.milkWithdrawalDays), meatWithdrawalDays: days(input.meatWithdrawalDays),
-    batch: input.batch.trim() || null, manufacturer: input.manufacturer.trim() || null, description: input.description.trim() || null, observations: input.observations.trim() || null,
+    batch: input.batch.trim() || null, manufacturer: input.manufacturer.trim() || null, responsible: input.responsible.trim() || null, description: input.description.trim() || null, observations: input.observations.trim() || null,
   }
   if (id) {
     updateLocal({ table: 'treatments', farmId, id, path: `/api/veterinary-treatment/${id}`, body })

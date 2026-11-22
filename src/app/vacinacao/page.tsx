@@ -8,6 +8,7 @@ import { SortTh } from '@/components/SortTh'
 
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { removePendingRecord, type OfflineRecord } from '@/lib/offlineStorage'
+import { VACC_TARGETS, herdCategories, targetAnimals, type VaccTarget } from '@/lib/vaccinationGroups'
 import { cachedGet, isPendingId, pendingIdOf, pendingItemId, pendingOf, sendOrQueue, updatePending, withPending, type PendingRequest, type QueuedRequest } from '@/lib/offlineData'
 import { useOfflineModule } from '@/lib/useOffline'
 import { loadHerd } from '@/lib/herdCache'
@@ -18,7 +19,7 @@ import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 import { useLocale, useT } from '@/lib/i18n'
 import { StatTile } from '@/components/StatTile'
 
-interface Animal { id: string; name: string; code: string }
+interface Animal { id: string; name: string; code: string; species?: string; status?: string | null; lotId?: string | null }
 
 interface Vaccination {
   id: string
@@ -29,6 +30,7 @@ interface Vaccination {
   appliedDate?: string | null
   batch?: string | null
   manufacturer?: string | null
+  appliedBy?: string | null
   observations?: string | null
 }
 
@@ -48,7 +50,7 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 const MODULE = 'vacinacao'
-const EMPTY_FORM = { animalId: '', vaccineName: '', scheduledDate: todayISO(), appliedDate: '', batch: '', manufacturer: '', observations: '' }
+const EMPTY_FORM = { animalId: '', vaccineName: '', scheduledDate: todayISO(), appliedDate: '', batch: '', manufacturer: '', appliedBy: '', observations: '' }
 
 /** Vacinação guardada sem internet, como aparece na lista. Registros antigos da fila têm os campos soltos, sem _body. */
 function pendingVaccination(p: PendingRequest, animals: Animal[]): Vaccination | null {
@@ -85,6 +87,11 @@ export default function VacinacaoPage() {
   const [quick, setQuick] = useQuickFilter(['pendentes'] as const)
   const [detail, setDetail] = useState<Vaccination | null>(null)
   const [showRegister, setShowRegister] = useState(false)
+  // Aplicar em: um animal, o rebanho inteiro, uma categoria ou um lote
+  const [target, setTarget] = useState<VaccTarget>('animal')
+  const [targetCategory, setTargetCategory] = useState('')
+  const [targetLot, setTargetLot] = useState('')
+  const [lots, setLots] = useState<{ id: string; name: string; endDate: string | null }[] | null>(null)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
 
@@ -156,7 +163,7 @@ export default function VacinacaoPage() {
       updatePending(MODULE, pendingIdOf(v.id), p => (p._body ? { ...p, _body: { ...(p._body as object), appliedDate: today } } : { ...p, appliedDate: today }))
       return afterChange(true)
     }
-    const body = { animalId: v.animalId, vaccineName: v.vaccineName, scheduledDate: v.scheduledDate, appliedDate: today, batch: v.batch ?? null, manufacturer: v.manufacturer ?? null, observations: v.observations ?? null }
+    const body = { animalId: v.animalId, vaccineName: v.vaccineName, scheduledDate: v.scheduledDate, appliedDate: today, batch: v.batch ?? null, manufacturer: v.manufacturer ?? null, appliedBy: v.appliedBy ?? null, observations: v.observations ?? null }
     const r = await sendOrQueue(MODULE, { type: 'update', id: v.id, url: `/api/vacinacao/${v.id}`, method: 'PUT', body, local: { farmId } })
     if (r.status === 'rejected') setNotice(t(r.error))
     else afterChange(r.status === 'queued')
@@ -166,13 +173,18 @@ export default function VacinacaoPage() {
     e.preventDefault()
     setSaving(true)
     setSaveError('')
-    const body = { ...form, appliedDate: form.appliedDate || null, batch: form.batch || null, manufacturer: form.manufacturer || null, observations: form.observations || null, farmId }
+    const base = { ...form, appliedDate: form.appliedDate || null, batch: form.batch || null, manufacturer: form.manufacturer || null, appliedBy: form.appliedBy || null, observations: form.observations || null, farmId }
+    const many = target === 'animal' ? null : targetAnimals(animals.map(a => ({ ...a, species: a.species ?? '' })), target, { category: targetCategory, lotId: targetLot })
+    if (many && !many.length) { setSaving(false); return setSaveError(t('Nenhum animal vivo nesse grupo.')) }
     const animal = animals.find(a => a.id === form.animalId)
-    const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/vacinacao', method: 'POST', body, local: { farmId, animal } })
+    const body = many ? { ...base, animalId: undefined, animalIds: many.map(a => a.id) } : base
+    const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/vacinacao', method: 'POST', body, local: { farmId, animal: many ? { id: '', name: t('{n} animais', { n: many.length }), code: '' } : animal } })
     setSaving(false)
     if (r.status === 'rejected') return setSaveError(t(r.error))
     setShowRegister(false)
     setForm(EMPTY_FORM)
+    setTarget('animal')
+    if (many && r.status !== 'queued') setNotice(t('Vacina registrada para {n} animais.', { n: many.length }))
     afterChange(r.status === 'queued')
   }
 
@@ -305,6 +317,7 @@ export default function VacinacaoPage() {
                 <div><p className="text-xs text-gray-500">{t('Aplicado')}</p><p className="font-medium text-gray-800">{detail.appliedDate ? fmt(detail.appliedDate) : '—'}</p></div>
                 {detail.manufacturer && <div><p className="text-xs text-gray-500">{t('Fabricante')}</p><p className="text-gray-700">{detail.manufacturer}</p></div>}
                 {detail.batch && <div><p className="text-xs text-gray-500">{t('Lote')}</p><p className="text-gray-700">{detail.batch}</p></div>}
+                {detail.appliedBy && <div><p className="text-xs text-gray-500">{t('Aplicado por')}</p><p className="text-gray-700">{detail.appliedBy}</p></div>}
                 {detail.observations && <div className="sm:col-span-2"><p className="text-xs text-gray-500">{t('Observações')}</p><p className="text-gray-700">{detail.observations}</p></div>}
               </div>
 
@@ -333,7 +346,39 @@ export default function VacinacaoPage() {
                 <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
               </div>
               <form onSubmit={handleSave} className="flex flex-col gap-3">
-                <AnimalPicker animals={animals} value={form.animalId} onChange={id => setForm({ ...form, animalId: id })} label="Animal" />
+                <div>
+                  <span className="text-xs font-medium text-gray-600">{t('Aplicar em')}</span>
+                  <div className="mt-1 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                    {VACC_TARGETS.map(o => (
+                      <button key={o.key} type="button" aria-pressed={target === o.key}
+                        onClick={() => { setTarget(o.key); if (o.key === 'lote' && lots === null) fetch('/api/lotes').then(r => (r.ok ? r.json() : [])).then(l => setLots(Array.isArray(l) ? l : [])).catch(() => setLots([])) }}
+                        className={`rounded-lg border px-2 py-2 text-sm font-semibold ${target === o.key ? 'border-green-700 bg-green-700 text-white' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}>
+                        {t(o.label)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {target === 'animal' && <AnimalPicker animals={animals} value={form.animalId} onChange={id => setForm({ ...form, animalId: id })} label="Animal" />}
+                {target === 'categoria' && (
+                  <label className="text-xs font-medium text-gray-600">{t('Categoria')} *
+                    <select required value={targetCategory} onChange={e => setTargetCategory(e.target.value)} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                      <option value="">{t('Escolha')}</option>
+                      {herdCategories(animals.map(a => ({ ...a, species: a.species ?? '' }))).map(c => <option key={c.species} value={c.species}>{t(c.species)} ({c.n})</option>)}
+                    </select>
+                  </label>
+                )}
+                {target === 'lote' && (
+                  <label className="text-xs font-medium text-gray-600">{t('Lote de recria ou engorda')} *
+                    <select required value={targetLot} onChange={e => setTargetLot(e.target.value)} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                      <option value="">{lots === null ? t('Carregando…') : lots.length ? t('Escolha') : t('Nenhum lote')}</option>
+                      {(lots ?? []).filter(l => !l.endDate).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </select>
+                  </label>
+                )}
+                {target !== 'animal' && (() => {
+                  const n = targetAnimals(animals.map(a => ({ ...a, species: a.species ?? '' })), target, { category: targetCategory, lotId: targetLot }).length
+                  return <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-900">{n === 1 ? t('1 animal vai receber a vacina.') : t('{n} animais vão receber a vacina.', { n })}</p>
+                })()}
                 <div>
                   <label className="text-xs font-medium text-gray-600">{t('Vacina')} *</label>
                   <input type="text" value={form.vaccineName} onChange={e => setForm({ ...form, vaccineName: e.target.value })} required placeholder={t('Ex: Febre Aftosa')}
@@ -362,6 +407,11 @@ export default function VacinacaoPage() {
                     <input type="text" value={form.batch} onChange={e => setForm({ ...form, batch: e.target.value })}
                       className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                   </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600">{t('Aplicado por')}</label>
+                  <input type="text" value={form.appliedBy} onChange={e => setForm({ ...form, appliedBy: e.target.value })} placeholder={t('Quem aplicou a vacina')}
+                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600">{t('Observações')}</label>

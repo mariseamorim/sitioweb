@@ -13,19 +13,7 @@ export type StatusAnimal = 'Vivo' | 'Morto' | 'Vendido' | 'Doente' | 'Arrendado'
 
 export type MotivoBaixa = 'Morto' | 'Vendido' | 'Consumo Próprio' | 'Sem Alteração' | 'Aguardando' | '';
 
-export type Especie =
-  | 'Vaca'
-  | 'Boi'
-  | 'Boi de engorda'
-  | 'Touro'
-  | 'Cavalo'
-  | 'Porco'
-  | 'Cachorro'
-  | 'Galinha'
-  | 'Galo'
-  | 'Pato'
-  | 'Bezerro'
-  | 'Bezerra';
+export type Especie = string;
 
 export interface Animal {
   id: string;
@@ -42,10 +30,18 @@ export interface Animal {
   foto: string; // base64
 }
 
-export const ESPECIES: Especie[] = [
-  'Vaca', 'Boi de engorda', 'Touro', 'Cavalo', 'Porco',
-  'Cachorro', 'Galinha', 'Galo', 'Pato', 'Bezerro', 'Bezerra',
-];
+/** Espécies do cadastro, por grupo (a mesma lista em mobile/src/repos/animals.ts). Bovinos mudam de categoria pela idade. */
+export const ESPECIE_GRUPOS: { label: string; species: string[] }[] = [
+  { label: 'Bovinos', species: ['Vaca', 'Novilha', 'Bezerra', 'Touro', 'Garrote', 'Bezerro', 'Boi', 'Boi de engorda'] },
+  { label: 'Búfalos', species: ['Búfala', 'Búfalo'] },
+  { label: 'Equinos', species: ['Cavalo', 'Égua', 'Potro', 'Mula', 'Burro'] },
+  { label: 'Ovinos e caprinos', species: ['Ovelha', 'Carneiro', 'Cabra', 'Bode'] },
+  { label: 'Suínos', species: ['Porco', 'Porca'] },
+  { label: 'Aves', species: ['Galinha', 'Galo', 'Pato', 'Peru'] },
+  { label: 'Outros', species: ['Cachorro', 'Outro'] },
+]
+
+export const ESPECIES: Especie[] = ESPECIE_GRUPOS.flatMap((g) => g.species);
 
 export const STATUS_LIST: StatusAnimal[] = ['Vivo', 'Morto', 'Vendido', 'Doente', 'Arrendado'];
 

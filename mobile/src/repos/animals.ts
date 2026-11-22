@@ -24,7 +24,17 @@ export interface Animal {
   hasPhoto?: number
 }
 
-export const SPECIES = ['Vaca', 'Boi', 'Boi de engorda', 'Touro', 'Bezerro', 'Bezerra', 'Cavalo', 'Égua', 'Cabra', 'Bode', 'Ovelha', 'Carneiro', 'Porco', 'Porca', 'Outro']
+/** Espécies do cadastro, por grupo (a mesma lista em src/lib/types.ts do site). Bovinos mudam de categoria pela idade. */
+export const SPECIES_GROUPS: { label: string; species: string[] }[] = [
+  { label: 'Bovinos', species: ['Vaca', 'Novilha', 'Bezerra', 'Touro', 'Garrote', 'Bezerro', 'Boi', 'Boi de engorda'] },
+  { label: 'Búfalos', species: ['Búfala', 'Búfalo'] },
+  { label: 'Equinos', species: ['Cavalo', 'Égua', 'Potro', 'Mula', 'Burro'] },
+  { label: 'Ovinos e caprinos', species: ['Ovelha', 'Carneiro', 'Cabra', 'Bode'] },
+  { label: 'Suínos', species: ['Porco', 'Porca'] },
+  { label: 'Aves', species: ['Galinha', 'Galo', 'Pato', 'Peru'] },
+  { label: 'Outros', species: ['Cachorro', 'Outro'] },
+]
+export const SPECIES = SPECIES_GROUPS.flatMap(g => g.species)
 export const STATUSES = ['Vivo', 'Doente', 'Vendido', 'Morto']
 /** Cor do selo da situação do animal (só aparência) */
 export const statusTone = (s: string): 'green' | 'amber' | 'blue' | 'red' | 'muted' =>

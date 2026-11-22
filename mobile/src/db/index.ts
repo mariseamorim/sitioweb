@@ -22,11 +22,11 @@ export const TABLES = {
     list: '/api/milk-production', module: 'leite',
   },
   vaccinations: {
-    columns: ['animalId', 'vaccineName', 'scheduledDate', 'appliedDate', 'batch', 'manufacturer', 'observations', 'createdAt', 'updatedAt'],
+    columns: ['animalId', 'vaccineName', 'scheduledDate', 'appliedDate', 'appliedBy', 'batch', 'manufacturer', 'observations', 'createdAt', 'updatedAt'],
     list: '/api/vacinacao', module: 'vacinacao',
   },
   treatments: {
-    columns: ['animalId', 'startDate', 'endDate', 'medicine', 'milkWithdrawalDays', 'meatWithdrawalDays', 'batch', 'manufacturer', 'description', 'observations', 'createdAt', 'updatedAt'],
+    columns: ['animalId', 'startDate', 'endDate', 'medicine', 'milkWithdrawalDays', 'meatWithdrawalDays', 'batch', 'manufacturer', 'responsible', 'description', 'observations', 'createdAt', 'updatedAt'],
     list: '/api/veterinary-treatment', module: 'veterinario',
   },
   transactions: {
@@ -42,7 +42,7 @@ export const TABLES = {
     list: null, module: 'estoque',
   },
   reproductions: {
-    columns: ['femaleId', 'maleName', 'method', 'heatDate', 'semenBatch', 'bullRegistry', 'inseminator', 'coverageDate', 'expectedBirthDate', 'actualBirthDate', 'status', 'calfId', 'observations', 'createdAt', 'updatedAt'],
+    columns: ['femaleId', 'maleName', 'method', 'heatDate', 'semenBatch', 'bullRegistry', 'bullBreed', 'inseminator', 'coverageDate', 'expectedBirthDate', 'actualBirthDate', 'status', 'calfId', 'observations', 'createdAt', 'updatedAt'],
     list: '/api/reproducao', module: 'reproducao',
   },
   /** Lote de recria/engorda como o servidor devolve (plan, transactions, supplies, feedings, weighings e animals em JSON). */

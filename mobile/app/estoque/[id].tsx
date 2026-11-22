@@ -8,6 +8,7 @@ import { EXPIRY_WARNING_DAYS, STOCK_WARNING_DAYS, SUPPLY_CATEGORIES, UNITS, addM
 import { Badge, Button, Card, Chips, DateField, Field, IconCircle, Muted, Notice, Row, Screen, SelectField } from '@/ui'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
+import { suggestedAmount } from '@/lib/stockFinance'
 
 export default function EstoqueItem() {
   const { id, saved } = useLocalSearchParams<{ id: string; saved?: string }>()
@@ -115,11 +116,21 @@ function MovementForm({ farmId, supply, onDone }: { farmId: string; supply: Supp
   const [date, setDate] = useState(todayISO())
   const [description, setDescription] = useState('')
   const [error, setError] = useState('')
+  // Entrada (compra): pode lançar a despesa no financeiro junto
+  const { canAccess } = useSession()
+  const canFinance = canAccess('financeiro')
+  const [toFinance, setToFinance] = useState<'sim' | 'nao'>('nao')
+  const [amount, setAmount] = useState('')
+  const [paid, setPaid] = useState<'sim' | 'nao'>('nao')
   const t = useT()
+  const q = parseNumber(quantity)
+  const suggested = q !== null ? suggestedAmount(q, supply.unitPrice) : null
   function save() {
-    const q = parseNumber(quantity)
     if (q === null || !Number.isFinite(q) || q <= 0) { setError('Informe a quantidade'); return }
-    addMovement(farmId, supply, { type, quantity: q, date, description })
+    const wantsPurchase = type === 'Entrada' && canFinance && toFinance === 'sim'
+    const value = parseNumber(amount) ?? suggested
+    if (wantsPurchase && (!value || value <= 0)) { setError('Informe o valor da compra'); return }
+    addMovement(farmId, supply, { type, quantity: q, date, description, purchase: wantsPurchase && value ? { amount: value, paid: paid === 'sim' } : null })
     onDone()
   }
   return (
@@ -130,6 +141,19 @@ function MovementForm({ farmId, supply, onDone }: { farmId: string; supply: Supp
       <Field label={`${t('Quantidade')} (${t(supply.unit)})`} value={quantity} onChangeText={setQuantity} keyboardType="decimal-pad" autoFocus />
       <DateField label="Data" value={date} onChange={setDate} />
       <Field label="Descrição (opcional)" value={description} onChangeText={setDescription} placeholder="Ex.: trato das vacas em lactação" />
+      {type === 'Entrada' && canFinance ? (
+        <Card>
+          <Text style={{ fontWeight: '700', color: colors.text, marginBottom: space.xs }}>{t('Lançar a compra no financeiro?')}</Text>
+          <Chips options={[{ value: 'nao', label: 'Não' }, { value: 'sim', label: 'Sim, lançar a despesa' }]} value={toFinance} onChange={setToFinance} />
+          {toFinance === 'sim' ? (
+            <>
+              <Field label="Valor da compra (R$)" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder={suggested ? brNumber(suggested, 2) : 'Ex.: 850,00'} hint={suggested ? 'Vazio: usa quantidade × preço do produto' : undefined} />
+              <Chips options={[{ value: 'nao', label: 'A pagar' }, { value: 'sim', label: 'Já pago' }]} value={paid} onChange={setPaid} />
+              <Muted>{t('A despesa aparece no Financeiro depois do envio ao servidor.')}</Muted>
+            </>
+          ) : null}
+        </Card>
+      ) : null}
       {error ? <Notice tone="red" text={error} /> : null}
       <Button label="Salvar" onPress={save} />
       <Button label="Cancelar" variant="ghost" onPress={onDone} style={{ marginTop: space.sm }} />

@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Alert, Text, View } from 'react-native'
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { brDate, brMoney, brNumber, todayISO } from '@/lib/format'
@@ -34,6 +34,7 @@ export default function LoteScreen() {
   const today = todayISO()
   const lot = useLive(() => getLot(id), [id])
   const [editingLot, setEditingLot] = useState(false)
+  const [tab, setTab] = useState<LotTab>(focus === 'pesar' ? 'pesagens' : focus === 'animais' ? 'animais' : 'resumo')
   const t = useT()
   const [error, setError] = useState('')
 
@@ -60,7 +61,6 @@ export default function LoteScreen() {
     ])
   }
 
-  const weighingForm = canEdit && open ? <WeighingForm {...props} autoFocus={focus === 'pesar'} /> : null
 
   return (
     <Screen>
@@ -74,34 +74,84 @@ export default function LoteScreen() {
           <Badge label={lot.endDate ? 'Encerrado' : phaseLabel(lot.phase)} tone={lot.endDate ? 'muted' : isRecria ? 'blue' : 'amber'} />
         </View>
         {lot.notes ? <Text style={{ marginTop: space.sm, color: colors.text }}>{lot.notes}</Text> : null}
-        {canEdit ? (editingLot
-          ? <LotEditForm lot={lot} farmId={farmId} onDone={() => setEditingLot(false)} />
-          : <TextButton label="Editar lote (nome, fase, entrada, plano, compra)" onPress={() => setEditingLot(true)} />) : null}
+        {/* Ações principais sempre à vista */}
+        {canEdit && !editingLot ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.md }}>
+            {open ? <Button label="Pesar" icon="scale-outline" onPress={() => setTab('pesagens')} style={{ flexGrow: 1 }} /> : null}
+            {open && lot.supplies.length > 0 ? <Button label="Dar trato" icon="leaf-outline" variant="accent" onPress={() => setTab('trato')} style={{ flexGrow: 1 }} /> : null}
+            <Button label="Editar lote" icon="create-outline" variant="secondary" onPress={() => setEditingLot(true)} style={{ flexGrow: 1 }} />
+          </View>
+        ) : null}
+        {canEdit && editingLot ? <LotEditForm lot={lot} farmId={farmId} onDone={() => setEditingLot(false)} /> : null}
       </Card>
 
-      <LotPerformance lot={lot} today={today} />
-      <Muted style={{ marginTop: space.sm }}>
-        {hasAnimals ? lot.animals.length : s.last?.headCount ?? 0} {t('cabeças')} · {plural(s.days, 'dia', 'dias')} {t('no lote')}
-        {arrobas !== null ? ` · ${t('arrobas estimadas pelo peso vivo ({kg} kg = 1 @, rendimento de 50%)', { kg: LIVE_KG_PER_ARROBA })}` : ''}
-      </Muted>
-
-      {focus === 'pesar' ? weighingForm : null}
-
-      <TargetSection {...props} />
-
-      {isRecria && females.length > 0 ? <ReproductionSection females={females} today={today} canBreed={canEdit && open && canAccess('reproducao')} /> : null}
-
-      {focus !== 'pesar' ? weighingForm : null}
-
-      <AnimalsSection {...props} startAdding={focus === 'animais'} />
-      <ProductsSection {...props} />
-      {lot.supplies.length > 0 ? <FeedingSection {...props} /> : null}
-      <WeighingHistory {...props} />
+      <LotTabs value={tab} onChange={setTab} animalsLabel={isRecria && females.length ? 'Animais e reprodução' : 'Animais'} />
 
       {error ? <View style={{ marginTop: space.md }}><Notice tone="red" text={error} /></View> : null}
 
-      {canEdit ? <LotFooter lot={lot} today={today} onClose={closeLot} onReopen={() => patchLot(farmId, lot, { endDate: null })} onRemove={remove} /> : null}
+      {tab === 'resumo' ? (
+        <>
+          <View style={{ marginTop: space.md }}>
+            <StatGrid items={[
+              { title: t('Cabeças'), value: String(hasAnimals ? lot.animals.length : s.last?.headCount ?? 0) },
+              { title: t('Peso atual'), value: s.last ? kg(s.last.avgWeight) : '—' },
+              { title: t('Ganho por dia'), value: s.gmd !== null ? `${brNumber(s.gmd, 3)} kg` : '—', tone: 'green' },
+              { title: t('Ganho por cabeça'), value: s.gainKg !== null ? kg(s.gainKg) : '—' },
+              ...(isRecria ? [] : [{ title: t('@ produzidas'), value: arrobas !== null ? brNumber(arrobas, 1) : '—', tone: 'amber' as const }]),
+              { title: t('Dias no lote'), value: String(s.days) },
+            ]} />
+          </View>
+          <Muted style={{ marginTop: space.sm }}>
+            {s.entry ? t('entrou com {weight}', { weight: kg(s.entry.avgWeight) }) : ''}
+            {arrobas !== null ? ` · ${t('arrobas estimadas pelo peso vivo ({kg} kg = 1 @, rendimento de 50%)', { kg: LIVE_KG_PER_ARROBA })}` : ''}
+          </Muted>
+          <TargetSection {...props} />
+          {canEdit ? <LotFooter lot={lot} today={today} onClose={closeLot} onReopen={() => patchLot(farmId, lot, { endDate: null })} onRemove={remove} /> : null}
+        </>
+      ) : null}
+
+      {tab === 'pesagens' ? (
+        <>
+          {canEdit && open ? <WeighingForm {...props} autoFocus={focus === 'pesar'} /> : null}
+          <WeighingHistory {...props} />
+        </>
+      ) : null}
+
+      {tab === 'animais' ? (
+        <>
+          <AnimalsSection {...props} startAdding={focus === 'animais'} />
+          {isRecria && females.length > 0 ? <ReproductionSection females={females} today={today} canBreed={canEdit && open && canAccess('reproducao')} /> : null}
+        </>
+      ) : null}
+
+      {tab === 'trato' ? (
+        <>
+          <ProductsSection {...props} />
+          {lot.supplies.length > 0 ? <FeedingSection {...props} /> : null}
+        </>
+      ) : null}
+
+      {tab === 'desempenho' ? <LotPerformance lot={lot} today={today} /> : null}
     </Screen>
+  )
+}
+
+// ── Abas da ficha: cada assunto numa tela, em vez de tudo numa coluna só ──
+
+type LotTab = 'resumo' | 'pesagens' | 'animais' | 'trato' | 'desempenho'
+
+function LotTabs({ value, onChange, animalsLabel }: { value: LotTab; onChange: (tab: LotTab) => void; animalsLabel: string }) {
+  const t = useT()
+  const tabs: [LotTab, string][] = [['resumo', 'Resumo'], ['pesagens', 'Pesagens'], ['animais', animalsLabel], ['trato', 'Trato e produtos'], ['desempenho', 'Desempenho']]
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: space.md, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+      {tabs.map(([key, label]) => (
+        <Pressable key={key} onPress={() => onChange(key)} accessibilityRole="tab" accessibilityState={{ selected: value === key }}
+          style={{ paddingHorizontal: space.md, paddingVertical: space.sm + 2, borderBottomWidth: 3, borderBottomColor: value === key ? colors.green : 'transparent', minHeight: 44, justifyContent: 'center' }}>
+          <Text style={{ fontWeight: '700', fontSize: font.sm, color: value === key ? colors.green : colors.muted }}>{t(label)}</Text>
+        </Pressable>
+      ))}
+    </ScrollView>
   )
 }
 
@@ -407,7 +457,8 @@ function AnimalsSection({ lot, farmId, canEdit, startAdding }: SectionProps & { 
 
   if (!hasAnimals && !canEdit) return null
   return (
-    <Section title="Animais do lote" right={canEdit && open && adding === null ? <TextButton label="+ Animais" onPress={() => setAdding([])} /> : undefined}>
+    <Section title="Animais do lote">
+      {canEdit && open && adding === null ? <Button label="Pôr animais no lote" icon="add" variant="secondary" onPress={() => setAdding([])} style={{ marginBottom: space.sm }} /> : null}
       {adding !== null ? (
         <Card>
           <AnimalPicker herd={herd} lotNames={lotNames} exclude={lot.animals.map(a => a.id)} selected={adding} onChange={setAdding} />
@@ -472,20 +523,26 @@ function ProductsSection({ lot, farmId, canEdit, today, fail }: SectionProps) {
           </View>
         </View>
       ) : (
-        <Card>
-          {lot.supplies.length === 0 ? <Muted>{t('Nenhum produto ligado a este lote.')}</Muted> : lines.map(p => (
-            <View key={p.id} style={{ marginBottom: space.sm }}>
-              <Text style={{ color: colors.text }}><Text style={{ fontWeight: '700' }}>{p.supply.name}</Text>{p.percent ? ` ${t('a {n}% do peso vivo', { n: brNumber(p.percent, 2) })}` : ''}</Text>
-              {p.perDay ? (
-                <Text style={{ color: colors.muted, fontSize: font.sm }}>
-                  {t('{kg} por dia para o lote', { kg: kg(p.perDay) })}{p.perHead !== null ? ` (${t('{g} g por cabeça', { g: brNumber(p.perHead, 0) })})` : ''}.
-                  {p.days !== null ? <Text style={p.days <= STOCK_WARNING_DAYS ? { fontWeight: '700', color: colors.amber } : undefined}> {t('O estoque dá para {days}.', { days: plural(p.days, 'dia', 'dias') })}</Text> : null}
-                </Text>
-              ) : <Muted>{t('Informe o consumo em % do peso vivo para calcular quanto o lote come.')}</Muted>}
-            </View>
-          ))}
-          {canEdit ? <TextButton label={lot.supplies.length ? 'Alterar produtos' : 'Ligar produtos'} onPress={() => setEditing(productsFromLot(lot))} /> : null}
-        </Card>
+        <View style={{ gap: space.sm }}>
+          {lot.supplies.length === 0 ? <Card><Muted>{t('Nenhum produto ligado a este lote. Ligue a ração ou o sal do estoque para anotar o trato e saber em quantos dias acaba.')}</Muted></Card> : lines.map(p => {
+            const low = p.days !== null && p.days <= STOCK_WARNING_DAYS
+            return (
+              <Card key={p.id} style={low ? { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' } : undefined}>
+                <Text style={{ fontWeight: '700', fontSize: font.md, color: colors.text }}>{p.supply.name}</Text>
+                {p.percent ? <Muted>{t('a {n}% do peso vivo', { n: brNumber(p.percent, 2) })}</Muted> : null}
+                {p.perDay ? (
+                  <>
+                    <Text style={{ marginTop: 4, color: colors.text }}><Text style={{ fontWeight: '700' }}>{kg(p.perDay)}</Text> {t('por dia para o lote')}{p.perHead !== null ? ` · ${t('{g} g por cabeça', { g: brNumber(p.perHead, 0) })}` : ''}</Text>
+                    {p.days !== null
+                      ? <Text style={{ marginTop: 4, fontWeight: '700', color: low ? colors.amber : colors.green }}>{t('O estoque dá para {days}.', { days: plural(p.days, 'dia', 'dias') })}</Text>
+                      : <Muted>{t('Para saber em quantos dias acaba, o estoque precisa estar em kg ou em sacos com o peso do saco.')}</Muted>}
+                  </>
+                ) : <Muted>{t('Informe o consumo em % do peso vivo para calcular quanto o lote come.')}</Muted>}
+              </Card>
+            )
+          })}
+          {canEdit ? <Button label={lot.supplies.length ? 'Alterar produtos' : 'Ligar produtos'} icon={lot.supplies.length ? 'create-outline' : 'add'} variant="secondary" onPress={() => setEditing(productsFromLot(lot))} /> : null}
+        </View>
       )}
     </Section>
   )

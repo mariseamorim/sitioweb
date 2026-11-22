@@ -79,6 +79,7 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
         })}
       </View>
       <Field label={t('Touro')} value={form.maleName} onChangeText={v => set({ maleName: v })} placeholder={t('Nome ou código do touro')} />
+      <Field label={t('Raça do touro')} value={form.bullBreed} onChangeText={v => set({ bullBreed: v })} placeholder={t('Ex.: Gir, Holandesa')} />
       <DateField label={t('Data da cobertura *')} value={form.coverageDate} onChange={v => set({ coverageDate: v })} />
       {form.status === 'Prenha' && !form.coverageDate ? <Notice text={t('Se não souber o dia certo, coloque uma data aproximada: ela define a previsão do parto.')} /> : null}
       <SelectField label={t('Status')} value={form.status} options={statusOptions(t)} onChange={v => set({ status: v ?? 'Coberta' })} />
@@ -153,7 +154,7 @@ function DetailScreen({ id }: { id: string }) {
           </View>
           <Badge label={t(r.status)} tone={statusTone(r.status)} />
         </View>
-        {item('Touro', `${r.maleName || '—'}${r.bullRegistry ? ` · ${r.bullRegistry}` : ''}`)}
+        {item('Touro', `${r.maleName || '—'}${r.bullBreed ? ` · ${r.bullBreed}` : ''}${r.bullRegistry ? ` · ${r.bullRegistry}` : ''}`)}
         {r.method ? item('Como foi', `${methodLabel(r.method)}${r.semenBatch ? ` · ${t('partida')} ${r.semenBatch}` : ''}`) : null}
         {r.inseminator ? item('Inseminador', r.inseminator) : null}
         {r.heatDate ? item('Cio', brDate(r.heatDate)) : null}
@@ -197,7 +198,7 @@ function DetailScreen({ id }: { id: string }) {
 function RecordEditor({ farmId, record, onCancel, onSaved }: { farmId: string; record: Reproduction; onCancel: () => void; onSaved: () => void }) {
   const [form, setForm] = useState<CoverageForm & { expectedBirthDate: string }>({
     femaleId: record.femaleId, status: record.status, coverageDate: isoDay(record.coverageDate), expectedBirthDate: isoDay(record.expectedBirthDate),
-    heatDate: isoDay(record.heatDate), method: record.method ?? '', maleName: record.maleName ?? '', bullRegistry: record.bullRegistry ?? '',
+    heatDate: isoDay(record.heatDate), method: record.method ?? '', maleName: record.maleName ?? '', bullBreed: record.bullBreed ?? '', bullRegistry: record.bullRegistry ?? '',
     semenBatch: record.semenBatch ?? '', inseminator: record.inseminator ?? '', observations: record.observations ?? '',
   })
   const [error, setError] = useState('')
@@ -220,6 +221,7 @@ function RecordEditor({ farmId, record, onCancel, onSaved }: { farmId: string; r
       <SelectField label={t('Como foi')} value={form.method || null} onChange={v => set({ method: v ?? '' })} allowEmpty placeholder={t('Não informado')}
         options={COVERAGE_METHODS.map(m => ({ value: m.key, label: t(m.label), detail: t(m.hint) }))} />
       <Field label={t('Touro (nome)')} value={form.maleName} onChangeText={v => set({ maleName: v })} />
+      <Field label={t('Raça do touro')} value={form.bullBreed} onChangeText={v => set({ bullBreed: v })} />
       <Field label={t('Registro do touro')} value={form.bullRegistry} onChangeText={v => set({ bullRegistry: v })} />
       {isInsemination(form.method) || !form.method ? (
         <View>

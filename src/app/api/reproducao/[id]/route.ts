@@ -32,7 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if ('observations' in body) data.observations = observations || null
 
     if (maleName !== undefined) data.maleName = maleName || null
-    if (['method', 'heatDate', 'semenBatch', 'bullRegistry', 'inseminator'].some((k) => k in body)) Object.assign(data, coverageDetails(body))
+    if (['method', 'heatDate', 'semenBatch', 'bullRegistry', 'bullBreed', 'inseminator'].some((k) => k in body)) Object.assign(data, coverageDetails(body))
     if (coverageDate) {
       const coverage = new Date(coverageDate)
       data.coverageDate = coverage
