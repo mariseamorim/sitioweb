@@ -3,7 +3,11 @@ import { getSessionUser } from '@/lib/auth'
 import { hasSupport } from '@/lib/support'
 import { AjudaView } from './AjudaView'
 
-export const metadata: Metadata = { title: 'Ajuda e suporte — Anota Aí Agro' }
+export const metadata: Metadata = {
+  title: 'Ajuda e suporte',
+  description: 'Tire dúvidas sobre o Anota Aí Agro, acesse o manual do usuário ou fale com o suporte.',
+  alternates: { canonical: '/ajuda' },
+}
 
 // Aberta para todos: quem ainda não tem conta também fala com o suporte. O número fica no servidor;
 // a tela só sabe se há suporte configurado.

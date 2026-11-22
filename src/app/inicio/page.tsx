@@ -1,4 +1,4 @@
-﻿import type { Metadata } from 'next'
+import type { Metadata } from 'next'
 import Image from 'next/image'
 import { MilkDemo } from '@/components/MilkDemo'
 import Link from 'next/link'
@@ -8,7 +8,55 @@ import { ContactForm } from '@/components/ContactForm'
 import { AudienceSection, FaqSection, PlansSection } from './sections'
 import './landing.css'
 
-export const metadata: Metadata = { title: 'Anota Aí Leite — Anote o leite e confira os litros', description: 'Anote o leite do dia, acompanhe o histórico e confira a folha do motorista. Grátis, com anotações sem internet. Experimente sem cadastro.' }
+export const metadata: Metadata = {
+  title: 'Anota Aí Agro — Gestão Rural, Controle de Leite e Rebanho',
+  description:
+    'Anota Aí Agro e Anota Aí Leite: anote o leite do dia, organize o rebanho, controle vacinas, reprodução, financeiro e estoque de sítios e fazendas mesmo sem internet.',
+  alternates: { canonical: '/inicio' },
+  openGraph: {
+    type: 'website',
+    locale: 'pt_BR',
+    url: 'https://www.anotaaiagro.com.br/inicio',
+    siteName: 'Anota Aí Agro',
+    title: 'Anota Aí Agro — Gestão Rural, Controle de Leite e Rebanho',
+    description:
+      'Anote o leite do dia, confira a folha do motorista e gerencie rebanho, vacinas, financeiro e estoque mesmo sem internet.',
+    images: [{ url: '/rural-hero.png', width: 1200, height: 630, alt: 'Anota Aí Agro — Gestão Rural' }],
+  },
+}
+
+const JSON_LD = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      name: 'Anota Aí Agro',
+      url: 'https://www.anotaaiagro.com.br',
+      logo: 'https://www.anotaaiagro.com.br/anota-ai-agro-icon-512.png',
+      email: 'anotaaiagro@gmail.com',
+    },
+    {
+      '@type': 'WebSite',
+      name: 'Anota Aí Agro',
+      url: 'https://www.anotaaiagro.com.br',
+      inLanguage: 'pt-BR',
+    },
+    {
+      '@type': 'SoftwareApplication',
+      name: 'Anota Aí Agro',
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Android, Web',
+      url: 'https://www.anotaaiagro.com.br/inicio',
+      description:
+        'Aplicativo e sistema web para gestão rural de sítios e fazendas: produção de leite, rebanho, recria, engorda, reprodução, vacinas, financeiro e estoque offline.',
+      offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'BRL',
+      },
+    },
+  ],
+}
 const features = [
   { Icon: AnimalIcon, title: 'Rebanho organizado', text: 'Cada animal identificado, com foto, informações e registros em um só lugar.' },
   { Icon: LeiteIcon, title: 'Produção de leite', text: 'Lançamentos individuais ou em lote e acompanhamento por período.' },
@@ -19,6 +67,7 @@ const features = [
 ]
 export default function LandingPage() {
   return <main className="rural-landing" id="inicio">
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
     <a className="landing-skip" href="#experimentar">Pular para o conteúdo</a>
     <LandingHeader />
     <section className="landing-hero"><div className="landing-container hero-content">

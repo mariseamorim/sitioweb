@@ -3,7 +3,9 @@ import { Suspense } from 'react'
 import { ManualViewer } from './ManualViewer'
 
 export const metadata: Metadata = {
-  title: 'Manual do usuário ilustrado — Anota Aí Agro',
+  title: 'Manual do usuário ilustrado',
+  description: 'Passo a passo ilustrado de todas as telas e campos editáveis do Anota Aí Agro.',
+  alternates: { canonical: '/manual' },
 }
 
 // Rota oficial do Manual do Usuário Ilustrado (/manual) dentro do App Router do Next.js.
