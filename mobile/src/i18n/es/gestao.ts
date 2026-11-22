@@ -407,4 +407,9 @@ export const gestao: Record<string, string> = {
   'Pedidos abertos': 'Pedidos abiertos',
   'Estoque baixo': 'Inventario bajo',
   'Recusados': 'Rechazados',
+  'acaba em 1 dia': 'se acaba en 1 día',
+  'acaba em {n} dias': 'se acaba en {n} días',
+  'Os lotes de recria e engorda consomem {n} kg por dia.': 'Los lotes de recría y engorde consumen {n} kg por día.',
+  'No ritmo atual, o estoque acaba em 1 dia.': 'Al ritmo actual, el inventario se acaba en 1 día.',
+  'No ritmo atual, o estoque acaba em {n} dias.': 'Al ritmo actual, el inventario se acaba en {n} días.',
 }

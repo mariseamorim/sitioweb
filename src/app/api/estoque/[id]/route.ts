@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { normalizeUnit } from '@/lib/supplies'
 import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
 import { optionalDate } from '@/lib/utils'
@@ -30,7 +31,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       data: {
         name,
         category,
-        unit,
+        unit: normalizeUnit(unit),
         minimumQuantity: minimumQuantity !== undefined ? parseFloat(minimumQuantity) : undefined,
         unitPrice: optionalNumber(unitPrice),
         packageKg: optionalNumber(packageKg),

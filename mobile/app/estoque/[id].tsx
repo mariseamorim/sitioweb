@@ -4,7 +4,7 @@ import { Alert, Text, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { brDate, brMoney, brNumber, parseNumber, todayISO } from '@/lib/format'
-import { EXPIRY_WARNING_DAYS, SUPPLY_CATEGORIES, UNITS, addMovement, daysToExpiry, getSupply, isLow, listMovements, removeSupply, saveSupply, supplyStatus, type Supply } from '@/repos/supplies'
+import { EXPIRY_WARNING_DAYS, STOCK_WARNING_DAYS, SUPPLY_CATEGORIES, UNITS, addMovement, daysToExpiry, getSupply, isLow, listMovements, removeSupply, saveSupply, supplyStatus, type Supply } from '@/repos/supplies'
 import { Badge, Button, Card, Chips, DateField, Field, IconCircle, Muted, Notice, Row, Screen, SelectField } from '@/ui'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
@@ -40,6 +40,10 @@ export default function EstoqueItem() {
         </View>
         <Muted>{t('Mínimo:')} {brNumber(s.minimumQuantity, 0)} {t(s.unit)}</Muted>
         <ExpiryLine supply={s} />
+        {s.dailyUseKg ? (
+          <Notice tone={s.daysLeft != null && s.daysLeft <= STOCK_WARNING_DAYS ? 'amber' : 'green'}
+            text={`${t('Os lotes de recria e engorda consomem {n} kg por dia.', { n: brNumber(s.dailyUseKg, 1) })}${s.daysLeft != null ? ` ${s.daysLeft === 1 ? t('No ritmo atual, o estoque acaba em 1 dia.') : t('No ritmo atual, o estoque acaba em {n} dias.', { n: s.daysLeft })}` : ''}`} />
+        ) : null}
         {canEdit ? (
           <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md }}>
             <Button label="Entrada / saída" onPress={() => setMoving(true)} style={{ flex: 1 }} />
