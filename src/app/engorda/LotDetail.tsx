@@ -52,6 +52,7 @@ export function LotDetail({ lot, supplies, herd, lotNames, plans, canEdit, canBr
   const [weights, setWeights] = useState<Record<string, string>>({})
   const [adding, setAdding] = useState<string[] | null>(focus === 'animais' ? [] : null)
   const [editingLot, setEditingLot] = useState(false)
+  const [tab, setTab] = useState<LotTab>(focus === 'pesar' ? 'pesagens' : focus === 'animais' ? 'animais' : 'resumo')
   const [editingProducts, setEditingProducts] = useState<ProductForm[] | null>(null)
   const [target, setTarget] = useState(toField(lot.targetWeight))
   const [endDate, setEndDate] = useState(today)
@@ -127,195 +128,236 @@ export function LotDetail({ lot, supplies, herd, lotNames, plans, canEdit, canBr
     }
   }
 
+  const open = !lot.endDate
+  const tabs: [LotTab, string][] = [
+    ['resumo', t('Resumo')],
+    ['pesagens', t('Pesagens')],
+    ['animais', t(isRecria && females.length ? 'Animais e reprodução' : 'Animais')],
+    ['trato', t('Trato e produtos')],
+    ['desempenho', t('Desempenho')],
+  ]
+  const actionBtn = 'inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold'
+  const outlineBtn = `${actionBtn} border-2 border-green-700 text-green-800 hover:bg-green-50`
+
   return (
     <Modal title={lot.name} subtitle={`${t(phaseLabel(lot.phase))} · ${t('entrada em {date}', { date: fmtDate(lot.startDate) })}${lot.endDate ? ` · ${t('saiu em {date}', { date: fmtDate(lot.endDate) })}` : ''}`} onClose={onClose}>
-      {canEdit && (editingLot
-        ? <LotEditForm lot={lot} plans={plans} busy={busy} run={run} onDone={() => setEditingLot(false)} onTarget={setTarget} />
-        : <button type="button" onClick={() => setEditingLot(true)} className="-mt-2 mb-3 text-sm font-semibold text-green-700 hover:underline">{t('Editar lote (nome, fase, data de entrada, plano, valor de compra)')}</button>)}
-
-      <div className={`grid grid-cols-2 gap-2 ${isRecria ? 'sm:grid-cols-4' : 'sm:grid-cols-5 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1'}`}>
-        {[
-          [t('Entrada'), s.entry ? kg(s.entry.avgWeight) : '—'],
-          [t('Última pesagem'), s.last ? kg(s.last.avgWeight) : '—'],
-          [t('Ganho por cabeça'), s.gainKg !== null ? kg(s.gainKg) : '—'],
-          [t('Ganho por dia'), s.gmd !== null ? `${fmtNumber(s.gmd, 3)} kg` : '—'],
-          ...(isRecria ? [] : [[t('@ produzidas'), arrobas !== null ? fmtNumber(arrobas) : '—']]),
-        ].map(([title, value]) => (
-          <div key={title} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-            <p className="text-xs text-gray-500">{title}</p>
-            <p className="text-lg font-bold text-gray-800">{value}</p>
-          </div>
-        ))}
-      </div>
-      <p className="mt-2 text-sm text-gray-600">
-        {t('{n} cabeças', { n: hasAnimals ? lot.animals.length : s.last?.headCount ?? 0 })} · {s.days === 1 ? t('1 dia no lote') : t('{n} dias no lote', { n: s.days })}
-        {arrobas !== null && <span className="text-gray-500"> · {t('arrobas estimadas pelo peso vivo ({kg} kg = 1 @, rendimento de 50%)', { kg: LIVE_KG_PER_ARROBA })}</span>}
-      </p>
-
-      {/* Desempenho: plano, ganho por animal e do lote, evolução do peso e despesas */}
-      <LotPerformance lot={lot} today={today} />
-
-      {/* Peso-alvo: na engorda é a saída para o abate; na recria, o peso para ir para a reprodução ou a engorda */}
-      <section className="mt-5">
-        <h3 className="mb-2 text-sm font-semibold text-gray-700">{t(isRecria ? 'Peso-alvo da recria' : 'Previsão de saída para o abate')}</h3>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="text-sm font-medium text-gray-700">{t(isRecria ? 'Peso desejado por cabeça (kg)' : 'Peso de saída desejado (kg)')}
-            <input inputMode="decimal" value={target} onChange={(e) => setTarget(decimal(e.target.value))} placeholder={t(isRecria ? 'Ex.: 320' : 'Ex.: 540')} disabled={!canEdit} className={`${input} w-40`} />
-          </label>
-          {canEdit && target !== toField(lot.targetWeight) && (
-            <button type="button" onClick={saveTarget} disabled={busy} className="rounded-xl bg-green-700 px-4 py-2.5 font-semibold text-white disabled:bg-gray-300">{t('Salvar')}</button>
-          )}
+      {/* Ações principais sempre à vista */}
+      {canEdit && !editingLot && (
+        <div className="-mt-1 mb-4 flex flex-wrap gap-2">
+          {open && <button type="button" onClick={() => setTab('pesagens')} className={`${actionBtn} bg-green-700 text-white hover:bg-green-600`}>⚖️ {t('Pesar')}</button>}
+          {open && lot.supplies.length > 0 && <button type="button" onClick={() => setTab('trato')} className={`${actionBtn} bg-amber-600 text-white hover:bg-amber-500`}>🌾 {t('Dar trato')}</button>}
+          <button type="button" onClick={() => setEditingLot(true)} className={outlineBtn}>✏️ {t('Editar lote')}</button>
         </div>
-        {lot.targetWeight && s.last && (
-          s.last.avgWeight >= lot.targetWeight
-            ? <p className="mt-2 rounded-lg bg-green-50 p-3 text-sm font-semibold text-green-800">{t('O lote já chegou ao peso desejado ({weight}).', { weight: kg(s.last.avgWeight) })}</p>
-            : projection
-              ? <div className="mt-3 grid grid-cols-3 gap-2">
-                  {[[t('Faltam'), kg(projection.remainingKg)], [t('Dias restantes'), String(projection.days)], [t(isRecria ? 'Chega em' : 'Previsão de saída'), fmtDate(projection.date)]].map(([title, value]) => (
-                    <div key={title} className="rounded-lg border border-amber-100 bg-amber-50 p-3"><p className="text-xs text-amber-900">{title}</p><p className="whitespace-nowrap text-base font-bold text-amber-900 sm:text-lg">{value}</p></div>
-                  ))}
-                </div>
-              : <p className="mt-2 text-sm text-gray-500">{t('Faça mais uma pesagem para o app calcular o ganho por dia e prever quando chega.')}</p>
-        )}
-        {lot.weighings.length > 0 && <div className="mt-3"><ProjectionChart weighings={lot.weighings} projection={projection} target={lot.targetWeight} /></div>}
-      </section>
+      )}
+      {canEdit && editingLot && <LotEditForm lot={lot} plans={plans} busy={busy} run={run} onDone={() => setEditingLot(false)} onTarget={setTarget} />}
 
-      {/* Recria: cio e cobertura das novilhas */}
-      {isRecria && females.length > 0 && (
-        <ReproductionSection females={females} today={today} canEdit={canBreed && !lot.endDate} onSaved={onReload} />
+      {/* Abas: cada assunto numa tela, em vez de tudo numa coluna só */}
+      <nav className="-mx-1 mb-4 flex gap-1 overflow-x-auto border-b border-gray-200 px-1" aria-label={t('Seções do lote')}>
+        {tabs.map(([key, title]) => (
+          <button key={key} type="button" onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined}
+            className={`shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold ${tab === key ? 'border-green-700 text-green-800' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+            {title}
+          </button>
+        ))}
+      </nav>
+
+      {error && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {notice && <p role="status" className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{notice}</p>}
+
+      {tab === 'resumo' && (
+        <>
+          <div className={`grid grid-cols-2 gap-2 ${isRecria ? 'sm:grid-cols-4' : 'sm:grid-cols-5 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1'}`}>
+            {[
+              [t('Cabeças'), String(hasAnimals ? lot.animals.length : s.last?.headCount ?? 0)],
+              [t('Peso atual'), s.last ? kg(s.last.avgWeight) : '—'],
+              [t('Ganho por cabeça'), s.gainKg !== null ? kg(s.gainKg) : '—'],
+              [t('Ganho por dia'), s.gmd !== null ? `${fmtNumber(s.gmd, 3)} kg` : '—'],
+              ...(isRecria ? [] : [[t('@ produzidas'), arrobas !== null ? fmtNumber(arrobas) : '—']]),
+            ].map(([title, value]) => (
+              <div key={title} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                <p className="text-xs text-gray-500">{title}</p>
+                <p className="text-lg font-bold text-gray-800">{value}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-sm text-gray-600">
+            {s.days === 1 ? t('1 dia no lote') : t('{n} dias no lote', { n: s.days })}{s.entry ? ` · ${t('entrou com {weight}', { weight: kg(s.entry.avgWeight) })}` : ''}
+            {arrobas !== null && <span className="text-gray-500"> · {t('arrobas estimadas pelo peso vivo ({kg} kg = 1 @, rendimento de 50%)', { kg: LIVE_KG_PER_ARROBA })}</span>}
+          </p>
+
+          {/* Peso-alvo: na engorda é a saída para o abate; na recria, o peso para ir para a reprodução ou a engorda */}
+          <section className="mt-5">
+            <h3 className="mb-2 text-sm font-semibold text-gray-700">{t(isRecria ? 'Peso-alvo da recria' : 'Previsão de saída para o abate')}</h3>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="text-sm font-medium text-gray-700">{t(isRecria ? 'Peso desejado por cabeça (kg)' : 'Peso de saída desejado (kg)')}
+                <input inputMode="decimal" value={target} onChange={(e) => setTarget(decimal(e.target.value))} placeholder={t(isRecria ? 'Ex.: 320' : 'Ex.: 540')} disabled={!canEdit} className={`${input} w-40`} />
+              </label>
+              {canEdit && target !== toField(lot.targetWeight) && (
+                <button type="button" onClick={saveTarget} disabled={busy} className="rounded-xl bg-green-700 px-4 py-2.5 font-semibold text-white disabled:bg-gray-300">{t('Salvar')}</button>
+              )}
+            </div>
+            {lot.targetWeight && s.last && (
+              s.last.avgWeight >= lot.targetWeight
+                ? <p className="mt-2 rounded-lg bg-green-50 p-3 text-sm font-semibold text-green-800">{t('O lote já chegou ao peso desejado ({weight}).', { weight: kg(s.last.avgWeight) })}</p>
+                : projection
+                  ? <div className="mt-3 grid grid-cols-3 gap-2">
+                      {[[t('Faltam'), kg(projection.remainingKg)], [t('Dias restantes'), String(projection.days)], [t(isRecria ? 'Chega em' : 'Previsão de saída'), fmtDate(projection.date)]].map(([title, value]) => (
+                        <div key={title} className="rounded-lg border border-amber-100 bg-amber-50 p-3"><p className="text-xs text-amber-900">{title}</p><p className="whitespace-nowrap text-base font-bold text-amber-900 sm:text-lg">{value}</p></div>
+                      ))}
+                    </div>
+                  : <p className="mt-2 text-sm text-gray-500">{t('Faça mais uma pesagem para o app calcular o ganho por dia e prever quando chega.')}</p>
+            )}
+            {lot.weighings.length > 0 && <div className="mt-3"><ProjectionChart weighings={lot.weighings} projection={projection} target={lot.targetWeight} /></div>}
+          </section>
+
+          {canEdit && (
+            <section className="mt-6 flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4">
+              {lot.endDate ? (
+                <button type="button" onClick={reopen} disabled={busy} className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700">{t('Reabrir lote')}</button>
+              ) : (
+                <>
+                  <label className="text-sm font-medium text-gray-700">{t('Data de saída')}
+                    <input type="date" max={today} min={lot.startDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} className={input} />
+                  </label>
+                  <button type="button" onClick={() => void close()} disabled={busy} className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700">{t('Encerrar lote')}</button>
+                </>
+              )}
+              <button type="button" onClick={() => void remove()} disabled={busy} className="ml-auto text-sm font-semibold text-red-700 hover:underline">{t('Excluir lote')}</button>
+            </section>
+          )}
+        </>
       )}
 
-      {/* Pesagem */}
-      {canEdit && !lot.endDate && (
-        <section id="pesagem" className="mt-5 scroll-mt-4">
-          <h3 className="mb-2 text-sm font-semibold text-gray-700">{t('Nova pesagem')}</h3>
-          <form onSubmit={saveWeighing} className="rounded-xl bg-green-50 p-3">
-            <label className="text-sm font-medium text-gray-700">{t('Data')}
-              <input type="date" required max={today} value={weighing.date} onChange={(e) => setWeighing({ ...weighing, date: e.target.value })} className={`${input} sm:w-56`} />
-            </label>
-            {hasAnimals ? (
-              <div className="mt-3">
-                <WeightList animals={lot.animals} weights={weights} onChange={setWeights} previous={previous} />
-                {averageOf(weights) !== null && <p className="mt-2 text-sm text-gray-700">{t('Peso médio desta pesagem:')} <strong>{kg(averageOf(weights)!)}</strong></p>}
-              </div>
-            ) : (
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <label className="text-sm font-medium text-gray-700">{t('Cabeças')}
-                  <input required inputMode="numeric" value={weighing.headCount} onChange={(e) => setWeighing({ ...weighing, headCount: e.target.value.replace(/\D/g, '') })} className={input} />
+      {tab === 'pesagens' && (
+        <>
+          {canEdit && open && (
+            <section id="pesagem" className="scroll-mt-4">
+              <h3 className="mb-2 text-sm font-semibold text-gray-700">{t('Nova pesagem')}</h3>
+              <form onSubmit={saveWeighing} className="rounded-xl bg-green-50 p-3">
+                <label className="text-sm font-medium text-gray-700">{t('Data')}
+                  <input type="date" required max={today} value={weighing.date} onChange={(e) => setWeighing({ ...weighing, date: e.target.value })} className={`${input} sm:w-56`} />
                 </label>
-                <label className="text-sm font-medium text-gray-700">{t('Peso médio (kg)')}
-                  <input required inputMode="decimal" value={weighing.avgWeight} onChange={(e) => setWeighing({ ...weighing, avgWeight: decimal(e.target.value) })} className={input} />
-                </label>
+                {hasAnimals ? (
+                  <div className="mt-3">
+                    <WeightList animals={lot.animals} weights={weights} onChange={setWeights} previous={previous} />
+                    {averageOf(weights) !== null && <p className="mt-2 text-sm text-gray-700">{t('Peso médio desta pesagem:')} <strong>{kg(averageOf(weights)!)}</strong></p>}
+                  </div>
+                ) : (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <label className="text-sm font-medium text-gray-700">{t('Cabeças')}
+                      <input required inputMode="numeric" value={weighing.headCount} onChange={(e) => setWeighing({ ...weighing, headCount: e.target.value.replace(/\D/g, '') })} className={input} />
+                    </label>
+                    <label className="text-sm font-medium text-gray-700">{t('Peso médio (kg)')}
+                      <input required inputMode="decimal" value={weighing.avgWeight} onChange={(e) => setWeighing({ ...weighing, avgWeight: decimal(e.target.value) })} className={input} />
+                    </label>
+                  </div>
+                )}
+                <button type="submit" disabled={busy || (hasAnimals && averageOf(weights) === null)} className="mt-3 w-full rounded-xl bg-green-700 py-3 font-semibold text-white disabled:bg-gray-300">{t('Salvar pesagem')}</button>
+              </form>
+            </section>
+          )}
+          <WeighingHistory lot={lot} canEdit={canEdit} today={today} busy={busy} run={run} />
+        </>
+      )}
+
+      {tab === 'animais' && (
+        <>
+          <section>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-gray-700">{t('Animais do lote')}</h3>
+              {canEdit && open && adding === null && <button type="button" onClick={() => setAdding([])} className={outlineBtn}>+ {t('Pôr animais no lote')}</button>}
+            </div>
+            {adding !== null && (
+              <div className="mb-3 rounded-xl border border-gray-200 p-3">
+                <AnimalPicker herd={herd} lotNames={lotNames} exclude={lot.animals.map((a) => a.id)} selected={adding} onChange={setAdding} />
+                <div className="mt-2 flex gap-2">
+                  <button type="button" onClick={() => setAdding(null)} className="flex-1 rounded-xl border border-gray-300 py-2.5 font-semibold text-gray-700">{t('Cancelar')}</button>
+                  <button type="button" onClick={addAnimals} disabled={busy || adding.length === 0} className="flex-1 rounded-xl bg-green-700 py-2.5 font-semibold text-white disabled:bg-gray-300">{t('Pôr no lote')}</button>
+                </div>
               </div>
             )}
-            <button type="submit" disabled={busy || (hasAnimals && averageOf(weights) === null)} className="mt-3 w-full rounded-xl bg-green-700 py-3 font-semibold text-white disabled:bg-gray-300">{t('Salvar pesagem')}</button>
-          </form>
-        </section>
-      )}
-
-      {/* Animais do lote */}
-      {(hasAnimals || canEdit) && (
-        <section className="mt-5">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-gray-700">{t('Animais do lote')}</h3>
-            {canEdit && !lot.endDate && adding === null && <button type="button" onClick={() => setAdding([])} className="text-sm font-semibold text-green-700 hover:underline">+ {t('Animais')}</button>}
-          </div>
-          {adding !== null && (
-            <div className="mb-3 rounded-xl border border-gray-200 p-3">
-              <AnimalPicker herd={herd} lotNames={lotNames} exclude={lot.animals.map((a) => a.id)} selected={adding} onChange={setAdding} />
-              <div className="mt-2 flex gap-2">
-                <button type="button" onClick={() => setAdding(null)} className="flex-1 rounded-xl border border-gray-300 py-2.5 font-semibold text-gray-700">{t('Cancelar')}</button>
-                <button type="button" onClick={addAnimals} disabled={busy || adding.length === 0} className="flex-1 rounded-xl bg-green-700 py-2.5 font-semibold text-white disabled:bg-gray-300">{t('Pôr no lote')}</button>
+            {hasAnimals ? (
+              <div className="overflow-x-auto rounded-xl border border-gray-100">
+                <table className="w-full text-sm">
+                  <thead className="whitespace-nowrap bg-gray-50 text-xs uppercase text-gray-500">
+                    <tr><th className="px-3 py-2 text-left">{t('Animal')}</th><th className="px-3 py-2 text-right">{t('Entrada')}</th><th className="px-3 py-2 text-right">{t('Último')}</th><th className="px-3 py-2 text-right">{t('Por dia')}</th>{canEdit && open && <th className="px-3 py-2" />}</tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {lot.animals.map((a) => {
+                      // Ganho só desde a entrada neste lote (o animal pode ter vindo de outro)
+                      const g = animalGain(a.weighings.filter((w) => w.date >= lot.startDate))
+                      return (
+                        <tr key={a.id}>
+                          <td className="px-3 py-2"><span className="font-semibold text-gray-900">{tag(a)}</span> <span className="text-gray-600">{a.name}</span></td>
+                          <td className="whitespace-nowrap px-3 py-2 text-right text-gray-600">{g.entry ? kg(g.entry.weight) : '—'}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-right font-medium text-gray-800">{g.last ? kg(g.last.weight) : '—'}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-right text-green-700">{g.gmd !== null ? `${fmtNumber(g.gmd, 3)} kg` : '—'}</td>
+                          {canEdit && open && <td className="px-3 py-2 text-right"><button type="button" onClick={() => void removeAnimal(a)} className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50">{t('Tirar')}</button></td>}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </div>
+            ) : adding === null && <p className="text-sm text-gray-500">{t('Este lote acompanha só a quantidade e o peso médio. Para pesar cada animal, ponha os animais cadastrados no lote.')}</p>}
+          </section>
+          {/* Recria: cio e cobertura das novilhas */}
+          {isRecria && females.length > 0 && (
+            <ReproductionSection females={females} today={today} canEdit={canBreed && open} onSaved={onReload} />
           )}
-          {hasAnimals ? (
-            <div className="overflow-x-auto rounded-xl border border-gray-100">
-              <table className="w-full text-sm">
-                <thead className="whitespace-nowrap bg-gray-50 text-xs uppercase text-gray-500">
-                  <tr><th className="px-3 py-2 text-left">{t('Animal')}</th><th className="px-3 py-2 text-right">{t('Entrada')}</th><th className="px-3 py-2 text-right">{t('Último')}</th><th className="px-3 py-2 text-right">{t('Por dia')}</th>{canEdit && !lot.endDate && <th className="px-3 py-2" />}</tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {lot.animals.map((a) => {
-                    // Ganho só desde a entrada neste lote (o animal pode ter vindo de outro)
-                    const g = animalGain(a.weighings.filter((w) => w.date >= lot.startDate))
-                    return (
-                      <tr key={a.id}>
-                        <td className="px-3 py-2"><span className="font-semibold text-gray-900">{tag(a)}</span> <span className="text-gray-600">{a.name}</span></td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right text-gray-600">{g.entry ? kg(g.entry.weight) : '—'}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right font-medium text-gray-800">{g.last ? kg(g.last.weight) : '—'}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right text-green-700">{g.gmd !== null ? `${fmtNumber(g.gmd, 3)} kg` : '—'}</td>
-                        {canEdit && !lot.endDate && <td className="px-3 py-2 text-right"><button type="button" onClick={() => void removeAnimal(a)} className="text-xs font-semibold text-gray-600 hover:underline">{t('Tirar')}</button></td>}
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : adding === null && <p className="text-sm text-gray-500">{t('Este lote acompanha só a quantidade e o peso médio. Para pesar cada animal, ponha os animais cadastrados no lote.')}</p>}
-        </section>
+        </>
       )}
 
-      {/* Produtos do lote */}
-      <section className="mt-5">
-        <h3 className="mb-2 text-sm font-semibold text-gray-700">{t('Produtos do lote')}</h3>
-        {editingProducts ? (
-          <div className="flex flex-col gap-2">
-            <ProductsEditor supplies={supplies} value={editingProducts} onChange={setEditingProducts} />
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setEditingProducts(null)} className="flex-1 rounded-xl border border-gray-300 py-2.5 font-semibold text-gray-700">{t('Cancelar')}</button>
-              <button type="button" onClick={saveProducts} disabled={busy} className="flex-1 rounded-xl bg-green-700 py-2.5 font-semibold text-white disabled:bg-gray-300">{t('Salvar produtos')}</button>
+      {tab === 'trato' && (
+        <>
+          <section>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-gray-700">{t('Produtos do lote')}</h3>
+              {canEdit && !editingProducts && (
+                <button type="button" onClick={() => setEditingProducts(productsFromLot(lot))} className={outlineBtn}>
+                  {lot.supplies.length ? `✏️ ${t('Alterar produtos')}` : `+ ${t('Ligar produtos')}`}
+                </button>
+              )}
             </div>
-          </div>
-        ) : (
-          <div className="rounded-lg border border-gray-100 p-3 text-sm text-gray-700">
-            {lot.supplies.length === 0 ? <p className="text-gray-500">{t('Nenhum produto ligado a este lote.')}</p> : (
-              <ul className="space-y-2">
+            {editingProducts ? (
+              <div className="flex flex-col gap-2">
+                <ProductsEditor supplies={supplies} value={editingProducts} onChange={setEditingProducts} />
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setEditingProducts(null)} className="flex-1 rounded-xl border border-gray-300 py-2.5 font-semibold text-gray-700">{t('Cancelar')}</button>
+                  <button type="button" onClick={saveProducts} disabled={busy} className="flex-1 rounded-xl bg-green-700 py-2.5 font-semibold text-white disabled:bg-gray-300">{t('Salvar produtos')}</button>
+                </div>
+              </div>
+            ) : lot.supplies.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">{t('Nenhum produto ligado a este lote. Ligue a ração ou o sal do estoque para anotar o trato e saber em quantos dias acaba.')}</p>
+            ) : (
+              <ul className="grid gap-2 sm:grid-cols-2">
                 {productLines(lot).map((p) => (
-                  <li key={p.id}>
-                    <p><strong>{p.supply.name}</strong>{p.percent ? ` ${t('a {percent}% do peso vivo', { percent: fmtNumber(p.percent, 2) })}` : ''}</p>
+                  <li key={p.id} className={`rounded-xl border p-3 text-sm ${p.days !== null && p.days <= STOCK_WARNING_DAYS ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white'}`}>
+                    <p className="font-bold text-gray-900">{p.supply.name}</p>
+                    {p.percent ? <p className="text-gray-600">{t('a {percent}% do peso vivo', { percent: fmtNumber(p.percent, 2) })}</p> : null}
                     {p.perDay ? (
-                      <p className="text-gray-600">
-                        {t('{weight} por dia para o lote', { weight: kg(p.perDay) })}{p.perHead !== null ? ` (${t('{g} g por cabeça', { g: fmtNumber(p.perHead, 0) })})` : ''}.
-                        {p.days !== null && <span className={p.days <= STOCK_WARNING_DAYS ? ' font-semibold text-amber-700' : ''}> {p.days === 1 ? t('O estoque dá para 1 dia.') : t('O estoque dá para {n} dias.', { n: p.days })}</span>}
-                      </p>
-                    ) : <p className="text-gray-500">{t('Informe o consumo em % do peso vivo para calcular quanto o lote come.')}</p>}
+                      <>
+                        <p className="mt-1 text-gray-800"><strong>{kg(p.perDay)}</strong> {t('por dia para o lote')}{p.perHead !== null ? ` · ${t('{g} g por cabeça', { g: fmtNumber(p.perHead, 0) })}` : ''}</p>
+                        {p.days !== null
+                          ? <p className={`mt-1 font-semibold ${p.days <= STOCK_WARNING_DAYS ? 'text-amber-800' : 'text-green-800'}`}>{p.days === 1 ? t('O estoque dá para 1 dia.') : t('O estoque dá para {n} dias.', { n: p.days })}</p>
+                          : <p className="mt-1 text-gray-500">{t('Para saber em quantos dias acaba, o estoque precisa estar em kg ou em sacos com o peso do saco.')}</p>}
+                      </>
+                    ) : <p className="mt-1 text-gray-500">{t('Informe o consumo em % do peso vivo para calcular quanto o lote come.')}</p>}
                   </li>
                 ))}
               </ul>
             )}
-            {canEdit && <button type="button" onClick={() => setEditingProducts(productsFromLot(lot))} className="mt-2 font-semibold text-green-700 hover:underline">{t(lot.supplies.length ? 'Alterar produtos' : 'Ligar produtos')}</button>}
-          </div>
-        )}
-      </section>
-
-      {/* Trato no cocho */}
-      {lot.supplies.length > 0 && <FeedingSection lot={lot} canEdit={canEdit} today={today} busy={busy} run={run} />}
-
-      {/* Histórico de pesagens */}
-      <WeighingHistory lot={lot} canEdit={canEdit} today={today} busy={busy} run={run} />
-
-      {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      {notice && <p role="status" className="mt-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-800">{notice}</p>}
-
-      {canEdit && (
-        <section className="mt-6 flex flex-wrap items-end gap-3 border-t border-gray-100 pt-4">
-          {lot.endDate ? (
-            <button type="button" onClick={reopen} disabled={busy} className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700">{t('Reabrir lote')}</button>
-          ) : (
-            <>
-              <label className="text-sm font-medium text-gray-700">{t('Data de saída')}
-                <input type="date" max={today} min={lot.startDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} className={input} />
-              </label>
-              <button type="button" onClick={() => void close()} disabled={busy} className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700">{t('Encerrar lote')}</button>
-            </>
-          )}
-          <button type="button" onClick={() => void remove()} disabled={busy} className="ml-auto text-sm font-semibold text-red-700 hover:underline">{t('Excluir lote')}</button>
-        </section>
+          </section>
+          {lot.supplies.length > 0 && <FeedingSection lot={lot} canEdit={canEdit} today={today} busy={busy} run={run} />}
+        </>
       )}
+
+      {tab === 'desempenho' && <LotPerformance lot={lot} today={today} />}
     </Modal>
   )
 }
+
+type LotTab = 'resumo' | 'pesagens' | 'animais' | 'trato' | 'desempenho'
 
 // ── Editar o lote ───────────────────────────────────────────────────────
 
