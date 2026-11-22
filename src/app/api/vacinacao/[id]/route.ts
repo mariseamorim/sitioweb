@@ -36,6 +36,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
+// PATCH { appliedDate }: marca só a aplicação (a Agenda usa no botão "Aplicada"), sem mexer nos outros campos
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireFarmAccess('vacinacao', 'edit')
+  if (auth.error) return auth.error
+  const { id } = await params
+  if (!(await findOwned(id, auth.farmId))) return notFound('Vacinação não encontrada')
+  const { appliedDate } = await request.json().catch(() => ({}))
+  const date = typeof appliedDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(appliedDate) ? new Date(`${appliedDate.slice(0, 10)}T00:00:00.000Z`) : null
+  if (appliedDate && !date) return NextResponse.json({ error: 'Data de aplicação inválida' }, { status: 400 })
+  const vaccination = await prisma.vaccination.update({ where: { id }, data: { appliedDate: date }, include: { animal: true } })
+  return NextResponse.json(vaccination)
+}
+
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireFarmAccess('vacinacao', 'edit')
   if (auth.error) return auth.error

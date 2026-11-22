@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
-import { GraficoIcon, PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon, SetaDireitaIcon, BalancaIcon, AjudaIcon, CadeadoIcon } from '@/components/ModuleIcons';import { SyncStatus } from '@/components/SyncStatus';
+import { CalendarioIcon, GraficoIcon, PainelIcon, PropriedadeIcon, AnimalIcon, LeiteIcon, TratamentoIcon, VacinaIcon, ReproducaoIcon, FinanceiroIcon, EstoqueIcon, UsuariosIcon, RelatorioIcon, MenuIcon, FecharIcon, EtiquetaIcon, LojaIcon, SetaDireitaIcon, BalancaIcon, AjudaIcon, CadeadoIcon } from '@/components/ModuleIcons';import { SyncStatus } from '@/components/SyncStatus';
 import { TaskBell } from '@/components/TaskBell';
 import { FarmSwitcher } from '@/components/FarmSwitcher';
 import { useDialog } from '@/components/DialogProvider';
@@ -29,6 +29,7 @@ const groups: NavGroup[] = [
     { href: '/consultoria', label: 'Consultoria', module: null, vet: 'only', Icon: UsuariosIcon },
     { href: '/', label: 'Painel', module: null, vet: 'hide', Icon: PainelIcon },
     { href: '/dashboard', label: 'Dashboard', module: null, Icon: GraficoIcon },
+    { href: '/agenda', label: 'Agenda', module: null, vet: 'hide', Icon: CalendarioIcon },
   ] },
   { label: 'Rebanho', Icon: AnimalIcon, links: [
     { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },

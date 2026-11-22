@@ -3,7 +3,8 @@ import { Text, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { all } from '@/db'
-import { brDate, brMoney, brNumber, todayISO } from '@/lib/format'
+import { addDays, brDate, brMoney, brNumber, todayISO } from '@/lib/format'
+import { Ionicons } from '@expo/vector-icons'
 import { groupByDay, listMilk } from '@/repos/milk'
 import { dueSoon, listVaccinations } from '@/repos/vaccinations'
 import { listTransactions, totals } from '@/repos/transactions'
@@ -15,6 +16,7 @@ import { listReproductions } from '@/repos/reproductions'
 import { colors, font, space } from '@/theme'
 import { useLocale, useT } from '@/lib/i18n'
 import { VetToday } from '@/vet/panel'
+import { localAgenda } from '@/repos/agenda'
 
 /** Vacas e novilhas que pedem secagem ou pré-parto hoje (regra em src/lib/calvingPrep.ts) */
 function calvingPrepList(farmId: string, today: string) {
@@ -51,7 +53,10 @@ export default function Painel() {
     const vacc = canAccess('vacinacao') ? listVaccinations(farmId).filter(v => dueSoon(v, today)) : []
     const fin = canAccess('financeiro') ? totals(listTransactions(farmId, monthStart, today)) : null
     const low = canAccess('estoque') ? listSupplies(farmId).filter(isLow) : []
-    return { herd, animals, milk, vacc, fin, low, prep: canAccess('reproducao') ? calvingPrepList(farmId, today) : [] }
+    // Agenda: o que vence hoje e o que ficou atrasado
+    const agenda = user?.vet ? [] : localAgenda(farmId, today, canAccess)
+    const agendaToday = { today: agenda.filter(i => i.date === today).length, late: agenda.filter(i => i.late).length, week: agenda.filter(i => i.date > today && i.date <= addDays(today, 7)).length }
+    return { herd, animals, milk, vacc, fin, low, agendaToday, prep: canAccess('reproducao') ? calvingPrepList(farmId, today) : [] }
   }, [farmId, today])
   const month = new Date(`${today}T12:00:00`).toLocaleDateString(locale, { month: 'long' })
   const monthName = month.charAt(0).toUpperCase() + month.slice(1)
@@ -65,6 +70,23 @@ export default function Painel() {
       {sync.unauthorized ? <Notice tone="red" text={t('A sessão expirou. Saia e entre de novo em Mais › Sair da conta.')} /> : null}
       {/* Veterinário: tarefas das propriedades que atende e a agenda, antes dos números da propriedade aberta */}
       {user?.vet ? <VetToday /> : null}
+
+      {!user?.vet ? (
+        <Card onPress={() => router.push('/agenda')} style={{ borderColor: data.agendaToday.late ? colors.red : colors.blue, borderWidth: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+            <Ionicons name="calendar-outline" size={28} color={data.agendaToday.late ? colors.red : colors.blue} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: font.lg, fontWeight: '800', color: colors.text }}>{t('Agenda')}</Text>
+              <Muted>{[
+                data.agendaToday.today === 1 ? t('1 tarefa hoje') : t('{n} tarefas hoje', { n: data.agendaToday.today }),
+                data.agendaToday.late ? (data.agendaToday.late === 1 ? t('1 atrasada') : t('{n} atrasadas', { n: data.agendaToday.late })) : null,
+                data.agendaToday.week ? t('{n} nos próximos 7 dias', { n: data.agendaToday.week }) : null,
+              ].filter(Boolean).join(' · ')}</Muted>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+          </View>
+        </Card>
+      ) : null}
 
       <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text, marginBottom: space.sm }}>{t('O que você quer fazer?')}</Text>
       <TileGrid>

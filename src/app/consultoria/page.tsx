@@ -6,6 +6,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Agenda, type AgendaHandle } from './Agenda'
+import { AgendaView } from '@/components/AgendaView'
+import type { AgendaItem } from '@/lib/agenda'
 import { VetCharts } from './VetCharts'
 import { useDialog } from '@/components/DialogProvider'
 import { StatTile } from '@/components/StatTile'
@@ -24,16 +26,6 @@ interface ArchivedRecord {
   expectedBirthDate: string | null; covered: boolean; diagnosed: boolean; diagnosedAt: string | null
 }
 interface Task { farmId: string; title: string; detail?: string; n: number; late?: number; href: string; tone: 'red' | 'amber' | 'blue' }
-
-/** Etiqueta da pendência: a palavra diz a urgência, a cor só reforça */
-const TONE_BADGE = {
-  red: { label: 'Atrasada', className: 'bg-red-100 text-red-800' },
-  amber: { label: 'Atenção', className: 'bg-amber-100 text-amber-900' },
-  blue: { label: 'Aviso', className: 'bg-blue-100 text-blue-800' },
-} as const
-const TONE_ORDER = { red: 0, amber: 1, blue: 2 } as const
-/** Tarefas visíveis antes de "Ver todas" */
-const TASKS_SHOWN = 6
 
 interface Panel {
   vet: { name: string; crmv: string | null; city: string | null; state: string | null; inviteCode: string }
@@ -63,8 +55,16 @@ export default function ConsultoriaPage() {
   const [history, setHistory] = useState<{ name: string; endedAt: string | null; records: ArchivedRecord[] } | null>(null)
   const [formError, setFormError] = useState('')
   const [copied, setCopied] = useState(false)
-  const [allTasks, setAllTasks] = useState(false)
   const agenda = useRef<AgendaHandle>(null)
+  const [agendaKey, setAgendaKey] = useState(0)
+  // Visita pela Agenda: remarcar abre o formulário; concluir e cancelar pedem confirmação
+  async function visitAction(item: AgendaItem, action: 'concluir' | 'remarcar' | 'cancelar') {
+    if (action === 'remarcar') return agenda.current?.edit({ id: item.refId, date: item.date, time: item.time ?? null, purpose: item.detail ?? null })
+    const done = action === 'concluir'
+    if (!done && !(await confirm({ title: t('Cancelar a visita?'), message: t(item.label, item.vars), confirmLabel: t('Cancelar visita'), danger: true }))) return
+    const ok = await agenda.current?.setStatus(item.refId, done ? 'realizada' : 'cancelada')
+    if (!ok) notify(t('Não foi possível salvar'), t('Confira a internet e tente de novo.'))
+  }
 
   const load = useCallback(async () => {
     try {
@@ -138,11 +138,6 @@ export default function ConsultoriaPage() {
   const awaiting = panel.clients.reduce((sum, c) => sum + c.awaitingDiagnosis, 0)
   const rates = panel.clients.filter((c) => c.pregnancyRate !== null).map((c) => c.pregnancyRate as number)
   const averageRate = rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : null
-  // Uma lista só, das propriedades todas: as atrasadas (vermelho) primeiro
-  const tasks = (panel.tasks ?? []).flatMap((task) => {
-    const client = panel.clients.find((c) => c.farmId === task.farmId)
-    return client ? [{ task, client }] : []
-  }).sort((a, b) => TONE_ORDER[a.task.tone] - TONE_ORDER[b.task.tone])
   const today = new Date().toLocaleDateString('en-CA')
   const visitsToday = (panel.visits ?? []).filter((v) => v.date.slice(0, 10) === today).length
   const lateShots = (panel.tasks ?? []).filter((k) => k.href.startsWith('/vacinacao')).reduce((sum, k) => sum + (k.late ?? 0), 0)
@@ -168,36 +163,13 @@ export default function ConsultoriaPage() {
         <StatTile accent="green" label={t('Concepção média')} value={averageRate === null ? '—' : `${averageRate}%`} />
       </div>
 
-      {/* O dia do veterinário em primeiro lugar: agenda e tarefas lado a lado */}
-      <div className="mb-6 grid gap-4 lg:grid-cols-2">
-        <Agenda ref={agenda} clients={panel.clients.map((c) => ({ id: c.id, name: c.name }))} onChanged={load} />
-
-        <section aria-labelledby="vet-tasks">
-          <h2 id="vet-tasks" className="mb-3 flex min-h-[44px] items-center text-lg font-semibold text-gray-800">{t('O que fazer nas propriedades')}</h2>
-          {!tasks.length ? (
-            <p className="bg-white rounded-xl border border-gray-200 p-4 text-sm text-gray-500">{t('Nada pendente nas propriedades que você atende.')}</p>
-          ) : (
-            <ul className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-              {(allTasks ? tasks : tasks.slice(0, TASKS_SHOWN)).map(({ task: k, client: c }) => (
-                <li key={`${k.farmId}${k.title}`}>
-                  <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, k.href)} className="flex w-full items-start gap-3 px-4 py-2.5 text-left hover:bg-gray-50 disabled:opacity-60">
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-medium text-gray-800">
-                        <span className={`mr-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${TONE_BADGE[k.tone].className}`}>{t(TONE_BADGE[k.tone].label)}</span>
-                        {t(k.title, { n: k.n })}
-                      </span>
-                      <span className="block text-sm text-gray-500">{[c.name, k.late ? t(k.late === 1 ? '{n} já passou da data' : '{n} já passaram da data', { n: k.late }) : null, k.detail ? t(k.detail) : null].filter(Boolean).join(' · ')}</span>
-                    </span>
-                    <span aria-hidden="true" className="text-gray-400">›</span>
-                  </button>
-                </li>
-              ))}
-              {tasks.length > TASKS_SHOWN && (
-                <li><button type="button" onClick={() => setAllTasks(!allTasks)} className="w-full px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-50">{allTasks ? t('Mostrar menos') : t('Ver todas ({n})', { n: tasks.length })}</button></li>
-              )}
-            </ul>
-          )}
-        </section>
+      {/* O dia do veterinário em primeiro lugar: visitas e manejos de todas as propriedades, por dia */}
+      <div className="mb-8">
+        <AgendaView endpoint="/api/veterinario/agenda" vet refreshKey={agendaKey}
+          clients={panel.clients.map((c) => ({ farmId: c.farmId, name: c.name }))}
+          onOpen={(item, href) => { const c = panel.clients.find((x) => x.farmId === item.farmId); if (c) void openFarm(c, href) }}
+          onVisit={(item, action) => void visitAction(item, action)} />
+        <Agenda ref={agenda} formOnly clients={panel.clients.map((c) => ({ id: c.id, name: c.name }))} onChanged={() => { void load(); setAgendaKey((k) => k + 1) }} />
       </div>
 
       <VetCharts clients={panel.clients} busy={busy} onOpen={(c) => openFarm(c, '/reproducao/indicadores')} />

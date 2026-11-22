@@ -58,9 +58,15 @@ export function TaskBell() {
 
   const urgent = tasks.some((t) => t.tone === 'red')
 
+  // A agenda mostra os próximos dias também (e as datas de cada manejo)
+  const agendaLink = (
+    <Link href="/agenda" onClick={() => setOpen(false)} className="block border-t border-gray-100 px-4 py-3 text-center text-sm font-semibold text-green-800 hover:bg-green-50">
+      {tr('Ver a agenda da semana')} ›
+    </Link>
+  )
   const list = tasks.length === 0 ? (
-    <p className="px-4 py-6 text-center text-gray-500">{tr('Nada pendente por enquanto.')}</p>
-  ) : (
+    <><p className="px-4 py-6 text-center text-gray-500">{tr('Nada pendente por enquanto.')}</p>{agendaLink}</>
+  ) : (<>
     <ul className="divide-y divide-gray-100">
       {tasks.map((t, i) => (
         <li key={i}>
@@ -73,7 +79,7 @@ export function TaskBell() {
           </Link>
         </li>
       ))}
-    </ul>
+    </ul>{agendaLink}</>
   )
 
   return (

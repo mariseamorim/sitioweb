@@ -17,6 +17,7 @@ const GROUPS: { label: string; items: Item[] }[] = [
   { label: '', items: [
     { title: 'Consultoria', detail: 'Propriedades que você atende', href: '/consultoria', vetOnly: true, icon: 'briefcase-outline', tone: 'green' },
     { title: 'Painel', href: '/(tabs)', icon: 'grid-outline', tone: 'green' },
+    { title: 'Agenda', detail: 'Vacinas, partos, secagem, cio e visitas por dia', href: '/agenda', icon: 'calendar-outline', tone: 'blue' },
   ] },
   { label: 'Rebanho', items: [
     { title: 'Animais', href: '/(tabs)/animais', module: 'animais', icon: 'paw-outline', tone: 'green' },

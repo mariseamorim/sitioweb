@@ -50,16 +50,23 @@ export function Card({ children, style, onPress }: { children: ReactNode; style?
   return <View style={[styles.card, style]}>{children}</View>
 }
 
-export function Button({ label, onPress, variant = 'primary', loading, disabled, style }: {
-  label: string; onPress: () => void; variant?: 'primary' | 'secondary' | 'danger' | 'ghost'; loading?: boolean; disabled?: boolean; style?: ViewStyle
+export function Button({ label, onPress, variant = 'primary', loading, disabled, style, icon }: {
+  label: string; onPress: () => void; variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'accent'; loading?: boolean; disabled?: boolean; style?: ViewStyle
+  /** Ícone (Ionicons) à esquerda do texto */
+  icon?: keyof typeof Ionicons.glyphMap
 }) {
-  const bg = variant === 'primary' ? colors.green : variant === 'danger' ? colors.red : variant === 'secondary' ? colors.white : 'transparent'
-  const fg = variant === 'primary' || variant === 'danger' ? colors.white : colors.green
+  const bg = variant === 'primary' ? colors.green : variant === 'danger' ? colors.red : variant === 'accent' ? colors.amber : variant === 'secondary' ? colors.white : 'transparent'
+  const fg = variant === 'primary' || variant === 'danger' || variant === 'accent' ? colors.white : colors.green
   const t = useT()
   return (
     <Pressable onPress={onPress} disabled={disabled || loading} accessibilityRole="button"
       style={({ pressed }) => [styles.button, { backgroundColor: bg, borderColor: variant === 'secondary' ? colors.green : bg, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 }, style]}>
-      {loading ? <ActivityIndicator color={fg} /> : <Text style={[styles.buttonText, { color: fg }]}>{t(label)}</Text>}
+      {loading ? <ActivityIndicator color={fg} /> : (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {icon ? <Ionicons name={icon} size={18} color={fg} /> : null}
+          <Text style={[styles.buttonText, { color: fg }]}>{t(label)}</Text>
+        </View>
+      )}
     </Pressable>
   )
 }
