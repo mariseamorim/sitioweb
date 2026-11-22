@@ -5,7 +5,7 @@ import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { brDate } from '@/lib/format'
 import { listVaccinations, vaccStatus, type VaccStatus } from '@/repos/vaccinations'
-import { Badge, Chips, Empty, Fab, Row, Search } from '@/ui'
+import { Badge, Chips, Empty, Fab, IconCircle, Row, Search } from '@/ui'
 import { colors, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
@@ -21,7 +21,7 @@ export default function Vacinas() {
   const items = useLive(() => listVaccinations(farmId).map(v => ({ ...v, status: vaccStatus(v) })), [farmId])
   const term = q.trim().toLowerCase()
   const shown = items.filter(v => (filter === 'Todas' || v.status === filter) && (!term || `${v.animalName ?? ''} ${v.animalCode ?? ''} ${v.vaccineName}`.toLowerCase().includes(term)))
-  const tone = (s: VaccStatus) => (s === 'Aplicada' ? 'green' : s === 'Vencida' ? 'red' : 'amber')
+  const tone = (s: VaccStatus) => (s === 'Aplicada' ? 'green' : s === 'Vencida' ? 'red' : 'amber') as 'green' | 'red' | 'amber'
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -35,7 +35,8 @@ export default function Vacinas() {
         contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: 96 }}
         keyboardShouldPersistTaps="handled"
         renderItem={({ item }) => (
-          <Row title={`${item.vaccineName} · ${item.animalName ?? t('animal')}`}
+          <Row left={<IconCircle icon={item.status === 'Aplicada' ? 'shield-checkmark-outline' : item.status === 'Vencida' ? 'alert-circle-outline' : 'time-outline'} tone={tone(item.status)} />}
+            title={`${item.vaccineName} · ${item.animalName ?? t('animal')}`}
             detail={item.status === 'Aplicada' ? `${t('Aplicada em')} ${brDate(item.appliedDate)}` : `${t('Agendada para')} ${brDate(item.scheduledDate)}`}
             badge={<Badge label={t(item.status)} tone={tone(item.status)} />}
             onPress={() => router.push(`/vacinas/${item.id}`)} />

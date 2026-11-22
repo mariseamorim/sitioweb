@@ -54,6 +54,7 @@ export default function RootLayout() {
           <Stack.Screen name="engorda/index" options={{ title: t('Recria e engorda') }} />
           <Stack.Screen name="engorda/novo" options={{ title: t('Novo lote') }} />
           <Stack.Screen name="engorda/[id]" options={{ title: t('Lote') }} />
+          <Stack.Screen name="engorda/planos" options={{ title: t('Planos') }} />
           <Stack.Screen name="recria/[id]" options={{ title: t('Recria') }} />
           <Stack.Screen name="reproducao/index" options={{ title: t('Reprodução') }} />
           <Stack.Screen name="reproducao/[id]" options={{ title: t('Reprodução') }} />

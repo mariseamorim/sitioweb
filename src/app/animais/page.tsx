@@ -15,12 +15,13 @@ import Link from 'next/link'
 import { useDialog } from '@/components/DialogProvider'
 import { SemSinalIcon, SincronizarIcon, AnimalIcon, FecharIcon } from '@/components/ModuleIcons'
 import { CalfSection } from '@/components/CalfSection'
-import { CALF_AT_FOOT_DAYS, animalCategory, animalRuleError, animalToday, canAddCalf, fixedAnimalGender, isBovine } from '@/lib/animalRules'
+import { CALF_AT_FOOT_DAYS, animalCategory, animalRuleError, animalToday, CATTLE_BREEDS, canAddCalf, fixedAnimalGender, isBovine } from '@/lib/animalRules'
 import { animalCodes, animalSearchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 import { useLocale, useT } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
 
 interface Animal {
   id: string
@@ -28,6 +29,8 @@ interface Animal {
   customCode?: string | null
   name: string
   species: string
+  /** Raça (só bovinos) */
+  breed?: string | null
   gender: string
   birthDate: string
   isCastrated?: boolean
@@ -51,6 +54,7 @@ const EMPTY_FORM = {
   customCode: '',
   name: '',
   species: 'Bezerro' as Especie,
+  breed: '',
   gender: 'Fêmea',
   birthDate: '',
   isCastrated: false,
@@ -118,6 +122,7 @@ export default function AnimaisPage() {
         customCode: r.customCode || null,
         name: r.name,
         species: r.species,
+        breed: r.breed || null,
         gender: r.gender,
         birthDate: r.birthDate,
         isCastrated: r.isCastrated ?? false,
@@ -214,6 +219,7 @@ export default function AnimaisPage() {
       customCode: a.customCode || '',
       name: a.name,
       species: a.species as Especie,
+      breed: a.breed || '',
       gender: fixedAnimalGender(a.species) ?? a.gender,
       birthDate: a.birthDate.slice(0, 10),
       isCastrated: a.isCastrated ?? ['Boi', 'Boi de engorda'].includes(a.species),
@@ -317,13 +323,18 @@ export default function AnimaisPage() {
     code: (a) => a.code, name: (a) => a.name, species: (a) => a.species, gender: (a) => a.gender, status: (a) => a.status,
   })
 
+  // Etiqueta da situação: a palavra sempre aparece, a cor só ajuda a achar
   const statusColor: Record<string, string> = {
-    Vivo: 'bg-green-100 text-green-700',
-    Morto: 'bg-gray-100 text-gray-600',
-    Vendido: 'bg-blue-100 text-blue-700',
-    Doente: 'bg-red-100 text-red-700',
-    Arrendado: 'bg-yellow-100 text-yellow-700',
+    Vivo: 'bg-green-100 text-green-800',
+    Morto: 'bg-gray-200 text-gray-700',
+    Vendido: 'bg-blue-100 text-blue-800',
+    Doente: 'bg-red-100 text-red-800',
+    Arrendado: 'bg-amber-100 text-amber-800',
   }
+  // Números do rebanho no topo (os mesmos dos filtros do Painel)
+  const aliveCount = animals.filter((a) => a.status === 'Vivo').length
+  const matrixCount = animals.filter(isMatrix).length
+  const withCalfCount = animals.filter((a) => isMatrix(a) && withCalf.has(a.id)).length
 
   function getNextCode(list: Animal[]) {
     const maxNum = list.reduce((acc, item) => {
@@ -342,15 +353,24 @@ export default function AnimaisPage() {
         <button
           onClick={openNew}
           disabled={!canEdit}
-          className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${
-            canEdit 
-              ? 'bg-green-700 hover:bg-green-600' 
+          className={`text-white text-sm font-semibold px-4 py-2 rounded-lg ${
+            canEdit
+              ? 'bg-green-800 hover:bg-green-700'
               : 'bg-gray-400 cursor-not-allowed'
           }`}
         >
           {t('Cadastrar animal')}
         </button>
       </div>
+
+      {!loading && animals.length > 0 && (
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatTile accent="blue" label={t('Total de animais')} value={animals.length} />
+          <StatTile accent="green" label={t('Animais vivos')} value={aliveCount} />
+          {matrixCount > 0 && <StatTile accent="teal" label={t('Matrizes')} value={matrixCount} />}
+          {matrixCount > 0 && <StatTile accent="amber" label={t('Com bezerro ao pé')} value={withCalfCount} />}
+        </div>
+      )}
 
       {/* Offline / sinal fraco / sync banner */}
       {isOnline && fromCache && (
@@ -444,7 +464,7 @@ export default function AnimaisPage() {
                   <td className="hidden md:table-cell px-4 py-3 text-gray-600 text-xs sm:text-sm">{t(a.species)}</td>
                   <td className="hidden lg:table-cell px-4 py-3 text-gray-600 text-xs sm:text-sm">{t(a.gender)}</td>
                   <td className="hidden md:table-cell px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor[a.status] || 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusColor[a.status] || 'bg-gray-100 text-gray-600'}`}>
                       {t(a.status)}
                     </span>
                   </td>
@@ -524,7 +544,7 @@ export default function AnimaisPage() {
                     <p className="text-xs text-gray-500">{t('Código')}</p>
                     <p className="text-base sm:text-lg font-semibold text-gray-800 break-words">{selectedAnimal.code}</p>
                     {selectedAnimal.customCode && <p className="text-xs sm:text-sm text-gray-600 break-words">{t('Outro código:')} <strong>{selectedAnimal.customCode}</strong></p>}
-                    <p className="text-xs sm:text-sm text-gray-500 truncate">{t(selectedAnimal.species)}</p>
+                    <p className="text-xs sm:text-sm text-gray-500 truncate">{t(selectedAnimal.species)}{selectedAnimal.breed ? ` · ${selectedAnimal.breed}` : ''}</p>
                   </div>
                 </div>
                 <button
@@ -553,7 +573,7 @@ export default function AnimaisPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs text-gray-500">{t('Status')}</p>
-                  <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${statusColor[selectedAnimal.status] || 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusColor[selectedAnimal.status] || 'bg-gray-100 text-gray-600'}`}>
                     {t(selectedAnimal.status)}
                   </span>
                 </div>
@@ -608,8 +628,8 @@ export default function AnimaisPage() {
                   onClick={() => { closeDetails(); openEdit(selectedAnimal) }}
                   disabled={!canEdit}
                   className={`inline-flex items-center justify-center text-white text-sm font-medium px-3 py-2 rounded-lg flex-1 sm:flex-none ${
-                    canEdit 
-                      ? 'bg-green-700 hover:bg-green-600' 
+                    canEdit
+                      ? 'bg-green-800 hover:bg-green-700'
                       : 'bg-gray-400 cursor-not-allowed'
                   }`}
                 >
@@ -747,6 +767,16 @@ export default function AnimaisPage() {
                   </div>
                 </div>
 
+                {/* Raça: só para bovinos; sugestões, mas aceita qualquer raça digitada */}
+                {isBovine(form.species) && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">{t('Raça')}
+                      <input list="racas-bovinas" value={form.breed} maxLength={40} onChange={(e) => setForm({ ...form, breed: e.target.value })} placeholder={t('Ex.: Nelore, Girolando, Holandesa')}
+                        className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                    </label>
+                    <datalist id="racas-bovinas">{CATTLE_BREEDS.map((b) => <option key={b} value={b} />)}</datalist>
+                  </div>
+                )}
                 {isBovine(form.species) && <div className="rounded-lg bg-green-50 p-3 text-sm text-green-900">
                   <p>{t('Classificação por idade e sexo:')} <strong>{form.birthDate ? t(animalCategory(form)) : t('Informe a data de nascimento')}</strong></p>
                   {form.gender === 'Macho' && <label className="mt-2 flex items-center gap-2"><input type="checkbox" checked={form.isCastrated} onChange={e => setForm({ ...form, isCastrated: e.target.checked })} />{t('Animal castrado')}</label>}
@@ -804,7 +834,7 @@ export default function AnimaisPage() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg"
+                    className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold py-2 rounded-lg"
                   >
                     {t(saving ? 'Salvando...' : 'Salvar')}
                   </button>

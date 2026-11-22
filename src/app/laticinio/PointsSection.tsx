@@ -44,7 +44,7 @@ export function PointsSection({ points, onChanged }: { points: Point[]; onChange
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-gray-600">Sítios e tanques comunitários onde o caminhão passa.</p>
-        <button type="button" onClick={() => open('new')} className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">+ Novo ponto</button>
+        <button type="button" onClick={() => open('new')} className="bg-green-800 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">+ Novo ponto</button>
       </div>
 
       {editing && (
@@ -77,7 +77,7 @@ export function PointsSection({ points, onChanged }: { points: Point[]; onChange
           {error && <p className="text-sm text-red-600 sm:col-span-2">{error}</p>}
           <div className="flex gap-2 sm:col-span-2">
             <button type="button" onClick={() => setEditing(null)} className="flex-1 border border-gray-300 bg-white text-gray-700 font-medium py-2.5 rounded-lg">Cancelar</button>
-            <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
+            <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
           </div>
         </form>
       )}
@@ -90,8 +90,8 @@ export function PointsSection({ points, onChanged }: { points: Point[]; onChange
             <li key={p.id} className={`rounded-xl border border-gray-200 bg-white p-4 ${p.active ? '' : 'opacity-60'}`}>
               <p className="font-semibold text-gray-900">
                 {p.name}
-                {p.kind === 'tanque' && <span className="ml-2 text-xs font-medium text-gray-500">Tanque comunitário</span>}
-                {!p.active && <span className="ml-2 text-xs text-gray-500">(arquivado)</span>}
+                {p.kind === 'tanque' && <span className="ml-2 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800">Tanque comunitário</span>}
+                {!p.active && <span className="ml-2 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">Arquivado</span>}
               </p>
               <p className="text-sm text-gray-600">
                 {[p.contactName, p.phone].filter(Boolean).join(' · ') || 'Sem contato'}

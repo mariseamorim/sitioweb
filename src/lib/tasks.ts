@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { visibleOffersWhere } from '@/lib/vendors'
 import { BOVINE_CATEGORIES, canAddCalf } from '@/lib/animalRules'
 import { monthsLabel, pregnancyChecks } from '@/lib/calving'
+import { prepRange, prepSteps } from '@/lib/calvingPrep'
 import { associationAlerts } from '@/lib/associacao'
 import { supplyDailyUse, withDailyUse } from '@/lib/lotUsage'
 import { STOCK_WARNING_DAYS } from '@/lib/lots'
@@ -83,6 +84,34 @@ export async function getTodayTasks(
       href: '/reproducao',
       tone: date < today ? 'red' : 'amber',
     })
+  }
+  // Secagem (60 dias antes do parto) e pré-parto (21 dias antes): ver src/lib/calvingPrep.ts
+  if (can('reproducao')) {
+    const range = prepRange(todayStr)
+    const [farm, upcoming] = await Promise.all([
+      prisma.farm.findUnique({ where: { id: farmId }, select: { segments: true } }),
+      prisma.reproduction.findMany({
+        where: { farmId, actualBirthDate: null, status: { in: ['Coberta', 'Prenha'] }, expectedBirthDate: { gte: new Date(range.from), lte: new Date(range.to) } },
+        select: { expectedBirthDate: true, female: { select: { name: true, species: true, _count: { select: { calves: true } } } } },
+        orderBy: { expectedBirthDate: 'asc' },
+      }),
+    ])
+    const dairy = !farm?.segments.length || farm.segments.includes('leite')
+    const steps = upcoming.flatMap((r) => prepSteps(r.expectedBirthDate!.toISOString(), todayStr, dairy && (r.female._count.calves > 0 || r.female.species === 'Vaca'))
+      .map((step) => ({ step, name: r.female.name, birth: r.expectedBirthDate! })))
+    for (const kind of ['secagem', 'preparto'] as const) {
+      const list = steps.filter((s) => s.step.kind === kind)
+      for (const { step, name, birth } of list.slice(0, 3)) {
+        const when = fmtDay(new Date(step.date))
+        tasks.push({
+          title: kind === 'secagem' ? `Secar ${name}` : `Pré-parto: ${name}`,
+          detail: `${kind === 'secagem' ? (step.late ? `Secagem era em ${when}` : `Secar até ${when}`) : (step.late ? `Era para ir ao pré-parto em ${when}` : `Levar para o lote de pré-parto até ${when}`)} · parto previsto ${fmtDay(birth)}`,
+          href: '/reproducao?filtro=partos',
+          tone: step.late ? 'red' : 'amber',
+        })
+      }
+      if (list.length > 3) tasks.push({ title: kind === 'secagem' ? `Secar mais ${list.length - 3} vaca${list.length - 3 > 1 ? 's' : ''}` : `Mais ${list.length - 3} vaca${list.length - 3 > 1 ? 's' : ''} para o pré-parto`, href: '/reproducao?filtro=partos', tone: 'amber' })
+    }
   }
   // Confirmar prenhez: a partir da 1ª cria, 2 meses depois do parto, enquanto não houver prenha/vazia anotada
   if (can('reproducao')) {

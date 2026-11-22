@@ -20,12 +20,12 @@ export function VetCharts<C extends ChartClient>({ clients, busy, onOpen }: { cl
   if (!clients.length) return null
   return (
     <div className="mb-6 grid gap-4 lg:grid-cols-2">
-      <BirthsChart clients={clients} />
       <section className="bg-white rounded-xl border border-gray-200 p-4" aria-labelledby="vet-rate">
         <h2 id="vet-rate" className="font-semibold text-gray-800">{t('Concepção por propriedade')}</h2>
         <p className="mb-3 text-sm text-gray-500">{t('Das diagnosticadas nos últimos 12 meses, quantas ficaram prenhas. Toque para ver os indicadores.')}</p>
         <RateBars clients={clients} busy={busy} onOpen={onOpen} />
       </section>
+      <BirthsChart clients={clients} />
     </div>
   )
 }

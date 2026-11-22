@@ -57,4 +57,7 @@ export const sanidade: Record<string, string> = {
   'Erro ao adicionar tratamento': 'Error al agregar el tratamiento',
   'Adicionar Tratamento': 'Agregar tratamiento',
   'Nenhum tratamento registrado': 'Ningún tratamiento registrado',
+  // Novo visual de Tratamentos: cartão e etiqueta de carência
+  'Animais em carência': 'Animales en carencia',
+  'Em carência': 'En carencia',
 }

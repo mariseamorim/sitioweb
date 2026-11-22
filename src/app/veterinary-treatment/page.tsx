@@ -15,6 +15,7 @@ import { useDialog } from '@/components/DialogProvider'
 import { currentMonthRange, inDayRange, todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
 import { useLocale, useT, type Vars } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
 
 interface Animal {
   id: string
@@ -143,6 +144,12 @@ export default function VeterinaryTreatmentPage() {
 
   const detailPeriodCount = filtered.filter((t) => t.animalId === detailAnimalId).length
 
+  // Animais com carência de leite ou carne ainda valendo hoje (qualquer tratamento, não só do período)
+  const inWithdrawal = useMemo(
+    () => new Set(treatments.filter((item) => withdrawalText(item, t, locale)?.active).map((item) => item.animalId)),
+    [treatments, t, locale],
+  )
+
   // Depois de guardar ou enviar: a lista mostra na hora e a barra do topo atualiza a contagem
   const afterChange = (queued: boolean) => {
     setNotice(queued ? t(net.queuedMessage) : '')
@@ -206,7 +213,7 @@ export default function VeterinaryTreatmentPage() {
           disabled={!canEdit}
           className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${
             canEdit
-              ? 'bg-green-700 hover:bg-green-600'
+              ? 'bg-green-800 hover:bg-green-700'
               : 'bg-gray-400 cursor-not-allowed'
           }`}
         >
@@ -257,11 +264,14 @@ export default function VeterinaryTreatmentPage() {
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
             />
           </div>
-          <div className="ml-auto text-right">
-            <p className="text-xs text-gray-500">{t('Total no período')}</p>
-            <p className="text-2xl font-bold text-green-700">{filtered.length} <span className="text-base font-medium">{t(filtered.length === 1 ? 'tratamento' : 'tratamentos')}</span></p>
-          </div>
         </div>
+      </div>
+
+      {/* Números do período em cartões coloridos */}
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <StatTile accent="blue" label={t('Total no período')} value={<>{filtered.length} <span className="text-lg font-semibold">{t(filtered.length === 1 ? 'tratamento' : 'tratamentos')}</span></>} />
+        <StatTile accent="teal" label={t('Animais')} value={summary.length} />
+        <StatTile accent={inWithdrawal.size > 0 ? 'red' : 'green'} label={t('Animais em carência')} value={inWithdrawal.size} />
       </div>
 
       {/* Animals table */}
@@ -293,17 +303,23 @@ export default function VeterinaryTreatmentPage() {
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => setDetailAnimalId(animal.id)}
                 >
-                  <td className="px-4 py-3 font-medium text-gray-800">{animal.name}{pending > 0 && <span className="ml-2 text-xs font-normal text-blue-700">{t('{n} a enviar', { n: pending })}</span>}</td>
+                  <td className="relative px-4 py-3 font-medium text-gray-800">
+                    {/* Faixa vermelha à esquerda: animal em carência hoje */}
+                    {inWithdrawal.has(animal.id) && <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-red-600" />}
+                    {animal.name}
+                    {inWithdrawal.has(animal.id) && <span className="ml-2 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">{t('Em carência')}</span>}
+                    {pending > 0 && <span className="ml-2 text-xs font-normal text-blue-700">{t('{n} a enviar', { n: pending })}</span>}
+                  </td>
                   <td className="hidden sm:table-cell px-4 py-3 font-mono text-gray-500 text-xs">{animal.code}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-green-700">{count}</td>
-                  <td className="hidden sm:table-cell px-4 py-3 text-right text-gray-500">{fmt(last)}</td>
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums text-green-800">{count}</td>
+                  <td className="hidden sm:table-cell px-4 py-3 text-right tabular-nums text-gray-500">{fmt(last)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot className="border-t-2 border-gray-200 bg-gray-50">
               <tr>
                 <td colSpan={2} className="px-4 py-3 text-xs font-bold text-gray-600 uppercase">{t('Total Geral')}</td>
-                <td className="px-4 py-3 text-right font-bold text-green-700">{filtered.length}</td>
+                <td className="px-4 py-3 text-right font-bold tabular-nums text-green-800">{filtered.length}</td>
                 <td className="hidden sm:table-cell px-4 py-3" />
               </tr>
             </tfoot>
@@ -482,7 +498,7 @@ export default function VeterinaryTreatmentPage() {
                     {t('Cancelar')}
                   </button>
                   <button type="submit" disabled={saving}
-                    className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">
+                    className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold py-2 rounded-lg">
                     {t(saving ? 'Salvando...' : 'Salvar')}
                   </button>
                 </div>

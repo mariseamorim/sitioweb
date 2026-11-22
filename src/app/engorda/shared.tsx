@@ -9,6 +9,7 @@ import { fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
 import { sendOrQueue, type Method } from '@/lib/offlineData'
 import { useT } from '@/lib/i18n'
+import type { LotPlan } from '@/lib/lotPlans'
 
 export interface SupplyRef { id: string; name: string; unit: string; currentQuantity: number; packageKg: number | null; unitPrice?: number | null }
 export interface Coverage {
@@ -45,7 +46,16 @@ export interface Lot {
   weighings: (Weighing & { id: string })[]
   feedings: (Feeding & { id: string; supplyId: string | null })[]
   animals: LotAnimal[]
+  /** Plano de recria/engorda (opcional). Opcionais no tipo: cópias antigas do aparelho não têm estes campos. */
+  planId?: string | null
+  plan?: LotPlan | null
+  /** Valor de compra do lote (R$) */
+  purchaseValue?: number | null
+  /** Despesas do Financeiro ligadas ao lote */
+  transactions?: LotExpense[]
 }
+/** Despesa do Financeiro ligada ao lote (data em ISO) */
+export interface LotExpense { id: string; category: string; amount: number; date: string; description: string | null }
 /** Animal do rebanho, para escolher quem entra no lote */
 export interface HerdAnimal {
   id: string; code: string; customCode: string | null; name: string; species: string; status: string; lotId: string | null
@@ -62,6 +72,25 @@ export const tag = (a: { code: string; customCode: string | null }) => `#${a.cus
 export const lastWeight = (a: LotAnimal) => a.weighings[a.weighings.length - 1]?.weight ?? null
 export const parseKg = (v: string) => { const n = Number(v.replace(',', '.')); return v.trim() && Number.isFinite(n) && n > 0 ? n : null }
 export const toField = (n: number | null | undefined) => (n ? String(n).replace('.', ',') : '')
+
+/**
+ * Valor em reais digitado ("15.000,00", "1500,5", "1500.50") no formato que o servidor entende ("15000,00").
+ * O servidor tira todos os pontos antes de trocar a vírgula, então o ponto decimal precisa virar vírgula aqui.
+ * Vazio ou inválido devolve ''.
+ */
+export function moneyField(v: string): string {
+  const raw = v.trim().replace(/[^\d.,]/g, '')
+  if (!raw) return ''
+  let normalized: string
+  if (raw.includes(',')) normalized = raw.replace(/\./g, '').replace(',', '.')
+  else {
+    // Só pontos: "15.000" é milhar; "1500.5" é decimal
+    const parts = raw.split('.')
+    normalized = parts.length > 1 && parts.slice(1).every((p) => p.length === 3) ? parts.join('') : raw.replace(/\.(?=.*\.)/g, '')
+  }
+  const n = Number(normalized)
+  return Number.isFinite(n) && n >= 0 ? n.toFixed(2).replace('.', ',') : ''
+}
 
 /** Fila dos lotes no aparelho (cada pedido leva a própria URL; a barra do topo envia quando a internet volta) */
 export const LOTS_MODULE = 'lotes'
@@ -95,6 +124,23 @@ export function productLines(lot: Lot) {
       days: perDay && !lot.endDate ? daysOfStock(stockKg(item.supply), perDay) : null,
     }
   })
+}
+
+/** Peso atual e a meta, com a barra de quanto já chegou (cartões da recria e dos lotes) */
+export function WeightProgress({ current, target }: { current: number; target: number }) {
+  const t = useT()
+  const pct = Math.max(0, Math.min(100, (current / target) * 100))
+  return (
+    <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
+      <div className="flex items-baseline justify-between gap-2 text-sm text-gray-700">
+        <span>{t('Peso atual')}: <strong className="text-gray-900">{kg(current)}</strong></span>
+        <span>{t('Meta')}: <strong className="text-gray-900">{kg(target)}</strong></span>
+      </div>
+      <div className="mt-2 h-2.5 rounded-full bg-gray-200" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)} aria-label={t('{n}% da meta', { n: Math.round(pct) })}>
+        <div className="h-2.5 rounded-full bg-green-600" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
 }
 
 export function Stat({ title, value, tone = 'text-gray-900' }: { title: string; value: string; tone?: string }) {

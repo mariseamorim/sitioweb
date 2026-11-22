@@ -11,8 +11,18 @@ import { RoutesSection } from './RoutesSection'
 import { PointsSection } from './PointsSection'
 import { DriversSection } from './DriversSection'
 import { ReceptionSection } from './ReceptionSection'
+import type { Accent } from '@/components/StatTile'
 
 type Tab = 'hoje' | 'coletas' | 'rotas' | 'pontos' | 'motoristas' | 'recebimento'
+
+// Mesmas cores do StatTile, num botão (os cartões do painel também são o menu)
+const NAV_ACCENT: Record<Accent, { box: string; bar: string; value: string }> = {
+  green: { box: 'border-green-200 bg-green-50', bar: 'bg-green-600', value: 'text-green-900' },
+  blue: { box: 'border-blue-200 bg-blue-50', bar: 'bg-blue-600', value: 'text-blue-900' },
+  teal: { box: 'border-teal-200 bg-teal-50', bar: 'bg-teal-600', value: 'text-teal-900' },
+  amber: { box: 'border-amber-200 bg-amber-50', bar: 'bg-amber-500', value: 'text-amber-800' },
+  red: { box: 'border-red-200 bg-red-50', bar: 'bg-red-600', value: 'text-red-700' },
+}
 
 /**
  * Ferramentas de coleta: pontos de coleta → rotas → motoristas → coletas, pendências e recebimento.
@@ -43,13 +53,14 @@ export function CollectionWorkspace({ embedded = false }: { embedded?: boolean }
   const collected = panel.entries.reduce((s, e) => s + (e.skipReason ? 0 : e.liters), 0)
   const received = panel.receptions.reduce((s, r) => s + r.liters, 0)
   const activePoints = panel.points.filter((p) => p.active).length
-  const cards: [Tab, string, string, boolean][] = [
-    ['hoje', 'Hoje: paradas pendentes', String(pending), pending > 0],
-    ['coletas', 'Coletado no período', fmtL(collected), false],
-    ['rotas', 'Rotas', String(panel.routes.filter((r) => r.active).length), false],
-    ['pontos', 'Pontos de coleta', String(activePoints), false],
-    ['motoristas', 'Motoristas', String(panel.drivers.length), false],
-    ['recebimento', 'Recebido no período', fmtL(received), false],
+  // Cor pelo significado: parada pendente = laranja; litros = verde; contagens = azul/turquesa
+  const cards: [Tab, string, string, Accent][] = [
+    ['hoje', 'Hoje: paradas pendentes', String(pending), pending > 0 ? 'amber' : 'green'],
+    ['coletas', 'Coletado no período', fmtL(collected), 'green'],
+    ['rotas', 'Rotas', String(panel.routes.filter((r) => r.active).length), 'blue'],
+    ['pontos', 'Pontos de coleta', String(activePoints), 'teal'],
+    ['motoristas', 'Motoristas', String(panel.drivers.length), 'blue'],
+    ['recebimento', 'Recebido no período', fmtL(received), 'teal'],
   ]
 
   return (
@@ -74,13 +85,15 @@ export function CollectionWorkspace({ embedded = false }: { embedded?: boolean }
 
       {/* Os cartões são o menu: cada um mostra o número e abre a sua seção */}
       <div role="navigation" aria-label="Seções do painel" className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-6">
-        {cards.map(([target, label, value, highlight]) => {
+        {cards.map(([target, label, value, accent]) => {
           const active = tab === target
+          const a = NAV_ACCENT[accent]
           return (
             <button key={target} type="button" onClick={() => setTab(target)} aria-current={active ? 'page' : undefined}
-              className={`text-left rounded-xl border-2 p-3 sm:p-4 ${active ? 'border-green-700 bg-green-50' : highlight ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-              <p className={`text-sm ${active ? 'font-semibold text-green-800' : 'text-gray-600'}`}>{label}</p>
-              <p className={`mt-1 text-xl font-bold ${highlight ? 'text-amber-800' : 'text-gray-900'}`}>{value}</p>
+              className={`relative overflow-hidden text-left rounded-xl border p-3 pt-4 sm:p-4 sm:pt-5 ${a.box} ${active ? 'ring-2 ring-green-800 ring-offset-1' : 'hover:brightness-95'}`}>
+              <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-1.5 ${a.bar}`} />
+              <p className={`text-sm ${active ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>{label}</p>
+              <p className={`mt-1 text-xl font-bold tabular-nums ${a.value}`}>{value}</p>
             </button>
           )
         })}

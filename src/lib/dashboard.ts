@@ -7,7 +7,7 @@ import { addMonths, buildIndicators } from '@/lib/reproInsights'
 import { farmOverviews, vetProfileOf, vetTasks } from '@/lib/vets'
 import { todayStops } from '@/lib/laticinio'
 import { sharedProduction } from '@/lib/associacao'
-import type { Board, Chart, Tile } from '@/lib/dashboardTypes'
+import type { Board, Chart, Tile, Tone } from '@/lib/dashboardTypes'
 
 const DAY = 24 * 60 * 60 * 1000
 const dayKey = (d: Date) => d.toISOString().slice(0, 10)
@@ -33,12 +33,15 @@ function sumBy<T>(rows: T[], key: (row: T) => string, value: (row: T) => number)
 /** As maiores primeiro, até `limit` */
 const top = (rows: { label: string; value: number }[], limit = 10) => rows.filter((r) => r.value > 0).sort((a, b) => b.value - a.value).slice(0, limit)
 
-export async function buildDashboard(user: SessionUser): Promise<Board | null> {
+/** Opções do filtro de período (meses), no quadro do veterinário */
+const PERIODS = [3, 6, 12]
+
+export async function buildDashboard(user: SessionUser, options: { months?: number } = {}): Promise<Board | null> {
   if (user.role === 'fornecedor') return user.vendorId ? vendorBoard(user.vendorId) : null
   if (user.role === 'laticinio' || user.role === 'associacao') return user.organizationId ? organizationBoard(user.organizationId) : null
   if (user.role === 'lite' || user.role === 'motorista') return null
   const vet = await vetProfileOf(user.id)
-  if (vet) return vetBoard(user, vet.id)
+  if (vet) return vetBoard(user, vet.id, PERIODS.includes(options.months ?? 0) ? options.months! : 12)
   return producerBoard(user)
 }
 
@@ -112,38 +115,68 @@ async function producerBoard(user: SessionUser): Promise<Board | null> {
 
 // ------------------------------------------------------------------------------------------------ veterinário
 
-async function vetBoard(user: SessionUser, vetId: string): Promise<Board> {
+/** Etiqueta das vacinas no comparativo: em dia (90% ou mais aplicadas), atenção (75% a 89%) ou atrasadas */
+function vaccineBadge(pct: number | null): { tone: Tone; badge: string } | undefined {
+  if (pct === null) return undefined
+  if (pct >= 90) return { tone: 'good', badge: 'Em dia' }
+  return pct >= 75 ? { tone: 'warn', badge: 'Atenção' } : { tone: 'bad', badge: 'Atrasadas' }
+}
+
+async function vetBoard(user: SessionUser, vetId: string, period: number): Promise<Board> {
   const today = animalToday()
   const links = await prisma.vetClient.findMany({
     where: { vetId, status: 'ativo', farm: { isActive: true } },
-    select: { farmId: true, farm: { select: { name: true } } },
+    select: { id: true, farmId: true, farm: { select: { name: true } } },
     orderBy: { createdAt: 'desc' },
   })
   const farmIds = links.map((l) => l.farmId!)
-  const [overviews, tasks, visits] = await Promise.all([
-    farmOverviews(farmIds),
+  const periodStart = midnight(`${addMonths(today.slice(0, 7), 1 - period)}-01`)
+  const [overviews, tasks, visits, shots, lastVisits] = await Promise.all([
+    farmOverviews(farmIds, period),
     vetTasks(farmIds),
     prisma.vetVisit.findMany({ where: { vetId, status: 'agendada', date: { gte: midnight(today) } }, select: { farmName: true, date: true, time: true, purpose: true }, orderBy: [{ date: 'asc' }, { time: 'asc' }], take: 8 }),
+    // Vacinas em dia: das marcadas no período até hoje, quantas já foram aplicadas
+    prisma.vaccination.findMany({ where: { animal: { farmId: { in: farmIds } }, scheduledDate: { gte: periodStart, lte: midnight(today) } }, select: { appliedDate: true, animal: { select: { farmId: true } } } }),
+    prisma.vetVisit.groupBy({ by: ['clientId'], where: { vetId, status: 'realizada', clientId: { in: links.map((l) => l.id) } }, _max: { date: true } }),
   ])
-  const farms = links.map((l) => ({ name: l.farm!.name, farmId: l.farmId!, ...overviews.get(l.farmId!)! }))
+  const farms = links.map((l) => {
+    const own = shots.filter((s) => s.animal.farmId === l.farmId)
+    return {
+      name: l.farm!.name, farmId: l.farmId!, ...overviews.get(l.farmId!)!,
+      vaccinesOnTime: own.length ? Math.round((own.filter((s) => s.appliedDate).length / own.length) * 100) : null,
+      lastVisit: lastVisits.find((v) => v.clientId === l.id)?._max.date ?? null,
+    }
+  })
   const total = (pick: (f: (typeof farms)[number]) => number) => farms.reduce((sum, f) => sum + pick(f), 0)
   const rates = farms.flatMap((f) => (f.pregnancyRate === null ? [] : [f.pregnancyRate]))
-  const awaiting = total((f) => f.awaitingDiagnosis)
+  const average = rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : null
   const nameOf = (farmId: string) => farms.find((f) => f.farmId === farmId)?.name ?? ''
   const months = farms.find((f) => f.birthsByMonth.length)?.birthsByMonth.map((m) => m.month) ?? []
 
   const tiles: Tile[] = [
-    { label: 'Propriedades atendidas', value: farms.length },
-    { label: 'Animais', value: total((f) => f.animals) },
-    { label: 'A diagnosticar', value: awaiting, tone: awaiting ? 'warn' : undefined },
-    { label: 'Concepção média', value: rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : null, unit: '%' },
-    { label: 'Partos em 30 dias', value: total((f) => f.birthsSoon) },
-    { label: 'Visitas hoje', value: visits.filter((v) => dayKey(v.date) === today).length },
+    { label: 'Propriedades atendidas', value: farms.length, accent: 'green' },
+    { label: 'Rebanho total', value: total((f) => f.animals), suffix: 'animais', accent: 'blue' },
+    { label: 'Concepção média', value: average, unit: '%', detail: { text: 'Últimos {n} meses', vars: { n: period } }, accent: 'teal' },
+    { label: 'Partos em 30 dias', value: total((f) => f.birthsSoon), accent: 'amber' },
   ]
   const charts: Chart[] = [
     { kind: 'stacked', axis: 'month', title: 'Partos previstos por mês', subtitle: 'Todas as propriedades, pelas coberturas em aberto', xs: months, series: farms.map((f) => ({ name: f.name, values: months.map((m) => f.birthsByMonth.find((b) => b.month === m)?.count ?? 0) })) },
-    { kind: 'bars', unit: '%', max: 100, title: 'Concepção por propriedade', subtitle: 'Das diagnosticadas nos últimos 12 meses, quantas ficaram prenhas', rows: [...farms].sort((a, b) => (b.pregnancyRate ?? -1) - (a.pregnancyRate ?? -1)).map((f) => ({ label: f.name, value: f.pregnancyRate })) },
-    { kind: 'bars', title: 'A diagnosticar por propriedade', subtitle: 'Coberturas ainda sem diagnóstico de gestação', rows: top(farms.map((f) => ({ label: f.name, value: f.awaitingDiagnosis }))) },
+    {
+      kind: 'bars', unit: '%', max: 100, title: 'Concepção por propriedade',
+      subtitle: { text: 'Das diagnosticadas nos últimos {n} meses, quantas ficaram prenhas', vars: { n: period } },
+      rows: [...farms].sort((a, b) => (b.pregnancyRate ?? -1) - (a.pregnancyRate ?? -1)).map((f) => ({ label: f.name, value: f.pregnancyRate })),
+      ...(average !== null && rates.length > 1 ? { reference: { value: average, label: { text: 'Média: {n}%', vars: { n: average } } } } : {}),
+    },
+    { kind: 'bars', color: 'blue', title: 'A diagnosticar por propriedade', subtitle: 'Coberturas ainda sem diagnóstico de gestação', rows: top(farms.map((f) => ({ label: f.name, value: f.awaitingDiagnosis }))) },
+    {
+      kind: 'table', full: true, title: 'Comparativo por propriedade',
+      columns: [{ label: 'Propriedade' }, { label: 'Animais', numeric: true }, { label: 'Concepção', numeric: true }, { label: 'A diagnosticar', numeric: true }, { label: 'Vacinas em dia' }, { label: 'Última visita' }],
+      rows: [...farms].sort((a, b) => b.animals - a.animals).map((f) => [
+        { text: f.name }, { value: f.animals }, { value: f.pregnancyRate, unit: '%' }, { value: f.awaitingDiagnosis },
+        { value: f.vaccinesOnTime, unit: '%', ...vaccineBadge(f.vaccinesOnTime) },
+        { date: f.lastVisit ? dayKey(f.lastVisit) : null },
+      ]),
+    },
     {
       kind: 'list', title: 'Próximas visitas', empty: 'Nenhuma visita marcada.',
       rows: visits.map((v) => ({ title: v.farmName, detail: [ddmm(v.date), v.time, v.purpose].filter(Boolean).join(' · '), tone: dayKey(v.date) === today ? 'warn' as const : undefined })),
@@ -154,7 +187,7 @@ async function vetBoard(user: SessionUser, vetId: string): Promise<Board> {
         .map((k) => ({ title: { text: k.title, vars: { n: k.n } }, detail: nameOf(k.farmId), tone: k.tone === 'red' ? 'bad' as const : 'warn' as const })),
     },
   ]
-  return { profile: 'veterinario', name: user.name, tiles, charts, generatedAt: new Date().toISOString() }
+  return { profile: 'veterinario', name: user.name, tiles, charts, period: { months: period, options: PERIODS }, generatedAt: new Date().toISOString() }
 }
 
 // ------------------------------------------------------------------------------------------------ laticínio e associação

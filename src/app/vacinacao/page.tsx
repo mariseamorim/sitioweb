@@ -16,6 +16,7 @@ import { todayISO } from '@/lib/utils'
 import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon } from '@/components/ModuleIcons'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 import { useLocale, useT } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
 
 interface Animal { id: string; name: string; code: string }
 
@@ -39,10 +40,11 @@ function getStatus(v: Vaccination): 'Pendente' | 'Aplicada' | 'Vencida' {
   return 'Pendente'
 }
 
+// Etiqueta da situação: Aplicada verde, Pendente laranja, Vencida vermelha (a palavra sempre aparece)
 const STATUS_COLOR: Record<string, string> = {
-  Aplicada: 'bg-green-100 text-green-700',
-  Pendente: 'bg-yellow-100 text-yellow-700',
-  Vencida: 'bg-red-100 text-red-700',
+  Aplicada: 'bg-green-100 text-green-800',
+  Pendente: 'bg-amber-100 text-amber-800',
+  Vencida: 'bg-red-100 text-red-800',
 }
 
 const MODULE = 'vacinacao'
@@ -118,6 +120,12 @@ export default function VacinacaoPage() {
     const in7 = new Date(); in7.setDate(in7.getDate() + 7)
     return vaccinations.filter(v => !v.appliedDate && new Date(v.scheduledDate) <= in7).length
   }, [vaccinations])
+  // Contagem por situação, para os cartões do topo
+  const statusCount = useMemo(() => {
+    const c = { Pendente: 0, Aplicada: 0, Vencida: 0 }
+    for (const v of vaccinations) c[getStatus(v)]++
+    return c
+  }, [vaccinations])
 
   // Depois de guardar ou enviar: a lista mostra na hora e a barra do topo atualiza a contagem
   const afterChange = (queued: boolean) => {
@@ -179,10 +187,19 @@ export default function VacinacaoPage() {
           <h1 className="text-2xl font-bold text-gray-800">{t('Vacinação')}</h1>
           <p className="text-gray-500 text-sm mt-1">{t('Agenda e controle de vacinas por animal')}</p>
         </div>
-        <button onClick={() => setShowRegister(true)} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
+        <button onClick={() => setShowRegister(true)} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${canEdit ? 'bg-green-800 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}>
           + {t('Registrar')}
         </button>
       </div>
+
+      {!loading && vaccinations.length > 0 && (
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatTile accent="blue" label={t('Total')} value={vaccinations.length} />
+          <StatTile accent="green" label={t('Vacinas aplicadas')} value={statusCount.Aplicada} />
+          <StatTile accent="amber" label={t('Vacinas pendentes')} value={statusCount.Pendente} />
+          <StatTile accent={statusCount.Vencida > 0 ? 'red' : 'teal'} label={t('Vacinas atrasadas')} value={statusCount.Vencida} />
+        </div>
+      )}
 
       {/* Sem internet / fila / aviso */}
       {(!net.online || fromCache) && (
@@ -220,7 +237,8 @@ export default function VacinacaoPage() {
       <div className="flex flex-wrap gap-2 mb-4">
         {(['Todas', 'Pendente', 'Aplicada', 'Vencida'] as VaccStatus[]).map(s => (
           <button key={s} onClick={() => { setQuick(null); setFilter(s) }}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === s ? 'bg-green-700 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            aria-pressed={filter === s}
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${filter === s ? 'bg-green-800 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
             {t(s)}
           </button>
         ))}
@@ -251,12 +269,15 @@ export default function VacinacaoPage() {
                 const status = getStatus(v)
                 return (
                   <tr key={v.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetail(v)}>
-                    <td className="px-4 py-3 font-medium text-gray-800">{v.animal.name}{isPendingId(v.id) && <span className="ml-2 text-xs font-normal text-blue-700">{t('a enviar')}</span>}</td>
+                    <td className="relative px-4 py-3 font-medium text-gray-800">
+                      {/* Faixa à esquerda: vermelha se vencida, laranja se pendente */}
+                      {status !== 'Aplicada' && <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${status === 'Vencida' ? 'bg-red-600' : 'bg-amber-500'}`} />}
+                      {v.animal.name}{isPendingId(v.id) && <span className="ml-2 text-xs font-normal text-blue-700">{t('a enviar')}</span>}</td>
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{v.vaccineName}</td>
                     <td className="px-4 py-3 text-gray-600">{fmt(v.scheduledDate)}</td>
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{v.appliedDate ? fmt(v.appliedDate) : '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLOR[status]}`}>{t(status)}</span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLOR[status]}`}>{t(status)}</span>
                     </td>
                   </tr>
                 )
@@ -289,7 +310,7 @@ export default function VacinacaoPage() {
 
               <div className="flex gap-2">
                 {!detail.appliedDate && (
-                  <button onClick={() => handleApply(detail)} className="flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg">
+                  <button onClick={() => handleApply(detail)} className="flex-1 bg-green-800 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg">
                     {t('Marcar como Aplicada')}
                   </button>
                 )}
@@ -350,7 +371,7 @@ export default function VacinacaoPage() {
                 {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={() => setShowRegister(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
+                  <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
                 </div>
               </form>
             </div>

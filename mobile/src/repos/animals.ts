@@ -1,5 +1,6 @@
 import { all, one } from '@/db'
 import { createLocal, currentId, deleteLocal, updateLocal } from '@/sync/local'
+import { isBovine } from '@/lib/animalRules'
 
 export interface Animal {
   id: string
@@ -7,6 +8,8 @@ export interface Animal {
   customCode: string | null
   name: string
   species: string
+  /** Raça (só bovinos) */
+  breed: string | null
   gender: string
   birthDate: string
   status: string
@@ -23,6 +26,9 @@ export interface Animal {
 
 export const SPECIES = ['Vaca', 'Boi', 'Boi de engorda', 'Touro', 'Bezerro', 'Bezerra', 'Cavalo', 'Égua', 'Cabra', 'Bode', 'Ovelha', 'Carneiro', 'Porco', 'Porca', 'Outro']
 export const STATUSES = ['Vivo', 'Doente', 'Vendido', 'Morto']
+/** Cor do selo da situação do animal (só aparência) */
+export const statusTone = (s: string): 'green' | 'amber' | 'blue' | 'red' | 'muted' =>
+  s === 'Vivo' ? 'green' : s === 'Doente' ? 'amber' : s === 'Vendido' ? 'blue' : s === 'Morto' ? 'red' : 'muted'
 export const ACQUISITIONS = [['existente', 'Já estava na propriedade'], ['nascimento', 'Nasceu aqui'], ['compra', 'Comprado']] as const
 
 export function listAnimals(farmId: string, q = ''): Animal[] {
@@ -50,13 +56,15 @@ export function nextCode(farmId: string): string {
 export interface AnimalInput {
   name: string; species: string; gender: string; birthDate: string; status: string; customCode: string
   acquisitionType: string; isCastrated: boolean; observations: string; motherId: string | null
+  /** Raça: só vale para bovino; vazio = sem raça */
+  breed: string
   /** Foto em data URL; vazio = tirar a foto; ausente = não mexer na foto */
   imageUrl?: string
 }
 
 export function saveAnimal(farmId: string, input: AnimalInput, id?: string): string {
   const body = {
-    name: input.name.trim(), species: input.species, gender: input.gender, birthDate: input.birthDate, status: input.status,
+    name: input.name.trim(), species: input.species, breed: isBovine(input.species) ? input.breed.trim().slice(0, 40) || null : null, gender: input.gender, birthDate: input.birthDate, status: input.status,
     customCode: input.customCode.trim() || null, acquisitionType: input.acquisitionType, isCastrated: input.isCastrated,
     observations: input.observations.trim() || null, motherId: input.motherId || null,
     // Só vai quando a foto mudou: o servidor mantém a que tem (e o aparelho pode ainda não ter baixado a foto)

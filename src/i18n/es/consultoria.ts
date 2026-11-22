@@ -188,6 +188,9 @@ export const consultoria: Record<string, string> = {
   'Quem acompanha a propriedade': 'Quién acompaña el establecimiento',
   'Nenhum veterinário acompanha esta propriedade.': 'Ningún veterinario acompaña este establecimiento.',
   'desde': 'desde',
+  'Vê animais, reprodução, vacinas, tratamentos e leite': 'Ve animales, reproducción, vacunas, tratamientos y leche',
+  'Não vê financeiro nem estoque': 'No ve finanzas ni inventario',
+  'Informe o código de 8 caracteres para vincular.': 'Ingrese el código de 8 caracteres para vincular.',
   // Tarefas e agenda do painel do veterinário
   'O que fazer nas propriedades': 'Qué hacer en los establecimientos',
   'Nada pendente nas propriedades que você atende.': 'Nada pendiente en los establecimientos que usted atiende.',
@@ -215,4 +218,16 @@ export const consultoria: Record<string, string> = {
   'Partos previstos por mês nos próximos 6 meses, por propriedade': 'Partos previstos por mes en los próximos 6 meses, por establecimiento',
   'Partos previstos por mês, por propriedade': 'Partos previstos por mes, por establecimiento',
   '— ainda sem diagnóstico de gestação nos últimos 12 meses': '— todavía sin diagnóstico de preñez en los últimos 12 meses',
+  'Atrasada': 'Atrasada',
+  'Atenção': 'Atención',
+  'Aviso': 'Aviso',
+  '{n} vaca para secar': '{n} vaca para secar',
+  '{n} vacas para secar': '{n} vacas para secar',
+  '60 dias antes do parto previsto': '60 días antes del parto previsto',
+  '{n} vaca para o pré-parto': '{n} vaca para el preparto',
+  '{n} vacas para o pré-parto': '{n} vacas para el preparto',
+  '21 dias antes do parto previsto': '21 días antes del parto previsto',
+  // Cartões de número do estoque e dos recibos do veterinário
+  'Itens': 'Ítems',
+  'Recibos emitidos': 'Recibos emitidos',
 }

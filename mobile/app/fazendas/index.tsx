@@ -9,7 +9,7 @@ import { OWNER_FILTERS, STALE_DAYS, activityLabel, filterOwnerGroups, groupFarms
 import { listFarms, removeFarm, type Farm } from '@/repos/farms'
 import { pendingCount } from '@/sync/local'
 import { useSyncState } from '@/sync'
-import { Badge, Button, Card, Chips, Empty, Fab, Muted, Notice, Screen, Search, Stat } from '@/ui'
+import { Badge, Button, Card, Chips, Empty, Fab, IconCircle, Muted, Notice, Screen, Search, Tile, TileGrid } from '@/ui'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
@@ -89,9 +89,14 @@ export default function Fazendas() {
         {header}
         {active.length === 0 ? <Empty title="Nenhuma propriedade cadastrada" text={canEdit ? 'Toque em “Cadastrar” para começar' : undefined} /> : active.map(f => (
           <Card key={f.id}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.sm }}>
-              <Text style={{ flex: 1, fontSize: font.lg, fontWeight: '700', color: colors.text }}>{f.name}</Text>
-              {f.propertyType ? <Badge label={f.propertyType} tone={f.propertyType === 'Sítio' ? 'amber' : 'green'} /> : null}
+            {/* Ícone colorido (verde na propriedade aberta), nome e tipo em selo; o selo desce de linha com letra grande */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.xs }}>
+              <IconCircle icon="home-outline" tone={f.id === farmId ? 'green' : 'blue'} />
+              <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm }}>
+                <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text }}>{f.name}</Text>
+                {f.propertyType ? <Badge label={f.propertyType} tone={f.propertyType === 'Sítio' ? 'amber' : 'green'} /> : null}
+                {f.id === farmId ? <Badge label="Aberta" tone="green" /> : null}
+              </View>
             </View>
             {f.documentType || f.documentNumber ? <Muted>{f.documentType}: {f.documentNumber}</Muted> : null}
             {f.owner ? <Muted>{t('Proprietário:')} {f.owner}</Muted> : null}
@@ -138,14 +143,17 @@ function AdminGroups({ farms, activeFarmId, header, opening, onOpen, onEdit, onD
   return (
     <Screen>
       {header}
-      <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.sm }}>
-        <Stat label="proprietários" value={String(totals.owners)} />
-        <Stat label="propriedades ativas" value={String(totals.farms)} />
-      </View>
-      <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.md }}>
-        <Pressable style={{ flex: 1 }} onPress={() => totals.stale && setFilter('paradas')}><Stat label={t('sem lançamento há {n} dias', { n: STALE_DAYS })} value={String(totals.stale)} tone={totals.stale ? 'red' : undefined} /></Pressable>
-        <Pressable style={{ flex: 1 }} onPress={() => totals.unknown && setFilter('semdono')}><Stat label="sem proprietário informado" value={String(totals.unknown)} tone={totals.unknown ? 'amber' : undefined} /></Pressable>
-      </View>
+      <TileGrid>
+        <Tile accent="blue" label={t('proprietários')} value={String(totals.owners)} />
+        <Tile accent="green" label={t('propriedades ativas')} value={String(totals.farms)} />
+        {/* Os dois de baixo são tocáveis (filtram a lista); o Pressable ocupa a mesma meia linha do cartão */}
+        <Pressable style={{ flexGrow: 1, flexBasis: '45%', flexDirection: 'row' }} onPress={() => totals.stale && setFilter('paradas')}>
+          <Tile accent={totals.stale ? 'red' : 'teal'} label={t('sem lançamento há {n} dias', { n: STALE_DAYS })} value={String(totals.stale)} />
+        </Pressable>
+        <Pressable style={{ flexGrow: 1, flexBasis: '45%', flexDirection: 'row' }} onPress={() => totals.unknown && setFilter('semdono')}>
+          <Tile accent={totals.unknown ? 'amber' : 'plain'} label={t('sem proprietário informado')} value={String(totals.unknown)} />
+        </Pressable>
+      </TileGrid>
       <Search value={query} onChange={setQuery} placeholder="Proprietário, CPF/CNPJ, propriedade ou cidade" />
       <Chips options={filters} value={filter} onChange={setFilter} />
       {visible.length === 0 ? (

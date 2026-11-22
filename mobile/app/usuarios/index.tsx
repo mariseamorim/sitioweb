@@ -5,7 +5,7 @@ import { useLive } from '@/db/events'
 import { contactLabel } from '@/lib/masks'
 import { ROLE_LABEL } from '@/lib/modules'
 import { listUsers, modulesLabel, type TeamUser } from '@/repos/users'
-import { Badge, Empty, Fab, Muted, Row } from '@/ui'
+import { Badge, Empty, Fab, IconCircle, Muted, Row } from '@/ui'
 import { colors, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
@@ -20,7 +20,7 @@ export default function Usuarios() {
   // O admin e o dono da propriedade (editor com o módulo Usuários) gerenciam a equipe
   const canManage = me?.role === 'admin' || (me?.role === 'editor' && !!me?.permissions?.includes('usuarios'))
   const canTouch = (u: TeamUser) => canManage && u.role !== 'admin'
-  const roleTone = (role: string) => (role === 'admin' ? 'blue' : role === 'editor' ? 'green' : 'muted')
+  const roleTone = (role: string) => (role === 'admin' ? 'blue' : role === 'editor' ? 'green' : role === 'viewer' ? 'purple' : 'muted') as 'blue' | 'green' | 'purple' | 'muted'
 
   if (!canAccess('usuarios')) return <Empty title="Sem permissão" text="Você não tem permissão para ver a equipe." />
 
@@ -32,7 +32,7 @@ export default function Usuarios() {
         contentContainerStyle={{ padding: space.lg, paddingBottom: 96 }}
         ListHeaderComponent={<Muted style={{ marginBottom: space.sm }}>{t('Gerencie acesso e permissões por módulo')}</Muted>}
         renderItem={({ item }) => (
-          <Row title={item.name}
+          <Row left={<IconCircle icon="person-outline" tone={roleTone(item.role)} />} title={item.name}
             detail={[contactLabel(item), modulesLabel(item)].filter(Boolean).join(' · ')}
             badge={<Badge label={ROLE_LABEL[item.role] || item.role} tone={roleTone(item.role)} />}
             right={canTouch(item) ? <Muted>{t('Editar')} ›</Muted> : undefined}

@@ -10,6 +10,8 @@ export interface Supply {
   minimumQuantity: number
   packageKg: number | null
   unitPrice: number | null
+  /** Validade (opcional), "AAAA-MM-DD..." */
+  expiryDate: string | null
 }
 
 export interface Movement { id: string; supplyId: string; type: 'Entrada' | 'Saída'; quantity: number; date: string; description: string | null }
@@ -19,14 +21,27 @@ export const UNITS = ['kg', 'saco', 'litro', 'dose', 'frasco', 'unidade']
 
 export const isLow = (s: Supply) => s.currentQuantity < s.minimumQuantity
 
+/** Selo da situação (só aparência, como no site): abaixo do mínimo e acabou = Crítico, abaixo do mínimo = Baixo, senão OK */
+export function supplyStatus(s: Supply): { label: 'Crítico' | 'Baixo' | 'OK'; tone: 'red' | 'amber' | 'green' } {
+  if (!isLow(s)) return { label: 'OK', tone: 'green' }
+  return s.currentQuantity <= 0 ? { label: 'Crítico', tone: 'red' } : { label: 'Baixo', tone: 'amber' }
+}
+
 export const listSupplies = (farmId: string) => all<Supply>('SELECT * FROM supplies WHERE farmId = ? ORDER BY name COLLATE NOCASE', [farmId])
 export const getSupply = (id: string) => one<Supply>('SELECT * FROM supplies WHERE id = ?', [currentId(id)])
 export const listMovements = (supplyId: string) => all<Movement>('SELECT * FROM supply_movements WHERE supplyId = ? ORDER BY date DESC, createdAt DESC LIMIT 30', [currentId(supplyId)])
 
-export interface SupplyInput { name: string; category: string; unit: string; currentQuantity: number; minimumQuantity: number; packageKg: number | null; unitPrice: number | null }
+export interface SupplyInput { name: string; category: string; unit: string; currentQuantity: number; minimumQuantity: number; packageKg: number | null; unitPrice: number | null; expiryDate: string | null }
+
+/** Entra em "Próximos a vencer" com 30 dias ou menos até a validade */
+export const EXPIRY_WARNING_DAYS = 30
+/** Dias até a validade (negativo: já venceu); null sem validade */
+export function daysToExpiry(s: Supply, today: string): number | null {
+  return s.expiryDate ? Math.round((Date.parse(s.expiryDate.slice(0, 10)) - Date.parse(today)) / 86_400_000) : null
+}
 
 export function saveSupply(farmId: string, input: SupplyInput, id?: string): string {
-  const base = { name: input.name.trim(), category: input.category, unit: input.unit, minimumQuantity: input.minimumQuantity, packageKg: input.packageKg, unitPrice: input.unitPrice }
+  const base = { name: input.name.trim(), category: input.category, unit: input.unit, minimumQuantity: input.minimumQuantity, packageKg: input.packageKg, unitPrice: input.unitPrice, expiryDate: input.expiryDate }
   if (id) {
     updateLocal({ table: 'supplies', farmId, id, path: `/api/estoque/${id}`, body: base })
     return id

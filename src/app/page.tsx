@@ -15,6 +15,7 @@ import { homeForRole } from '@/lib/organizations'
 import { isVet } from '@/lib/vets'
 import { SetupHelpCard } from '@/components/SetupHelpCard'
 import { T } from '@/components/T'
+import type { Accent } from '@/components/StatTile'
 import { PeriodSummary } from '@/components/PeriodSummary'
 import { loadPeriodSummary } from '@/lib/periodSummaryData'
 import { BOVINE_CATEGORIES, CALF_AT_FOOT_DAYS, canAddCalf } from '@/lib/animalRules'
@@ -119,15 +120,16 @@ export default async function Home() {
   const lowStockCount = supplies.filter(s => s.currentQuantity <= s.minimumQuantity).length
   const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-  const stats: { href: string; label: string; value: number | string; Icon: (p: { className?: string }) => React.ReactNode; tone: StatTone }[] = [
-    { href: '/animais', label: 'Total de animais', value: totalAnimals, Icon: AnimalIcon, tone: 'neutral' },
-    { href: '/animais?filtro=vivos', label: 'Animais vivos', value: aliveAnimals, Icon: CheckIcon, tone: 'neutral' },
-    ...(does('leite') ? [{ href: '/milk-production', label: 'Registros de leite', value: milkCount, Icon: LeiteIcon, tone: 'neutral' as StatTone }] : []),
-    { href: '/veterinary-treatment', label: 'Tratamentos', value: vetCount, Icon: TratamentoIcon, tone: 'neutral' },
-    { href: '/vacinacao?filtro=pendentes', label: 'Vacinas pendentes', value: vaccinePending, Icon: VacinaIcon, tone: vaccinePending > 0 ? 'warn' : 'muted' },
-    { href: '/reproducao?filtro=partos', label: 'Partos esperados', value: upcomingBirths, Icon: ReproducaoIcon, tone: upcomingBirths > 0 ? 'warn' : 'muted' },
-    { href: '/financeiro', label: 'Saldo do mês', value: fmtBRL(monthBalance), Icon: FinanceiroIcon, tone: monthBalance >= 0 ? 'good' : 'bad' },
-    { href: '/estoque?filtro=alerta', label: 'Itens em alerta', value: lowStockCount, Icon: EstoqueIcon, tone: lowStockCount > 0 ? 'warn' : 'muted' },
+  // Cor de cada cartão pelo significado: contagens em azul/verde-água, pendências em laranja, saldo verde ou vermelho
+  const stats: { href: string; label: string; value: number | string; Icon: (p: { className?: string }) => React.ReactNode; accent: Accent }[] = [
+    { href: '/animais', label: 'Total de animais', value: totalAnimals, Icon: AnimalIcon, accent: 'blue' },
+    { href: '/animais?filtro=vivos', label: 'Animais vivos', value: aliveAnimals, Icon: CheckIcon, accent: 'teal' },
+    ...(does('leite') ? [{ href: '/milk-production', label: 'Registros de leite', value: milkCount, Icon: LeiteIcon, accent: 'blue' as Accent }] : []),
+    { href: '/veterinary-treatment', label: 'Tratamentos', value: vetCount, Icon: TratamentoIcon, accent: 'teal' },
+    { href: '/vacinacao?filtro=pendentes', label: 'Vacinas pendentes', value: vaccinePending, Icon: VacinaIcon, accent: vaccinePending > 0 ? 'amber' : 'green' },
+    { href: '/reproducao?filtro=partos', label: 'Partos esperados', value: upcomingBirths, Icon: ReproducaoIcon, accent: upcomingBirths > 0 ? 'amber' : 'teal' },
+    { href: '/financeiro', label: 'Saldo do mês', value: fmtBRL(monthBalance), Icon: FinanceiroIcon, accent: monthBalance >= 0 ? 'green' : 'red' },
+    { href: '/estoque?filtro=alerta', label: 'Itens em alerta', value: lowStockCount, Icon: EstoqueIcon, accent: lowStockCount > 0 ? 'red' : 'green' },
   ]
 
 
@@ -172,17 +174,18 @@ export default async function Home() {
       {showPeriod && <PeriodSummary summary={period.summary} show={period.show} />}
       <h2 className="mb-4 text-lg font-bold text-gray-900"><T k="Resumo da propriedade" /></h2>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {stats.map(({ href, label, value, Icon, tone }) => (
+        {stats.map(({ href, label, value, Icon, accent }) => (
           <Link
             key={label}
             href={href}
-            className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 hover:border-gray-300 transition-colors"
+            className={`relative overflow-hidden rounded-xl border p-4 pt-5 transition-shadow hover:shadow-md sm:p-5 sm:pt-6 ${TILE[accent].box}`}
           >
-            <div className="flex items-center gap-2 text-gray-500">
-              <Icon className="w-5 h-5 shrink-0 text-gray-400" />
+            <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-1.5 ${TILE[accent].bar}`} />
+            <div className="flex items-center gap-2 text-gray-700">
+              <Icon className="w-5 h-5 shrink-0 text-gray-500" />
               <p className="text-sm font-medium leading-tight"><T k={label} /></p>
             </div>
-            <p className={`mt-3 font-bold ${typeof value === 'number' ? 'text-3xl' : 'text-xl'} ${STAT_TONE[tone]}`}>{value}</p>
+            <p className={`mt-3 font-bold tabular-nums ${typeof value === 'number' ? 'text-3xl' : 'text-xl'} ${TILE[accent].value}`}>{value}</p>
           </Link>
         ))}
       </div>
@@ -193,13 +196,14 @@ export default async function Home() {
           <p className="mt-1 mb-4 text-sm text-gray-600"><T k="Vacas a partir de 2 anos e meio. Com bezerro ao pé: cria viva de até 8 meses cadastrada como filha dela." /></p>
           <div className="grid grid-cols-3 gap-3 sm:gap-4">
             {[
-              ['Matrizes', matrices.length, 'text-gray-900', 'matrizes'],
-              ['Com bezerro ao pé', withCalf, 'text-green-700', 'com-cria'],
-              ['Solteiras', matrices.length - withCalf, 'text-gray-900', 'solteiras'],
-            ].map(([label, value, tone, filter]) => (
-              <Link key={label} href={`/animais?filtro=${filter}`} className="rounded-xl border border-gray-200 bg-white p-4 hover:border-gray-300 sm:p-5">
-                <p className="text-sm font-medium leading-tight text-gray-500"><T k={String(label)} /></p>
-                <p className={`mt-3 text-3xl font-bold ${tone}`}>{value}</p>
+              ['Matrizes', matrices.length, 'blue', 'matrizes'],
+              ['Com bezerro ao pé', withCalf, 'green', 'com-cria'],
+              ['Solteiras', matrices.length - withCalf, 'amber', 'solteiras'],
+            ].map(([label, value, accent, filter]) => (
+              <Link key={label} href={`/animais?filtro=${filter}`} className={`relative overflow-hidden rounded-xl border p-4 pt-5 transition-shadow hover:shadow-md sm:p-5 sm:pt-6 ${TILE[accent as Accent].box}`}>
+                <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-1.5 ${TILE[accent as Accent].bar}`} />
+                <p className="text-sm font-medium leading-tight text-gray-700"><T k={String(label)} /></p>
+                <p className={`mt-3 text-3xl font-bold tabular-nums ${TILE[accent as Accent].value}`}>{value}</p>
               </Link>
             ))}
           </div>
@@ -209,7 +213,9 @@ export default async function Home() {
   )
 }
 
-const TASK_TONE = { red: 'text-red-700', amber: 'text-amber-700', blue: 'text-blue-700' } as const
+// Aviso com faixa colorida à esquerda: vermelho urgente, laranja atenção, azul informação
+const TASK_TONE = { red: 'bg-red-50 text-red-800', amber: 'bg-amber-50 text-amber-800', blue: 'bg-blue-50 text-blue-800' } as const
+const TASK_BAR = { red: 'bg-red-600', amber: 'bg-amber-500', blue: 'bg-blue-600' } as const
 
 /** Resumo de todas as propriedades: cabeças, saldo do mês e os avisos de cada uma */
 function FarmsOverview({ farms, activeId, fmtBRL }: {
@@ -249,7 +255,7 @@ function FarmsOverview({ farms, activeId, fmtBRL }: {
             {f.tasks.length === 0
               ? <p className="mt-3 text-sm text-gray-500"><T k="Nenhum aviso hoje." /></p>
               : <ul className="mt-3 space-y-1 text-sm">
-                  {f.tasks.slice(0, 3).map(t => <li key={t.title} className={TASK_TONE[t.tone]}><T k={t.title} /></li>)}
+                  {f.tasks.slice(0, 3).map(t => <li key={t.title} className={`relative rounded-md py-1 pl-3 pr-2 font-medium ${TASK_TONE[t.tone]}`}><span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 rounded-l-md ${TASK_BAR[t.tone]}`} /><T k={t.title} /></li>)}
                   {f.tasks.length > 3 && <li className="text-gray-500"><T k="e mais {n}" vars={{ n: f.tasks.length - 3 }} /></li>}
                 </ul>}
           </article>
@@ -259,11 +265,12 @@ function FarmsOverview({ farms, activeId, fmtBRL }: {
   )
 }
 
-type StatTone = 'neutral' | 'muted' | 'warn' | 'good' | 'bad'
-const STAT_TONE: Record<StatTone, string> = {
-  neutral: 'text-gray-900',
-  muted: 'text-gray-400',
-  warn: 'text-amber-700',
-  good: 'text-green-700',
-  bad: 'text-red-600',
+// Mesmas cores do StatTile; aqui o cartão inteiro é um link, por isso a classe fica na página
+// (o StatTile só aceita nome em texto e o Painel é componente de servidor, que traduz com <T />).
+const TILE: Record<Accent, { box: string; bar: string; value: string }> = {
+  green: { box: 'border-green-200 bg-green-50', bar: 'bg-green-600', value: 'text-green-900' },
+  blue: { box: 'border-blue-200 bg-blue-50', bar: 'bg-blue-600', value: 'text-blue-900' },
+  teal: { box: 'border-teal-200 bg-teal-50', bar: 'bg-teal-600', value: 'text-teal-900' },
+  amber: { box: 'border-amber-200 bg-amber-50', bar: 'bg-amber-500', value: 'text-amber-800' },
+  red: { box: 'border-red-200 bg-red-50', bar: 'bg-red-600', value: 'text-red-700' },
 }

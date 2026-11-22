@@ -14,7 +14,7 @@ export type Row = Record<string, unknown>
  */
 export const TABLES = {
   animals: {
-    columns: ['code', 'customCode', 'name', 'species', 'gender', 'birthDate', 'status', 'isCastrated', 'acquisitionType', 'gta', 'observations', 'motherId', 'lowDate', 'lowReason', 'lotId', 'rearingStart', 'rearingEnd', 'rearingTarget', 'createdAt', 'updatedAt'],
+    columns: ['code', 'customCode', 'name', 'species', 'breed', 'gender', 'birthDate', 'status', 'isCastrated', 'acquisitionType', 'gta', 'observations', 'motherId', 'lowDate', 'lowReason', 'lotId', 'rearingStart', 'rearingEnd', 'rearingTarget', 'createdAt', 'updatedAt'],
     list: '/api/animals', module: 'animais',
   },
   milk: {
@@ -30,11 +30,11 @@ export const TABLES = {
     list: '/api/veterinary-treatment', module: 'veterinario',
   },
   transactions: {
-    columns: ['type', 'category', 'date', 'amount', 'description', 'animalId', 'createdAt', 'updatedAt'],
+    columns: ['type', 'category', 'date', 'amount', 'description', 'paid', 'animalId', 'lotId', 'createdAt', 'updatedAt'],
     list: '/api/financeiro', module: 'financeiro',
   },
   supplies: {
-    columns: ['name', 'category', 'unit', 'currentQuantity', 'minimumQuantity', 'packageKg', 'unitPrice', 'dailyUseKg', 'daysLeft', 'createdAt', 'updatedAt'],
+    columns: ['name', 'category', 'unit', 'currentQuantity', 'minimumQuantity', 'packageKg', 'unitPrice', 'expiryDate', 'dailyUseKg', 'daysLeft', 'createdAt', 'updatedAt'],
     list: '/api/estoque', module: 'estoque',
   },
   supply_movements: {
@@ -45,9 +45,9 @@ export const TABLES = {
     columns: ['femaleId', 'maleName', 'method', 'heatDate', 'semenBatch', 'bullRegistry', 'inseminator', 'coverageDate', 'expectedBirthDate', 'actualBirthDate', 'status', 'calfId', 'observations', 'createdAt', 'updatedAt'],
     list: '/api/reproducao', module: 'reproducao',
   },
-  /** Lote de recria/engorda como o servidor devolve (supplies, feedings, weighings e animals em JSON). */
+  /** Lote de recria/engorda como o servidor devolve (plan, transactions, supplies, feedings, weighings e animals em JSON). */
   lots: {
-    columns: ['name', 'phase', 'startDate', 'endDate', 'targetWeight', 'notes', 'supplies', 'feedings', 'weighings', 'animals', 'createdAt', 'updatedAt'],
+    columns: ['name', 'phase', 'startDate', 'endDate', 'targetWeight', 'notes', 'planId', 'purchaseValue', 'plan', 'transactions', 'supplies', 'feedings', 'weighings', 'animals', 'createdAt', 'updatedAt'],
     list: '/api/lotes', module: 'animais',
   },
   /** Pesagens individuais (recria um a um); vêm dentro de /api/recria. */

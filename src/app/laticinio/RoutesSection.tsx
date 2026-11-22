@@ -55,7 +55,7 @@ export function RoutesSection({ panel, onChanged }: { panel: DairyPanel; onChang
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-gray-600">O motorista vê no Anota Aí Leite as paradas das rotas dele, nos dias marcados.</p>
         <button type="button" onClick={() => open('new')} disabled={panel.points.length === 0}
-          className="bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">+ Nova rota</button>
+          className="bg-green-800 hover:bg-green-700 disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">+ Nova rota</button>
       </div>
       {panel.points.length === 0 && <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Cadastre primeiro os pontos de coleta.</p>}
 
@@ -72,7 +72,7 @@ export function RoutesSection({ panel, onChanged }: { panel: DairyPanel; onChang
                 const on = form.days.includes(day)
                 return (
                   <button key={label} type="button" aria-pressed={on} onClick={() => setForm({ ...form, days: on ? form.days.filter((d) => d !== day) : [...form.days, day] })}
-                    className={`min-w-12 rounded-lg border-2 px-3 py-2 text-sm font-semibold ${on ? 'border-green-700 bg-green-700 text-white' : 'border-gray-300 bg-white text-gray-700'}`}>
+                    className={`min-w-12 rounded-lg border-2 px-3 py-2 text-sm font-semibold ${on ? 'border-green-800 bg-green-800 text-white' : 'border-gray-300 bg-white text-gray-700'}`}>
                     {label}
                   </button>
                 )
@@ -109,7 +109,7 @@ export function RoutesSection({ panel, onChanged }: { panel: DairyPanel; onChang
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-2">
             <button type="button" onClick={() => setEditing(null)} className="flex-1 border border-gray-300 bg-white text-gray-700 font-medium py-2.5 rounded-lg">Cancelar</button>
-            <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg">{saving ? 'Salvando...' : 'Salvar rota'}</button>
+            <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg">{saving ? 'Salvando...' : 'Salvar rota'}</button>
           </div>
         </form>
       )}
@@ -122,8 +122,8 @@ export function RoutesSection({ panel, onChanged }: { panel: DairyPanel; onChang
             <li key={r.id} className="rounded-xl border border-gray-200 bg-white p-4">
               <p className="font-semibold text-gray-900">{r.name}</p>
               <p className="text-sm text-gray-600">
-                {r.days.length ? r.days.map((d) => WEEKDAYS[d]).join(', ') : <span className="text-amber-800">Sem dias marcados</span>}
-                {' · '}{r.driverId ? driverName.get(r.driverId) : <span className="text-red-700">sem motorista</span>}
+                {r.days.length ? r.days.map((d) => WEEKDAYS[d]).join(', ') : <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Sem dias marcados</span>}
+                {' · '}{r.driverId ? driverName.get(r.driverId) : <span className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">Sem motorista</span>}
               </p>
               <p className="mt-1 text-sm text-gray-500">{r.stops.length} parada{r.stops.length === 1 ? '' : 's'}: {r.stops.map((s) => pointName.get(s.pointId)).join(' → ') || '—'}</p>
               <div className="mt-3 flex gap-3 text-sm">

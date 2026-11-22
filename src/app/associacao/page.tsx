@@ -10,6 +10,7 @@ import { PeriodPicker } from '@/app/laticinio/CollectionsSection'
 import { CollectionWorkspace } from '@/app/laticinio/CollectionWorkspace'
 import { FeesSection, NoticesSection, VisitsSection, type Fee, type Notice, type Visit } from './ServicesSections'
 import { cachedGet } from '@/lib/offlineData'
+import { StatTile, type Accent } from '@/components/StatTile'
 
 interface Member {
   id: string
@@ -48,6 +49,14 @@ interface Panel {
 
 type Tab = 'associados' | 'producao' | 'compras' | 'comunicados' | 'visitas' | 'mensalidades' | 'coleta' | 'convidar'
 const fmtQty = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
+// Mesmas cores do StatTile, num botão (os cartões do painel também são o menu)
+const NAV_ACCENT: Record<Accent, { box: string; bar: string; value: string }> = {
+  green: { box: 'border-green-200 bg-green-50', bar: 'bg-green-600', value: 'text-green-900' },
+  blue: { box: 'border-blue-200 bg-blue-50', bar: 'bg-blue-600', value: 'text-blue-900' },
+  teal: { box: 'border-teal-200 bg-teal-50', bar: 'bg-teal-600', value: 'text-teal-900' },
+  amber: { box: 'border-amber-200 bg-amber-50', bar: 'bg-amber-500', value: 'text-amber-800' },
+  red: { box: 'border-red-200 bg-red-50', bar: 'bg-red-600', value: 'text-red-700' },
+}
 
 // Painel da associação: associados, produção que eles compartilham e compras coletivas
 export default function AssociacaoPage() {
@@ -112,15 +121,18 @@ export default function AssociacaoPage() {
   // Resumo para negociar com o fornecedor (vai pelo WhatsApp ou é copiado)
   const summary = (p: Purchase) => `Compra coletiva da ${panel.organization.name}: ${p.title} (${p.category}). Total: ${qtyWithUnit(p.total, p.unit)} de ${p.orders.length} associado${p.orders.length === 1 ? '' : 's'}.`
 
-  const cards: [Tab, string, string][] = [
-    ['associados', 'Associados ativos', String(active.length)],
-    ['producao', 'Leite compartilhado no período', fmtL(totalLiters)],
-    ['compras', 'Compras coletivas abertas', String(open.length)],
-    ['comunicados', 'Comunicados', String(panel.notices.length)],
-    ['visitas', 'Visitas técnicas pendentes', String(panel.visits.filter((v) => v.status === 'solicitada' || v.status === 'agendada').length)],
-    ['mensalidades', 'Mensalidades atrasadas', String(panel.fees.filter((f) => feeStatus(f, todayISO()) === 'atrasada').length)],
-    ['coleta', 'Coleta compartilhada', '→'],
-    ['convidar', 'Convidar produtores', '+'],
+  const pendingVisits = panel.visits.filter((v) => v.status === 'solicitada' || v.status === 'agendada').length
+  const lateFees = panel.fees.filter((f) => feeStatus(f, todayISO()) === 'atrasada').length
+  // Cor pelo significado: mensalidade atrasada = vermelho, visita pendente = laranja; contagens = azul/turquesa
+  const cards: [Tab, string, string, Accent][] = [
+    ['associados', 'Associados ativos', String(active.length), 'green'],
+    ['producao', 'Leite compartilhado no período', fmtL(totalLiters), 'teal'],
+    ['compras', 'Compras coletivas abertas', String(open.length), 'blue'],
+    ['comunicados', 'Comunicados', String(panel.notices.length), 'teal'],
+    ['visitas', 'Visitas técnicas pendentes', String(pendingVisits), pendingVisits > 0 ? 'amber' : 'blue'],
+    ['mensalidades', 'Mensalidades atrasadas', String(lateFees), lateFees > 0 ? 'red' : 'green'],
+    ['coleta', 'Coleta compartilhada', '→', 'blue'],
+    ['convidar', 'Convidar produtores', '+', 'green'],
   ]
 
   return (
@@ -139,13 +151,15 @@ export default function AssociacaoPage() {
       )}
 
       <div role="navigation" aria-label="Seções do painel" className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {cards.map(([target, label, value]) => {
+        {cards.map(([target, label, value, accent]) => {
           const isActive = tab === target
+          const a = NAV_ACCENT[accent]
           return (
             <button key={target} type="button" onClick={() => setTab(target)} aria-current={isActive ? 'page' : undefined}
-              className={`text-left rounded-xl border-2 p-3 sm:p-4 ${isActive ? 'border-green-700 bg-green-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-              <p className={`text-sm ${isActive ? 'font-semibold text-green-800' : 'text-gray-600'}`}>{label}</p>
-              <p className="mt-1 text-xl font-bold text-gray-900">{value}</p>
+              className={`relative overflow-hidden text-left rounded-xl border p-3 pt-4 sm:p-4 sm:pt-5 ${a.box} ${isActive ? 'ring-2 ring-green-800 ring-offset-1' : 'hover:brightness-95'}`}>
+              <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-1.5 ${a.bar}`} />
+              <p className={`text-sm ${isActive ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>{label}</p>
+              <p className={`mt-1 text-xl font-bold tabular-nums ${a.value}`}>{value}</p>
             </button>
           )
         })}
@@ -169,7 +183,7 @@ export default function AssociacaoPage() {
                       {m.kind === 'completa' ? 'Versão completa' : 'Anota Aí Leite'} · desde {fmtDay(m.since)} · {m.shareProduction ? 'compartilha o leite' : 'não compartilha o leite'}
                     </p>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${m.status === 'ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>{m.status === 'ativo' ? 'Ativo' : 'Inativo'}</span>
+                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${m.status === 'ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>{m.status === 'ativo' ? 'Ativo' : 'Inativo'}</span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-3 text-sm">
                   {m.phone && <a href={whatsappLink(m.phone, `Olá! Aqui é da ${panel.organization.name}.`)} target="_blank" rel="noopener noreferrer" className="font-semibold text-green-700 hover:underline">WhatsApp</a>}
@@ -186,17 +200,20 @@ export default function AssociacaoPage() {
       {tab === 'producao' && (
         <div>
           <PeriodPicker period={period} onPeriod={setPeriod} />
+          <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatTile accent="green" label="Leite compartilhado no período" value={fmtL(totalLiters)} detail={`${fmtDay(panel.period.from)} a ${fmtDay(panel.period.to)}`} />
+            <StatTile accent="blue" label="Associados que compartilham" value={`${sharing.length} de ${panel.members.length}`} />
+          </div>
           <p className="mb-3 text-sm text-gray-600">
-            <strong className="text-lg text-gray-900">{fmtL(totalLiters)}</strong> de {sharing.length} associado{sharing.length === 1 ? '' : 's'} que autorizaram mostrar o leite
-            ({fmtDay(panel.period.from)} a {fmtDay(panel.period.to)}). Animais, financeiro e outros dados continuam privados.
+            Só entra o leite de quem autorizou mostrar. Animais, financeiro e outros dados continuam privados.
           </p>
           <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
             {[...panel.members].sort((a, b) => (b.liters ?? -1) - (a.liters ?? -1)).map((m) => (
               <li key={m.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
                 <span className="text-gray-800">{m.name}</span>
                 {m.liters === null
-                  ? <span className="text-xs text-gray-500">não compartilha</span>
-                  : <span className="font-semibold text-gray-900">{fmtL(m.liters)}</span>}
+                  ? <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">Não compartilha</span>
+                  : <span className="font-semibold tabular-nums text-gray-900">{fmtL(m.liters)}</span>}
               </li>
             ))}
             {panel.members.length === 0 && <li className="px-4 py-3 text-sm text-gray-500">Nenhum associado ainda.</li>}
@@ -208,7 +225,7 @@ export default function AssociacaoPage() {
         <div>
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-gray-600">Junte os pedidos dos associados para negociar um preço melhor com o fornecedor.</p>
-            <button type="button" onClick={() => setCreating(true)} className="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">+ Nova compra coletiva</button>
+            <button type="button" onClick={() => setCreating(true)} className="bg-green-800 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">+ Nova compra coletiva</button>
           </div>
           {creating && (
             <form onSubmit={createPurchase} className="mb-5 grid gap-3 rounded-xl border border-green-200 bg-green-50/40 p-4 sm:grid-cols-2">
@@ -234,7 +251,7 @@ export default function AssociacaoPage() {
               {formError && <p className="text-sm text-red-600 sm:col-span-2">{formError}</p>}
               <div className="flex gap-2 sm:col-span-2">
                 <button type="button" onClick={() => setCreating(false)} className="flex-1 border border-gray-300 bg-white text-gray-700 font-medium py-2.5 rounded-lg">Cancelar</button>
-                <button type="submit" className="flex-1 bg-green-700 hover:bg-green-600 text-white font-semibold py-2.5 rounded-lg">Abrir compra</button>
+                <button type="submit" className="flex-1 bg-green-800 hover:bg-green-700 text-white font-semibold py-2.5 rounded-lg">Abrir compra</button>
               </div>
             </form>
           )}
@@ -249,13 +266,13 @@ export default function AssociacaoPage() {
                       <p className="font-semibold text-gray-900">{p.title}</p>
                       <p className="text-sm text-gray-600">{p.category}{p.deadline && ` · pedir até ${fmtDay(p.deadline)}`}{p.description && ` · ${p.description}`}</p>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${p.status === 'aberta' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>{p.status === 'aberta' ? 'Aberta' : 'Fechada'}</span>
+                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${p.status === 'aberta' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>{p.status === 'aberta' ? 'Aberta' : 'Fechada'}</span>
                   </div>
-                  <p className="mt-2 text-2xl font-bold text-green-800">{qtyWithUnit(p.total, p.unit)}</p>
+                  <p className="mt-2 text-2xl font-bold tabular-nums text-green-800">{qtyWithUnit(p.total, p.unit)}</p>
                   <p className="text-sm text-gray-600">{p.orders.length ? membersOrdered(p.orders.length) : 'Nenhum pedido ainda'}</p>
                   {p.orders.length > 0 && (
                     <ul className="mt-2 space-y-0.5 text-sm text-gray-700">
-                      {p.orders.map((o) => <li key={o.id} className="flex justify-between gap-2"><span>{memberName.get(o.memberId) ?? '—'}{o.note && <span className="text-gray-500"> · {o.note}</span>}</span><span className="font-semibold">{fmtQty(o.quantity)}</span></li>)}
+                      {p.orders.map((o) => <li key={o.id} className="flex justify-between gap-2"><span>{memberName.get(o.memberId) ?? '—'}{o.note && <span className="text-gray-500"> · {o.note}</span>}</span><span className="font-semibold tabular-nums">{fmtQty(o.quantity)}</span></li>)}
                     </ul>
                   )}
                   <div className="mt-3 flex flex-wrap gap-3 text-sm">
@@ -289,7 +306,7 @@ export default function AssociacaoPage() {
               className="shrink-0 border-2 border-green-700 text-green-700 font-semibold px-4 py-2 rounded-lg hover:bg-green-50">{copied ? 'Copiado' : 'Copiar'}</button>
           </div>
           <a href={`https://wa.me/?text=${encodeURIComponent(inviteMessage)}`} target="_blank" rel="noopener noreferrer"
-            className="mt-3 inline-flex w-full items-center justify-center bg-green-700 hover:bg-green-600 text-white font-semibold px-5 py-3 rounded-lg sm:w-auto">Enviar pelo WhatsApp</a>
+            className="mt-3 inline-flex w-full items-center justify-center bg-green-800 hover:bg-green-700 text-white font-semibold px-5 py-3 rounded-lg sm:w-auto">Enviar pelo WhatsApp</a>
           <p className="mt-4 text-sm text-gray-500">Código do convite: <span className="font-mono font-semibold text-gray-800">{panel.organization.inviteCode}</span></p>
         </div>
       )}

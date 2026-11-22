@@ -8,8 +8,8 @@ import { STOCK_WARNING_DAYS, lotSummary, projectTarget } from '@/lib/lots'
 import { isInRearing, rearingSummary } from '@/lib/rearing'
 import { listLots, productLines, type Lot } from '@/repos/lots'
 import { listRearing, type RearingRow } from '@/repos/rearing'
-import { Badge, Button, Card, Chips, Empty, Fab, Muted, Screen, Stat } from '@/ui'
-import { MiniStat, Section, StatGrid, TextButton, coverageLine, kg, phaseLabel, plural, tag } from '@/ui/lots'
+import { Badge, Button, Card, Chips, Empty, Fab, IconCircle, Muted, Screen, Tile, TileGrid } from '@/ui'
+import { Section, StatGrid, TextButton, coverageLine, kg, phaseLabel, plural, tag } from '@/ui/lots'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
@@ -45,22 +45,33 @@ export default function Engorda() {
     <View style={{ flex: 1 }}>
       <Screen>
         <Muted style={{ marginBottom: space.sm }}>{t('Na recria, acompanhe cada bezerro sozinho (desmama, pesagens, cobertura da novilha) ou em lote. Na engorda, junte os animais em lotes, pese e veja o ganho por dia, o trato e quando chegam ao peso de saída.')}</Muted>
-        <Chips value={tab} onChange={setTab} options={[{ value: 'todos', label: 'Todos' }, { value: 'recria', label: `${t('Recria')} (${count('recria')})` }, { value: 'engorda', label: `${t('Engorda')} (${count('engorda')})` }]} />
+        {/* Atalho para os planos (etapas, ganho por dia esperado e meta), escolhidos depois no lote */}
+        <Card onPress={() => router.push('/engorda/planos')} style={{ marginBottom: space.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+            <IconCircle icon="trending-up-outline" tone="blue" />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text }}>{t('Planos')}</Text>
+              <Muted>{t('Etapas, ganho por dia esperado e meta de peso dos lotes')}</Muted>
+            </View>
+            <Text style={{ color: colors.green, fontWeight: '700', fontSize: font.sm }}>{t('Abrir')}</Text>
+          </View>
+        </Card>
+        <Chips value={tab} onChange={setTab} options={[{ value: 'todos', label: `${t('Todos')} (${count('recria') + count('engorda')})` }, { value: 'recria', label: `${t('Recria')} (${count('recria')})` }, { value: 'engorda', label: `${t('Engorda')} (${count('engorda')})` }]} />
 
-        {tab !== 'engorda' ? <RearingSection list={rearing} today={today} canEdit={canEdit} /> : null}
-
+        {/* Números dos lotes abertos da aba, antes das listas */}
         {openLots.length > 0 ? (
-          <View style={{ gap: space.sm, marginTop: space.lg, marginBottom: space.md }}>
-            <View style={{ flexDirection: 'row', gap: space.sm }}>
-              <Stat label="Lotes abertos" value={String(openLots.length)} />
-              <Stat label="Cabeças nos lotes" value={String(heads)} />
-            </View>
-            <View style={{ flexDirection: 'row', gap: space.sm }}>
-              <Stat label="Peso médio" value={avgWeight !== null ? kg(avgWeight) : '—'} />
-              <Stat label="Ganho por dia (média)" value={gmd !== null ? `${brNumber(gmd, 3)} kg` : '—'} tone="green" />
-            </View>
+          <View style={{ marginTop: space.md }}>
+            <TileGrid>
+              <Tile accent="blue" label={t('Ganho por dia (média)')} value={gmd !== null ? `${brNumber(gmd, 2)} kg/d` : '—'} />
+              <Tile accent="green" label={t('Peso médio')} value={avgWeight !== null ? kg(avgWeight) : '—'} />
+              <Tile accent="teal" label={t('Cabeças nos lotes')} value={String(heads)} />
+              <Tile accent="amber" label={t('Lotes abertos')} value={String(openLots.length)} />
+            </TileGrid>
           </View>
         ) : null}
+
+        {tab !== 'engorda' ? <RearingSection list={rearing} today={today} canEdit={canEdit} /> : null}
+        {openLots.length > 0 ? <Text style={{ fontWeight: '700', color: colors.muted, fontSize: font.sm, marginTop: space.md, marginBottom: space.sm }}>{t('LOTES')}</Text> : null}
 
         {visible.length === 0 ? (
           <Empty title={tab === 'todos' ? t('Nenhum lote ainda') : t('Nenhum lote de {phase}', { phase: phaseLabel(tab).toLowerCase() })}
@@ -100,6 +111,7 @@ function LotCard({ lot, today, canEdit }: { lot: Lot; today: string; canEdit: bo
         </View>
         <Badge label={phaseLabel(lot.phase)} tone={lot.phase === 'recria' ? 'blue' : 'amber'} />
       </View>
+      {s.last && lot.targetWeight && !lot.endDate ? <View style={{ marginTop: space.md }}><WeightToTarget current={s.last.avgWeight} target={lot.targetWeight} /></View> : null}
       <View style={{ marginTop: space.md }}>
         <StatGrid items={[
           { title: 'Animais', value: String(lot.animals.length || s.last?.headCount || 0) },
@@ -121,6 +133,20 @@ function LotCard({ lot, today, canEdit }: { lot: Lot; today: string; canEdit: bo
         </View>
       ) : null}
     </Card>
+  )
+}
+
+/** Barra de quanto o animal (ou o lote, em média) já chegou do peso-alvo */
+function WeightToTarget({ current, target }: { current: number; target: number }) {
+  const t = useT()
+  const pct = Math.max(0, Math.min(100, (current / target) * 100))
+  return (
+    <View accessible accessibilityLabel={t('{n}% da meta de {kg}', { n: Math.round(pct), kg: kg(target) })}>
+      <View style={{ height: 10, borderRadius: 5, backgroundColor: colors.border }}>
+        <View style={{ width: `${pct}%`, height: 10, borderRadius: 5, backgroundColor: colors.blue }} />
+      </View>
+      <Text style={{ color: colors.muted, fontSize: font.sm, marginTop: 2 }}>{t('Meta: {kg}', { kg: kg(target) })} · {Math.round(pct)}%</Text>
+    </View>
   )
 }
 
@@ -177,20 +203,24 @@ function RearingCard({ animal, today, canEdit }: { animal: RearingRow; today: st
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: space.sm }}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text }} numberOfLines={1}>{tag(animal)} {animal.name}</Text>
-          <Muted>{t(animal.species)} · {s.months} {t('meses')} · {plural(s.days, 'dia', 'dias')} {t('na recria')}</Muted>
+          <Muted>{t(animal.species)} · {s.months} {t('meses')}</Muted>
         </View>
         <Badge label="Recria" tone="blue" />
       </View>
-      <View style={{ flexDirection: 'row', gap: space.sm, marginTop: space.md }}>
-        <MiniStat title="Último peso" value={s.last ? kg(s.last.weight) : '—'} />
-        <MiniStat title="Ganho/dia" value={s.gmd !== null ? `${s.gmd >= 0 ? '+' : ''}${brNumber(s.gmd, 3)}` : '—'} tone="green" />
-        <MiniStat title="Alvo" value={animal.rearingTarget ? kg(animal.rearingTarget) : '—'} />
+      {/* Peso atual em destaque, com o ganho por dia; a barra mostra quanto falta para a meta */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm, marginTop: space.md }}>
+        <Text style={{ fontSize: 26, fontWeight: '800', color: colors.text }}>{s.last ? kg(s.last.weight) : '—'}</Text>
+        {s.gmd !== null ? <Badge label={`${s.gmd >= 0 ? '+' : ''}${brNumber(s.gmd, 2)} kg/d`} tone={s.gmd >= 0 ? 'green' : 'red'} /> : null}
       </View>
-      {s.gainKg !== null ? <Text style={{ marginTop: space.md, color: colors.text, fontSize: font.sm }}>{t('Ganhou {kg} desde a desmama.', { kg: kg(s.gainKg) })}</Text> : null}
+      {s.last && animal.rearingTarget ? <View style={{ marginTop: space.sm }}><WeightToTarget current={s.last.weight} target={animal.rearingTarget} /></View> : null}
+      {s.gainKg !== null ? <Text style={{ marginTop: space.sm, color: colors.text, fontSize: font.sm }}>{t('Ganhou {kg} desde a desmama.', { kg: kg(s.gainKg) })}</Text> : null}
       {s.projection ? <Text style={{ marginTop: 4, color: colors.text, fontSize: font.sm }}>{t('Chega a {kg} em {days} ({date}).', { kg: kg(animal.rearingTarget!), days: plural(s.projection.days, 'dia', 'dias'), date: brDate(s.projection.date) })}</Text> : null}
-      {!s.last ? <Muted style={{ marginTop: space.md }}>{t('Sem pesagem ainda. Pese para o app calcular o ganho.')}</Muted> : null}
+      {!s.last ? <Muted style={{ marginTop: space.sm }}>{t('Sem pesagem ainda. Pese para o app calcular o ganho.')}</Muted> : null}
       {animal.gender === 'Fêmea' ? <Muted style={{ marginTop: 4 }}>{coverageLine(animal.reproductions[0])}</Muted> : null}
-      {canEdit ? <Button label="Pesar" variant="secondary" onPress={open} style={{ marginTop: space.md }} /> : null}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.md, marginTop: space.md }}>
+        {canEdit ? <Button label="Pesar" variant="secondary" onPress={open} style={{ flexGrow: 1, flexBasis: 140 }} /> : null}
+        <Muted>{plural(s.days, 'dia', 'dias')} {t('na recria')}</Muted>
+      </View>
     </Card>
   )
 }

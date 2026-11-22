@@ -21,38 +21,43 @@ type NavLink = { href: string; label: string; module: string | null; adminOnly?:
 // Telas que só aparecem para quem faz aquele trabalho. Sem segmento informado, aparece tudo.
 const SEGMENT_PAGES: Record<string, string[]> = { '/milk-production': ['leite'], '/lite': ['leite'], '/engorda': ['recria', 'engorda'] };
 
-const groups: { label: string; links: NavLink[] }[] = [
-  { label: 'Visão geral', links: [
+// Menu em grupos que abrem e fecham (como um sistema de gestão): o primeiro grupo fica sempre aberto, sem título;
+// os outros mostram só o título com ícone e abrem ao tocar. O grupo da tela aberta já vem aberto.
+type NavGroup = { label: string; Icon?: NavLink['Icon']; links: NavLink[] };
+const groups: NavGroup[] = [
+  { label: 'Início', links: [
     { href: '/consultoria', label: 'Consultoria', module: null, vet: 'only', Icon: UsuariosIcon },
     { href: '/', label: 'Painel', module: null, vet: 'hide', Icon: PainelIcon },
     { href: '/dashboard', label: 'Dashboard', module: null, Icon: GraficoIcon },
-    { href: '/fazendas', label: 'Propriedades', module: 'fazendas', Icon: PropriedadeIcon },
   ] },
-  { label: 'Rebanho e produção', links: [
+  { label: 'Rebanho', Icon: AnimalIcon, links: [
     { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },
     { href: '/engorda', label: 'Recria e engorda', module: 'animais', Icon: BalancaIcon },
-    { href: '/milk-production', label: 'Produção de leite', module: 'leite', Icon: LeiteIcon },
-    { href: '/veterinary-treatment', label: 'Tratamentos', module: 'veterinario', Icon: TratamentoIcon },
-    { href: '/vacinacao', label: 'Vacinação', module: 'vacinacao', Icon: VacinaIcon },
     { href: '/reproducao', label: 'Reprodução', module: 'reproducao', Icon: ReproducaoIcon },
   ] },
-  { label: 'Gestão', links: [
+  { label: 'Manejo', Icon: TratamentoIcon, links: [
+    { href: '/milk-production', label: 'Produção de leite', module: 'leite', vet: 'hide', Icon: LeiteIcon },
+    { href: '/vacinacao', label: 'Vacinação', module: 'vacinacao', Icon: VacinaIcon },
+    { href: '/veterinary-treatment', label: 'Tratamentos', module: 'veterinario', Icon: TratamentoIcon },
+  ] },
+  { label: 'Gestão', Icon: FinanceiroIcon, links: [
     { href: '/financeiro', label: 'Financeiro', module: 'financeiro', Icon: FinanceiroIcon },
     { href: '/estoque', label: 'Estoque', module: 'estoque', Icon: EstoqueIcon },
     { href: '/relatorios', label: 'Relatórios', module: null, Icon: RelatorioIcon },
+    { href: '/ofertas', label: 'Ofertas', module: null, Icon: EtiquetaIcon },
+  ] },
+  { label: 'Propriedade', Icon: PropriedadeIcon, links: [
+    { href: '/fazendas', label: 'Propriedades', module: 'fazendas', Icon: PropriedadeIcon },
     { href: '/usuarios', label: 'Usuários', module: 'usuarios', Icon: UsuariosIcon },
     { href: '/meu-veterinario', label: 'Meu veterinário', module: 'reproducao', vet: 'hide', Icon: TratamentoIcon },
   ] },
-  { label: 'Fornecedores', links: [
-    { href: '/ofertas', label: 'Ofertas', module: null, Icon: EtiquetaIcon },
-  ] },
   // Só o administrador: aprovações e as contas de todos os perfis (dados e senha)
-  { label: 'Administração', links: [
+  { label: 'Administração', Icon: CadeadoIcon, links: [
     { href: '/admin/usuarios', label: 'Contas e senhas', module: null, adminOnly: true, Icon: CadeadoIcon },
     { href: '/admin/fornecedores', label: 'Aprovar fornecedores', module: null, adminOnly: true, Icon: LojaIcon },
     { href: '/admin/organizacoes', label: 'Aprovar laticínios e associações', module: null, adminOnly: true, Icon: UsuariosIcon },
   ] },
-  { label: 'Ajuda', links: [
+  { label: 'Ajuda', Icon: AjudaIcon, links: [
     { href: '/ajuda', label: 'Ajuda e suporte', module: null, Icon: AjudaIcon },
     { href: '/manual', label: 'Manual do usuário', module: null, Icon: RelatorioIcon },
   ] },
@@ -72,13 +77,14 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   const { notify } = useDialog();
   const t = useT();
   const [openPath, setOpenPath] = useState<string | null>(null);
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const drawerOpen = openPath === pathname;
   const drawer = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panelRole = user?.role ? PANEL_ROLES[user.role] : undefined;
   const isVendor = !!panelRole;
   const homeHref = panelRole?.href ?? '/';
-  const vendorGroups: { label: string; links: NavLink[] }[] = panelRole
+  const vendorGroups: NavGroup[] = panelRole
     ? [{ label: panelRole.label, links: [{ href: panelRole.href, label: 'Meu painel', module: null, Icon: panelRole.Icon }, { href: '/dashboard', label: 'Dashboard', module: null, Icon: GraficoIcon }] }, { label: 'Ajuda', links: [{ href: '/ajuda', label: 'Ajuda e suporte', module: null, Icon: AjudaIcon }, { href: '/manual', label: 'Manual do usuário', module: null, Icon: RelatorioIcon }] }]
     : [];
   const segments = user?.farmSegments ?? [];
@@ -92,7 +98,7 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
         { href: '/lite', label: 'Anotar', module: 'leite', Icon: LeiteIcon },
         { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },
         { href: '/vacinacao', label: 'Vacinas', module: 'vacinacao', Icon: VacinaIcon },
-      ].filter((tab) => (!tab.module || canAccess(tab.module)) && fitsSegment(tab.href));
+      ].filter((tab) => (!tab.module || canAccess(tab.module)) && fitsSegment(tab.href) && !(user?.vet && tab.href === '/lite'));
   const isTabActive = (href: string) => (href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(href + '/'));
   const visibleGroups = (isVendor ? vendorGroups : groups).map(group => ({ ...group, links: group.links.filter(link => (!link.module || canAccess(link.module)) && (!link.adminOnly || user?.role === 'admin') && (!link.vet || (link.vet === 'only') === !!user?.vet) && fitsSegment(link.href)) })).filter(group => group.links.length);
   const activeLink = visibleGroups.flatMap(group => group.links).find(link => link.href === '/' ? pathname === '/' : pathname === link.href || pathname.startsWith(link.href + '/'));
@@ -148,15 +154,34 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
 
   const logo = <Image src="/anota-ai-agro-logo.png" width={132} height={38} sizes="132px" alt="Anota Aí Agro" priority className="h-auto w-32" style={{ width: 128, height: 'auto' }} />;
   const navigation = <nav aria-label={t('Menu principal')} className="flex-1 overflow-y-auto px-3 py-3">
-    {visibleGroups.map(group => <div key={group.label} className="mb-4 last:mb-0">
-      <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t(group.label)}</p>
-      <ul className="space-y-1">{group.links.map(({ href, label, Icon }) => {
+    {visibleGroups.map((group, index) => {
+      const linkItem = ({ href, label, Icon }: NavLink, nested: boolean) => {
         const active = activeLink?.href === href;
-        return <li key={href}><Link href={href} onClick={() => setOpenPath(null)} aria-current={active ? 'page' : undefined} className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 ${active ? 'bg-green-100 text-green-900' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
-          <span aria-hidden="true" className={active ? 'text-green-700' : 'text-gray-400'}><Icon className="h-5 w-5" /></span><span>{t(label)}</span>{active && <span aria-hidden="true" className="ml-auto h-1.5 w-1.5 rounded-full bg-green-700" />}
+        return <li key={href}><Link href={href} onClick={() => setOpenPath(null)} aria-current={active ? 'page' : undefined} className={`flex min-h-11 items-center gap-3 rounded-xl py-2 pr-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 ${nested ? 'pl-9' : 'pl-3'} ${active ? 'bg-green-100 text-green-900' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
+          <span aria-hidden="true" className={active ? 'text-green-700' : 'text-gray-400'}><Icon className={nested ? 'h-4 w-4' : 'h-5 w-5'} /></span><span>{t(label)}</span>{active && <span aria-hidden="true" className="ml-auto h-1.5 w-1.5 rounded-full bg-green-700" />}
         </Link></li>;
-      })}</ul>
-    </div>)}
+      };
+      // Primeiro grupo (Início) e grupos sem ícone (fornecedor, laticínio, associação): sempre abertos
+      if (index === 0 || !group.Icon) return <div key={group.label} className="mb-3 last:mb-0">
+        {index > 0 && <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t(group.label)}</p>}
+        <ul className="space-y-1">{group.links.map(link => linkItem(link, false))}</ul>
+      </div>;
+      // Grupo com um item só: o item direto, sem abrir e fechar
+      if (group.links.length === 1) return <ul key={group.label} className="mb-1 space-y-1">{linkItem(group.links[0], false)}</ul>;
+      const hasActive = group.links.some(link => link.href === activeLink?.href);
+      const open = toggled[group.label] ?? hasActive;
+      const GroupIcon = group.Icon;
+      const id = `menu-${group.label}`;
+      return <div key={group.label} className="mb-1">
+        <button type="button" aria-expanded={open} aria-controls={id} onClick={() => setToggled(prev => ({ ...prev, [group.label]: !open }))}
+          className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 ${hasActive ? 'text-green-900' : 'text-gray-700 hover:bg-gray-100'}`}>
+          <span aria-hidden="true" className={hasActive ? 'text-green-700' : 'text-gray-400'}><GroupIcon className="h-5 w-5" /></span>
+          <span>{t(group.label)}</span>
+          <svg aria-hidden="true" viewBox="0 0 20 20" className={`ml-auto h-4 w-4 text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`} fill="currentColor"><path d="M7.3 4.3a1 1 0 0 1 1.4 0l5 5a1 1 0 0 1 0 1.4l-5 5a1 1 0 0 1-1.4-1.4L11.6 10 7.3 5.7a1 1 0 0 1 0-1.4z" /></svg>
+        </button>
+        {open && <ul id={id} className="mt-1 space-y-1">{group.links.map(link => linkItem(link, true))}</ul>}
+      </div>;
+    })}
   </nav>;
   const account = <div className="shrink-0 border-t border-gray-100 p-4">
     <Link href="/perfil" onClick={() => setOpenPath(null)} className="mb-3 block rounded-lg px-3 py-2 text-sm font-semibold text-green-700 hover:bg-green-50">{t('Meu cadastro')}</Link>
@@ -177,10 +202,25 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
       <Link href="/" aria-label="Anota Aí Agro, painel" className="flex h-16 shrink-0 items-center justify-center border-b border-gray-100">{logo}</Link>
       {navigation}{account}
     </aside>
-    <header className={`sticky top-0 z-30 border-b border-gray-200 bg-white ${desktopOpen ? 'lg:ml-64' : ''}`}>
+    {/* Menu recolhido: todas as telas do menu em ícones numa faixa estreita, separadas por grupo; o nome aparece ao passar o mouse */}
+    {!desktopOpen && (
+      <nav aria-label={t('Menu principal')} className="fixed inset-y-0 left-0 z-40 hidden w-16 flex-col items-center gap-1 overflow-y-auto border-r border-gray-200 bg-white py-3 lg:flex">
+        <button type="button" onClick={onToggleDesktop} aria-label={t('Abrir menu lateral')} aria-expanded={false} aria-controls="menu-computador" title={t('Abrir menu lateral')} className="mb-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100"><MenuIcon className="h-5 w-5" /></button>
+        {visibleGroups.map((group, index) => (
+          <div key={group.label} className={`flex w-full flex-col items-center gap-1 ${index > 0 ? 'mt-1 border-t border-gray-100 pt-2' : ''}`} role="group" aria-label={t(group.label)}>
+            {group.links.map(({ href, label, Icon }) => {
+              const active = activeLink?.href === href;
+              return <Link key={href} href={href} aria-label={t(label)} title={t(label)} aria-current={active ? 'page' : undefined}
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${active ? 'bg-green-100 text-green-800' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}><Icon className="h-5 w-5" /></Link>;
+            })}
+          </div>
+        ))}
+      </nav>
+    )}
+    <header className={`sticky top-0 z-30 border-b border-gray-200 bg-white ${desktopOpen ? 'lg:ml-64' : 'lg:ml-16'}`}>
       <div className="flex min-h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
-          <button type="button" onClick={onToggleDesktop} aria-label={t(desktopOpen ? 'Recolher menu' : 'Abrir menu lateral')} aria-expanded={desktopOpen} aria-controls="menu-computador" className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 lg:flex"><MenuIcon className="h-5 w-5" /></button>
+          <button type="button" onClick={onToggleDesktop} aria-label={t(desktopOpen ? 'Recolher menu' : 'Abrir menu lateral')} aria-expanded={desktopOpen} aria-controls="menu-computador" className={`hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 ${desktopOpen ? 'lg:flex' : ''}`}><MenuIcon className="h-5 w-5" /></button>
           <button ref={trigger} type="button" onClick={() => setOpenPath(pathname)} aria-label={t('Abrir menu')} aria-expanded={drawerOpen} aria-controls={drawerOpen ? 'menu-lateral' : undefined} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 lg:hidden"><MenuIcon className="h-5 w-5" /></button>
           {/* Fora do painel, um "voltar" visível: o menu ☰ não é óbvio para quem não é de tecnologia */}
           {pathname !== homeHref && (

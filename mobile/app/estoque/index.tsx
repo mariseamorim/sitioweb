@@ -2,11 +2,19 @@ import { useRouter } from 'expo-router'
 import { FlatList, Text, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
-import { brNumber } from '@/lib/format'
-import { isLow, listSupplies } from '@/repos/supplies'
-import { Badge, Empty, Fab, Notice, Row } from '@/ui'
+import { brNumber, todayISO } from '@/lib/format'
+import { EXPIRY_WARNING_DAYS, daysToExpiry, isLow, listSupplies, supplyStatus } from '@/repos/supplies'
+import { Badge, Empty, Fab, IconCircle, Notice, Row, Tile, TileGrid } from '@/ui'
 import { colors, space } from '@/theme'
 import { useT, useLocale } from '@/lib/i18n'
+
+// Ícone por categoria do produto (a cor vem da situação: OK, Baixo, Crítico)
+function categoryIcon(category: string) {
+  if (category === 'Medicamento') return 'medkit-outline' as const
+  if (category === 'Vacina') return 'eyedrop-outline' as const
+  if (category === 'Sementes' || category === 'Adubo') return 'leaf-outline' as const
+  return 'cube-outline' as const
+}
 
 export default function Estoque() {
   const farmId = useFarmId()
@@ -15,19 +23,35 @@ export default function Estoque() {
   const t = useT()
   const items = useLive(() => listSupplies(farmId), [farmId])
   const low = items.filter(isLow).length
+  const today = todayISO()
+  // Vencem nos próximos 30 dias ou já venceram
+  const expiring = items.filter(s => { const d = daysToExpiry(s, today); return d !== null && d <= EXPIRY_WARNING_DAYS })
+  const expired = expiring.filter(s => (daysToExpiry(s, today) ?? 0) < 0).length
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <FlatList
         data={items}
         keyExtractor={s => s.id}
         contentContainerStyle={{ padding: space.lg, paddingBottom: 96 }}
-        ListHeaderComponent={low ? <Notice tone="red" text={low === 1 ? t('1 produto abaixo do estoque mínimo') : t('{n} produtos abaixo do estoque mínimo', { n: low })} /> : undefined}
-        renderItem={({ item }) => (
-          <Row title={item.name} detail={`${t(item.category)} · ${t('mínimo')} ${brNumber(item.minimumQuantity, 0)} ${t(item.unit)}`}
-            badge={<Badge label={isLow(item) ? 'Baixo' : 'OK'} tone={isLow(item) ? 'red' : 'green'} />}
-            right={<Text style={{ fontWeight: '700', fontSize: 18, color: isLow(item) ? colors.red : colors.text }}>{brNumber(item.currentQuantity, 0)} {t(item.unit)}</Text>}
-            onPress={() => router.push(`/estoque/${item.id}`)} />
-        )}
+        ListHeaderComponent={items.length ? (
+          <View>
+            {low ? <Notice tone="red" text={low === 1 ? t('1 produto abaixo do estoque mínimo') : t('{n} produtos abaixo do estoque mínimo', { n: low })} /> : null}
+            <TileGrid>
+              <Tile accent="red" label={t('Abaixo do mínimo')} value={String(low)} />
+              <Tile accent="amber" label={t('Próximos a vencer')} value={String(expiring.length)} detail={expired ? t(expired === 1 ? '1 já venceu' : '{n} já venceram', { n: expired }) : t('Nos próximos {n} dias', { n: EXPIRY_WARNING_DAYS })} />
+            </TileGrid>
+          </View>
+        ) : undefined}
+        renderItem={({ item }) => {
+          const st = supplyStatus(item)
+          return (
+            <Row left={<IconCircle icon={categoryIcon(item.category)} tone={st.tone} />}
+              title={item.name} detail={`${t(item.category)} · ${t('mínimo')} ${brNumber(item.minimumQuantity, 0)} ${t(item.unit)}`}
+              badge={<Badge label={st.label} tone={st.tone} />}
+              right={<Text style={{ fontWeight: '700', fontSize: 18, color: st.tone === 'green' ? colors.text : st.tone === 'red' ? colors.red : colors.amber }}>{brNumber(item.currentQuantity, 0)} {t(item.unit)}</Text>}
+              onPress={() => router.push(`/estoque/${item.id}`)} />
+          )
+        }}
         ListEmptyComponent={<Empty title="Nenhum produto no estoque" text={canEdit ? 'Toque em “Cadastrar” para começar.' : undefined} />}
       />
       {canEdit ? <Fab label="+ Cadastrar" onPress={() => router.push('/estoque/novo')} /> : null}

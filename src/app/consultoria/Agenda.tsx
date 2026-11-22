@@ -2,7 +2,7 @@
 
 // Agenda de visitas do veterinário, dentro do painel de Consultoria: as visitas marcadas, com marcar, remarcar,
 // concluir e cancelar. O produtor vê as visitas da propriedade dele em "Meu veterinário".
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useImperativeHandle, useState } from 'react'
 import { todayISO } from '@/lib/utils'
 import { useLocale, useT } from '@/lib/i18n'
 
@@ -14,7 +14,10 @@ const SHOWN = 4
 
 const input = 'mt-1 w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 
-export function Agenda({ clients }: { clients: { id: string; name: string }[] }) {
+/** O topo da Consultoria abre o formulário de nova visita pelo botão "+ Marcar visita" */
+export interface AgendaHandle { openNew: () => void }
+
+export function Agenda({ clients, onChanged, ref }: { clients: { id: string; name: string }[]; onChanged?: () => void; ref?: React.Ref<AgendaHandle> }) {
   const [upcoming, setUpcoming] = useState<Visit[] | null>(null)
   const [form, setForm] = useState<Form | null>(null)
   const [error, setError] = useState('')
@@ -32,6 +35,8 @@ export function Agenda({ clients }: { clients: { id: string; name: string }[] })
     } catch { /* sem internet: o painel já avisa */ }
   }, [])
   useEffect(() => { void load() }, [load])
+  const openNew = () => { setError(''); setForm({ clientId: clients[0]?.id ?? '', date: today, time: '', purpose: '' }) }
+  useImperativeHandle(ref, () => ({ openNew }))
 
   async function send(url: string, method: 'POST' | 'PATCH' | 'DELETE', body?: unknown) {
     setError('')
@@ -40,6 +45,7 @@ export function Agenda({ clients }: { clients: { id: string; name: string }[] })
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined })
       if (!res.ok) { setError((await res.json().catch(() => ({}))).error || t('Não foi possível salvar.')); return false }
       await load()
+      onChanged?.()
       return true
     } catch {
       setError(t('Erro de conexão. Tente novamente.'))
@@ -62,25 +68,27 @@ export function Agenda({ clients }: { clients: { id: string; name: string }[] })
     <section aria-label={t('Agenda de visitas')}>
       <div className="flex items-center justify-between gap-3 mb-3">
         <h2 className="text-lg font-semibold text-gray-800">{t('Agenda de visitas')}</h2>
-        <button type="button" disabled={!clients.length} onClick={() => { setError(''); setForm({ clientId: clients[0]?.id ?? '', date: today, time: '', purpose: '' }) }} className="rounded-lg border border-green-700 px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-50 disabled:border-gray-300">{t('+ Marcar visita')}</button>
+        <button type="button" disabled={!clients.length} onClick={openNew} className="rounded-lg border border-green-700 px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-50 disabled:border-gray-300">{t('+ Marcar visita')}</button>
       </div>
       {error && !form && <p role="alert" className="mb-2 text-sm text-red-700">{error}</p>}
       {upcoming?.length === 0 && <p className="bg-white rounded-xl border border-gray-200 p-4 text-sm text-gray-500">{t('Nenhuma visita marcada.')}</p>}
       {!!upcoming?.length && (
-        <ul className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+        <ul className="overflow-hidden bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
           {(all ? upcoming : upcoming.slice(0, SHOWN)).map((v) => {
             const late = v.date.slice(0, 10) < today
             const isToday = v.date.slice(0, 10) === today
             return (
-              <li key={v.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2.5">
+              <li key={v.id} className="relative flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5 pl-5 pr-4">
+                {/* Faixa à esquerda: hoje ou atrasada em laranja, as próximas em azul */}
+                <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${late || isToday ? 'bg-amber-500' : 'bg-blue-500'}`} />
                 <div className="min-w-0">
                   <p className="font-medium text-gray-900">
-                    <span className={late ? 'text-amber-700' : 'text-green-800'}>{isToday ? t('Hoje') : weekday(v.date)}{v.time ? ` · ${v.time}` : ''}</span> · {v.farmName}
+                    <span className={late || isToday ? 'text-amber-700' : 'text-green-800'}>{isToday ? t('Hoje') : weekday(v.date)}{v.time ? ` · ${v.time}` : ''}</span> · {v.farmName}
                   </p>
                   <p className="text-sm text-gray-500">{[v.purpose, late ? t('já passou: conclua ou remarque') : null].filter(Boolean).join(' · ') || t('Sem motivo anotado')}</p>
                 </div>
-                <div className="-mx-2 flex flex-wrap">
-                  <button type="button" disabled={busy} onClick={() => send(`/api/veterinario/visitas/${v.id}`, 'PATCH', { status: 'realizada' })} className="rounded-lg px-2 py-1.5 text-sm font-semibold text-green-800 hover:bg-green-50">{t('Concluir')}</button>
+                <div className="-mx-1 flex flex-wrap items-center gap-1">
+                  <button type="button" disabled={busy} onClick={() => send(`/api/veterinario/visitas/${v.id}`, 'PATCH', { status: 'realizada' })} className="rounded-full bg-green-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700 disabled:bg-green-400">{t('Concluir')}</button>
                   <button type="button" disabled={busy} onClick={() => { setError(''); setForm({ id: v.id, clientId: v.clientId ?? '', date: v.date.slice(0, 10), time: v.time ?? '', purpose: v.purpose ?? '' }) }} className="rounded-lg px-2 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-100">{t('Remarcar')}</button>
                   <button type="button" disabled={busy} onClick={() => send(`/api/veterinario/visitas/${v.id}`, 'PATCH', { status: 'cancelada' })} className="rounded-lg px-2 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50">{t('Cancelar')}</button>
                 </div>
