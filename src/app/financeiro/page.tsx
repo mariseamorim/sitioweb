@@ -48,7 +48,7 @@ const OTHER_COLOR = { badge: 'bg-gray-100 text-gray-800', bar: 'bg-gray-400' }
 const categoryColor = (c: string) => CATEGORY_COLOR[c] ?? OTHER_COLOR
 
 const MODULE = 'financeiro'
-const EMPTY_FORM = { type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '', lotId: '', paid: true }
+const EMPTY_FORM = { type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '', lotId: '', paid: false }
 
 /** Lançamento guardado sem internet, como aparece na lista e nos totais. Registros antigos da fila têm os campos soltos, sem _body. */
 function pendingTransaction(p: PendingRequest, animals: Animal[], lots: LotRef[] = []): Transaction | null {

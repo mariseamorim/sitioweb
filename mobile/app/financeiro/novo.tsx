@@ -20,7 +20,7 @@ export default function FinanceiroNovo() {
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [animalId, setAnimalId] = useState<string | null>(null)
-  const [paid, setPaid] = useState<'sim' | 'nao'>('sim')
+  const [paid, setPaid] = useState<'sim' | 'nao'>('nao')
   const [lotId, setLotId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const categories = type === 'Receita' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES

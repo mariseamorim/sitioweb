@@ -12,12 +12,18 @@ export interface Supply {
   unitPrice: number | null
   /** Validade (opcional), "AAAA-MM-DD..." */
   expiryDate: string | null
+  /** Consumo dos lotes abertos (kg por dia) e em quantos dias acaba: vêm calculados do servidor */
+  dailyUseKg?: number | null
+  daysLeft?: number | null
 }
 
 export interface Movement { id: string; supplyId: string; type: 'Entrada' | 'Saída'; quantity: number; date: string; description: string | null }
 
 export const SUPPLY_CATEGORIES = ['Ração', 'Sal mineral', 'Medicamento', 'Vacina', 'Sementes', 'Adubo', 'Outro']
-export const UNITS = ['kg', 'saco', 'litro', 'dose', 'frasco', 'unidade']
+export const UNITS = ['kg', 'sacos', 'litro', 'dose', 'frasco', 'unidade']
+
+/** Dias de estoque a partir dos quais o aviso aparece (o mesmo do site) */
+export const STOCK_WARNING_DAYS = 10
 
 export const isLow = (s: Supply) => s.currentQuantity < s.minimumQuantity
 

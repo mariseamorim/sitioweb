@@ -56,6 +56,25 @@ export function stockKg(supply: { unit: string; currentQuantity: number; package
   return null
 }
 
+/** Dias de tratos recentes usados para estimar o consumo quando o lote não tem % do peso vivo */
+export const FEEDING_WINDOW_DAYS = 14
+
+/** Consumo diário pelos tratos anotados: kg dados ÷ dias com trato (null sem trato) */
+export function feedingDailyKg(feedings: { date: string; kg: number }[]): number | null {
+  const days = new Set(feedings.map((f) => f.date)).size
+  if (!days) return null
+  return Math.round((feedings.reduce((s, f) => s + f.kg, 0) / days) * 10) / 10
+}
+
+/** Por que a ficha não mostra em quantos dias o insumo acaba; null quando mostra, ou quando nenhum lote aberto usa o insumo */
+export function daysLeftHint(supply: { unit: string; packageKg?: number | null }, inLot: boolean, dailyUseKg: number | null): string | null {
+  if (!inLot) return null
+  if (supply.unit === 'sacos' && !supply.packageKg) return 'Informe o peso do saco (em Editar) para saber em quantos dias acaba.'
+  if (supply.unit !== 'kg' && supply.unit !== 'sacos') return 'Cadastre o estoque em kg ou sacos para saber em quantos dias acaba.'
+  if (!dailyUseKg) return 'Para saber em quantos dias acaba, anote os tratos do lote ou informe o % do peso vivo e uma pesagem.'
+  return null
+}
+
 /** Em quantos dias o estoque acaba com esse consumo diário */
 export function daysOfStock(stock: number | null, perDay: number | null): number | null {
   if (stock === null || !perDay) return null

@@ -3,7 +3,7 @@ import { FlatList, Text, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { brNumber, todayISO } from '@/lib/format'
-import { EXPIRY_WARNING_DAYS, daysToExpiry, isLow, listSupplies, supplyStatus } from '@/repos/supplies'
+import { EXPIRY_WARNING_DAYS, STOCK_WARNING_DAYS, daysToExpiry, isLow, listSupplies, supplyStatus } from '@/repos/supplies'
 import { Badge, Empty, Fab, IconCircle, Notice, Row, Tile, TileGrid } from '@/ui'
 import { colors, space } from '@/theme'
 import { useT, useLocale } from '@/lib/i18n'
@@ -46,7 +46,7 @@ export default function Estoque() {
           const st = supplyStatus(item)
           return (
             <Row left={<IconCircle icon={categoryIcon(item.category)} tone={st.tone} />}
-              title={item.name} detail={`${t(item.category)} · ${t('mínimo')} ${brNumber(item.minimumQuantity, 0)} ${t(item.unit)}`}
+              title={item.name} detail={`${t(item.category)} · ${t('mínimo')} ${brNumber(item.minimumQuantity, 0)} ${t(item.unit)}${item.daysLeft != null ? ` · ${item.daysLeft === 1 ? t('acaba em 1 dia') : t('acaba em {n} dias', { n: item.daysLeft })}${item.daysLeft <= STOCK_WARNING_DAYS ? ' ⚠️' : ''}` : ''}`}
               badge={<Badge label={st.label} tone={st.tone} />}
               right={<Text style={{ fontWeight: '700', fontSize: 18, color: st.tone === 'green' ? colors.text : st.tone === 'red' ? colors.red : colors.amber }}>{brNumber(item.currentQuantity, 0)} {t(item.unit)}</Text>}
               onPress={() => router.push(`/estoque/${item.id}`)} />

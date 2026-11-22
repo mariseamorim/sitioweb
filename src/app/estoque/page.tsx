@@ -32,6 +32,8 @@ interface Supply {
   /** Consumo dos lotes de recria/engorda (kg por dia) e em quantos dias acaba */
   dailyUseKg?: number | null
   daysLeft?: number | null
+  /** Por que não dá para saber em quantos dias acaba (insumo usado por lote aberto) */
+  daysLeftHint?: string | null
   /** Preço por unidade (opcional) e peso do saco */
   unitPrice?: number | null
   packageKg?: number | null
@@ -490,8 +492,11 @@ export default function EstoquePage() {
                   {t('Os lotes de recria e engorda consomem')} <strong>{t('{n} kg por dia', { n: detail.dailyUseKg })}</strong>.{' '}
                   {detail.daysLeft != null
                     ? <>{t('No ritmo atual, o estoque acaba em')} <strong>{detail.daysLeft === 1 ? t('1 dia') : t('{n} dias', { n: detail.daysLeft })}</strong>.</>
-                    : t(detail.unit === 'sacos' ? 'Informe o peso do saco no lote para saber em quantos dias acaba.' : 'Cadastre o estoque em kg ou sacos para saber em quantos dias acaba.')}
+                    : t(detail.daysLeftHint ?? 'Cadastre o estoque em kg ou sacos para saber em quantos dias acaba.')}
                 </p>
+              )}
+              {detail.dailyUseKg == null && detail.daysLeftHint && (
+                <p className="mb-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">{t(detail.daysLeftHint)}</p>
               )}
 
               {detail.id.startsWith('pending_') ? (

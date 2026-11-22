@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { normalizeUnit } from '@/lib/supplies'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireFarmAccess } from '@/lib/auth'
 import { supplyDailyUse, withDailyUse } from '@/lib/lotUsage'
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
         farmId,
         name,
         category,
-        unit,
+        unit: normalizeUnit(unit)!,
         currentQuantity: parseFloat(currentQuantity) || 0,
         minimumQuantity: parseFloat(minimumQuantity) || 0,
         unitPrice: optionalNumber(unitPrice) ?? null,
