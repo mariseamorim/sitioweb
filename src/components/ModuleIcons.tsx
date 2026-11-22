@@ -274,3 +274,12 @@ export function AjudaIcon({ className = 'w-6 h-6' }: IconProps) {
     </svg>
   )
 }
+
+export function LapisIcon({ className = 'w-4 h-4' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20h4L19 9a2.8 2.8 0 00-4-4L4 16v4z" />
+      <path d="M13.5 6.5l4 4" />
+    </svg>
+  )
+}
