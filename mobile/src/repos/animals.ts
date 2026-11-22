@@ -1,4 +1,5 @@
 import { all, one } from '@/db'
+import { isBovine } from '@/lib/animalRules'
 import { createLocal, deleteLocal, updateLocal } from '@/sync/local'
 
 export interface Animal {
@@ -7,6 +8,8 @@ export interface Animal {
   customCode: string | null
   name: string
   species: string
+  /** Raça (só bovinos) */
+  breed: string | null
   gender: string
   birthDate: string
   status: string
@@ -53,13 +56,15 @@ export function nextCode(farmId: string): string {
 export interface AnimalInput {
   name: string; species: string; gender: string; birthDate: string; status: string; customCode: string
   acquisitionType: string; isCastrated: boolean; observations: string; motherId: string | null
+  /** Raça: só vale para bovino; vazio = sem raça */
+  breed: string
   /** Foto em data URL; vazio = tirar a foto; ausente = não mexer na foto */
   imageUrl?: string
 }
 
 export function saveAnimal(farmId: string, input: AnimalInput, id?: string): string {
   const body = {
-    name: input.name.trim(), species: input.species, gender: input.gender, birthDate: input.birthDate, status: input.status,
+    name: input.name.trim(), species: input.species, breed: isBovine(input.species) ? input.breed.trim().slice(0, 40) || null : null, gender: input.gender, birthDate: input.birthDate, status: input.status,
     customCode: input.customCode.trim() || null, acquisitionType: input.acquisitionType, isCastrated: input.isCastrated,
     observations: input.observations.trim() || null, motherId: input.motherId || null,
     // Só vai quando a foto mudou: o servidor mantém a que tem (e o aparelho pode ainda não ter baixado a foto)

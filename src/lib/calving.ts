@@ -102,6 +102,23 @@ export function herdCalving(herd: CowLike[], pregnant: Set<string>, now = new Da
   }
 }
 
+/** Meses sem parir a partir dos quais a vaca já pede atenção (o ideal é um parto por ano) */
+export const ATTENTION_MONTHS = 12
+
+/**
+ * Status da vaca no relatório de Crias e partos (mesma regra no app, mobile/src/lib/calving.ts):
+ * - "Atrasada": está em "Demorando para criar" (mais de LATE_MONTHS meses sem parir e sem prenhez anotada);
+ * - "Atenção": mais de ATTENTION_MONTHS meses desde o último parto (ainda sem atraso, ou já com prenhez anotada),
+ *   ou já tem idade de criar (FIRST_CALVING_AGE_MONTHS) sem nenhuma cria e sem prenhez anotada;
+ * - "Em dia": o resto, inclusive novilhas que ainda não pariram.
+ */
+export function calvingStatus(s: CowCalving, herd: HerdCalving): 'Em dia' | 'Atenção' | 'Atrasada' {
+  const late = herd.late.find((l) => l.stats.cow.id === s.cow.id)
+  if (late?.reason === 'sem-parir') return 'Atrasada'
+  if (late?.reason === 'sem-cria' || (s.monthsSinceLast ?? 0) > ATTENTION_MONTHS) return 'Atenção'
+  return 'Em dia'
+}
+
 /** Dias depois do parto para pedir a confirmação de prenhez (a partir da 1ª cria) */
 export const PREGNANCY_CHECK_DAYS = 60
 // Situações que respondem a pergunta "está prenha?" depois do parto

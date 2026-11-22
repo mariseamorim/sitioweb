@@ -98,6 +98,8 @@ model Animal {
   customCode      String? // outro código opcional do produtor: brinco, SISBOV...
   name            String
   species         String
+  /// Raça (só bovinos): Nelore, Gir, Girolando... texto livre com sugestões
+  breed           String?
   gender          String
   birthDate       DateTime
   isCastrated     Boolean          @default(false)

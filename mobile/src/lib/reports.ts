@@ -2,16 +2,51 @@
 // de src/app/api/relatorios/route.ts do site. Funciona sem internet.
 import { all, one } from '@/db'
 import { animalCategory } from '@/lib/animalRules'
-import { cowCalving, herdCalving, LATE_MONTHS, type CowLike } from '@/lib/calving'
+import { calvingStatus, cowCalving, herdCalving, LATE_MONTHS, type CowLike } from '@/lib/calving'
 import { brDate, brMoney, brNumber, isoDay, todayISO } from '@/lib/format'
+import { isPaid, type Transaction } from '@/repos/transactions'
 
+/** Tom de um cartão ou pílula: bom (verde), atenção (âmbar), ruim (vermelho) */
+export type ReportTone = 'good' | 'warn' | 'bad'
+
+// Os campos opcionais abaixo só mudam a aparência na tela; o PDF e a planilha continuam usando columns/rows/footer.
+// Mantenha este tipo igual ao de src/lib/reports.ts do site.
 export interface ReportSection {
   title?: string
   columns: string[]
   /** Colunas numéricas, alinhadas à direita */
   numeric?: number[]
   rows: (string | number)[][]
+  /** Linha totalizadora (aparece em negrito, com fundo verde-claro) */
   footer?: (string | number)[]
+  /** 'cards': resumo em cartões; cada linha é [rótulo, valor] (no PDF sai como tabela de 2 colunas) */
+  kind?: 'table' | 'cards'
+  /** Tom de cada linha dos cartões; sem tom, cores neutras */
+  tones?: (ReportTone | null)[]
+  /** Coluna mostrada como pílula colorida pela palavra (veja badgeTone) */
+  badgeColumn?: number
+  /** Coluna de valor com sinal: verde se positivo, vermelho se negativo */
+  signedColumn?: number
+  /** Seção de alerta: fundo âmbar ou vermelho suave, com borda (só quando há linhas) */
+  alert?: 'warn' | 'bad'
+  /** Pago/recebido de cada linha (lançamentos do caixa); o app mostra o ícone */
+  paid?: (boolean | null)[]
+}
+
+const GOOD_WORDS = ['Vivo', 'Viva', 'Aplicada', 'OK', 'Em dia', 'Entrada', 'Receita', 'Prenha', 'Parida', 'Pago', 'Recebido']
+const WARN_WORDS = ['Atenção', 'Pendente', 'Repor', 'Saída', 'Coberta', 'Vazia']
+const BAD_WORDS = ['Atrasada', 'Vencida', 'Crítico', 'Despesa', 'Perdida']
+
+/**
+ * Cor da pílula pela palavra em português (antes da tradução), igual ao site. Morto, Vendido e o que não estiver
+ * nas listas ficam em cinza. "18 meses sem parir" (alerta de Crias e partos) é vermelho.
+ */
+export function badgeTone(text: string | number | undefined): ReportTone | null {
+  const s = String(text ?? '').trim()
+  if (GOOD_WORDS.includes(s)) return 'good'
+  if (WARN_WORDS.includes(s)) return 'warn'
+  if (BAD_WORDS.includes(s) || /^\d+ meses sem parir$/.test(s)) return 'bad'
+  return null
 }
 
 export interface Report {
@@ -116,6 +151,16 @@ function milkReport(farmId: string, period: Period): Report {
   const total = productions.reduce((s, p) => s + p.quantity, 0)
   const days = [...byDay.entries()]
   const sections: ReportSection[] = [{
+    title: 'Resumo',
+    kind: 'cards',
+    columns: ['Indicador', 'Valor'],
+    numeric: [1],
+    rows: [
+      ['Total no período (L)', fmtNumber(total)],
+      ['Dias com registro', days.length],
+      ['Média por dia (L)', days.length ? fmtNumber(total / days.length) : '—'],
+    ],
+  }, {
     title: 'Por dia',
     columns: ['Data', 'Vacas ordenhadas', 'Total (L)'],
     numeric: [1, 2],
@@ -206,11 +251,13 @@ function animalReport(farmId: string, animalId: string | null): Report | null {
       {
         title: 'Reprodução',
         columns: ['Cobertura', 'Reprodutor', 'Parto previsto', 'Parto', 'Situação'],
+        badgeColumn: 4,
         rows: reproductions.map(r => [fmtDate(r.coverageDate), r.maleName || '—', fmtDate(r.expectedBirthDate), fmtDate(r.actualBirthDate), r.status]),
       },
       ...(calves.length ? [{
         title: 'Crias',
         columns: ['Nascimento', 'Código', 'Cria', 'Sexo', 'Situação'],
+        badgeColumn: 4,
         rows: calves.map(c => [fmtDate(c.birthDate), c.code, c.name, c.gender === 'Fêmea' ? 'Bezerra' : 'Bezerro', c.status]),
       }] : []),
       {
@@ -234,13 +281,23 @@ function vaccinationReport(farmId: string, period: Period): Report {
   const now = todayISO()
   const status = (v: (typeof vaccinations)[number]) => (v.appliedDate ? 'Aplicada' : isoDay(v.scheduledDate) < now ? 'Atrasada' : 'Pendente')
   const applied = vaccinations.filter(v => v.appliedDate).length
+  const late = vaccinations.filter(v => status(v) === 'Atrasada').length
+  const pending = vaccinations.length - applied
   return {
     title: 'Vacinação do rebanho',
     subtitle: period.label,
     sections: [{
+      title: 'Resumo',
+      kind: 'cards',
+      columns: ['Indicador', 'Valor'],
+      numeric: [1],
+      rows: [['Registros', vaccinations.length], ['Aplicadas', applied], ['Pendentes', pending], ['Atrasadas', late]],
+      tones: [null, 'good', pending ? 'warn' : null, late ? 'bad' : null],
+    }, {
       columns: ['Código', 'Animal', 'Vacina', 'Prevista', 'Aplicada', 'Lote', 'Fabricante', 'Situação'],
+      badgeColumn: 7,
       rows: vaccinations.map(v => [v.code ?? '—', v.name ?? '—', v.vaccineName, fmtDate(v.scheduledDate), fmtDate(v.appliedDate), v.batch || '—', v.manufacturer || '—', status(v)]),
-      footer: ['', `${vaccinations.length} registros`, '', '', `${applied} aplicadas`, '', '', `${vaccinations.length - applied} pendentes`],
+      footer: ['', `${vaccinations.length} registros`, '', '', `${applied} aplicadas`, '', '', `${pending} pendentes`],
     }],
   }
 }
@@ -248,7 +305,7 @@ function vaccinationReport(farmId: string, period: Period): Report {
 // ── Fluxo de caixa ─────────────────────────────────────────────────────
 
 function financeReport(farmId: string, period: Period): Report {
-  const transactions = all<{ date: string; type: string; category: string; amount: number; description: string | null; animalName: string | null }>(
+  const transactions = all<Transaction>(
     `SELECT t.*, a.name AS animalName FROM transactions t LEFT JOIN animals a ON a.id = t.animalId
      WHERE t.farmId = ? AND ${inPeriod('t.date')} ORDER BY t.date ASC`, [farmId, period.from, period.to],
   )
@@ -267,11 +324,20 @@ function financeReport(farmId: string, period: Period): Report {
     title: 'Fluxo de caixa',
     subtitle: period.label,
     sections: [
-      { title: 'Resumo', columns: ['Receitas', 'Despesas', 'Saldo'], numeric: [0, 1, 2], rows: [[fmtMoney(income), fmtMoney(expense), fmtMoney(income - expense)]] },
+      {
+        title: 'Resumo',
+        kind: 'cards',
+        columns: ['Indicador', 'Valor'],
+        numeric: [1],
+        rows: [['Receitas', fmtMoney(income)], ['Despesas', fmtMoney(expense)], ['Saldo', fmtMoney(income - expense)]],
+        // Saldo verde se positivo, vermelho suave se negativo; receitas e despesas em cores neutras
+        tones: [null, null, income - expense < 0 ? 'bad' : 'good'],
+      },
       {
         title: 'Por categoria',
         columns: ['Tipo', 'Categoria', 'Total'],
         numeric: [2],
+        badgeColumn: 0,
         rows: [...byCategory.entries()]
           .sort((a, b) => a[1].type.localeCompare(b[1].type) || b[1].total - a[1].total)
           .map(([key, c]) => [c.type, key.split('|')[1], fmtMoney(c.total)]),
@@ -280,8 +346,11 @@ function financeReport(farmId: string, period: Period): Report {
         title: 'Lançamentos',
         columns: ['Data', 'Tipo', 'Categoria', 'Descrição', 'Animal', 'Valor'],
         numeric: [5],
+        badgeColumn: 1,
+        signedColumn: 5,
         rows: transactions.map(t => [fmtDate(t.date), t.type, t.category, t.description || '—', t.animalName || '—', fmtMoney(t.type === 'Receita' ? t.amount : -t.amount)]),
-        footer: ['', '', '', '', 'Saldo', fmtMoney(income - expense)],
+        paid: transactions.map(t => isPaid(t)),
+        footer: ['', '', '', '', 'Saldo do período', fmtMoney(income - expense)],
       },
     ],
   }
@@ -312,8 +381,13 @@ function herdReport(farmId: string): Report {
       },
       {
         title: 'Animais',
-        columns: ['Código', 'Nome', 'Espécie', 'Sexo', 'Nascimento', 'Idade', 'Situação', 'GTA'],
-        rows: animals.map(a => [a.customCode ? `${a.code} · ${a.customCode}` : a.code, a.name, a.species, a.gender, fmtDate(a.birthDate), ageLabel(a.birthDate), a.status, a.gta || '—']),
+        // Identificação padronizada "Código · Nome" (só o código quando não há nome)
+        columns: ['Animal', 'Espécie', 'Sexo', 'Nascimento', 'Idade', 'Situação', 'GTA'],
+        badgeColumn: 5,
+        rows: animals.map(a => [
+          [a.customCode ? `${a.code} · ${a.customCode}` : a.code, a.name].filter(Boolean).join(' · '),
+          a.species, a.gender, fmtDate(a.birthDate), ageLabel(a.birthDate), a.status, a.gta || '—',
+        ]),
       },
     ],
   }
@@ -336,25 +410,36 @@ function calvingReport(farmId: string): Report {
     sections: [
       {
         title: 'Resumo',
-        columns: ['Vacas', 'Crias anotadas', 'Intervalo médio entre partos (meses)', 'Idade média na 1ª cria (meses)', 'Demorando para criar'],
-        numeric: [0, 1, 2, 3, 4],
-        rows: [[stats.cows.length, calves.length, months(stats.averageInterval), months(stats.averageAgeAtFirst), late.length]],
+        kind: 'cards',
+        columns: ['Indicador', 'Valor'],
+        numeric: [1],
+        rows: [
+          ['Vacas', stats.cows.length],
+          ['Crias anotadas', calves.length],
+          ['Idade média na 1ª cria (meses)', months(stats.averageAgeAtFirst)],
+          ['Demorando para criar', late.length],
+        ],
+        tones: [null, null, null, late.length ? 'warn' : 'good'],
       },
       {
+        // Colunas enxutas: o status segue calvingStatus() de @/lib/calving
         title: 'Por vaca',
-        columns: ['Código', 'Vaca', 'Crias', 'Partos', 'Último parto', 'Meses desde o último', 'Intervalo médio (meses)', 'Idade na 1ª cria (meses)'],
-        numeric: [2, 3, 5, 6, 7],
-        rows: stats.cows.map(c => [c.cow.code, c.cow.name, c.calves, c.calvings, c.lastCalving ? fmtDate(c.lastCalving) : '—', months(c.monthsSinceLast), months(c.averageInterval), months(c.ageAtFirstCalving)]),
+        columns: ['Código', 'Vaca', 'Crias', 'Partos', 'Último parto', 'Meses s/ parto', 'Status'],
+        numeric: [2, 3, 5],
+        badgeColumn: 6,
+        rows: stats.cows.map(c => [c.cow.code, c.cow.name, c.calves, c.calvings, c.lastCalving ? fmtDate(c.lastCalving) : '—', months(c.monthsSinceLast), calvingStatus(c, stats)]),
       },
       {
         title: `Demorando para criar (mais de ${LATE_MONTHS} meses sem parir, sem prenhez anotada)`,
         columns: ['Código', 'Vaca', 'Último parto', 'Meses sem parir'],
-        numeric: [3],
-        rows: late.map(({ stats: s }) => [s.cow.code, s.cow.name, fmtDate(s.lastCalving), months(s.monthsSinceLast)]),
+        badgeColumn: 3,
+        alert: 'warn',
+        rows: late.map(({ stats: s }) => [s.cow.code, s.cow.name, fmtDate(s.lastCalving), `${s.monthsSinceLast} meses sem parir`]),
       },
       {
         title: 'Crias',
         columns: ['Nascimento', 'Mãe', 'Código', 'Cria', 'Sexo', 'Situação'],
+        badgeColumn: 5,
         rows: calves.map(c => [fmtDate(c.birthDate), byId.get(c.motherId!)?.name ?? '—', c.code, c.name, c.gender === 'Fêmea' ? 'Bezerra' : 'Bezerro', c.status]),
       },
     ],
@@ -378,12 +463,14 @@ function stockReport(farmId: string, period: Period): Report {
         title: 'Entradas e saídas',
         columns: ['Data', 'Item', 'Tipo', 'Quantidade', 'Unidade', 'Descrição'],
         numeric: [3],
+        badgeColumn: 2,
         rows: movements.map(m => [fmtDate(m.date), m.name ?? '—', m.type, fmtNumber(m.quantity, 2), m.unit ?? '', m.description || '—']),
       },
       {
         title: 'Saldo atual',
         columns: ['Item', 'Categoria', 'Quantidade', 'Mínimo', 'Unidade', 'Situação'],
         numeric: [2, 3],
+        badgeColumn: 5,
         rows: supplies.map(s => [s.name, s.category, fmtNumber(s.currentQuantity, 2), fmtNumber(s.minimumQuantity, 2), s.unit, s.currentQuantity <= s.minimumQuantity ? 'Repor' : 'OK']),
       },
     ],
