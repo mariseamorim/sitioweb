@@ -17,6 +17,7 @@ import { colors, font, space } from '@/theme'
 import { useLocale, useT } from '@/lib/i18n'
 import { VetToday } from '@/vet/panel'
 import { localAgenda } from '@/repos/agenda'
+import { SpendingAlertsCard, useFinanceInsights } from '@/ui/milkResult'
 
 /** Vacas e novilhas que pedem secagem ou pré-parto hoje (regra em src/lib/calvingPrep.ts) */
 function calvingPrepList(farmId: string, today: string) {
@@ -43,6 +44,8 @@ export default function Painel() {
   const locale = useLocale()
   const today = todayISO()
   const monthStart = today.slice(0, 8) + '01'
+  // Gastos do mês acima da média dos 3 anteriores (aviso no painel)
+  const insights = useFinanceInsights(farmId, today, false)
 
   const data = useLive(() => {
     // Rebanho por espécie (Vaca, Bezerra, Touro...), as maiores primeiro
@@ -87,6 +90,8 @@ export default function Painel() {
           </View>
         </Card>
       ) : null}
+
+      {canAccess('financeiro') && !user?.vet ? <SpendingAlertsCard alerts={insights.alerts} /> : null}
 
       <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text, marginBottom: space.sm }}>{t('O que você quer fazer?')}</Text>
       <TileGrid>

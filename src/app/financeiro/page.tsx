@@ -14,6 +14,7 @@ import { SortTh } from '@/components/SortTh'
 import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
 import { useLocale, useT } from '@/lib/i18n'
 import { StatTile } from '@/components/StatTile'
+import { MilkResultPanel, SpendingAlerts, useMilkResult } from '@/components/MilkResult'
 
 interface Animal { id: string; name: string; code: string }
 interface Transaction {
@@ -78,6 +79,9 @@ export default function FinanceiroPage() {
   const { user, canAccess } = useUser()
   const farmId = user?.farmId ?? ''
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  // Resultado do leite e gastos acima do normal: recarrega depois de cada lançamento
+  const [resultKey, setResultKey] = useState(0)
+  const result = useMilkResult(true, resultKey)
   const [animals, setAnimals] = useState<Animal[]>([])
   const [lots, setLots] = useState<LotRef[]>([])
   // Lotes de recria/engorda só para quem vê o módulo Animais (a rota de lotes usa essa permissão)
@@ -148,6 +152,7 @@ export default function FinanceiroPage() {
 
   // Depois de guardar ou enviar: a lista mostra na hora e a barra do topo atualiza a contagem
   const afterChange = (queued: boolean) => {
+    setResultKey((k) => k + 1)
     setNotice(queued ? t(net.queuedMessage) : '')
     net.refresh()
     reload()
@@ -270,6 +275,10 @@ export default function FinanceiroPage() {
         <StatTile accent="red" label={t('Despesas')} value={fmtBRL(totalDespesa)} detail={openDespesa ? t('{value} a pagar', { value: fmtBRL(openDespesa) }) : undefined} />
         <StatTile accent={saldo >= 0 ? 'green' : 'red'} label={t('Saldo')} value={fmtBRL(saldo)} />
       </div>
+
+      {/* Gastos acima do normal e resultado do leite (custo e sobra por litro) */}
+      {result && <SpendingAlerts alerts={result.alerts} />}
+      {result && <MilkResultPanel data={result} />}
 
       {/* Category bars */}
       {byCategory.length > 0 && (
