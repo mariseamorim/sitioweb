@@ -5,6 +5,8 @@
 import { NextResponse } from 'next/server'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { regionOrNull } from '@/lib/identity'
+import { addFarmMember } from '@/lib/farms'
 import { getSessionUser } from '@/lib/auth'
 import { animalToday } from '@/lib/animalRules'
 import { pregnancyChecks } from '@/lib/calving'
@@ -220,4 +222,21 @@ export async function vetTasks(farmIds: string[]): Promise<VetTask[]> {
     if (care) tasks.push({ farmId, n: care, title: care === 1 ? '{n} tratamento em andamento' : '{n} tratamentos em andamento', href: '/veterinary-treatment', tone: 'blue' })
   }
   return tasks
+}
+
+/**
+ * Propriedade de um cliente que ainda não usa o sistema, cadastrada pelo veterinário (ele passa a atendê-la;
+ * o produtor pode receber o acesso depois). Usada no cadastro de propriedade e no de animal ("fazenda não cadastrada").
+ */
+export async function createClientFarm(user: { id: string; farmId: string | null; isDemo: boolean }, vetId: string, data: { name: string; owner?: unknown; phone?: unknown; city?: unknown; state?: unknown }) {
+  const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
+  return prisma.$transaction(async (tx) => {
+    const farm = await tx.farm.create({
+      data: { name: data.name.trim(), owner: text(data.owner), phone: text(data.phone), city: text(data.city), state: regionOrNull(data.state), isDemo: user.isDemo },
+    })
+    await addFarmMember(tx, user.id, farm.id)
+    // Sem nenhuma propriedade aberta, esta já fica aberta
+    if (!user.farmId) await tx.user.update({ where: { id: user.id }, data: { farmId: farm.id } })
+    return tx.vetClient.create({ data: { vetId, farmId: farm.id, farmName: farm.name, createdByVet: true } })
+  })
 }

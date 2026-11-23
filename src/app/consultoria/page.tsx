@@ -8,7 +8,8 @@ import Link from 'next/link'
 import { Agenda, type AgendaHandle } from './Agenda'
 import { AgendaView } from '@/components/AgendaView'
 import { AppModal } from '@/components/AppModal'
-import { CalendarioIcon, GraficoIcon, PropriedadeIcon, UsuariosIcon } from '@/components/ModuleIcons'
+import { AnimalIcon, CalendarioIcon, GraficoIcon, PropriedadeIcon, UsuariosIcon } from '@/components/ModuleIcons'
+import { VetAnimals } from './VetAnimals'
 import type { AgendaItem } from '@/lib/agenda'
 import { useDialog } from '@/components/DialogProvider'
 import { StatTile } from '@/components/StatTile'
@@ -60,7 +61,7 @@ export default function ConsultoriaPage() {
   const [agendaKey, setAgendaKey] = useState(0)
   // Abas: a agenda abre primeiro; fazendas (com o código de convite) e gráficos ficam a um toque
   // ?aba=fazendas (atalho "Trocar propriedade" da faixa do veterinário) abre direto nas fazendas
-  const [tab, setTab] = useState<'agenda' | 'fazendas'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('aba') === 'fazendas' ? 'fazendas' : 'agenda'))
+  const [tab, setTab] = useState<'agenda' | 'fazendas' | 'animais'>(() => { const aba = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('aba') : null; return aba === 'fazendas' || aba === 'animais' ? aba : 'agenda' })
   // Visita pela Agenda: remarcar abre o formulário; concluir e cancelar pedem confirmação
   async function visitAction(item: AgendaItem, action: 'concluir' | 'remarcar' | 'cancelar') {
     if (action === 'remarcar') return agenda.current?.edit({ id: item.refId, date: item.date, time: item.time ?? null, purpose: item.detail ?? null })
@@ -173,6 +174,7 @@ export default function ConsultoriaPage() {
         {([
           ['agenda', t('Agenda e atividades'), CalendarioIcon],
           ['fazendas', `${t('Fazendas atendidas')} (${panel.clients.length})`, PropriedadeIcon],
+          ['animais', `${t('Animais')} (${totalAnimals})`, AnimalIcon],
         ] as const).map(([key, label, Icon]) => (
           <button key={key} type="button" onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined}
             className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold ${tab === key ? 'border-green-700 text-green-800' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
@@ -190,6 +192,11 @@ export default function ConsultoriaPage() {
         <Agenda ref={agenda} formOnly clients={panel.clients.map((c) => ({ id: c.id, name: c.name }))} onChanged={() => { void load(); setAgendaKey((k) => k + 1) }} />
       </div>
 
+
+      {tab === 'animais' && (
+        <VetAnimals clients={panel.clients} onFarmCreated={() => void load()}
+          onOpen={(farmId) => { const c = panel.clients.find((x) => x.farmId === farmId); if (c) void openFarm(c, '/animais') }} />
+      )}
 
       {tab === 'fazendas' && <>
 
