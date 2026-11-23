@@ -10,7 +10,7 @@ import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 import { LanguagePicker } from '@/ui/LanguagePicker'
 
-type Item = { title: string; detail?: string; href: string; module?: string; adminOnly?: boolean; /** Só para o veterinário consultor */ vetOnly?: boolean; icon: keyof typeof Ionicons.glyphMap; tone: Tone }
+type Item = { title: string; detail?: string; href: string; module?: string; adminOnly?: boolean; /** Só para o veterinário consultor */ vetOnly?: boolean; /** Esconde do veterinário consultor */ vetHide?: boolean; icon: keyof typeof Ionicons.glyphMap; tone: Tone }
 
 // Os mesmos grupos do menu lateral do site (src/components/Navbar.tsx): o primeiro sem título, depois Rebanho, Manejo,
 // Gestão, Propriedade, Administração (só o administrador) e Ajuda. Cada item com ícone colorido num círculo.
@@ -22,13 +22,13 @@ const GROUPS: { label: string; items: Item[] }[] = [
   ] },
   { label: 'Rebanho', items: [
     { title: 'Animais', href: '/(tabs)/animais', module: 'animais', icon: 'paw-outline', tone: 'green' },
-    { title: 'Recria e engorda', detail: 'Lotes, pesagens, trato e recria um a um', href: '/engorda', module: 'animais', icon: 'scale-outline', tone: 'amber' },
+    { title: 'Recria e engorda', vetHide: true, detail: 'Lotes, pesagens, trato e recria um a um', href: '/engorda', module: 'animais', icon: 'scale-outline', tone: 'amber' },
     { title: 'Reprodução', detail: 'Coberturas, prenhez e partos', href: '/reproducao', module: 'reproducao', icon: 'heart-outline', tone: 'red' },
     { title: 'Indicadores de reprodução', detail: 'Partos previstos, taxa de prenhez e leite por mês', href: '/reproducao/indicadores', module: 'reproducao', icon: 'bar-chart-outline', tone: 'purple' },
     { title: 'Diagnóstico em lote', detail: 'Prenha ou vazia, uma depois da outra', href: '/reproducao/diagnostico', module: 'reproducao', icon: 'checkmark-done-outline', tone: 'blue' },
   ] },
   { label: 'Manejo', items: [
-    { title: 'Produção de leite', href: '/(tabs)/leite', module: 'leite', icon: 'water-outline', tone: 'blue' },
+    { title: 'Produção de leite', vetHide: true, href: '/(tabs)/leite', module: 'leite', icon: 'water-outline', tone: 'blue' },
     { title: 'Vacinação', href: '/(tabs)/vacinas', module: 'vacinacao', icon: 'medkit-outline', tone: 'purple' },
     { title: 'Tratamentos', detail: 'Remédios e carência do leite', href: '/tratamentos', module: 'veterinario', icon: 'bandage-outline', tone: 'red' },
   ] },
@@ -70,7 +70,7 @@ export default function Mais() {
     ])
   }
 
-  const groups = GROUPS.map(g => ({ ...g, items: g.items.filter(i => (!i.module || canAccess(i.module)) && (!i.adminOnly || isAdmin) && (!i.vetOnly || !!user?.vet)) })).filter(g => g.items.length)
+  const groups = GROUPS.map(g => ({ ...g, items: g.items.filter(i => (!i.module || canAccess(i.module)) && (!i.adminOnly || isAdmin) && (!i.vetOnly || !!user?.vet) && !(i.vetHide && user?.vet)) })).filter(g => g.items.length)
 
   return (
     <Screen>

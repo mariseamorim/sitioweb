@@ -5,6 +5,7 @@ import { addMonths, buildIndicators, type MonthLiters } from '@/lib/reproInsight
 import { buildHerdIndices } from '@/lib/herdIndices'
 import { animalToday } from '@/lib/animalRules'
 import { conceptionBy } from '@/lib/conceptionBy'
+import { isVet } from '@/lib/vets'
 
 // GET: indicadores de reprodução da propriedade aberta (partos por mês, prenhez por mês, leite por mês e destaques).
 // e os índices zootécnicos do rebanho (serviço, concepção, prenhez, IEP, IPP e DPP). O leite só entra para quem tem o módulo de leite.
@@ -20,7 +21,8 @@ export async function GET() {
       where: { farmId: auth.farmId, OR: [{ coverageDate: { gte: from } }, { status: { in: ['Coberta', 'Prenha'] }, actualBirthDate: null }] },
       select: { femaleId: true, coverageDate: true, status: true, expectedBirthDate: true, actualBirthDate: true, maleName: true, bullBreed: true, inseminator: true },
     }),
-    canAccessModule(auth.user, 'leite')
+    // O veterinário consultor cuida de reprodução e sanidade: o total de leite não aparece para ele
+    canAccessModule(auth.user, 'leite') && !(await isVet(auth.user.id))
       ? prisma.$queryRaw<MonthLiters[]>`SELECT to_char("date", 'YYYY-MM') AS month, SUM("quantity")::float AS liters FROM "milk_productions" WHERE "farmId" = ${auth.farmId} AND "date" >= ${from} GROUP BY 1`
       : Promise.resolve(null),
     prisma.animal.findMany({ where: { farmId: auth.farmId }, select: { id: true, species: true, gender: true, status: true, birthDate: true, motherId: true } }),

@@ -7,7 +7,7 @@ import { useFarmId, useSession } from '@/auth/session'
 import { getCache, setCache } from '@/db'
 import { useLive } from '@/db/events'
 import { isoDay, todayISO } from '@/lib/format'
-import { AGENDA_KINDS, agendaShareText, canMarkDone, countByDay, sortAgenda, ddmm, groupAgenda, shiftDay, type AgendaItem, type AgendaKind } from '@/lib/agenda'
+import { AGENDA_GROUPS, AGENDA_KINDS, agendaGroup, agendaShareText, canMarkDone, countByDay, sortAgenda, ddmm, groupAgenda, shiftDay, type AgendaGroupKey, type AgendaItem, type AgendaKind } from '@/lib/agenda'
 import { localAgenda, markAgendaDone, undoAgendaDone } from '@/repos/agenda'
 import { getVaccination, saveVaccination } from '@/repos/vaccinations'
 import { Button, Muted, Notice, Screen } from '@/ui'
@@ -50,6 +50,8 @@ export default function AgendaScreen() {
   const [selected, setSelected] = useState<string | null>(null)
   const [week, setWeek] = useState(() => weekStartOf(today))
   const [kind, setKind] = useState<AgendaKind | ''>('')
+  // Produtor: abas por período (atrasados, hoje, amanhã, 7 dias, depois), sem semana e sem filtro por tipo
+  const [groupTab, setGroupTab] = useState<AgendaGroupKey | null>(null)
 
   // Produtor: do celular
   const local = useLive(() => (isVet ? [] : localAgenda(farmId, today, canAccess)), [farmId, today, isVet])
@@ -89,7 +91,11 @@ export default function AgendaScreen() {
   const counts = useMemo(() => countByDay(items), [items])
   const lateCount = items.filter(i => i.late).length
   const shown = selected ? items.filter(i => i.date === selected) : items
-  const groups = selected ? [{ key: 'dia', label: '', items: shown }] : groupAgenda(shown, today)
+  const byGroup = new Map(AGENDA_GROUPS.map(g => [g.key, items.filter(i => agendaGroup(i, today) === g.key)]))
+  const currentGroup = groupTab ?? AGENDA_GROUPS.find(g => byGroup.get(g.key)!.length)?.key ?? 'hoje'
+  const groups = !isVet
+    ? [{ key: currentGroup, label: '', items: byGroup.get(currentGroup) ?? [] }]
+    : selected ? [{ key: 'dia', label: '', items: shown }] : groupAgenda(shown, today)
   const days = Array.from({ length: 7 }, (_, i) => shiftDay(week, i))
   const fmt = (day: string, opts: Intl.DateTimeFormatOptions) => new Date(`${day}T12:00:00Z`).toLocaleDateString(locale, { timeZone: 'UTC', ...opts })
   const dayTitle = (day: string) => day === today ? t('Hoje') : day === shiftDay(today, 1) ? t('Amanhã') : fmt(day, { weekday: 'long', day: '2-digit', month: '2-digit' })
@@ -174,6 +180,24 @@ export default function AgendaScreen() {
 
       <Button label="Enviar pelo WhatsApp" icon="logo-whatsapp" variant="secondary" onPress={() => void share()} style={{ marginBottom: space.md }} />
 
+      {!isVet ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
+          {AGENDA_GROUPS.map(g => {
+            const n = byGroup.get(g.key)!.length
+            const on = currentGroup === g.key
+            const color = g.key === 'atrasados' ? colors.red : g.key === 'hoje' ? colors.green : g.key === 'depois' ? colors.muted : '#1e40af'
+            return (
+              <Pressable key={g.key} onPress={() => setGroupTab(g.key)} accessibilityRole="tab" accessibilityState={{ selected: on }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.md, minHeight: 48, borderRadius: radius.md, borderWidth: 2, borderColor: color, backgroundColor: on ? color : colors.white, opacity: !n && !on ? 0.6 : 1 }}>
+                <Text style={{ fontWeight: '700', color: on ? colors.white : color }}>{t(g.label)}</Text>
+                <View style={{ minWidth: 26, paddingHorizontal: 6, borderRadius: 13, backgroundColor: on ? colors.white : color }}>
+                  <Text style={{ textAlign: 'center', fontWeight: '800', color: on ? color : colors.white }}>{n}</Text>
+                </View>
+              </Pressable>
+            )
+          })}
+        </ScrollView>
+      ) : <>
       {/* Semana com a quantidade de tarefas de cada dia */}
       <View style={{ backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: space.sm }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.sm }}>
@@ -218,14 +242,16 @@ export default function AgendaScreen() {
         ))}
       </ScrollView>
 
-      {selected ? (
+      </>}
+
+      {!isVet ? null : selected ? (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: space.md }}>
           <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text }}>{dayTitle(selected)}</Text>
           <Pressable onPress={() => setSelected(null)} hitSlop={8}><Text style={{ color: colors.green, fontWeight: '700' }}>{t('Ver todos os dias')}</Text></Pressable>
         </View>
       ) : lateCount ? <Text style={{ marginTop: space.md, color: colors.red, fontWeight: '700' }}>{lateCount === 1 ? t('1 tarefa atrasada') : t('{n} tarefas atrasadas', { n: lateCount })}</Text> : null}
 
-      {!shown.length ? (
+      {(isVet ? !shown.length : !groups[0].items.length) ? (
         <View style={{ marginTop: space.md }}>
           <Muted>{t(selected ? 'Nada marcado para este dia.' : 'Nada na agenda. As vacinas, coberturas e tratamentos anotados aparecem aqui com a data de cada manejo.')}</Muted>
         </View>
