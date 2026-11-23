@@ -157,4 +157,6 @@ export const painel: Record<string, string> = {
   'Foto inválida ou grande demais': 'Foto inválida o demasiado grande',
   'Permita o uso da câmera nas configurações do celular para tirar a foto.': 'Permita el uso de la cámara en la configuración del celular para sacar la foto.',
   'Item da agenda inválido': 'Ítem de la agenda inválido',
+  'Ver dashboard': 'Ver dashboard',
+  'Manejos que já passaram da data': 'Manejos que ya pasaron de la fecha',
 }

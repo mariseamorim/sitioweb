@@ -9,7 +9,6 @@ import { Agenda, type AgendaHandle } from './Agenda'
 import { AgendaView } from '@/components/AgendaView'
 import { CalendarioIcon, GraficoIcon, PropriedadeIcon } from '@/components/ModuleIcons'
 import type { AgendaItem } from '@/lib/agenda'
-import { VetCharts } from './VetCharts'
 import { useDialog } from '@/components/DialogProvider'
 import { StatTile } from '@/components/StatTile'
 import { hasPendingOnDevice, PENDING_MESSAGE, reloadInFarm } from '@/lib/farmSwitch'
@@ -59,7 +58,7 @@ export default function ConsultoriaPage() {
   const agenda = useRef<AgendaHandle>(null)
   const [agendaKey, setAgendaKey] = useState(0)
   // Abas: a agenda abre primeiro; fazendas (com o código de convite) e gráficos ficam a um toque
-  const [tab, setTab] = useState<'agenda' | 'fazendas' | 'indicadores'>('agenda')
+  const [tab, setTab] = useState<'agenda' | 'fazendas'>('agenda')
   // Visita pela Agenda: remarcar abre o formulário; concluir e cancelar pedem confirmação
   async function visitAction(item: AgendaItem, action: 'concluir' | 'remarcar' | 'cancelar') {
     if (action === 'remarcar') return agenda.current?.edit({ id: item.refId, date: item.date, time: item.time ?? null, purpose: item.detail ?? null })
@@ -139,10 +138,10 @@ export default function ConsultoriaPage() {
   const inviteText = t('Olá! Sou {name}, veterinário. Para eu acompanhar a sua propriedade no Anota Aí Agro, abra este link e confirme: {link}', { name: panel.vet.name, link: inviteLink })
   const totalAnimals = panel.clients.reduce((sum, c) => sum + c.animals, 0)
   const awaiting = panel.clients.reduce((sum, c) => sum + c.awaitingDiagnosis, 0)
-  const rates = panel.clients.filter((c) => c.pregnancyRate !== null).map((c) => c.pregnancyRate as number)
-  const averageRate = rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : null
   const today = new Date().toLocaleDateString('en-CA')
   const visitsToday = (panel.visits ?? []).filter((v) => v.date.slice(0, 10) === today).length
+  // Manejos atrasados em todas as propriedades (vacinas, partos, secagem, diagnósticos...)
+  const lateTotal = (panel.tasks ?? []).reduce((sum, k) => sum + (k.late ?? 0), 0)
   const lateShots = (panel.tasks ?? []).filter((k) => k.href.startsWith('/vacinacao')).reduce((sum, k) => sum + (k.late ?? 0), 0)
 
   return (
@@ -155,6 +154,7 @@ export default function ConsultoriaPage() {
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={!panel.clients.length} onClick={() => agenda.current?.openNew()} className="rounded-lg bg-green-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:bg-gray-300">{t('+ Marcar visita')}</button>
           <button type="button" onClick={() => { setTab('fazendas'); setFormError(''); setNewFarm({ name: '', owner: '', phone: '', city: '', state: '' }) }} className="rounded-lg border-2 border-green-700 bg-white px-4 py-2 text-sm font-semibold text-green-800 hover:bg-green-50">{t('Vincular produtor ou novo cadastro')}</button>
+          <Link href="/dashboard" className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"><GraficoIcon className="h-4 w-4" />{t('Ver dashboard')}</Link>
           <Link href="/consultoria/recibos" className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Recibos')}</Link>
           <Link href="/consultoria/estoque" className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Meu estoque')}</Link>
         </div>
@@ -164,14 +164,13 @@ export default function ConsultoriaPage() {
         <StatTile accent="amber" label={t('Visitas hoje')} value={visitsToday} />
         <StatTile accent="blue" label={t('A diagnosticar')} value={awaiting} />
         <StatTile accent="red" label={t('Vacinas atrasadas')} value={lateShots} />
-        <StatTile accent="green" label={t('Concepção média')} value={averageRate === null ? '—' : `${averageRate}%`} />
+        <StatTile accent="green" icon="tarefa" label={t('Atrasados')} value={lateTotal} detail={t('Manejos que já passaram da data')} />
       </div>
 
       <nav className="mb-5 flex gap-1 overflow-x-auto border-b border-gray-200" aria-label={t('Seções da consultoria')}>
         {([
           ['agenda', t('Agenda e atividades'), CalendarioIcon],
           ['fazendas', `${t('Fazendas atendidas')} (${panel.clients.length})`, PropriedadeIcon],
-          ['indicadores', t('Indicadores e gráficos'), GraficoIcon],
         ] as const).map(([key, label, Icon]) => (
           <button key={key} type="button" onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined}
             className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold ${tab === key ? 'border-green-700 text-green-800' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
@@ -189,7 +188,6 @@ export default function ConsultoriaPage() {
         <Agenda ref={agenda} formOnly clients={panel.clients.map((c) => ({ id: c.id, name: c.name }))} onChanged={() => { void load(); setAgendaKey((k) => k + 1) }} />
       </div>
 
-      {tab === 'indicadores' && <VetCharts clients={panel.clients} busy={busy} onOpen={(c) => openFarm(c, '/reproducao/indicadores')} />}
 
       {tab === 'fazendas' && <>
 
