@@ -57,13 +57,14 @@ const JSON_LD = {
     },
   ],
 }
+// Cada recurso com a cor do seu módulo no sistema (quadrado do ícone)
 const features = [
-  { Icon: AnimalIcon, title: 'Rebanho organizado', text: 'Cada animal identificado, com foto, informações e registros em um só lugar.' },
-  { Icon: LeiteIcon, title: 'Produção de leite', text: 'Lançamentos individuais ou em lote e acompanhamento por período.' },
-  { Icon: TratamentoIcon, title: 'Saúde em dia', text: 'Tratamentos, vacinas, medicamentos e agenda de cuidados.' },
-  { Icon: FinanceiroIcon, title: 'Financeiro claro', text: 'Receitas, despesas e saldo para decidir com mais segurança.' },
-  { Icon: EstoqueIcon, title: 'Estoque sob controle', text: 'Saiba o que entrou, saiu e o que precisa ser reposto.' },
-  { Icon: PainelIcon, title: 'Painel completo', text: 'Os indicadores mais importantes da propriedade em uma visão.' },
+  { Icon: AnimalIcon, color: 'feature-green', title: 'Rebanho organizado', text: 'Cada animal identificado, com foto, informações e registros em um só lugar.' },
+  { Icon: LeiteIcon, color: 'feature-blue', title: 'Produção de leite', text: 'Lançamentos individuais ou em lote e acompanhamento por período.' },
+  { Icon: TratamentoIcon, color: 'feature-teal', title: 'Saúde em dia', text: 'Tratamentos, vacinas, medicamentos e agenda de cuidados.' },
+  { Icon: FinanceiroIcon, color: 'feature-amber', title: 'Financeiro claro', text: 'Receitas, despesas e saldo para decidir com mais segurança.' },
+  { Icon: EstoqueIcon, color: 'feature-orange', title: 'Estoque sob controle', text: 'Saiba o que entrou, saiu e o que precisa ser reposto.' },
+  { Icon: PainelIcon, color: 'feature-violet', title: 'Painel completo', text: 'Os indicadores mais importantes da propriedade em uma visão.' },
 ]
 export default function LandingPage() {
   return <main className="rural-landing" id="inicio">
@@ -75,11 +76,11 @@ export default function LandingPage() {
       <h1>Anote o leite do dia.<br /><em>Confira os litros</em><br />com o motorista.</h1>
       <p className="hero-description">Guarde suas anotações no celular, acompanhe o total e confira a folha do motorista. As anotações funcionam mesmo sem internet.</p>
       <div className="landing-actions"><a className="landing-button button-sage" href="#experimentar">Experimentar sem cadastro <SetaDireitaIcon /></a><Link className="landing-button button-outline" href="/lite/cadastro">Começar grátis <SetaDireitaIcon /></Link></div><p className="mt-4 text-sm text-green-100">Sem cartão. Sem precisar cadastrar o rebanho.</p>
-    </div><div className="hero-caption landing-container">Do leite anotado ao total que você tem para conferir.</div></section>
+    </div><div className="hero-phone landing-container" aria-hidden="true"><Image src="/landing/lite.webp" alt="" width={780} height={1688} priority sizes="300px" /></div><div className="hero-caption landing-container">Do leite anotado ao total que você tem para conferir.</div></section>
     <MilkDemo />
     <section id="recursos" className="landing-section landing-container">
       <div className="section-intro"><div><p className="landing-eyebrow">Também precisa de gestão completa?</p><h2>Cuide também<br /><em>da sua propriedade.</em></h2></div><p>Do primeiro cadastro ao fechamento do mês, o Anota Aí Agro transforma a rotina da fazenda em informações simples para você acompanhar o que realmente importa.</p></div>
-      <div className="feature-grid">{features.map(({ Icon, title, text }) => <article key={title} className="feature-card"><span className="feature-icon" aria-hidden="true"><Icon className="w-6 h-6" /></span><h3>{title}</h3><p>{text}</p></article>)}</div>
+      <div className="feature-grid">{features.map(({ Icon, color, title, text }) => <article key={title} className={`feature-card ${color}`}><span className="feature-icon" aria-hidden="true"><Icon className="w-6 h-6" /></span><h3>{title}</h3><p>{text}</p></article>)}</div>
     </section>
     <AudienceSection />
     <section id="ofertas" className="offers-section"><div className="landing-container offers-grid">

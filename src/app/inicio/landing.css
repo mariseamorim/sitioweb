@@ -103,3 +103,13 @@
 .landing-footer .footer-bottom{grid-column:1/-1;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 24px;border-top:1px solid #dce1d4;padding-top:16px;font-size:13px;color:#6d7b72;text-align:left}
 .landing-footer .footer-bottom a{min-height:44px;font-size:14px}
 @media(max-width:767px){.landing-footer{grid-template-columns:minmax(0,1fr);gap:16px}.landing-footer .footer-links{justify-self:start;display:grid;grid-template-columns:repeat(2,max-content);gap:0 28px}.landing-footer .footer-bottom{flex-direction:column;align-items:flex-start}}
+/* Recursos em cartões separados, cada um com o quadrado do ícone na cor do módulo */
+.feature-grid{gap:16px;background:transparent;border:0;overflow:visible}
+.feature-card{border:1px solid #dce1d4;border-radius:18px;background:#fff;box-shadow:0 1px 2px #0000000d;transition:transform .2s,box-shadow .2s}
+.feature-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px #183c2b14}
+.feature-card .feature-icon{color:#fff;box-shadow:0 4px 10px #0000001a}
+.feature-green .feature-icon{background:#166534}.feature-blue .feature-icon{background:#1e3a8a}.feature-teal .feature-icon{background:#0f766e}
+.feature-amber .feature-icon{background:#d97706}.feature-orange .feature-icon{background:#c2410c}.feature-violet .feature-icon{background:#6d28d9}
+/* Topo: a tela do app no celular ao lado do texto (só no computador) */
+.hero-phone{display:none}
+@media(min-width:1200px){.landing-hero{position:relative}.hero-content h1{max-width:640px}.hero-description{max-width:470px}.hero-phone{display:block;position:absolute;inset:0;pointer-events:none}.hero-phone img{position:absolute;right:4%;top:110px;width:280px;height:auto;border-radius:34px;box-shadow:0 24px 60px #00000059;border:8px solid #0f2419}}
