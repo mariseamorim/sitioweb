@@ -7,11 +7,13 @@ import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { useLocale, useT } from '@/lib/i18n'
 import { StatTile } from '@/components/StatTile'
+import { AppModal, modalButton } from '@/components/AppModal'
+import { RelatorioIcon } from '@/components/ModuleIcons'
 
 interface Receipt { id: string; number: number; payer: string; payerDoc: string | null; farmName: string | null; date: string; description: string; amount: number }
 interface VetInfo { name: string; crmv: string | null; city: string | null; state: string | null; phone: string | null }
 
-const input = 'mt-1 w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
+const input = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 const money = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const EMPTY = { payer: '', payerDoc: '', farmName: '', date: '', description: '', amount: '' }
 
@@ -108,31 +110,35 @@ export default function RecibosPage() {
       )}
 
       {form && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={t('Emitir recibo')}>
-          <form onSubmit={submit} className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white p-5 sm:p-6 flex flex-col gap-3">
-            <h2 className="text-lg font-bold text-gray-900">{t('Emitir recibo')}</h2>
-            <label className="text-sm font-medium text-gray-700">{t('Recebi de')} *<input value={form.payer} onChange={(e) => setForm({ ...form, payer: e.target.value })} required autoFocus className={input} /></label>
+        <AppModal title={t('Emitir recibo')} subtitle={vet?.name} icon={<RelatorioIcon className="h-6 w-6" />} tone="blue" onClose={() => setForm(null)}
+          footer={<>
+            <button type="button" onClick={() => setForm(null)} className={modalButton.ghost}>{t('Fechar')}</button>
+            <button type="submit" form="form-recibo" disabled={saving} className={modalButton.primary}>{t(saving ? 'Emitindo…' : 'Emitir recibo')}</button>
+          </>}>
+          <form id="form-recibo" onSubmit={submit} className="flex flex-col gap-4">
+            <label className="text-sm font-medium text-gray-700">{t('Recebi de')} *<input value={form.payer} onChange={(e) => setForm({ ...form, payer: e.target.value })} required autoFocus placeholder={t('Ex.: João da Silva')} className={input} /></label>
             <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm font-medium text-gray-700">{t('CPF ou CNPJ')}<input value={form.payerDoc} onChange={(e) => setForm({ ...form, payerDoc: e.target.value })} inputMode="numeric" className={input} /></label>
-              <label className="text-sm font-medium text-gray-700">{t('Propriedade')}<input value={form.farmName} onChange={(e) => setForm({ ...form, farmName: e.target.value })} className={input} /></label>
+              <label className="text-sm font-medium text-gray-700">{t('CPF ou CNPJ')}<input value={form.payerDoc} onChange={(e) => setForm({ ...form, payerDoc: e.target.value })} inputMode="numeric" placeholder={t('Ex.: 123.456.789-00')} className={input} /></label>
+              <label className="text-sm font-medium text-gray-700">{t('Propriedade')}<input value={form.farmName} onChange={(e) => setForm({ ...form, farmName: e.target.value })} placeholder={t('Ex.: Sítio Boa Vista')} className={input} /></label>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <label className="text-sm font-medium text-gray-700">{t('Valor (R$)')} *<input value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required inputMode="decimal" placeholder="0,00" className={input} /></label>
               <label className="text-sm font-medium text-gray-700">{t('Data')} *<input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required className={input} /></label>
             </div>
-            <label className="text-sm font-medium text-gray-700">{t('Referente a')} *<textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required rows={3} placeholder={t('Diagnóstico de gestação em 32 vacas, inseminação…')} className={input} /></label>
+            <label className="text-sm font-medium text-gray-700">{t('Referente a')} *<textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required rows={3} placeholder={t('Diagnóstico de gestação em 32 vacas, inseminação…')} className={`${input} resize-none`} /></label>
             {formError && <p role="alert" className="text-sm text-red-600">{formError}</p>}
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setForm(null)} className="flex-1 rounded-lg border border-gray-300 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50">{t('Fechar')}</button>
-              <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-green-800 py-3 text-base font-semibold text-white hover:bg-green-700 disabled:bg-green-400">{t(saving ? 'Emitindo…' : 'Emitir recibo')}</button>
-            </div>
           </form>
-        </div>
+        </AppModal>
       )}
 
       {open && vet && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={t('Recibo nº {n}', { n: open.number })}>
-          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white p-5 sm:p-6">
+        <AppModal title={t('Recibo nº {n}', { n: open.number })} subtitle={[open.payer, open.farmName].filter(Boolean).join(' · ')}
+          icon={<RelatorioIcon className="h-6 w-6" />} tone="blue" onClose={() => setOpen(null)}
+          footer={<>
+            <button type="button" onClick={() => remove(open)} className={modalButton.danger}>{t('Apagar')}</button>
+            <button type="button" onClick={() => setOpen(null)} className={modalButton.ghost}>{t('Fechar')}</button>
+            <button type="button" onClick={() => window.print()} className={modalButton.primary}>{t('Imprimir')}</button>
+          </>}>
             <article className="print-area border border-gray-400 p-6 text-gray-900">
               <div className="flex items-start justify-between gap-3 border-b border-gray-400 pb-3">
                 <div><p className="text-xl font-bold">{t('RECIBO')}</p><p className="text-sm text-gray-700">{t('Nº')} {String(open.number).padStart(4, '0')}</p></div>
@@ -148,13 +154,7 @@ export default function RecibosPage() {
                 {vet.phone && <p className="text-gray-700">{vet.phone}</p>}
               </div>
             </article>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={() => window.print()} className="flex-1 rounded-lg bg-green-800 py-3 text-base font-semibold text-white hover:bg-green-700">{t('Imprimir')}</button>
-              <button type="button" onClick={() => setOpen(null)} className="flex-1 rounded-lg border border-gray-300 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50">{t('Fechar')}</button>
-              <button type="button" onClick={() => remove(open)} className="rounded-lg px-4 py-3 text-sm font-semibold text-red-700 hover:bg-red-50">{t('Apagar')}</button>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
     </div>
   )

@@ -3,11 +3,12 @@
 // Peças comuns da tela de Recria e engorda: tipos, contas da tela e componentes pequenos
 
 import { useState } from 'react'
-import { FecharIcon } from '@/components/ModuleIcons'
 import { Feeding, LOT_PHASES, Weighing, dailySupplyKg, daysOfStock, lotSummary, stockKg } from '@/lib/lots'
 import { fmtNumber } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
 import { sendOrQueue, type Method } from '@/lib/offlineData'
+import { AppModal } from '@/components/AppModal'
+import { BalancaIcon } from '@/components/ModuleIcons'
 import { useT } from '@/lib/i18n'
 import type { LotPlan } from '@/lib/lotPlans'
 
@@ -152,22 +153,9 @@ export function Stat({ title, value, tone = 'text-gray-900' }: { title: string; 
   )
 }
 
-export function Modal({ title, subtitle, onClose, children }: { title: string; subtitle?: string; onClose: () => void; children: React.ReactNode }) {
-  const t = useT()
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
-      <div role="dialog" aria-modal="true" aria-label={title} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl sm:p-6">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-lg font-bold text-gray-800">{title}</h2>
-            {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
-          </div>
-          <button type="button" onClick={onClose} aria-label={t('Fechar')} className="p-1 text-gray-400 hover:text-gray-600"><FecharIcon /></button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
+/** Modal da recria e engorda: o modal padrão (grande), com o ícone da balança */
+export function Modal({ title, subtitle, onClose, children, size = 'lg' }: { title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; size?: 'md' | 'lg' }) {
+  return <AppModal title={title} subtitle={subtitle} onClose={onClose} size={size} tone="amber" icon={<BalancaIcon className="h-5 w-5" />}>{children}</AppModal>
 }
 
 // ── Escolher animais do rebanho ─────────────────────────────────────────

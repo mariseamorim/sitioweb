@@ -95,4 +95,15 @@ export const animais: Record<string, string> = {
   'Carregando...': 'Cargando...',
   'Raça': 'Raza',
   'Ex.: Nelore, Girolando, Holandesa': 'Ej.: Nelore, Girolando, Holando',
+  // Exemplos dos campos dos modais (AppModal): animais, leite, recibos e estoque do veterinário
+  'Ex.: Mimosa': 'Ej.: Mimosa',
+  'Ex.: número da guia, se tiver': 'Ej.: número de la guía, si la tiene',
+  'Ex.: mansa, boa de leite': 'Ej.: mansa, buena lechera',
+  'Ex.: 12': 'Ej.: 12',
+  'Ex.: uma vaca não ordenhou de tarde': 'Ej.: una vaca no se ordeñó a la tarde',
+  'Ex.: João da Silva': 'Ej.: Juan Pérez',
+  'Ex.: 123.456.789-00': 'Ej.: 123.456.789-00',
+  'Ex.: 10': 'Ej.: 10',
+  'Ex.: 5': 'Ej.: 5',
+  'Ex.: lote das novilhas': 'Ej.: lote de las vaquillonas',
 }

@@ -13,9 +13,12 @@ import { useOfflineModule } from '@/lib/useOffline'
 import { loadHerd } from '@/lib/herdCache'
 import { useDialog } from '@/components/DialogProvider'
 import { currentMonthRange, inDayRange, todayISO } from '@/lib/utils'
-import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
+import { SemSinalIcon, SincronizarIcon, FecharIcon, TratamentoIcon } from '@/components/ModuleIcons'
 import { useLocale, useT, type Vars } from '@/lib/i18n'
 import { StatTile } from '@/components/StatTile'
+import { AppModal, modalButton } from '@/components/AppModal'
+
+const FIELD = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base font-normal focus:outline-none focus:ring-2 focus:ring-green-600'
 
 interface Animal {
   id: string
@@ -329,19 +332,10 @@ export default function VeterinaryTreatmentPage() {
         </div>
       )}
 
-      {/* Detail modal */}
+      {/* Histórico do animal: modal padrão (grande, lista de tratamentos) */}
       {detailAnimalId && detailAnimal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">{detailAnimal.name}</h2>
-                  <p className="text-xs text-gray-500">{t('Código: {code}', { code: detailAnimal.code })}</p>
-                </div>
-                <button onClick={() => setDetailAnimalId(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-
+        <AppModal title={detailAnimal.name} subtitle={t('Código: {code}', { code: detailAnimal.code })}
+          onClose={() => setDetailAnimalId(null)} icon={<TratamentoIcon className="h-6 w-6" />} tone="red" size="lg">
               <div className="bg-green-50 border border-green-100 rounded-lg px-4 py-3 mb-4 text-sm flex justify-between">
                 <span className="text-gray-600">{t('Tratamentos no período selecionado')}</span>
                 <span className="font-bold text-green-700">{detailPeriodCount}</span>
@@ -419,108 +413,77 @@ export default function VeterinaryTreatmentPage() {
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
-      {/* Register modal */}
+      {/* Registrar tratamento: modal padrão (médio) */}
       {showRegister && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">{t('Registrar Tratamento')}</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-
-              <form onSubmit={handleSave} className="flex flex-col gap-3">
+        <AppModal title={t('Registrar Tratamento')} subtitle={user?.farmName ?? undefined} onClose={() => setShowRegister(false)}
+          icon={<TratamentoIcon className="h-6 w-6" />} tone="red"
+          footer={<>
+            <button type="button" onClick={() => setShowRegister(false)} className={modalButton.ghost}>{t('Cancelar')}</button>
+            <button type="submit" form="form-tratamento" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando...' : 'Salvar')}</button>
+          </>}>
+              <form id="form-tratamento" onSubmit={handleSave} className="flex flex-col gap-4">
                 <AnimalPicker animals={allAnimals} value={form.animalId} onChange={id => setForm({ ...form, animalId: id })} label="Animal" />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Data Início')} *</label>
-                    <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} required
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Data Fim')}</label>
-                    <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Data Início')} *
+                    <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} required className={FIELD} />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Data Fim')}
+                    <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={FIELD} />
+                  </label>
                 </div>
 
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Medicamento')} *</label>
+                <label className="text-sm font-medium text-gray-700">{t('Medicamento')} *
                   <input type="text" value={form.medicine} onChange={(e) => setForm({ ...form, medicine: e.target.value })} required
-                    placeholder={t('Ex: Amoxicilina')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                    placeholder={t('Ex: Amoxicilina')} className={FIELD} />
+                </label>
+
+                <div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="text-sm font-medium text-gray-700">{t('Carência do leite (dias)')}
+                      <input inputMode="numeric" value={form.milkWithdrawalDays} onChange={(e) => setForm({ ...form, milkWithdrawalDays: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                        placeholder={t('Ex.: 4')} className={FIELD} />
+                    </label>
+                    <label className="text-sm font-medium text-gray-700">{t('Carência da carne (dias)')}
+                      <input inputMode="numeric" value={form.meatWithdrawalDays} onChange={(e) => setForm({ ...form, meatWithdrawalDays: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                        placeholder={t('Ex.: 30')} className={FIELD} />
+                    </label>
+                  </div>
+                  <p className="mt-1.5 text-xs text-gray-500">{t('Está na bula. Conta a partir do fim do tratamento. O app avisa até quando o leite não pode ir para o tanque e o animal não pode ir para o abate.')}</p>
                 </div>
+
+                <label className="text-sm font-medium text-gray-700">{t('Responsável')}
+                  <input type="text" value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })}
+                    placeholder={t('Quem cuida do tratamento')} className={FIELD} />
+                </label>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Carência do leite (dias)')}</label>
-                    <input inputMode="numeric" value={form.milkWithdrawalDays} onChange={(e) => setForm({ ...form, milkWithdrawalDays: e.target.value.replace(/\D/g, '').slice(0, 3) })}
-                      placeholder={t('Ex.: 4')} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Carência da carne (dias)')}</label>
-                    <input inputMode="numeric" value={form.meatWithdrawalDays} onChange={(e) => setForm({ ...form, meatWithdrawalDays: e.target.value.replace(/\D/g, '').slice(0, 3) })}
-                      placeholder={t('Ex.: 30')} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                </div>
-                <p className="-mt-1 text-xs text-gray-500">{t('Está na bula. Conta a partir do fim do tratamento. O app avisa até quando o leite não pode ir para o tanque e o animal não pode ir para o abate.')}</p>
-
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Responsável')}</label>
-                  <input type="text" value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })}
-                    placeholder={t('Quem cuida do tratamento')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Fabricante')}</label>
+                  <label className="text-sm font-medium text-gray-700">{t('Fabricante')}
                     <input type="text" value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
-                      placeholder={t('Ex: Laboratório X')}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Lote')}</label>
+                      placeholder={t('Ex: Laboratório X')} className={FIELD} />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Lote')}
                     <input type="text" value={form.batch} onChange={(e) => setForm({ ...form, batch: e.target.value })}
-                      placeholder={t('Ex: 123456')}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
+                      placeholder={t('Ex: 123456')} className={FIELD} />
+                  </label>
                 </div>
 
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Descrição')}</label>
+                <label className="text-sm font-medium text-gray-700">{t('Descrição')}
                   <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2}
-                    placeholder={t('Descrição do tratamento')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none" />
-                </div>
+                    placeholder={t('Descrição do tratamento')} className={`${FIELD} resize-none`} />
+                </label>
 
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Observações')}</label>
+                <label className="text-sm font-medium text-gray-700">{t('Observações')}
                   <textarea value={form.observations} onChange={(e) => setForm({ ...form, observations: e.target.value })} rows={2}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none" />
-                </div>
+                    placeholder={t('Ex.: aplicar de manhã, após a ordenha')} className={`${FIELD} resize-none`} />
+                </label>
 
-                {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setShowRegister(false)}
-                    className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
-                    {t('Cancelar')}
-                  </button>
-                  <button type="submit" disabled={saving}
-                    className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold py-2 rounded-lg">
-                    {t(saving ? 'Salvando...' : 'Salvar')}
-                  </button>
-                </div>
+                {saveError && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{saveError}</p>}
               </form>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
       </div>
     </PermissionGuard>

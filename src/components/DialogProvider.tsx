@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useRef, useState, ReactNode } from 'react'
 import { useT } from '@/lib/i18n'
+import { AppModal, modalButton } from '@/components/AppModal'
+import { AlertaIcon, LixeiraIcon } from '@/components/ModuleIcons'
 
 interface ConfirmOptions {
   title: string
@@ -50,36 +52,19 @@ export function DialogProvider({ children }: { children: ReactNode }) {
     <DialogContext.Provider value={{ confirm, notify }}>
       {children}
       {dialog && (
-        <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-4">
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="dialog-title"
-            className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="dialog-title" className="text-lg font-bold text-gray-900">{t(dialog.title)}</h2>
-            {dialog.message && <p className="mt-2 text-base text-gray-600 leading-relaxed">{t(dialog.message)}</p>}
-            <div className="mt-6 flex gap-2">
-              {dialog.kind === 'confirm' && (
-                <button
-                  onClick={() => close(false)}
-                  className="flex-1 border border-gray-200 text-gray-700 text-base font-medium py-3 rounded-lg hover:bg-gray-50"
-                >
-                  {t('Cancelar')}
-                </button>
-              )}
-              <button
-                autoFocus
-                onClick={() => close(true)}
-                className={`flex-1 text-white text-base font-semibold py-3 rounded-lg ${
-                  dialog.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-green-700 hover:bg-green-600'
-                }`}
-              >
+        // Confirmação no tamanho pequeno do modal padrão: vermelho com lixeira para excluir, verde para o resto
+        <div className="relative z-[60]">
+          <AppModal size="sm" role="alertdialog" title={t(dialog.title)} tone={dialog.danger ? 'red' : dialog.kind === 'alert' ? 'blue' : 'green'}
+            icon={dialog.danger ? <LixeiraIcon className="h-5 w-5" /> : <AlertaIcon className="h-5 w-5" />}
+            onClose={() => close(false)}
+            footer={<>
+              {dialog.kind === 'confirm' && <button type="button" onClick={() => close(false)} className={modalButton.ghost}>{t('Cancelar')}</button>}
+              <button type="button" autoFocus onClick={() => close(true)} className={dialog.danger ? modalButton.danger : modalButton.primary}>
                 {dialog.kind === 'alert' ? t('Entendi') : t(dialog.confirmLabel ?? 'Confirmar')}
               </button>
-            </div>
-          </div>
+            </>}>
+            {dialog.message && <p className="text-base leading-relaxed text-gray-600">{t(dialog.message)}</p>}
+          </AppModal>
         </div>
       )}
     </DialogContext.Provider>

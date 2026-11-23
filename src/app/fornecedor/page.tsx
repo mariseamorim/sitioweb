@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useDialog } from '@/components/DialogProvider'
 import { ImagePicker } from '@/components/ImagePicker'
-import { FecharIcon } from '@/components/ModuleIcons'
+import { LojaIcon } from '@/components/ModuleIcons'
+import { AppModal, modalButton } from '@/components/AppModal'
 import { SUPPLY_CATEGORIES } from '@/lib/supplies'
 import { fmtDate, fmtMoney } from '@/lib/reports'
 import { todayISO, whatsappLink } from '@/lib/utils'
@@ -104,6 +105,8 @@ const OFFER_UNITS = ['Kg', 'Saco', 'Litro']
 const matchUnit = (unit: string) => OFFER_UNITS.find((u) => u.toLowerCase() === unit.toLowerCase()) ?? unit
 const EMPTY_FORM = { title: '', category: 'Ração', price: '', unit: '', description: '', imageUrl: '', reach: 'clientes', validUntil: '' }
 const input = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
+/** Campo dos modais (padrão do AppModal) */
+const field = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 const OFFLINE_ACTION = 'Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.'
 // Mesmas cores do StatTile, num botão (os cartões do painel também são o menu)
 const NAV_ACCENT = {
@@ -404,28 +407,29 @@ export default function PainelFornecedorPage() {
       )}
 
       {editing && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <form onSubmit={saveOffer} className="p-5 sm:p-6 flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">{editing === 'new' ? 'Nova oferta' : 'Editar oferta'}</h2>
-                <button type="button" onClick={() => setEditing(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
-              </div>
+        <AppModal title={editing === 'new' ? 'Nova oferta' : 'Editar oferta'} subtitle={vendor.companyName} icon={<LojaIcon className="h-6 w-6" />} tone="green" onClose={() => setEditing(null)}
+          footer={<>
+            <button type="button" onClick={() => setEditing(null)} className={modalButton.ghost}>Cancelar</button>
+            <button type="submit" form="form-oferta" disabled={saving} className={modalButton.primary}>
+              {saving ? 'Salvando...' : editing === 'new' ? 'Publicar' : 'Salvar'}
+            </button>
+          </>}>
+            <form id="form-oferta" onSubmit={saveOffer} className="flex flex-col gap-4">
 
               <label className="text-sm font-medium text-gray-700">Produto *
-                <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="Ex.: Sal mineral 30 kg" className={`mt-1 ${input}`} />
+                <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="Ex.: Sal mineral 30 kg" className={field} />
               </label>
               <label className="text-sm font-medium text-gray-700">Categoria *
-                <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={`mt-1 ${input}`}>
+                <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={field}>
                   {SUPPLY_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
                 </select>
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <label className="text-sm font-medium text-gray-700">Preço (R$)
-                  <input inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value.replace(/[^\d.,]/g, '') })} placeholder="Opcional" className={`mt-1 ${input}`} />
+                  <input inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value.replace(/[^\d.,]/g, '') })} placeholder="Opcional" className={field} />
                 </label>
                 <label className="text-sm font-medium text-gray-700">Por
-                  <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className={`mt-1 ${input} bg-white`}>
+                  <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className={`${field} bg-white`}>
                     <option value="">—</option>
                     {OFFER_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                     {/* Oferta antiga com unidade escrita à mão: mantém o valor até ser trocado */}
@@ -435,10 +439,10 @@ export default function PainelFornecedorPage() {
               </div>
               <label className="text-sm font-medium text-gray-700">Detalhes
                 <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2}
-                  placeholder="Ex.: entrega grátis acima de 10 sacos" className={`mt-1 ${input} resize-none`} />
+                  placeholder="Ex.: entrega grátis acima de 10 sacos" className={`${field} resize-none`} />
               </label>
               <label className="text-sm font-medium text-gray-700">Vale até *
-                <input type="date" value={form.validUntil} min={today} onChange={(e) => setForm({ ...form, validUntil: e.target.value })} required className={`mt-1 ${input}`} />
+                <input type="date" value={form.validUntil} min={today} onChange={(e) => setForm({ ...form, validUntil: e.target.value })} required className={field} />
               </label>
 
               <fieldset>
@@ -463,16 +467,8 @@ export default function PainelFornecedorPage() {
               </div>
 
               {formError && <p className="text-sm text-red-600">{formError}</p>}
-
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setEditing(null)} className="flex-1 border border-gray-200 text-gray-600 font-medium py-3 rounded-lg hover:bg-gray-50">Cancelar</button>
-                <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-3 rounded-lg">
-                  {saving ? 'Salvando...' : editing === 'new' ? 'Publicar' : 'Salvar'}
-                </button>
-              </div>
             </form>
-          </div>
-        </div>
+        </AppModal>
       )}
     </div>
   )

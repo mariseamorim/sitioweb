@@ -7,7 +7,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Agenda, type AgendaHandle } from './Agenda'
 import { AgendaView } from '@/components/AgendaView'
-import { CalendarioIcon, GraficoIcon, PropriedadeIcon } from '@/components/ModuleIcons'
+import { AppModal } from '@/components/AppModal'
+import { CalendarioIcon, GraficoIcon, PropriedadeIcon, UsuariosIcon } from '@/components/ModuleIcons'
 import type { AgendaItem } from '@/lib/agenda'
 import { useDialog } from '@/components/DialogProvider'
 import { StatTile } from '@/components/StatTile'
@@ -320,22 +321,7 @@ export default function ConsultoriaPage() {
   )
 }
 
+/** Modais da Consultoria: o modal padrão (médio), com o ícone de pessoas */
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  const t = useT()
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
-          <button type="button" onClick={onClose} aria-label={t('Fechar')} className="-mr-1 -mt-1 flex h-10 w-10 items-center justify-center rounded-full text-2xl leading-none text-gray-500 hover:bg-gray-100">×</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
+  return <AppModal title={title} onClose={onClose} tone="teal" icon={<UsuariosIcon className="h-5 w-5" />}>{children}</AppModal>
 }

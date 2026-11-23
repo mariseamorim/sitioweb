@@ -164,4 +164,8 @@ export const painel: Record<string, string> = {
   'Nada atrasado.': 'Nada atrasado.',
   'Nada para este período.': 'Nada para este período.',
   'As vacinas, coberturas e tratamentos anotados aparecem aqui com a data de cada manejo.': 'Las vacunas, servicios y tratamientos anotados aparecen aquí con la fecha de cada manejo.',
+  'Dados do touro': 'Datos del toro',
+  'Ex.: cio forte, repetir em 21 dias': 'Ej.: celo fuerte, repetir en 21 días',
+  'obrigatório': 'obligatorio',
+  'Buscar por nome, código ou brinco...': 'Buscar por nombre, código o caravana...',
 }
