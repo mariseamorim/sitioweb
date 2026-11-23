@@ -19,8 +19,10 @@ export interface ReportSection {
   rows: (string | number)[][]
   /** Linha totalizadora (aparece em negrito, com fundo verde-claro) */
   footer?: (string | number)[]
-  /** 'cards': resumo em cartões; cada linha é [rótulo, valor] (no PDF sai como tabela de 2 colunas) */
-  kind?: 'table' | 'cards'
+  /** 'cards': resumo em cartões; 'fields': grade de campos (dados gerais); cada linha é [rótulo, valor] (no PDF sai como tabela de 2 colunas) */
+  kind?: 'table' | 'cards' | 'fields'
+  /** Meia largura no computador: duas seções lado a lado (ex.: dados gerais e vacinas da ficha) */
+  half?: boolean
   /** Tom de cada linha dos cartões; sem tom, cores neutras */
   tones?: (ReportTone | null)[]
   /** Coluna mostrada como pílula colorida pela palavra (veja badgeTone) */

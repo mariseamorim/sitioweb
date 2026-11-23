@@ -25,6 +25,7 @@ interface Farm {
   state?: string | null
   isActive?: boolean
   segments?: string[]
+  lactatingGoal?: number | null
 }
 
 const EMPTY = {
@@ -38,6 +39,7 @@ const EMPTY = {
   city: '',
   state: '',
   segments: [] as string[],
+  lactatingGoal: '' as string | number,
 }
 
 const typeColor: Record<string, string> = {
@@ -283,6 +285,15 @@ export default function PropriedadesPage() {
                     })}
                   </div>
                 </fieldset>
+
+                {form.segments.includes('leite') || !form.segments.length ? (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600">{t('Meta de vacas em lactação (opcional)')}</label>
+                    <input inputMode="numeric" value={form.lactatingGoal ?? ''} onChange={(e) => setForm({ ...form, lactatingGoal: e.target.value.replace(/\D/g, '') })} placeholder={t('Ex.: 100')}
+                      className="mt-1 w-40 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                    <p className="mt-1 text-xs text-gray-500">{t('O Dashboard mostra quantas vacas estão em lactação e quanto falta para a meta.')}</p>
+                  </div>
+                ) : null}
 
                 <div>
                   <label className="text-xs font-medium text-gray-600">{t('Nome')} *</label>

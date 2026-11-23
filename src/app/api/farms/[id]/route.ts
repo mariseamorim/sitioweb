@@ -5,6 +5,7 @@ import { canAccessModule, canEdit, getSessionUser } from '@/lib/auth'
 import { isFarmMember, parseSegments } from '@/lib/farms'
 import { normalizeRegion } from '@/lib/identity'
 import { DOCUMENT_TYPES } from '@/lib/masks'
+import { parseGoal } from '@/lib/lactating'
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const me = await getSessionUser()
@@ -27,7 +28,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const fields = ['name', 'propertyType', 'documentType', 'documentNumber', 'owner', 'phone', 'address', 'city', 'state'] as const
-  const data: Record<string, string | string[] | null> = {}
+  const data: Record<string, string | string[] | number | null> = {}
   for (const field of fields) {
     if (!(field in body)) continue
     if (typeof body[field] !== 'string') return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 })
@@ -37,6 +38,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const segments = parseSegments(body.segments)
     if (!segments) return NextResponse.json({ error: 'Segmento inválido' }, { status: 400 })
     data.segments = segments
+  }
+  if ('lactatingGoal' in body) {
+    const goal = parseGoal(body.lactatingGoal)
+    if (goal === 'invalid') return NextResponse.json({ error: 'Meta de vacas em lactação inválida' }, { status: 400 })
+    data.lactatingGoal = goal
   }
   if ('name' in data && !data.name) return NextResponse.json({ error: 'Nome é obrigatório' }, { status: 400 })
   if ('propertyType' in data && !['Fazenda', 'Sítio'].includes(String(data.propertyType ?? ''))) return NextResponse.json({ error: 'Tipo de propriedade inválido' }, { status: 400 })

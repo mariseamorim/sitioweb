@@ -62,7 +62,7 @@ export const TABLES = {
   },
   /** Propriedades da pessoa (admin: todas, com contagens de /api/admin/propriedades). */
   farms: {
-    columns: ['name', 'propertyType', 'documentType', 'documentNumber', 'owner', 'phone', 'address', 'city', 'state', 'isActive', 'segments', 'animals', 'members', 'lastActivity', 'createdAt'],
+    columns: ['name', 'propertyType', 'documentType', 'documentNumber', 'owner', 'phone', 'address', 'city', 'state', 'isActive', 'segments', 'lactatingGoal', 'animals', 'members', 'lastActivity', 'createdAt'],
     list: '/api/farms', module: '',
   },
   /** Ofertas visíveis (vendor em JSON); a rota devolve { offers, lowCategories }. */
@@ -74,6 +74,11 @@ export const TABLES = {
   supply_requests: {
     columns: ['vendorId', 'supplyId', 'itemName', 'category', 'quantity', 'unit', 'note', 'status', 'reply', 'replyPrice', 'repliedAt', 'createdBy', 'vendor', 'createdAt', 'updatedAt'],
     list: '/api/pedidos', module: '',
+  },
+  /** Manejos da agenda marcados como feitos (secagem, pré-parto, retorno ao cio): key = chave do item. */
+  agenda_done: {
+    columns: ['key', 'doneAt', 'createdAt'],
+    list: '/api/agenda/feitos', module: 'reproducao',
   },
   /** Meus fornecedores (id = id do fornecedor). */
   vendors: {

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { api } from '@/api/client'
+import { all, getCache, setCache } from '@/db'
 import { Pressable, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { all } from '@/db'
 import { useLive } from '@/db/events'
 import { brMoney, brNumber } from '@/lib/format'
 import { lastMonths, milkResultByMonth, spendingAlerts, type MilkMonth, type ResultMilk, type ResultTransaction } from '@/lib/milkResult'
@@ -40,7 +41,17 @@ export function SpendingAlertsCard({ alerts }: { alerts: ReturnType<typeof spend
   )
 }
 
-export function MilkResultCard({ months, hasMilk }: { months: MilkMonth[]; hasMilk: boolean }) {
+/** Ração por litro de cada mês: vem do servidor (as saídas do estoque não ficam no celular), com a última cópia guardada */
+export function useFeedPerLiter(farmId: string): Map<string, { feedKg: number | null; feedPerLiter: number | null }> {
+  const key = `feed_per_liter_${farmId}`
+  const [rows, setRows] = useState<MilkMonth[]>(() => getCache<MilkMonth[]>(key) ?? [])
+  useEffect(() => {
+    api<{ months: MilkMonth[] }>('/api/financeiro/resultado').then(d => { setCache(key, d.months); setRows(d.months) }).catch(() => { /* sem internet: fica a cópia */ })
+  }, [key])
+  return new Map(rows.map(m => [m.month, { feedKg: m.feedKg ?? null, feedPerLiter: m.feedPerLiter ?? null }]))
+}
+
+export function MilkResultCard({ months, hasMilk, feed }: { months: MilkMonth[]; hasMilk: boolean; feed?: Map<string, { feedKg: number | null; feedPerLiter: number | null }> }) {
   const t = useT()
   const locale = useLocale()
   const [open, setOpen] = useState(false)
@@ -60,6 +71,10 @@ export function MilkResultCard({ months, hasMilk }: { months: MilkMonth[]; hasMi
         <Tile accent="amber" label={t('Custo por litro')} value={perLiter(shown.costPerLiter)} detail={t('{value} de custos', { value: brMoney(shown.costs) })} />
         <Tile accent={margin === null || margin >= 0 ? 'green' : 'red'} label={t(margin !== null && margin < 0 ? 'Prejuízo por litro' : 'Sobra por litro')} value={perLiter(margin === null ? null : Math.abs(margin))}
           detail={t(shown.result >= 0 ? '{value} de sobra no mês' : '{value} de prejuízo no mês', { value: brMoney(Math.abs(shown.result)) })} />
+        {feed?.get(shown.month)?.feedPerLiter ? (
+          <Tile accent="teal" icon="cube-outline" label={t('Ração por litro')} value={`${brNumber(feed.get(shown.month)!.feedPerLiter!, 2)} kg`}
+            detail={t('{kg} kg de ração no mês', { kg: brNumber(feed.get(shown.month)!.feedKg ?? 0, 0) })} />
+        ) : null}
       </TileGrid>
       <Pressable onPress={() => setOpen(!open)} accessibilityRole="button" style={{ minHeight: 40, justifyContent: 'center' }}>
         <Text style={{ color: colors.green, fontWeight: '700' }}>{t(open ? 'Esconder mês a mês' : 'Ver mês a mês')}</Text>

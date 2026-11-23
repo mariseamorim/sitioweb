@@ -13,8 +13,10 @@ export interface ReportSection {
   rows: (string | number)[][]
   /** Linha totalizadora (aparece em negrito, com fundo verde-claro) */
   footer?: (string | number)[]
-  /** 'cards': resumo em cartões; cada linha é [rótulo, valor] (no PDF sai como tabela de 2 colunas) */
-  kind?: 'table' | 'cards'
+  /** 'cards': resumo em cartões; 'fields': grade de campos (dados gerais); cada linha é [rótulo, valor] (no PDF sai como tabela de 2 colunas) */
+  kind?: 'table' | 'cards' | 'fields'
+  /** Meia largura no computador: duas seções lado a lado (ex.: dados gerais e vacinas da ficha) */
+  half?: boolean
   /** Tom de cada linha dos cartões; sem tom, cores neutras */
   tones?: (ReportTone | null)[]
   /** Coluna mostrada como pílula colorida pela palavra (veja badgeTone) */
@@ -66,7 +68,11 @@ export const REPORT_TYPES: ReportType[] = [
   { key: 'partos', label: 'Crias e partos', description: 'Crias de cada vaca, intervalo entre partos e vacas demorando para criar.', module: 'animais', needsPeriod: false },
   { key: 'rebanho', label: 'Inventário do rebanho', description: 'Animais por espécie e situação, com lista completa.', module: 'animais', needsPeriod: false },
   { key: 'estoque', label: 'Movimentação de estoque', description: 'Entradas e saídas no período e saldo atual de cada item.', module: 'estoque', needsPeriod: true },
+  { key: 'personalizado', label: 'Relatório personalizado', description: 'Escolha as partes (leite, rebanho, vacinas, caixa, partos, estoque) e junte tudo num relatório só.', module: '', needsPeriod: true },
 ]
+
+/** Partes que podem entrar no relatório personalizado (os relatórios que não pedem animal) */
+export const CUSTOM_PARTS = ['leite', 'rebanho', 'partos', 'vacinacao', 'financeiro', 'estoque'] as const
 
 export function fmtNumber(v: number, decimals = 1) {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })

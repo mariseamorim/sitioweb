@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { canAccessModule, type SessionUser } from '@/lib/auth'
 import { animalCategory, animalToday } from '@/lib/animalRules'
+import { lactatingByMonth, lactatingNow } from '@/lib/lactating'
 import { addMonths, buildIndicators } from '@/lib/reproInsights'
 import { farmOverviews, vetProfileOf, vetTasks } from '@/lib/vets'
 import { todayStops } from '@/lib/laticinio'
@@ -50,7 +51,7 @@ export async function buildDashboard(user: SessionUser, options: { months?: numb
 async function producerBoard(user: SessionUser): Promise<Board | null> {
   const farmId = user.effectiveFarmId
   if (!farmId) return null
-  const farm = await prisma.farm.findUnique({ where: { id: farmId }, select: { name: true, segments: true } })
+  const farm = await prisma.farm.findUnique({ where: { id: farmId }, select: { name: true, segments: true, lactatingGoal: true } })
   if (!farm) return null
   const can = (module: string) => canAccessModule(user, module)
   const today = animalToday()
@@ -61,7 +62,7 @@ async function producerBoard(user: SessionUser): Promise<Board | null> {
 
   const [animals, milk, coverages, lateShots, money] = await Promise.all([
     can('animais') ? prisma.animal.findMany({ where: { farmId, status: { in: ['Vivo', 'Doente'] } }, select: { species: true, gender: true, birthDate: true, isCastrated: true } }) : null,
-    showMilk ? prisma.milkProduction.findMany({ where: { farmId, date: { gte: midnight(`${months[0]}-01`) } }, select: { date: true, quantity: true } }) : null,
+    showMilk ? prisma.milkProduction.findMany({ where: { farmId, date: { gte: midnight(`${months[0]}-01`) } }, select: { date: true, quantity: true, animalId: true, cowsMilked: true } }) : null,
     can('reproducao') ? prisma.reproduction.findMany({ where: { farmId }, select: { coverageDate: true, status: true, expectedBirthDate: true, actualBirthDate: true } }) : null,
     can('vacinacao') ? prisma.vaccination.count({ where: { animal: { farmId }, appliedDate: null, scheduledDate: { lt: midnight(today) } } }) : null,
     can('financeiro') ? prisma.transaction.findMany({ where: { farmId, date: { gte: monthStart } }, select: { type: true, amount: true } }) : null,
@@ -79,6 +80,18 @@ async function producerBoard(user: SessionUser): Promise<Board | null> {
     const week = days.slice(22, 29).reduce((sum, d) => sum + (byDay.get(d) ?? 0), 0)
     tiles.push({ label: 'Leite ontem', value: Math.round(byDay.get(yesterday) ?? 0), unit: 'L', detail: { text: 'média de 7 dias: {n} L/dia', vars: { n: Math.round(week / 7) } } })
     tiles.push({ label: 'Leite no mês', value: Math.round(byMonth.get(months[11]) ?? 0), unit: 'L' })
+    // Vacas em lactação e a meta da propriedade ("70 de 100")
+    const lactRows = milk.map((m) => ({ date: dayKey(m.date), animalId: m.animalId, cowsMilked: m.cowsMilked }))
+    const lactating = lactatingNow(lactRows, today)
+    if (lactating !== null || farm.lactatingGoal) {
+      const goal = farm.lactatingGoal
+      tiles.push({
+        label: 'Vacas em lactação', value: lactating ?? 0,
+        ...(goal ? { suffix: `de ${goal}`, detail: { text: '{p}% da meta', vars: { p: Math.round(((lactating ?? 0) / goal) * 100) } } } : {}),
+      })
+      const series = lactatingByMonth(lactRows, months)
+      if (series.some((v) => v !== null)) charts.push({ kind: 'columns', axis: 'month', unit: '', title: 'Vacas em lactação por mês', subtitle: goal ? { text: 'Média de cada mês · meta: {n}', vars: { n: goal } } : 'Média de cada mês', points: months.map((x, i) => ({ x, value: series[i] })) })
+    }
     charts.push({ kind: 'columns', wide: true, axis: 'day', unit: 'L', title: 'Leite por dia', subtitle: 'Últimos 30 dias (hoje ainda em andamento)', points: days.map((x) => ({ x, value: round1(byDay.get(x) ?? 0) })) })
     charts.push({ kind: 'columns', axis: 'month', unit: 'L', title: 'Leite por mês', subtitle: 'Últimos 12 meses', points: months.map((x) => ({ x, value: Math.round(byMonth.get(x) ?? 0) })) })
   }

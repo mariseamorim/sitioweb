@@ -16,12 +16,15 @@ export async function GET(request: NextRequest) {
   // Veterinário consultor: conta de edição que atende várias propriedades (pode estar sem nenhuma aberta)
   const vet = user.role === 'editor' && await isVet(user.id)
   const farms = user.role === 'admin' || (!user.farmId && !vet) ? [] : await memberFarms(user.id)
+  // Foto do perfil (fica fora da sessão, que é lida em toda requisição)
+  const avatar = (await prisma.user.findUnique({ where: { id: user.id }, select: { avatar: true } }))?.avatar ?? null
 
   return renewSession(NextResponse.json({
     id: user.id,
     name: user.name,
     email: user.email,
     phone: user.phone,
+    avatar,
     role: user.role,
     farmId: user.effectiveFarmId,
     farmName: farm?.name ?? null,

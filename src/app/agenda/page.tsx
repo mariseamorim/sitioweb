@@ -18,7 +18,7 @@ export default function AgendaPage() {
         <h1 className="text-2xl font-bold text-gray-800">{t('Agenda')}</h1>
         <p className="text-gray-500">{t('O que fazer em cada dia na propriedade. Toque num dia para ver só ele.')}</p>
       </div>
-      <AgendaView endpoint="/api/agenda" title={<span />} onOpen={(_, href) => router.push(href)} canApplyVaccine={canEdit && canAccess('vacinacao')} />
+      <AgendaView endpoint="/api/agenda" title={<span />} onOpen={(_, href) => router.push(href)} canApplyVaccine={canEdit && canAccess('vacinacao')} canMarkItems={canEdit && canAccess('reproducao')} />
     </div>
   )
 }

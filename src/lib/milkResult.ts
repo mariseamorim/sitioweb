@@ -5,7 +5,8 @@
 // - litros: tudo o que foi anotado na produção de leite;
 // - receita: lançamentos "Venda de Leite"; sem nenhum no mês, estimada pelos litros × preço do litro anotado;
 // - custos: as despesas do mês, menos as ligadas a um lote de recria/engorda (são do gado de corte);
-// - custo por litro = custos ÷ litros; sobra por litro = (receita − custos) ÷ litros.
+// - custo por litro = custos ÷ litros; sobra por litro = (receita − custos) ÷ litros;
+// - ração por litro (conversão alimentar) = kg de ração e sal que saíram do estoque no mês (sem o trato dos lotes) ÷ litros.
 //
 // Gasto acima do normal: cada categoria de despesa do mês atual comparada com a média dos 3 meses anteriores.
 
@@ -13,6 +14,8 @@ export const MILK_SALE = 'Venda de Leite'
 
 export interface ResultTransaction { type: string; category: string; date: string; amount: number; lotId?: string | null }
 export interface ResultMilk { date: string; quantity: number; pricePerLiter?: number | null }
+/** Saída de ração do estoque, já em kg */
+export interface ResultFeed { date: string; kg: number }
 
 export interface MilkMonth {
   /** "AAAA-MM" */
@@ -26,6 +29,10 @@ export interface MilkMonth {
   result: number
   costPerLiter: number | null
   marginPerLiter: number | null
+  /** kg de ração que saíram do estoque no mês (null sem dado de ração) */
+  feedKg: number | null
+  /** kg de ração por litro (conversão alimentar) */
+  feedPerLiter: number | null
 }
 
 const monthOf = (date: string) => date.slice(0, 7)
@@ -43,7 +50,7 @@ export function lastMonths(today: string, n: number): string[] {
 /** Despesa que conta como custo do leite: não está ligada a um lote de recria/engorda */
 export const isMilkCost = (t: ResultTransaction) => t.type === 'Despesa' && !t.lotId
 
-export function milkResultByMonth(transactions: ResultTransaction[], milk: ResultMilk[], months: string[]): MilkMonth[] {
+export function milkResultByMonth(transactions: ResultTransaction[], milk: ResultMilk[], months: string[], feed?: ResultFeed[]): MilkMonth[] {
   return months.map((month) => {
     const ownMilk = milk.filter((m) => monthOf(m.date) === month)
     const liters = ownMilk.reduce((s, m) => s + m.quantity, 0)
@@ -54,10 +61,13 @@ export function milkResultByMonth(transactions: ResultTransaction[], milk: Resul
     const revenue = round2(sales.length ? sales.reduce((s, t) => s + t.amount, 0) : estimated)
     const costs = round2(own.filter(isMilkCost).reduce((s, t) => s + t.amount, 0))
     const result = round2(revenue - costs)
+    const feedKg = feed ? Math.round(feed.filter((f) => monthOf(f.date) === month).reduce((s, f) => s + f.kg, 0)) : 0
     return {
       month, liters: Math.round(liters * 10) / 10, revenue, revenueEstimated, costs, result,
       costPerLiter: liters > 0 && costs > 0 ? round2(costs / liters) : null,
       marginPerLiter: liters > 0 && (revenue > 0 || costs > 0) ? round2(result / liters) : null,
+      feedKg: feedKg > 0 ? feedKg : null,
+      feedPerLiter: liters > 0 && feedKg > 0 ? round2(feedKg / liters) : null,
     }
   })
 }

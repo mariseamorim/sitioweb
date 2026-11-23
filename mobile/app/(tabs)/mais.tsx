@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
+import { Avatar } from '@/ui/avatar'
 import { useRouter } from 'expo-router'
 import { Alert, Text, View } from 'react-native'
 import { useSession } from '@/auth/session'
@@ -52,13 +53,6 @@ const GROUPS: { label: string; items: Item[] }[] = [
   ] },
 ]
 
-/** "Maria da Silva" → "MS" */
-function initials(name?: string | null): string {
-  const parts = (name ?? '').trim().split(/\s+/).filter(p => p.length > 2 || p === p.toUpperCase())
-  const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] ?? '?').slice(0, 2)
-  return letters.toUpperCase()
-}
-
 export default function Mais() {
   const { user, canAccess, logout } = useSession()
   const sync = useSyncState()
@@ -84,9 +78,7 @@ export default function Mais() {
       {/* Cartão do usuário: iniciais num círculo verde, nome, propriedade aberta e o atalho para o cadastro */}
       <Card onPress={() => router.push('/perfil')} style={{ backgroundColor: colors.greenSoft, borderColor: colors.green }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
-          <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.green, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ color: colors.white, fontWeight: '800', fontSize: font.lg }}>{initials(user?.name)}</Text>
-          </View>
+          <Avatar name={user?.name ?? ''} src={user?.avatar} size={48} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={{ fontWeight: '700', fontSize: 18, color: colors.greenDark }}>{user?.name}</Text>
             <Muted>{user?.farmName ?? t('Sem propriedade aberta')}</Muted>

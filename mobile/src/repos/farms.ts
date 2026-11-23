@@ -22,6 +22,7 @@ function fromRow(r: Row): Farm {
     // /api/farms do produtor traz isActive; sem a coluna, a propriedade conta como ativa
     isActive: r.isActive === null || r.isActive === undefined ? true : Number(r.isActive) !== 0,
     segments: parseJson<string[]>(r.segments, []),
+    lactatingGoal: r.lactatingGoal === null || r.lactatingGoal === undefined ? null : Number(r.lactatingGoal),
     animals: Number(r.animals ?? 0),
     members: Number(r.members ?? 0),
     lastActivity: text('lastActivity'),
@@ -42,6 +43,8 @@ export function getFarm(id: string): Farm | null {
 export interface FarmInput {
   name: string; propertyType: string; documentType: string; documentNumber: string; owner: string
   phone: string; address: string; city: string; state: string; segments: string[]
+  /** Meta de vacas em lactação (vazio = sem meta) */
+  lactatingGoal?: string
 }
 
 export const EMPTY_FARM: FarmInput = {
@@ -61,6 +64,7 @@ export function farmBody(input: FarmInput) {
     city: input.city.trim(),
     state: input.state.trim().toUpperCase(),
     segments: input.segments,
+    lactatingGoal: input.lactatingGoal?.trim() ? Number(input.lactatingGoal) : null,
   }
 }
 

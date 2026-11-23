@@ -1,8 +1,9 @@
 import { useRouter } from 'expo-router'
+import { Avatar, pickAvatar } from '@/ui/avatar'
 import { useState } from 'react'
 import { Alert, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
-import { api, HttpError } from '@/api/client'
+import { api, HttpError, NetworkError } from '@/api/client'
 import { useFarmId, useSession } from '@/auth/session'
 import { getCache, setCache } from '@/db'
 import { useLive } from '@/db/events'
@@ -30,6 +31,29 @@ interface Profile {
 export default function Perfil() {
   const farmId = useFarmId()
   const { user, refresh, logout } = useSession()
+  // Foto do perfil: vai para o servidor na hora (precisa de internet)
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoError, setPhotoError] = useState('')
+  async function savePhoto(avatar: string | null) {
+    setPhotoBusy(true)
+    setPhotoError('')
+    try {
+      await api('/api/perfil/avatar', { method: 'PUT', body: { avatar } })
+      await refresh()
+    } catch (e) {
+      setPhotoError(e instanceof NetworkError ? t('Sem internet: troque a foto quando a conexão voltar.') : e instanceof Error ? t(e.message) : t('Não foi possível salvar.'))
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+  async function changePhoto(source: 'camera' | 'library') {
+    try {
+      const photo = await pickAvatar(source)
+      if (photo) await savePhoto(photo)
+    } catch {
+      setPhotoError(t('Não foi possível abrir essa foto. Tente outra.'))
+    }
+  }
   const sync = useSyncState()
   const router = useRouter()
   const t = useT()
@@ -104,7 +128,7 @@ export default function Perfil() {
       {/* Cabeçalho: nome, contato e a situação do cadastro em selos */}
       <Card style={{ backgroundColor: colors.greenSoft, borderColor: colors.green }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
-          <IconCircle icon="person" tone="green" size={48} />
+          <Avatar name={profile.name || user?.name || ''} src={user?.avatar} size={64} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={{ fontWeight: '800', fontSize: font.lg, color: colors.greenDark }}>{profile.name || user?.name}</Text>
             {profile.phone || profile.email ? <Muted>{[profile.phone ? maskPhone(phoneDigits(profile.phone)) : '', profile.email ?? ''].filter(Boolean).join(' · ')}</Muted> : null}
@@ -115,6 +139,16 @@ export default function Perfil() {
             </View>
           </View>
         </View>
+      </Card>
+      <Card>
+        {section('Foto do perfil', 'camera-outline', 'green')}
+        <Muted style={{ marginBottom: space.sm }}>{t(user?.avatar ? 'Aparece no menu e para quem trabalha com você.' : 'Sem foto, aparecem as iniciais do seu nome.')}</Muted>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
+          <Button label="Tirar foto" icon="camera-outline" variant="secondary" disabled={photoBusy} onPress={() => void changePhoto('camera')} style={{ flexGrow: 1 }} />
+          <Button label="Escolher da galeria" icon="images-outline" variant="secondary" disabled={photoBusy} onPress={() => void changePhoto('library')} style={{ flexGrow: 1 }} />
+          {user?.avatar ? <Button label="Remover foto" variant="ghost" disabled={photoBusy} onPress={() => void savePhoto(null)} /> : null}
+        </View>
+        {photoError ? <Notice tone="red" text={photoError} /> : null}
       </Card>
       <Card>
         {section('Dados da conta', 'person-outline', 'green')}

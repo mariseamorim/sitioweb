@@ -16,6 +16,10 @@ export const AGENDA_KINDS: { kind: AgendaKind; label: string }[] = [
   { kind: 'carencia', label: 'Carência' },
 ]
 
+/** Manejos que se marcam como feitos na agenda (os outros somem sozinhos ao registrar: vacina aplicada, parto, diagnóstico) */
+export const DONE_KINDS: AgendaKind[] = ['secagem', 'preparto', 'cio']
+export const canMarkDone = (item: Pick<AgendaItem, 'kind'>) => DONE_KINDS.includes(item.kind)
+
 /** Diagnóstico de gestação: a partir de 28 dias depois da cobertura */
 export const DIAGNOSIS_DAYS = 28
 /** Retorno ao cio esperado se a vaca não emprenhou: 21 dias depois da cobertura */
@@ -65,6 +69,8 @@ export interface AgendaInput {
   treatments?: AgendaTreatment[]
   farmId?: string
   farmName?: string
+  /** Chaves dos itens já marcados como feitos (somem da agenda) */
+  done?: Iterable<string>
 }
 
 const DAY = 86_400_000
@@ -80,8 +86,9 @@ export function buildAgenda(input: AgendaInput): AgendaItem[] {
   const mothers = new Set(input.animals.map((a) => a.motherId).filter(Boolean))
   const nameOf = (id: string) => { const a = byId.get(id); return a?.name || a?.code || '—' }
   const where = { farmId: input.farmId, farmName: input.farmName }
+  const done = new Set(input.done ?? [])
   const add = (item: Omit<AgendaItem, 'late' | 'farmId' | 'farmName'>, lateOk: boolean, lateLimit = LATE_LIMIT_DAYS) => {
-    if (item.date > until) return
+    if (item.date > until || done.has(item.key)) return
     const late = item.date < today
     if (late && (!lateOk || item.date < shiftDay(today, -lateLimit))) return
     items.push({ ...item, late, ...where })
