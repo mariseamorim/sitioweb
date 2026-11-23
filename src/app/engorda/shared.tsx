@@ -137,8 +137,8 @@ export function WeightProgress({ current, target }: { current: number; target: n
         <span>{t('Peso atual')}: <strong className="text-gray-900">{kg(current)}</strong></span>
         <span>{t('Meta')}: <strong className="text-gray-900">{kg(target)}</strong></span>
       </div>
-      <div className="mt-2 h-2.5 rounded-full bg-gray-200" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)} aria-label={t('{n}% da meta', { n: Math.round(pct) })}>
-        <div className="h-2.5 rounded-full bg-green-600" style={{ width: `${pct}%` }} />
+      <div className="mt-2 h-3 rounded-full bg-gray-100" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)} aria-label={t('{n}% da meta', { n: Math.round(pct) })}>
+        <div className="h-3 rounded-full bg-gradient-to-r from-green-600 to-teal-500" style={{ width: `${pct}%` }} />
       </div>
     </div>
   )

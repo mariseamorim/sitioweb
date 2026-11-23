@@ -766,14 +766,24 @@ function ProjectionChart({ weighings, projection, target }: { weighings: Weighin
     <figure className="rounded-xl border border-gray-100 p-3">
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={t('Peso médio do lote ao longo do tempo e projeção até o peso desejado')}>
         {ticks.map((v) => <g key={v}><line x1={L} x2={W - R} y1={y(v)} y2={y(v)} stroke="#e5e7eb" strokeDasharray="3 3" /><text x={L - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fill="#6b7280">{Math.round(v)}</text></g>)}
-        <path d={path} fill="none" stroke="#15803d" strokeWidth="2.5" />
-        {points.map((p) => <circle key={p.date} cx={x(p.date)} cy={y(p.value)} r="4" fill="#fff" stroke="#15803d" strokeWidth="2" />)}
+        <defs>
+          <linearGradient id="proj-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#14b8a6" stopOpacity={0.75} /><stop offset="100%" stopColor="#22c55e" stopOpacity={0.08} /></linearGradient>
+          <linearGradient id="proj-line" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="#16a34a" /><stop offset="100%" stopColor="#0891b2" /></linearGradient>
+        </defs>
+        {/* Pesagens: área em degradê, linha verde → verde-água e bolinhas coloridas (o mesmo desenho dos outros gráficos) */}
+        {points.length > 1 && <path d={`${path} L${x(last.date).toFixed(1)},${H - B} L${x(points[0].date).toFixed(1)},${H - B} Z`} fill="url(#proj-area)" />}
+        <path d={path} fill="none" stroke="url(#proj-line)" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+        {points.map((p, i) => <circle key={p.date} cx={x(p.date)} cy={y(p.value)} r="5" fill={['#f97316', '#16a34a', '#2563eb', '#ef4444', '#0d9488'][i % 5]} stroke="#fff" strokeWidth="2" />)}
+        <g aria-hidden="true">
+          <rect x={x(last.date) - 26} y={y(last.value) - 28} width="52" height="18" rx="5" fill="#111827" />
+          <text x={x(last.date)} y={y(last.value) - 15} textAnchor="middle" fontSize="11" fontWeight="700" fill="#fff">{Math.round(last.value)} kg</text>
+        </g>
         {end && <><line x1={x(last.date)} y1={y(last.value)} x2={x(end.date)} y2={y(end.value)} stroke="#d97706" strokeWidth="2.5" strokeDasharray="6 5" /><circle cx={x(end.date)} cy={y(end.value)} r="4" fill="#d97706" /></>}
         <text x={L} y={H - 6} fontSize="11" fill="#6b7280">{label(all[0].date)}</text>
         <text x={W - R} y={H - 6} fontSize="11" fill="#6b7280" textAnchor="end">{label(all[all.length - 1].date)}</text>
       </svg>
       <figcaption className="mt-1 flex gap-4 text-xs text-gray-600">
-        <span><span className="mr-1 inline-block h-0.5 w-4 bg-green-700 align-middle" />{t('Pesagens')}</span>
+        <span><span className="mr-1 inline-block h-1 w-4 rounded bg-gradient-to-r from-green-600 to-cyan-600 align-middle" />{t('Pesagens')}</span>
         {end && <span><span className="mr-1 inline-block h-0.5 w-4 border-t-2 border-dashed border-amber-600 align-middle" />{t('Previsão')}</span>}
       </figcaption>
     </figure>

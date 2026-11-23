@@ -22,3 +22,6 @@ export const colors = {
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 }
 export const radius = { sm: 8, md: 12, lg: 16 }
 export const font = { sm: 13, md: 16, lg: 18, xl: 24 }
+
+/** Cores das colunas dos gráficos (uma por coluna, como no site: verde, âmbar, azul, laranja, verde-água, roxo) */
+export const chartColors = ['#16a34a', '#f59e0b', '#2563eb', '#f97316', '#0d9488', '#7c3aed']

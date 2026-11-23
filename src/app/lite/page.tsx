@@ -1,4 +1,5 @@
 'use client'
+import { ColumnChart } from '@/components/MonthCharts'
 import { MilkDecimalInput } from '@/components/MilkDecimalInput'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -676,7 +677,6 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
       liters,
     })
   }
-  const maxBar = Math.max(...bars.map((b) => b.liters), 1)
   const labelEvery = bars.length > 14 ? Math.ceil(bars.length / 7) : 1
 
   function download() {
@@ -780,17 +780,8 @@ function History({ data, online, canWrite, onOpenDay, onPriceSaved }: {
       {total > 0 && (
         <section className="mt-3 rounded-2xl border border-gray-200 bg-white p-4" aria-label={t('Litros por dia')}>
           <h2 className="text-sm font-semibold text-gray-700">{t(step === 1 ? 'Litros por dia' : 'Litros por semana')}</h2>
-          <div className="mt-3 flex h-36 items-end gap-1">
-            {bars.map((b, i) => (
-              <div key={i} title={b.title} className="flex h-full min-w-0 flex-1 flex-col justify-end">
-                <div className={`w-full rounded-t ${b.liters ? 'bg-green-600' : 'bg-gray-100'}`} style={{ height: `${b.liters ? Math.max((b.liters / maxBar) * 100, 4) : 2}%` }} />
-              </div>
-            ))}
-          </div>
-          <div className="mt-1 flex gap-1" aria-hidden="true">
-            {bars.map((b, i) => (
-              <span key={i} className="min-w-0 flex-1 overflow-visible whitespace-nowrap text-center text-[10px] text-gray-500">{i % labelEvery === 0 ? b.label : ''}</span>
-            ))}
+          <div className="mt-2">
+            <ColumnChart points={bars.map((b, i) => ({ label: i % labelEvery === 0 ? b.label : '', value: b.liters || null, title: b.title }))} name={t(step === 1 ? 'Litros por dia' : 'Litros por semana')} unit="" />
           </div>
         </section>
       )}

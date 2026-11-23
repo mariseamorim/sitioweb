@@ -8,7 +8,7 @@ import { badgeTone, buildReport, REPORT_TYPES, type Report, type ReportSection, 
 import { animalOptions } from '@/repos/animals'
 import { Ionicons } from '@expo/vector-icons'
 import { Badge, Button, Card, Chips, DateField, IconCircle, Muted, Notice, Screen, SelectField, Tile, TileGrid, Title, type Accent } from '@/ui'
-import { colors, font, radius, space } from '@/theme'
+import { chartColors, colors, font, radius, space } from '@/theme'
 import { useT, type Vars } from '@/lib/i18n'
 
 type Preset = 'mes' | 'mes-passado' | 'ano' | 'outro'
@@ -88,13 +88,19 @@ function Bars({ points, unit }: { points: Point[]; unit: 'L' | 'R$' }) {
   const every = points.length > 10 ? Math.ceil(points.length / 6) : 1
   const gap = points.length > 10 ? 2 : 6
   const fmt = (v: number) => (unit === 'L' ? `${brNumber(v, 0)} L` : brNumber(v, 0))
+  // Leite: uma cor por coluna (como no site); dinheiro: verde para sobra, vermelho para falta
+  const colorOf = (p: Point, i: number) => (unit === 'R$' ? (p.value < 0 ? colors.red : colors.green) : points.length > 14 ? '#0d9488' : chartColors[i % chartColors.length])
   return (
     <View accessible accessibilityLabel={points.map(p => `${p.label}: ${fmt(p.value)}`).join(', ')}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: BAR_AREA + 18, gap }}>
         {points.map((p, i) => (
           <View key={i} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }}>
-            {p === best ? <Text style={{ fontSize: 11, fontWeight: '700', color: colors.text }} numberOfLines={1}>{brNumber(p.value, 0)}</Text> : null}
-            <View style={{ width: '100%', height: Math.max(p.value ? 3 : 0, (Math.abs(p.value) / max) * BAR_AREA), backgroundColor: p.value < 0 ? colors.red : colors.green, borderTopLeftRadius: 4, borderTopRightRadius: 4 }} />
+            {p === best ? (
+              <View style={{ backgroundColor: colorOf(p, i), borderRadius: 5, paddingHorizontal: 4, marginBottom: 3 }}>
+                <Text style={{ fontSize: 10, fontWeight: '800', color: '#ffffff' }} numberOfLines={1}>{brNumber(p.value, 0)}</Text>
+              </View>
+            ) : null}
+            <View style={{ width: '100%', height: Math.max(p.value ? 3 : 0, (Math.abs(p.value) / max) * BAR_AREA), backgroundColor: colorOf(p, i), borderTopLeftRadius: 5, borderTopRightRadius: 5 }} />
           </View>
         ))}
       </View>
