@@ -15,6 +15,7 @@ import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { AnimalIcon, CalendarioRelogioIcon, CheckIcon, FecharIcon, PastoIcon, ReproducaoIcon, SemSinalIcon, SincronizarIcon, VacinaIcon } from '@/components/ModuleIcons'
 import { AppModal, modalButton } from '@/components/AppModal'
+import { semenLabel } from '@/lib/vetSupplyKinds'
 
 /** Ícone de cada tipo de cobertura nos cartões do modal */
 const METHOD_ICON: Record<string, (p: { className?: string }) => React.ReactElement> = { ia: VacinaIcon, iatf: CalendarioRelogioIcon, natural: PastoIcon, repasse: SincronizarIcon }
@@ -105,6 +106,18 @@ export default function ReproducaoPage() {
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<CoverageForm>({ ...EMPTY_COVERAGE, coverageDate: todayISO() })
+  // Veterinário: sêmen do próprio estoque (preenche touro, raça e partida; o servidor desconta 1 dose)
+  const [semenStock, setSemenStock] = useState<{ id: string; name: string; bullName: string | null; bullBreed: string | null; semenBatch: string | null; quantity: number }[]>([])
+  const [semenId, setSemenId] = useState('')
+  useEffect(() => {
+    if (!user?.vet || !showRegister) return
+    fetch('/api/veterinario/estoque').then((r) => (r.ok ? r.json() : [])).then((list) => setSemenStock((Array.isArray(list) ? list : []).filter((x: { kind?: string }) => x.kind === 'semen'))).catch(() => {})
+  }, [user?.vet, showRegister])
+  function chooseSemen(id: string) {
+    setSemenId(id)
+    const sm = semenStock.find((x) => x.id === id)
+    if (sm) setForm((f) => ({ ...f, method: f.method === 'natural' || f.method === 'repasse' || !f.method ? 'ia' : f.method, maleName: sm.bullName || sm.name, bullBreed: sm.bullBreed ?? '', semenBatch: sm.semenBatch ?? '' }))
+  }
   // "Salvar e repetir": quantas fêmeas já foram salvas nesta fila e o que ficou preenchido para a próxima
   const [repeated, setRepeated] = useState<{ count: number; kept: string[] } | null>(null)
   const [error, setError] = useState('')
@@ -220,7 +233,7 @@ export default function ReproducaoPage() {
     if (!form.coverageDate) return setError(t('Informe a data da cobertura'))
     setSaving(true)
     setError('')
-    const payload = { ...form, farmId, maleName: form.maleName || null, observations: form.observations || null }
+    const payload = { ...form, farmId, maleName: form.maleName || null, observations: form.observations || null, ...(semenId ? { vetSupplyId: semenId } : {}) }
     const female = females.find(f => f.id === form.femaleId)
     const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/reproducao', method: 'POST', body: payload, local: { farmId, female } })
     setSaving(false)
@@ -228,6 +241,8 @@ export default function ReproducaoPage() {
     const queued = r.status === 'queued'
     net.refresh()
 
+    // A dose usada sai da conta na tela (o servidor desconta de verdade)
+    if (semenId) setSemenStock((list) => list.map((x) => (x.id === semenId ? { ...x, quantity: x.quantity - 1 } : x)))
     if (repeat) {
       setForm(repeatCoverage(form))
       setRepeated((prev) => ({ count: (prev?.count ?? 0) + 1, kept: repeatedFields(form) }))
@@ -236,6 +251,7 @@ export default function ReproducaoPage() {
     }
     setShowRegister(false)
     setForm({ ...EMPTY_COVERAGE, coverageDate: todayISO() })
+    setSemenId('')
     setRepeated(null)
     afterChange(queued)
   }
@@ -457,6 +473,15 @@ export default function ReproducaoPage() {
             </fieldset>
             <div>
               <h3 className="mb-2 text-base font-semibold text-gray-900">{t('Dados do touro')}</h3>
+              {user?.vet && (
+                <label className="mb-3 block text-sm font-medium text-gray-700">{t('Sêmen do meu estoque')}
+                  <select value={semenId} onChange={(e) => chooseSemen(e.target.value)} className={`${FIELD} bg-white`}>
+                    <option value="">{t(semenStock.length ? 'Não usar o estoque' : 'Nenhum sêmen no seu estoque')}</option>
+                    {semenStock.map((x) => <option key={x.id} value={x.id} disabled={x.quantity < 1}>{semenLabel(x)}</option>)}
+                  </select>
+                  {semenId && <span className="mt-1 block text-xs text-amber-800">{t('Ao salvar, 1 dose sai do seu estoque, com a fazenda e a vaca anotadas.')}</span>}
+                </label>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <label className="text-sm font-medium text-gray-700">{t('Touro')}
                   <input type="text" value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} placeholder={t('Nome ou código do touro')} className={FIELD} />

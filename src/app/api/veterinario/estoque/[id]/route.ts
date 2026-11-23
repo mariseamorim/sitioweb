@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { notFound } from '@/lib/auth'
 import { requireVet } from '@/lib/vets'
-import { day, positive, text } from '@/lib/vetInput'
+import { day, kindFields, positive, text } from '@/lib/vetInput'
 
 // PATCH: corrige o cadastro do item (nome, unidade, mínimo, validade). A quantidade só muda por entrada e saída.
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +13,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!name) return NextResponse.json({ error: 'Informe o nome do item' }, { status: 400 })
   const { count } = await prisma.vetSupply.updateMany({
     where: { id: (await params).id, vetId: auth.vet.id },
-    data: { name, unit: text(body.unit, 20) ?? 'un', minimum: positive(body.minimum), expiry: day(body.expiry) },
+    data: { name, ...kindFields(body), unit: text(body.unit, 20) ?? 'un', minimum: positive(body.minimum), expiry: day(body.expiry) },
   })
   return count ? NextResponse.json({ ok: true }) : notFound('Item não encontrado')
 }

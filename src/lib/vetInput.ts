@@ -1,4 +1,5 @@
 // Leitura dos campos que chegam nos formulários do veterinário (agenda, recibos e estoque)
+import { isVetSupplyKind } from '@/lib/vetSupplyKinds'
 import { validAnimalDate } from '@/lib/animalRules'
 
 export const text = (v: unknown, max = 500) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null)
@@ -16,3 +17,10 @@ export function positive(v: unknown): number | null {
 }
 
 export const hour = (v: unknown) => (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v) ? v : null)
+
+/** Tipo do item do estoque do veterinário e, para sêmen, touro, raça e partida (os outros tipos ficam sem esses campos) */
+export function kindFields(body: Record<string, unknown>) {
+  const kind = isVetSupplyKind(body.kind) ? body.kind : 'outro'
+  const semen = kind === 'semen'
+  return { kind, bullName: semen ? text(body.bullName, 80) : null, bullBreed: semen ? text(body.bullBreed, 40) : null, semenBatch: semen ? text(body.semenBatch, 60) : null }
+}
