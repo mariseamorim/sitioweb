@@ -158,8 +158,8 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
     {visibleGroups.map((group, index) => {
       const linkItem = ({ href, label, Icon }: NavLink, nested: boolean) => {
         const active = activeLink?.href === href;
-        return <li key={href}><Link href={href} onClick={() => setOpenPath(null)} aria-current={active ? 'page' : undefined} className={`flex min-h-11 items-center gap-3 rounded-xl py-2 pr-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 ${nested ? 'pl-9' : 'pl-3'} ${active ? 'bg-green-100 text-green-900' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
-          <span aria-hidden="true" className={active ? 'text-green-700' : 'text-gray-400'}><Icon className={nested ? 'h-4 w-4' : 'h-5 w-5'} /></span><span>{t(label)}</span>{active && <span aria-hidden="true" className="ml-auto h-1.5 w-1.5 rounded-full bg-green-700" />}
+        return <li key={href}><Link href={href} onClick={() => setOpenPath(null)} aria-current={active ? 'page' : undefined} className={`flex min-h-11 items-center gap-3 rounded-xl py-2 pr-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 ${nested ? 'pl-9' : 'pl-3'} ${active ? 'bg-gradient-to-r from-green-700 to-teal-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`}>
+          <span aria-hidden="true" className={active ? 'text-white' : 'text-gray-400'}><Icon className={nested ? 'h-4 w-4' : 'h-5 w-5'} /></span><span>{t(label)}</span>{active && <span aria-hidden="true" className="ml-auto h-1.5 w-1.5 rounded-full bg-white" />}
         </Link></li>;
       };
       // Primeiro grupo (Início) e grupos sem ícone (fornecedor, laticínio, associação): sempre abertos
@@ -212,7 +212,7 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
             {group.links.map(({ href, label, Icon }) => {
               const active = activeLink?.href === href;
               return <Link key={href} href={href} aria-label={t(label)} title={t(label)} aria-current={active ? 'page' : undefined}
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${active ? 'bg-green-100 text-green-800' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}><Icon className="h-5 w-5" /></Link>;
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${active ? 'bg-gradient-to-br from-green-700 to-teal-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}><Icon className="h-5 w-5" /></Link>;
             })}
           </div>
         ))}

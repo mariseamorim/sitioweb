@@ -237,43 +237,60 @@ export function Stat({ label, value, tone }: { label: string; value: string; ton
   )
 }
 
-/** `plain`: fundo branco (o número leva a cor, via `color`) */
+/** `plain`: sem cor própria; com `color`, o cartão usa essa cor de fundo */
 export type Accent = 'green' | 'blue' | 'teal' | 'amber' | 'red' | 'plain'
-const ACCENT: Record<Accent, { bg: string; border: string; value: string }> = {
-  green: { bg: colors.greenSoft, border: '#86efac', value: colors.greenDark },
-  blue: { bg: colors.blueSoft, border: '#93c5fd', value: '#1e3a8a' },
-  teal: { bg: '#ccfbf1', border: '#5eead4', value: '#134e4a' },
-  amber: { bg: colors.amberSoft, border: '#fcd34d', value: '#92400e' },
-  red: { bg: colors.redSoft, border: '#fca5a5', value: '#b91c1c' },
-  plain: { bg: colors.white, border: colors.border, value: colors.text },
+/** Cores sólidas dos cartões (como os cartões do site: verde, azul-marinho, verde-água, laranja e vermelho) */
+const SOLID: Record<Exclude<Accent, 'plain'>, string> = { green: '#15803d', blue: '#1e3a8a', teal: '#0f766e', amber: '#ea580c', red: '#dc2626' }
+
+type TileIconName = keyof typeof Ionicons.glyphMap
+/** Ícone pelo nome do número, em português e em espanhol (a mesma ideia de src/components/StatTile.tsx do site) */
+export function tileIcon(label: string): TileIconName {
+  const l = label.toLocaleLowerCase('pt-BR')
+  const has = (...words: string[]) => words.some(w => l.includes(w))
+  if (has('saldo', 'receita', 'despesa', 'valor', 'custo', 'preço', 'sobra', 'prejuízo', 'r$', 'ingreso', 'gasto', 'costo', 'precio', 'margen', 'pérdida', 'pagar', 'receber', 'compra')) return 'cash-outline'
+  if (has('leite', 'litro', 'leche', 'tanque', 'ordenha')) return 'water-outline'
+  if (has('concepção', 'concepción', 'taxa', 'tasa', 'prenhez', 'preñez', '%')) return 'pie-chart-outline'
+  if (has('vacina', 'vacuna')) return 'medkit-outline'
+  if (has('diagnos', 'pendente', 'tarefa', 'tarea', 'atrasad')) return 'clipboard-outline'
+  if (has('estoque', 'inventario', 'insumo', 'produto', 'producto', 'vencer', 'mínimo')) return 'cube-outline'
+  if (has('peso', 'ganho', 'gmd', 'kg', 'arroba', '@', 'ganancia')) return 'scale-outline'
+  if (has('visita')) return 'home-outline'
+  if (has('parto', 'dia', 'mes', 'mês', 'data', 'fecha', 'previs')) return 'calendar-outline'
+  if (has('animal', 'animais', 'animales', 'rebanho', 'rebaño', 'cabeça', 'cabeza', 'vaca', 'novilha', 'bezer', 'touro', 'boi', 'lote', 'propriedade', 'propiedad', 'fêmea')) return 'paw-outline'
+  return 'stats-chart-outline'
 }
 
-/** Cartão de número colorido (como src/components/StatTile.tsx do site). Dois por linha: use dentro de <TileGrid>. */
-export function Tile({ label, value, detail, accent = 'green', color }: { label: string; value: string; detail?: string; accent?: Accent; color?: string }) {
-  const a = ACCENT[accent]
+/** Cartão de número em cor sólida com ícone (como src/components/StatTile.tsx do site). Dois por linha: use dentro de <TileGrid>. */
+export function Tile({ label, value, detail, accent = 'green', color, icon }: { label: string; value: string; detail?: string; accent?: Accent; color?: string; icon?: TileIconName }) {
+  const bg = accent === 'plain' ? color ?? colors.green : SOLID[accent]
   return (
-    <View style={{ flexGrow: 1, flexBasis: '45%', backgroundColor: a.bg, borderColor: a.border, borderWidth: 1, borderRadius: radius.md, padding: space.md }}>
-      <Text style={{ color: colors.text, fontSize: font.md, fontWeight: '600' }}>{label}</Text>
-      <Text style={{ color: color ?? a.value, fontSize: 26, fontWeight: '800', marginTop: 2 }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
-      {detail ? <Text style={{ color: colors.text, fontSize: font.sm }}>{detail}</Text> : null}
+    <View style={{ flexGrow: 1, flexBasis: '45%', backgroundColor: bg, borderRadius: radius.lg, padding: space.md, overflow: 'hidden', elevation: 3, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } }}>
+      {/* Brilho suave no canto, para o cartão não ficar chapado */}
+      <View style={{ position: 'absolute', right: -22, top: -26, width: 84, height: 84, borderRadius: 42, backgroundColor: 'rgba(255,255,255,0.12)' }} />
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.xs }}>
+        <Text style={{ flex: 1, color: '#ffffff', fontSize: font.md, fontWeight: '700' }}>{label}</Text>
+        <Ionicons name={icon ?? tileIcon(label)} size={22} color="rgba(255,255,255,0.92)" />
+      </View>
+      <Text style={{ color: '#ffffff', fontSize: 26, fontWeight: '800', marginTop: 2 }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
+      {detail ? <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: font.sm }}>{detail}</Text> : null}
     </View>
   )
 }
 
 /** Atalho colorido com ícone (Painel: "O que você quer fazer?"). Dois por linha, dentro de <TileGrid>. */
 export function ActionCard({ title, detail, icon, accent, onPress }: { title: string; detail?: string; icon: keyof typeof Ionicons.glyphMap; accent: Accent; onPress: () => void }) {
-  const a = ACCENT[accent]
+  const bg = accent === 'plain' ? colors.green : SOLID[accent]
   return (
     <Pressable onPress={onPress} accessibilityRole="button"
-      style={({ pressed }) => ({ flexGrow: 1, flexBasis: '45%', flexDirection: 'row', alignItems: 'center', gap: space.sm, backgroundColor: a.bg, borderColor: a.border, borderWidth: 1, borderRadius: radius.md, padding: space.md, opacity: pressed ? 0.8 : 1 })}>
-      <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' }}>
-        <Ionicons name={icon} size={22} color={a.value} />
+      style={({ pressed }) => ({ flexGrow: 1, flexBasis: '45%', flexDirection: 'row', alignItems: 'center', gap: space.sm, backgroundColor: bg, borderRadius: radius.lg, padding: space.md, overflow: 'hidden', opacity: pressed ? 0.85 : 1, elevation: 3, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } })}>
+      <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
+        <Ionicons name={icon} size={22} color="#ffffff" />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={{ color: colors.text, fontSize: font.md, fontWeight: '700' }}>{title}</Text>
-        {detail ? <Text style={{ color: colors.text, fontSize: font.sm }}>{detail}</Text> : null}
+        <Text style={{ color: '#ffffff', fontSize: font.md, fontWeight: '700' }}>{title}</Text>
+        {detail ? <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: font.sm }}>{detail}</Text> : null}
       </View>
-      <Ionicons name="chevron-forward" size={18} color={a.value} />
+      <Ionicons name="chevron-forward" size={18} color="#ffffff" />
     </Pressable>
   )
 }

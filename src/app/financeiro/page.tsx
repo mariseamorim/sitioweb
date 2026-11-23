@@ -37,14 +37,14 @@ const CATEGORIES_DESPESA = ['Medicamentos', 'Ração', 'Vacinas', 'Mão de Obra'
 
 // Cor fixa por categoria (etiqueta e barra); o nome da categoria sempre aparece escrito
 const CATEGORY_COLOR: Record<string, { badge: string; bar: string }> = {
-  'Venda de Leite': { badge: 'bg-sky-100 text-sky-800', bar: 'bg-sky-500' },
-  'Venda de Animal': { badge: 'bg-green-100 text-green-800', bar: 'bg-green-600' },
-  'Medicamentos': { badge: 'bg-rose-100 text-rose-800', bar: 'bg-rose-500' },
-  'Ração': { badge: 'bg-amber-100 text-amber-800', bar: 'bg-amber-500' },
-  'Vacinas': { badge: 'bg-violet-100 text-violet-800', bar: 'bg-violet-500' },
-  'Mão de Obra': { badge: 'bg-orange-100 text-orange-800', bar: 'bg-orange-500' },
+  'Venda de Leite': { badge: 'bg-sky-100 text-sky-800', bar: 'bg-gradient-to-r from-sky-500 to-cyan-400' },
+  'Venda de Animal': { badge: 'bg-green-100 text-green-800', bar: 'bg-gradient-to-r from-green-600 to-teal-500' },
+  'Medicamentos': { badge: 'bg-rose-100 text-rose-800', bar: 'bg-gradient-to-r from-rose-600 to-pink-400' },
+  'Ração': { badge: 'bg-amber-100 text-amber-800', bar: 'bg-gradient-to-r from-orange-500 to-amber-400' },
+  'Vacinas': { badge: 'bg-violet-100 text-violet-800', bar: 'bg-gradient-to-r from-violet-600 to-purple-400' },
+  'Mão de Obra': { badge: 'bg-orange-100 text-orange-800', bar: 'bg-gradient-to-r from-orange-600 to-red-400' },
 }
-const OTHER_COLOR = { badge: 'bg-gray-100 text-gray-800', bar: 'bg-gray-400' }
+const OTHER_COLOR = { badge: 'bg-gray-100 text-gray-800', bar: 'bg-gradient-to-r from-slate-500 to-gray-400' }
 const categoryColor = (c: string) => CATEGORY_COLOR[c] ?? OTHER_COLOR
 
 const MODULE = 'financeiro'
