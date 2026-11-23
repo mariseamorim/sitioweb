@@ -5,8 +5,9 @@ import { formatarIdade } from '@/lib/utils'
 import { CUSTOM_PARTS, REPORT_TYPES, Report, fmtDate, fmtMoney, fmtNumber } from '@/lib/reports'
 import { calvingStatus, cowCalving, herdCalving, LATE_MONTHS } from '@/lib/calving'
 import { animalCodes } from '@/lib/animalCode'
-import { animalCategory } from '@/lib/animalRules'
+import { animalCategory, canBreed } from '@/lib/animalRules'
 import { isVet } from '@/lib/vets'
+import { buildReproSheet, sheetSummary } from '@/lib/reproSheet'
 
 interface Period {
   gte: Date
@@ -51,6 +52,7 @@ export async function GET(request: NextRequest) {
       case 'financeiro': report = await financeReport(farmId, period!); break
       case 'rebanho': report = await herdReport(farmId); break
       case 'partos': report = await calvingReport(farmId); break
+      case 'ficha-reprodutiva': report = await reproSheetReport(farmId, params.get('status')); break
       case 'estoque': report = await stockReport(farmId, period!); break
       default: report = null
     }
@@ -452,6 +454,51 @@ async function calvingReport(farmId: string): Promise<Report> {
         columns: ['Nascimento', 'Mãe', 'Código', 'Cria', 'Sexo', 'Situação'],
         badgeColumn: 5,
         rows: calves.map((c) => [fmtDate(c.birthDate), byId.get(c.motherId!)?.name ?? '—', c.code, c.name, c.gender === 'Fêmea' ? 'Bezerra' : 'Bezerro', c.status]),
+      },
+    ],
+  }
+}
+
+// ── Ficha reprodutiva ──────────────────────────────────────────────────
+// Uma linha por fêmea em idade de reprodução (regra em src/lib/reproSheet.ts). ?status= filtra (Inseminada, Em aberto...).
+
+async function reproSheetReport(farmId: string, statusFilter: string | null): Promise<Report> {
+  const today = new Date().toISOString().slice(0, 10)
+  const [herd, coverages, dried] = await Promise.all([
+    prisma.animal.findMany({ where: { farmId }, select: { id: true, code: true, customCode: true, name: true, species: true, gender: true, birthDate: true, status: true, motherId: true, lotId: true, isCastrated: true } }),
+    prisma.reproduction.findMany({ where: { farmId }, select: { id: true, femaleId: true, coverageDate: true, status: true, maleName: true, bullBreed: true, semenBatch: true, method: true, expectedBirthDate: true, actualBirthDate: true } }),
+    prisma.agendaDone.findMany({ where: { farmId, key: { startsWith: 'secagem:' } }, select: { key: true, doneAt: true } }),
+  ])
+  const iso = (d: Date | null) => (d ? d.toISOString() : null)
+  const females = herd.filter((a) => canBreed({ ...a, birthDate: a.birthDate.toISOString() }, today, { inRearingLot: !!a.lotId }))
+  const rows = buildReproSheet(
+    females,
+    herd.filter((a) => a.motherId).map((a) => ({ motherId: a.motherId, birthDate: a.birthDate.toISOString() })),
+    coverages.map((c) => ({ ...c, coverageDate: c.coverageDate.toISOString(), expectedBirthDate: iso(c.expectedBirthDate), actualBirthDate: iso(c.actualBirthDate) })),
+    today,
+    new Map(dried.map((d) => [d.key.slice('secagem:'.length), d.doneAt.toISOString().slice(0, 10)])),
+  )
+  const shown = statusFilter ? rows.filter((r) => r.status === statusFilter) : rows
+  const s = sheetSummary(rows)
+  const dash = (v: string | number | null) => (v === null || v === '' ? '—' : v)
+  return {
+    title: 'Ficha reprodutiva',
+    subtitle: [`Posição em ${fmtDate(today)}`, statusFilter ? `Só: ${statusFilter}` : null].filter(Boolean).join(' · '),
+    sections: [
+      {
+        title: 'Resumo', kind: 'cards', columns: ['Indicador', 'Valor'],
+        rows: [['Fêmeas', s.total], ['Prenhas', s.prenha], ['Inseminadas', s.inseminada], ['Em aberto', s.emAberto], ['Vazias', s.vazia], ['DEL médio (dias)', dash(s.delMedio)]],
+        tones: [null, 'good', 'warn', s.emAberto ? 'bad' : null, s.vazia ? 'warn' : null, null],
+      },
+      {
+        title: 'Por vaca',
+        columns: ['Animal', 'Último parto', 'DEL', 'Última IA', 'Nº IA', 'Dias IA', 'Touro / sêmen', 'Status', 'Dias prenhe', 'Parto previsto', 'Anotações'],
+        numeric: [2, 4, 5, 8],
+        badgeColumn: 7,
+        rows: shown.map((r) => [
+          r.animal, r.lastCalving ? fmtDate(r.lastCalving) : '—', dash(r.del), r.lastIA ? fmtDate(r.lastIA) : '—', r.iaCount || '—', dash(r.daysSinceIA),
+          r.bull || '—', r.status, dash(r.daysPregnant), r.expectedBirth ? fmtDate(r.expectedBirth) : '—', '',
+        ]),
       },
     ],
   }

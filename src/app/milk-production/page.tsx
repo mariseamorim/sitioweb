@@ -38,10 +38,13 @@ function DailyChart({ from, to, byDay }: { from: string; to: string; byDay: { da
     return { label: (days.length - 1 - i) % every === 0 ? ddmm(day) : '', value, title: `${ddmm(day)}: ${value === null ? t('sem anotação') : `${fmtNumber(value)} L`}` }
   })
   return (
-    <section className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
-      <h2 className="mb-2 font-semibold text-gray-800">{t('Produção diária (L)')}</h2>
-      <ColumnChart points={points} name={t('Produção diária (L)')} width={760} />
-    </section>
+    // Fechado: abre ao tocar, na largura de um gráfico comum (a letra fica do tamanho das outras telas)
+    <details className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
+      <summary className="cursor-pointer font-semibold text-gray-800">{t('Ver gráfico da produção diária (L)')}</summary>
+      <div className="mt-3 max-w-3xl">
+        <ColumnChart points={points} name={t('Produção diária (L)')} width={760} />
+      </div>
+    </details>
   )
 }
 
