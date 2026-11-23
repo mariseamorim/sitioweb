@@ -194,6 +194,37 @@ export function WhatsAppLineIcon({ className = 'w-5 h-5' }: IconProps) {
   )
 }
 
+export function LixeiraIcon({ className = 'w-5 h-5' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h16M10 11v6M14 11v6" />
+      <path d="M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3" />
+    </svg>
+  )
+}
+
+/** Calendário com relógio (IATF: inseminação em tempo fixo) */
+export function CalendarioRelogioIcon({ className = 'w-6 h-6' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 11V7.5A2.5 2.5 0 0017.5 5h-11A2.5 2.5 0 004 7.5v10A2.5 2.5 0 006.5 20H11" />
+      <path d="M4 10h16M8 3v4M16 3v4" />
+      <circle cx="17" cy="17" r="4" />
+      <path d="M17 15.3V17l1.2 1" />
+    </svg>
+  )
+}
+
+/** Cerca do pasto (monta natural) */
+export function PastoIcon({ className = 'w-6 h-6' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 21V7l2-2 2 2v14M15 21V7l2-2 2 2v14" />
+      <path d="M3 11h18M3 16h18" />
+    </svg>
+  )
+}
+
 export function FecharIcon({ className = 'w-5 h-5' }: IconProps) {
   return (
     <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
