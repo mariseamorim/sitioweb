@@ -7,6 +7,7 @@ import { associationAlerts } from '@/lib/associacao'
 import { supplyDailyUse, withDailyUse } from '@/lib/lotUsage'
 import { STOCK_WARNING_DAYS } from '@/lib/lots'
 import { activeWithdrawals } from '@/lib/withdrawal'
+import { lastMonths, spendingAlerts } from '@/lib/milkResult'
 
 // Tarefas do dia mostradas no sino de notificações da barra do topo
 
@@ -182,6 +183,19 @@ export async function getTodayTasks(
       .sort((a, b) => a.daysLeft! - b.daysLeft!)
     for (const s of ending.slice(0, 3)) {
       tasks.push({ title: `${s.name} acaba em ${s.daysLeft} dia${s.daysLeft === 1 ? '' : 's'}`, detail: `Os lotes consomem ${s.dailyUseKg} kg por dia`, href: '/estoque', tone: 'amber' })
+    }
+  }
+  // Gastos acima do normal: categoria do mês já 30% acima da média dos 3 meses anteriores (src/lib/milkResult.ts)
+  if (can('financeiro')) {
+    const from = new Date(`${lastMonths(todayStr, 4)[0]}-01T00:00:00.000Z`)
+    const spent = await prisma.transaction.findMany({ where: { farmId, type: 'Despesa', date: { gte: from } }, select: { type: true, category: true, date: true, amount: true } })
+    for (const a of spendingAlerts(spent.map((t) => ({ ...t, date: t.date.toISOString().slice(0, 10) })), todayStr).slice(0, 2)) {
+      tasks.push({
+        title: `${a.category}: gasto ${a.percent}% acima do normal`,
+        detail: `${a.current.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })} este mês; a média é ${a.average.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}`,
+        href: '/financeiro',
+        tone: 'amber',
+      })
     }
   }
   // Pedidos de orçamento respondidos e ainda não encerrados pelo produtor

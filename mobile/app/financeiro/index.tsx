@@ -9,6 +9,7 @@ import { isPaid, listTransactions, removeTransaction, setPaid, totals } from '@/
 import { Badge, Card, Chips, Empty, Fab, IconCircle, Screen, Tile, TileGrid } from '@/ui'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
+import { MilkResultCard, SpendingAlertsCard, useFinanceInsights } from '@/ui/milkResult'
 
 type Period = 'mes' | '30' | '90'
 type Kind = 'Todas' | 'Receita' | 'Despesa'
@@ -31,7 +32,7 @@ function categoryTone(category: string): Tone {
 
 export default function Financeiro() {
   const farmId = useFarmId()
-  const { canEdit } = useSession()
+  const { canEdit, canAccess } = useSession()
   const router = useRouter()
   const t = useT()
   const [period, setPeriod] = useState<Period>('mes')
@@ -41,6 +42,8 @@ export default function Financeiro() {
   const items = useLive(() => listTransactions(farmId, from, today), [farmId, from, today])
   const sum = totals(items)
   const shown = kind === 'Todas' ? items : items.filter(tx => tx.type === kind)
+  // Gastos acima do normal e resultado do leite (custo e sobra por litro)
+  const insights = useFinanceInsights(farmId, today, canAccess('leite'))
 
   function remove(id: string, label: string) {
     Alert.alert(t('Apagar lançamento'), t('Apagar "{label}"?', { label }), [
@@ -59,6 +62,8 @@ export default function Financeiro() {
           <Tile accent="red" label={t('Despesas')} value={brMoney(sum.expense)} detail={sum.toPay ? t('{value} a pagar', { value: brMoney(sum.toPay) }) : undefined} />
           <Tile accent={sum.balance < 0 ? 'red' : 'green'} label={t('Saldo')} value={brMoney(sum.balance)} />
         </TileGrid>
+        <SpendingAlertsCard alerts={insights.alerts} />
+        <MilkResultCard months={insights.months} hasMilk={insights.hasMilk} />
         <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.lg, marginBottom: space.xs }}>{t('Movimentações')}</Text>
         <Chips options={(['Todas', 'Receita', 'Despesa'] as Kind[]).map(k => ({ value: k, label: k === 'Receita' ? 'Entradas' : k === 'Despesa' ? 'Saídas' : k }))} value={kind} onChange={setKind} />
         {shown.length === 0 ? <Empty title="Nenhum lançamento no período" /> : shown.map(tx => {
