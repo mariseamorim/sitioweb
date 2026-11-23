@@ -11,6 +11,7 @@ import { fillInsight, monthName, monthShort, type Indicators } from '@/lib/repro
 import { useLang, useLocale, useT } from '@/lib/i18n'
 import { CYCLE_DAYS, WAITING_DAYS, type HerdIndices } from '@/lib/herdIndices'
 import { StatTile, type Accent } from '@/components/StatTile'
+import type { ConceptionBy, GroupRate } from '@/lib/conceptionBy'
 
 const card = 'bg-white rounded-xl border border-gray-200 p-4'
 const INDEX_ACCENTS: Accent[] = ['blue', 'green', 'teal', 'teal', 'blue', 'green']
@@ -24,7 +25,7 @@ export default function IndicadoresPage() {
   const short = (m: string) => monthShort(m, lang)
   // n já formatado no idioma; o modelo escolhe singular ou plural
   const count = (n: number, one: string, many: string) => t(n === 1 ? one : many, { n: n.toLocaleString(locale) })
-  const [data, setData] = useState<(Indicators & { indices?: HerdIndices }) | null>(null)
+  const [data, setData] = useState<(Indicators & { indices?: HerdIndices; conceptionBy?: ConceptionBy }) | null>(null)
   const [error, setError] = useState('')
   const [fromCache, setFromCache] = useState(false)
   const farmId = user?.farmId
@@ -32,7 +33,7 @@ export default function IndicadoresPage() {
   // Com cópia no aparelho: sem internet (ou com sinal fraco) mostra os indicadores da última vez que carregaram
   useEffect(() => {
     if (!farmId) return
-    cachedGet<Indicators & { indices?: HerdIndices }>(`cache_repro_indicadores_${farmId}`, '/api/reproducao/indicadores')
+    cachedGet<Indicators & { indices?: HerdIndices; conceptionBy?: ConceptionBy }>(`cache_repro_indicadores_${farmId}`, '/api/reproducao/indicadores')
       .then((r) => { setData(r.data); setFromCache(r.fromCache) })
       .catch((err) => setError(err instanceof HttpError ? err.message : 'Sem internet, e este aparelho ainda não guardou os indicadores desta propriedade. Abra esta tela uma vez com conexão.'))
   }, [farmId])
@@ -68,6 +69,8 @@ export default function IndicadoresPage() {
           </section>
 
           {data.indices && <Indices i={data.indices} />}
+
+          {data.conceptionBy && <ConceptionByCard by={data.conceptionBy} average={data.rate12} />}
 
           <div className="grid gap-4 md:grid-cols-2">
             <section className={card}>
@@ -134,5 +137,66 @@ function Indices({ i }: { i: HerdIndices }) {
         ))}
       </div>
     </section>
+  )
+}
+
+/** Concepção por touro e por inseminador, com a média da propriedade como referência */
+function ConceptionByCard({ by, average }: { by: ConceptionBy; average: number | null }) {
+  const t = useT()
+  if (!by.bulls.length && !by.inseminators.length) {
+    return (
+      <section className={`${card} mb-4`} aria-label={t('Concepção por touro e inseminador')}>
+        <h2 className="font-semibold text-gray-900">{t('Concepção por touro e inseminador')}</h2>
+        <p className="mt-1 text-sm text-gray-500">{t('Anote o touro e o inseminador nas coberturas para comparar quais dão mais prenhez.')}</p>
+      </section>
+    )
+  }
+  return (
+    <section className={`${card} mb-4`} aria-label={t('Concepção por touro e inseminador')}>
+      <h2 className="font-semibold text-gray-900">{t('Concepção por touro e inseminador')}</h2>
+      <p className="text-sm text-gray-500">
+        {t('Coberturas dos últimos 12 meses com diagnóstico: quantas ficaram prenhas.')}
+        {average !== null && ` ${t('Média da propriedade: {rate}%.', { rate: average })}`}
+      </p>
+      <div className="mt-3 grid gap-5 md:grid-cols-2">
+        <GroupList title={t('Por touro')} rows={by.bulls} average={average} empty={t('Nenhum touro anotado nas coberturas.')} />
+        <GroupList title={t('Por inseminador')} rows={by.inseminators} average={average} empty={t('Nenhum inseminador anotado nas inseminações.')} />
+      </div>
+      {by.withoutBull > 0 && <p className="mt-3 text-xs text-gray-500">{t(by.withoutBull === 1 ? '1 cobertura diagnosticada sem touro anotado ficou de fora.' : '{n} coberturas diagnosticadas sem touro anotado ficaram de fora.', { n: by.withoutBull })}</p>}
+    </section>
+  )
+}
+
+function GroupList({ title, rows, average, empty }: { title: string; rows: GroupRate[]; average: number | null; empty: string }) {
+  const t = useT()
+  return (
+    <div>
+      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-600">{title}</h3>
+      {!rows.length ? <p className="text-sm text-gray-500">{empty}</p> : (
+        <ul className="space-y-3">
+          {rows.map((r) => {
+            const above = r.rate !== null && average !== null && r.rate >= average
+            return (
+              <li key={r.label}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="min-w-0 truncate font-medium text-gray-900">{r.label}{r.breed ? <span className="font-normal text-gray-500"> · {r.breed}</span> : null}</span>
+                  <span className={`shrink-0 text-lg font-bold tabular-nums ${r.rate === null ? 'text-gray-400' : r.fewData ? 'text-gray-600' : above ? 'text-green-700' : 'text-amber-700'}`}>{r.rate === null ? '—' : `${r.rate}%`}</span>
+                </div>
+                {/* Barra da taxa; o traço marca a média da propriedade */}
+                <div className="relative mt-1 h-2.5 rounded-full bg-gray-100" aria-hidden="true">
+                  <div className={`h-2.5 rounded-full ${r.fewData ? 'bg-gray-400' : above ? 'bg-green-600' : 'bg-amber-500'}`} style={{ width: `${r.rate ?? 0}%` }} />
+                  {average !== null && <div className="absolute -top-1 w-0.5 bg-gray-700" style={{ left: `${average}%`, height: '18px' }} />}
+                </div>
+                <p className="mt-0.5 text-xs text-gray-500">
+                  {t('{pregnant} prenhas de {diagnosed} diagnosticadas', { pregnant: r.pregnant, diagnosed: r.diagnosed })}
+                  {r.awaiting ? ` · ${t(r.awaiting === 1 ? '1 a diagnosticar' : '{n} a diagnosticar', { n: r.awaiting })}` : ''}
+                  {r.fewData ? ` · ${t('poucos dados')}` : ''}
+                </p>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }

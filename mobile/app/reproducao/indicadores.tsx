@@ -5,6 +5,7 @@ import { useLive } from '@/db/events'
 import { todayISO } from '@/lib/format'
 import { addMonths, buildIndicators, monthName, monthShort, type MonthLiters } from '@/lib/reproInsights'
 import { buildHerdIndices, CYCLE_DAYS, type HerdIndices } from '@/lib/herdIndices'
+import { conceptionBy, type ConceptionBy, type GroupRate } from '@/lib/conceptionBy'
 import { listAnimals } from '@/repos/animals'
 import { listReproductions } from '@/repos/reproductions'
 import { Card, Muted, Screen, Tile, TileGrid, type Accent } from '@/ui'
@@ -33,7 +34,7 @@ export default function Indicadores() {
       : null
     const coverages = listReproductions(farmId)
     const indicators = buildIndicators(coverages, milk, today)
-    return { ...indicators, indices: buildHerdIndices(listAnimals(farmId), coverages, indicators.rate12, today) }
+    return { ...indicators, indices: buildHerdIndices(listAnimals(farmId), coverages, indicators.rate12, today), by: conceptionBy(coverages, from) }
   }, [farmId, showMilk])
 
   const births = data.births.reduce((sum, m) => sum + m.count, 0)
@@ -54,6 +55,8 @@ export default function Indicadores() {
       </Card>
 
       <Indices i={data.indices} />
+
+      <ConceptionByCard by={data.by} average={data.rate12} />
 
       <Card>
         <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.md }}>{t('Previsão de partos')}</Text>
@@ -138,6 +141,54 @@ function Columns({ bars, max: fixedMax, unit = '' }: { bars: Bar[]; max?: number
       <View style={{ marginTop: space.sm, backgroundColor: colors.bg, borderRadius: radius.sm, padding: space.sm }}>
         <Text style={{ fontSize: font.sm, color: colors.muted }}>{best >= 0 ? `${t('Maior:')} ${bars[best].title}` : t('Sem dados no período')}</Text>
       </View>
+    </View>
+  )
+}
+
+/** Concepção por touro e por inseminador (como no site), com a média da propriedade como referência */
+function ConceptionByCard({ by, average }: { by: ConceptionBy; average: number | null }) {
+  const t = useT()
+  return (
+    <Card>
+      <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.md }}>{t('Concepção por touro e inseminador')}</Text>
+      {!by.bulls.length && !by.inseminators.length ? <Muted>{t('Anote o touro e o inseminador nas coberturas para comparar quais dão mais prenhez.')}</Muted> : (
+        <>
+          <Muted>{t('Coberturas dos últimos 12 meses com diagnóstico: quantas ficaram prenhas.')}{average !== null ? ` ${t('Média da propriedade: {rate}%.', { rate: average })}` : ''}</Muted>
+          <GroupList title={t('Por touro')} rows={by.bulls} average={average} empty={t('Nenhum touro anotado nas coberturas.')} />
+          <GroupList title={t('Por inseminador')} rows={by.inseminators} average={average} empty={t('Nenhum inseminador anotado nas inseminações.')} />
+          {by.withoutBull > 0 ? <Muted style={{ marginTop: space.sm }}>{t(by.withoutBull === 1 ? '1 cobertura diagnosticada sem touro anotado ficou de fora.' : '{n} coberturas diagnosticadas sem touro anotado ficaram de fora.', { n: by.withoutBull })}</Muted> : null}
+        </>
+      )}
+    </Card>
+  )
+}
+
+function GroupList({ title, rows, average, empty }: { title: string; rows: GroupRate[]; average: number | null; empty: string }) {
+  const t = useT()
+  return (
+    <View style={{ marginTop: space.md }}>
+      <Text style={{ fontSize: font.sm, fontWeight: '800', color: colors.muted, textTransform: 'uppercase', marginBottom: space.xs }}>{title}</Text>
+      {!rows.length ? <Muted>{empty}</Muted> : rows.map(r => {
+        const above = r.rate !== null && average !== null && r.rate >= average
+        const color = r.rate === null || r.fewData ? colors.muted : above ? colors.green : colors.amber
+        return (
+          <View key={r.label} style={{ marginTop: space.sm }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: space.sm }}>
+              <Text style={{ flex: 1, color: colors.text, fontWeight: '600' }} numberOfLines={1}>{r.label}{r.breed ? <Text style={{ color: colors.muted, fontWeight: '400' }}> · {r.breed}</Text> : null}</Text>
+              <Text style={{ fontSize: font.lg, fontWeight: '800', color }}>{r.rate === null ? '—' : `${r.rate}%`}</Text>
+            </View>
+            <View style={{ height: 10, borderRadius: radius.md, backgroundColor: colors.border, marginTop: 4 }}>
+              <View style={{ height: 10, borderRadius: radius.md, width: `${r.rate ?? 0}%`, backgroundColor: color }} />
+              {average !== null ? <View style={{ position: 'absolute', top: -4, left: `${average}%`, width: 2, height: 18, backgroundColor: colors.text }} /> : null}
+            </View>
+            <Muted>
+              {t('{pregnant} prenhas de {diagnosed} diagnosticadas', { pregnant: r.pregnant, diagnosed: r.diagnosed })}
+              {r.awaiting ? ` · ${t(r.awaiting === 1 ? '1 a diagnosticar' : '{n} a diagnosticar', { n: r.awaiting })}` : ''}
+              {r.fewData ? ` · ${t('poucos dados')}` : ''}
+            </Muted>
+          </View>
+        )
+      })}
     </View>
   )
 }
