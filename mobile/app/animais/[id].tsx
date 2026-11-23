@@ -12,6 +12,10 @@ import { Badge, Button, Card, DateField, Field, IconCircle, Muted, Notice, Row, 
 import { PhotoField, PhotoView } from '@/ui/photo'
 import { colors, space } from '@/theme'
 import { useT } from '@/lib/i18n'
+import { api, NetworkError } from '@/api/client'
+import { useVetPanel } from '@/vet/panel'
+
+const NEW_FARM = '__nova'
 
 export default function AnimalScreen() {
   const { id, saved } = useLocalSearchParams<{ id: string; saved?: string }>()
@@ -89,14 +93,48 @@ function AnimalForm({ farmId, animal, photo, onDone, canEdit }: { farmId: string
   const [imageUrl, setImageUrl] = useState(photo ?? '')
   const [error, setError] = useState('')
   const t = useT()
+  // Veterinário cadastrando: escolhe a fazenda (a aberta, outra atendida ou uma nova, que o servidor cria)
+  const { user } = useSession()
+  const vetNew = !!user?.vet && !animal
+  const { panel, reload: reloadPanel } = useVetPanel()
+  const [farmChoice, setFarmChoice] = useState<string | null>(farmId)
+  const [newFarmName, setNewFarmName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const otherFarm = vetNew && farmChoice !== farmId
   const mothers = animalOptions(farmId).filter(o => /vaca/i.test(o.detail ?? '') && o.value !== animal?.id)
 
   function save() {
     if (!name.trim()) { setError(t('Informe o nome')); return }
     if (!species || !gender || !status || !acquisitionType) { setError(t('Preencha espécie, sexo, situação e origem')); return }
     if (birthDate > todayISO()) { setError(t('A data de nascimento não pode ser no futuro')); return }
+    if (otherFarm) return void saveInOtherFarm()
     const id = saveAnimal(farmId, { name, species, breed: breedChoice === 'Outra' ? breedOther : breedChoice ?? '', gender, birthDate, status, customCode, acquisitionType, isCastrated, observations, motherId, imageUrl: imageUrl !== (photo ?? '') ? imageUrl : undefined }, animal?.id)
     onDone(id)
+  }
+
+  /** Veterinário: animal de outra fazenda atendida (ou de uma nova) vai direto para o servidor */
+  async function saveInOtherFarm() {
+    if (farmChoice === NEW_FARM && !newFarmName.trim()) { setError(t('Informe o nome da fazenda')); return }
+    setSaving(true)
+    setError('')
+    try {
+      await api('/api/veterinario/animais', {
+        method: 'POST',
+        body: {
+          ...(farmChoice === NEW_FARM ? { newFarmName: newFarmName.trim() } : { farmId: farmChoice }),
+          name: name.trim(), species, gender, birthDate, status, customCode: customCode.trim() || null, acquisitionType, isCastrated,
+          breed: breedChoice === 'Outra' ? breedOther : breedChoice ?? '', observations: observations.trim() || null,
+        },
+      })
+      if (farmChoice === NEW_FARM) void reloadPanel()
+      const farmName = farmChoice === NEW_FARM ? newFarmName.trim() : panel?.clients.find(c => c.farmId === farmChoice)?.name ?? ''
+      Alert.alert(t('Animal cadastrado'), t('{name} cadastrado em {farm}.', { name: name.trim(), farm: farmName }))
+      router.back()
+    } catch (e) {
+      setError(e instanceof NetworkError ? t('Sem internet: para cadastrar em outra fazenda é preciso conexão. Na fazenda aberta funciona sem internet.') : e instanceof Error ? t(e.message) : t('Não foi possível salvar.'))
+    } finally {
+      setSaving(false)
+    }
   }
 
   function remove() {
@@ -110,7 +148,20 @@ function AnimalForm({ farmId, animal, photo, onDone, canEdit }: { farmId: string
   return (
     <Screen>
       <Stack.Screen options={{ title: t(animal ? 'Editar animal' : 'Cadastrar animal') }} />
-      <PhotoField value={imageUrl} onChange={setImageUrl} name={name} />
+      {vetNew ? (
+        <>
+          <SelectField label={t('Fazenda')} value={farmChoice}
+            options={[
+              ...(panel?.clients ?? []).filter(c => c.farmId).map(c => ({ value: c.farmId!, label: c.farmId === farmId ? `${c.name} (${t('aberta')})` : c.name })),
+              ...(panel?.clients.some(c => c.farmId === farmId) ? [] : [{ value: farmId, label: `${user?.farmName ?? t('Fazenda aberta')} (${t('aberta')})` }]),
+              { value: NEW_FARM, label: t('Outra fazenda (ainda não cadastrada)') },
+            ]}
+            onChange={setFarmChoice} />
+          {farmChoice === NEW_FARM ? <Field label={t('Nome da fazenda')} value={newFarmName} onChangeText={setNewFarmName} placeholder={t('Ex.: Sítio Boa Vista')} /> : null}
+          {otherFarm ? <Muted style={{ marginBottom: space.md }}>{t('Em outra fazenda o cadastro vai direto para o servidor (precisa de internet). A fazenda nova entra em "Fazendas atendidas".')}</Muted> : null}
+        </>
+      ) : null}
+      {!otherFarm ? <PhotoField value={imageUrl} onChange={setImageUrl} name={name} /> : null}
       <Field label={t('Nome')} value={name} onChangeText={setName} autoFocus={!animal} />
       <SelectField label={t('Espécie / categoria')} value={species} options={SPECIES.map(s => ({ value: s, label: t(s) }))} onChange={setSpecies} />
       {species && isBovine(species) ? (
@@ -131,7 +182,7 @@ function AnimalForm({ farmId, animal, photo, onDone, canEdit }: { farmId: string
       </View>
       <Field label={t('Observações')} value={observations} onChangeText={setObservations} multiline />
       {error ? <Notice tone="red" text={error} /> : null}
-      <Button label={t('Salvar')} onPress={save} disabled={!canEdit} />
+      <Button label={t('Salvar')} onPress={save} loading={saving} disabled={!canEdit} />
       {animal && canEdit ? <Button label={t('Apagar animal')} variant="ghost" onPress={remove} style={{ marginTop: space.sm }} /> : null}
     </Screen>
   )

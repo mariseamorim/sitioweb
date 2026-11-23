@@ -181,14 +181,15 @@ export default function AgendaScreen() {
       <Button label="Enviar pelo WhatsApp" icon="logo-whatsapp" variant="secondary" onPress={() => void share()} style={{ marginBottom: space.md }} />
 
       {!isVet ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.sm }}>
+        // flexGrow 0: sem isso a faixa de rolagem estica e as abas ficam da altura da tela
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, marginBottom: space.sm }} contentContainerStyle={{ gap: space.sm, alignItems: 'center' }}>
           {AGENDA_GROUPS.map(g => {
             const n = byGroup.get(g.key)!.length
             const on = currentGroup === g.key
             const color = g.key === 'atrasados' ? colors.red : g.key === 'hoje' ? colors.green : g.key === 'depois' ? colors.muted : '#1e40af'
             return (
               <Pressable key={g.key} onPress={() => setGroupTab(g.key)} accessibilityRole="tab" accessibilityState={{ selected: on }}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.md, minHeight: 48, borderRadius: radius.md, borderWidth: 2, borderColor: color, backgroundColor: on ? color : colors.white, opacity: !n && !on ? 0.6 : 1 }}>
+                style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingHorizontal: space.md, height: 48, borderRadius: radius.md, borderWidth: 2, borderColor: color, backgroundColor: on ? color : colors.white, opacity: !n && !on ? 0.6 : 1 }}>
                 <Text style={{ fontWeight: '700', color: on ? colors.white : color }}>{t(g.label)}</Text>
                 <View style={{ minWidth: 26, paddingHorizontal: 6, borderRadius: 13, backgroundColor: on ? colors.white : color }}>
                   <Text style={{ textAlign: 'center', fontWeight: '800', color: on ? color : colors.white }}>{n}</Text>
@@ -253,7 +254,7 @@ export default function AgendaScreen() {
 
       {(isVet ? !shown.length : !groups[0].items.length) ? (
         <View style={{ marginTop: space.md }}>
-          <Muted>{t(selected ? 'Nada marcado para este dia.' : 'Nada na agenda. As vacinas, coberturas e tratamentos anotados aparecem aqui com a data de cada manejo.')}</Muted>
+          <Muted>{t(!isVet ? (currentGroup === 'atrasados' ? 'Nada atrasado.' : 'Nada para este período.') : selected ? 'Nada marcado para este dia.' : 'Nada na agenda. As vacinas, coberturas e tratamentos anotados aparecem aqui com a data de cada manejo.')}</Muted>
         </View>
       ) : null}
 

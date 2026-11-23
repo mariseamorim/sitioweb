@@ -7,10 +7,13 @@ import { addDays, brDate, brMoney, brNumber, todayISO, weekday } from '@/lib/for
 import { getMilkPrice, groupByDay, listMilk } from '@/repos/milk'
 import { Ionicons } from '@expo/vector-icons'
 import { Card, Chips, Empty, Fab, Row, Screen, Tile, TileGrid } from '@/ui'
-import { colors, font, space } from '@/theme'
+import { chartColors, colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
 type Period = '7' | '30' | 'mes'
+
+/** Número curto para o selo da coluna: 4.946.000 → "4,9 mi", 46.000 → "46 mil" */
+const compactLiters = (v: number) => (v >= 1e6 ? `${brNumber(v / 1e6, 1)} mi` : v >= 10000 ? `${Math.round(v / 1000)} mil` : brNumber(v, 0))
 
 export default function Leite() {
   const farmId = useFarmId()
@@ -81,12 +84,18 @@ function DayBars({ from, to, days }: { from: string; to: string; days: { day: st
   return (
     <View accessible accessibilityLabel={days.map(d => `${brDate(d.day)}: ${brNumber(d.total)} L`).join(', ')}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: BAR_AREA + 18, gap: all.length > 10 ? 2 : 6 }}>
-        {all.map(d => {
+        {all.map((d, i) => {
           const v = byDay.get(d) ?? 0
+          // Uma cor por coluna (como no site); com 30 dias, uma cor só
+          const color = all.length > 14 ? '#0d9488' : chartColors[i % chartColors.length]
           return (
             <View key={d} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }}>
-              {best && d === best.day ? <Text style={{ fontSize: 11, fontWeight: '700', color: colors.text }} numberOfLines={1}>{brNumber(v, 0)}</Text> : null}
-              <View style={{ width: '100%', height: Math.max(v ? 3 : 0, (v / max) * BAR_AREA), backgroundColor: '#0f766e', borderTopLeftRadius: 4, borderTopRightRadius: 4 }} />
+              {best && d === best.day ? (
+                <View style={{ backgroundColor: color, borderRadius: 5, paddingHorizontal: 4, marginBottom: 3, maxWidth: 90 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#ffffff' }} numberOfLines={1}>{compactLiters(v)}</Text>
+                </View>
+              ) : null}
+              <View style={{ width: '100%', height: Math.max(v ? 3 : 0, (v / max) * BAR_AREA), backgroundColor: color, borderTopLeftRadius: 5, borderTopRightRadius: 5 }} />
             </View>
           )
         })}
