@@ -8,6 +8,8 @@ export interface UserData {
   name: string
   email: string | null
   phone?: string | null
+  /** Foto do perfil (data URL); sem foto, mostra as iniciais */
+  avatar?: string | null
   role: string
   farmId: string | null       // null for admin with no farm selected
   farmName: string | null     // name of the active farm

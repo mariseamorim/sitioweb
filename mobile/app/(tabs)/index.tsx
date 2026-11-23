@@ -17,6 +17,8 @@ import { colors, font, space } from '@/theme'
 import { useLocale, useT } from '@/lib/i18n'
 import { VetToday } from '@/vet/panel'
 import { localAgenda } from '@/repos/agenda'
+import { getFarm } from '@/repos/farms'
+import { lactatingNow } from '@/lib/lactating'
 import { SpendingAlertsCard, useFinanceInsights } from '@/ui/milkResult'
 
 /** Vacas e novilhas que pedem secagem ou pré-parto hoje (regra em src/lib/calvingPrep.ts) */
@@ -59,7 +61,10 @@ export default function Painel() {
     // Agenda: o que vence hoje e o que ficou atrasado
     const agenda = user?.vet ? [] : localAgenda(farmId, today, canAccess)
     const agendaToday = { today: agenda.filter(i => i.date === today).length, late: agenda.filter(i => i.late).length, week: agenda.filter(i => i.date > today && i.date <= addDays(today, 7)).length }
-    return { herd, animals, milk, vacc, fin, low, agendaToday, prep: canAccess('reproducao') ? calvingPrepList(farmId, today) : [] }
+    // Vacas em lactação (pelos lançamentos de leite dos últimos 7 dias) e a meta da propriedade
+    const lactating = canAccess('leite') ? lactatingNow(all<{ date: string; animalId: string | null; cowsMilked: number | null }>('SELECT substr(date, 1, 10) AS date, animalId, cowsMilked FROM milk WHERE farmId = ? AND substr(date, 1, 10) >= ?', [farmId, addDays(today, -7)]), today) : null
+    const goal = getFarm(farmId)?.lactatingGoal ?? null
+    return { herd, animals, milk, vacc, fin, low, agendaToday, lactating, goal, prep: canAccess('reproducao') ? calvingPrepList(farmId, today) : [] }
   }, [farmId, today])
   const month = new Date(`${today}T12:00:00`).toLocaleDateString(locale, { month: 'long' })
   const monthName = month.charAt(0).toUpperCase() + month.slice(1)
@@ -104,6 +109,7 @@ export default function Painel() {
       {data.milk.total > 0 || data.fin ? <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text, marginBottom: space.sm }}>{t('Resumo do mês')}</Text> : null}
       <TileGrid>
         {canAccess('leite') ? <Tile accent="plain" color={colors.blue} label={t('Leite produzido')} value={`${brNumber(data.milk.total)} L`} detail={data.milk.value ? `≈ ${brMoney(data.milk.value)}` : monthName} /> : null}
+        {data.lactating !== null || data.goal ? <Tile accent="teal" label={t('Vacas em lactação')} value={data.goal ? `${data.lactating ?? 0} ${t('de')} ${data.goal}` : String(data.lactating ?? 0)} detail={data.goal ? t('{p}% da meta', { p: Math.round(((data.lactating ?? 0) / data.goal) * 100) }) : undefined} /> : null}
         {data.fin ? <Tile accent="plain" color={data.fin.balance >= 0 ? colors.green : colors.red} label={t('Saldo do mês')} value={brMoney(data.fin.balance)} detail={monthName} /> : null}
         {data.fin ? <Tile accent="plain" color={colors.green} label={t('Receitas')} value={brMoney(data.fin.income)} detail={t('Entradas')} /> : null}
         {data.fin ? <Tile accent="plain" color={colors.red} label={t('Despesas')} value={brMoney(data.fin.expense)} detail={t('Saídas')} /> : null}

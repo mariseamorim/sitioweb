@@ -9,7 +9,7 @@ import { isPaid, listTransactions, removeTransaction, setPaid, totals } from '@/
 import { Badge, Card, Chips, Empty, Fab, IconCircle, Screen, Tile, TileGrid } from '@/ui'
 import { colors, font, space } from '@/theme'
 import { useT } from '@/lib/i18n'
-import { MilkResultCard, SpendingAlertsCard, useFinanceInsights } from '@/ui/milkResult'
+import { MilkResultCard, SpendingAlertsCard, useFeedPerLiter, useFinanceInsights } from '@/ui/milkResult'
 
 type Period = 'mes' | '30' | '90'
 type Kind = 'Todas' | 'Receita' | 'Despesa'
@@ -44,6 +44,7 @@ export default function Financeiro() {
   const shown = kind === 'Todas' ? items : items.filter(tx => tx.type === kind)
   // Gastos acima do normal e resultado do leite (custo e sobra por litro)
   const insights = useFinanceInsights(farmId, today, canAccess('leite'))
+  const feed = useFeedPerLiter(farmId)
 
   function remove(id: string, label: string) {
     Alert.alert(t('Apagar lançamento'), t('Apagar "{label}"?', { label }), [
@@ -63,7 +64,7 @@ export default function Financeiro() {
           <Tile accent={sum.balance < 0 ? 'red' : 'green'} label={t('Saldo')} value={brMoney(sum.balance)} />
         </TileGrid>
         <SpendingAlertsCard alerts={insights.alerts} />
-        <MilkResultCard months={insights.months} hasMilk={insights.hasMilk} />
+        <MilkResultCard months={insights.months} hasMilk={insights.hasMilk} feed={feed} />
         <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.lg, marginBottom: space.xs }}>{t('Movimentações')}</Text>
         <Chips options={(['Todas', 'Receita', 'Despesa'] as Kind[]).map(k => ({ value: k, label: k === 'Receita' ? 'Entradas' : k === 'Despesa' ? 'Saídas' : k }))} value={kind} onChange={setKind} />
         {shown.length === 0 ? <Empty title="Nenhum lançamento no período" /> : shown.map(tx => {

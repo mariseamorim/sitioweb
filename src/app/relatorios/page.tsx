@@ -2,28 +2,38 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useUser } from '@/contexts/UserContext'
-import { REPORT_TYPES, Report, badgeTone, type ReportSection, type ReportTone } from '@/lib/reports'
+import { CUSTOM_PARTS, REPORT_TYPES, Report, badgeTone, type ReportSection, type ReportTone } from '@/lib/reports'
 import { StatTile, type Accent } from '@/components/StatTile'
 import { exportCSV, exportPDF } from '@/lib/reportExport'
 import { todayISO } from '@/lib/utils'
 import { cellSortValue, compareValues } from '@/lib/useSort'
 import { HttpError, cachedGet } from '@/lib/offlineData'
 import { loadHerd } from '@/lib/herdCache'
+import { AnimalPicker } from '@/components/AnimalPicker'
 import { useT, type Vars } from '@/lib/i18n'
 import {
   AnimalIcon, EstoqueIcon, EtiquetaIcon, FinanceiroIcon, LeiteIcon, RelatorioIcon, ReproducaoIcon, VacinaIcon,
 } from '@/components/ModuleIcons'
 
-// Ícone pequeno à esquerda de cada tipo de relatório (o que não estiver aqui usa o ícone de relatório)
-const TYPE_ICONS: Record<string, (p: { className?: string }) => React.ReactElement> = {
-  leite: LeiteIcon,
-  'ficha-animal': EtiquetaIcon,
-  vacinacao: VacinaIcon,
-  financeiro: FinanceiroIcon,
-  partos: ReproducaoIcon,
-  rebanho: AnimalIcon,
-  estoque: EstoqueIcon,
+// Ícone de cada tipo de relatório num quadrado colorido (o que não estiver aqui usa o ícone de relatório)
+type IconC = (p: { className?: string }) => React.ReactElement
+const TYPE_STYLE: Record<string, { Icon: IconC; box: string }> = {
+  leite: { Icon: LeiteIcon, box: 'bg-sky-100 text-sky-700' },
+  'ficha-animal': { Icon: EtiquetaIcon, box: 'bg-green-100 text-green-700' },
+  vacinacao: { Icon: VacinaIcon, box: 'bg-blue-100 text-blue-700' },
+  financeiro: { Icon: FinanceiroIcon, box: 'bg-emerald-100 text-emerald-700' },
+  partos: { Icon: ReproducaoIcon, box: 'bg-orange-100 text-orange-600' },
+  rebanho: { Icon: AnimalIcon, box: 'bg-violet-100 text-violet-700' },
+  estoque: { Icon: EstoqueIcon, box: 'bg-amber-100 text-amber-700' },
+  personalizado: { Icon: RelatorioIcon, box: 'bg-teal-100 text-teal-700' },
 }
+
+const DownloadIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14" /></svg>
+)
+const SheetIcon = ({ className = 'h-4 w-4' }: { className?: string }) => (
+  <svg className={className} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M4 9h16M4 15h16M10 9v12" /></svg>
+)
 
 const COUNTED: Record<string, string> = {
   'meses sem parir': '{n} meses sem parir',
@@ -100,21 +110,37 @@ function SummaryCards({ section }: { section: ShownSection }) {
   )
 }
 
+const sectionTitle = 'mb-2 text-sm font-bold uppercase tracking-wide text-gray-800'
+
+/** Dados gerais (ficha do animal): cada linha [campo, valor] numa caixinha cinza */
+function FieldGrid({ section }: { section: ShownSection }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {section.rows.map((row, i) => (
+        <div key={i} className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+          <p className="text-xs text-gray-500">{row[0]}</p>
+          <p className="font-semibold text-gray-900">{row[1] === '' ? '—' : row[1]}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ReportSectionView({ section }: { section: ShownSection }) {
-  if (section.kind === 'cards') {
+  if (section.kind === 'cards' || section.kind === 'fields') {
     return (
-      <div>
-        {section.title && <h3 className="text-sm font-bold text-gray-800 mb-2">{section.title}</h3>}
-        <SummaryCards section={section} />
+      <div className={section.half ? '' : 'lg:col-span-2'}>
+        {section.title && <h3 className={sectionTitle}>{section.title}</h3>}
+        {section.kind === 'cards' ? <SummaryCards section={section} /> : <FieldGrid section={section} />}
       </div>
     )
   }
   // Alerta só quando há linhas: sem vaca atrasada, a seção fica como as outras
   const alert = section.alert && section.rows.length ? section.alert : null
   return (
-    <div className={alert === 'bad' ? 'rounded-xl border border-red-200 bg-red-50 p-3 sm:p-4' : alert === 'warn' ? 'rounded-xl border border-amber-200 bg-amber-50 p-3 sm:p-4' : ''}>
+    <div className={`${section.half ? '' : 'lg:col-span-2'} ${alert === 'bad' ? 'rounded-xl border border-red-200 bg-red-50 p-3 sm:p-4' : alert === 'warn' ? 'rounded-xl border border-amber-200 bg-amber-50 p-3 sm:p-4' : ''}`}>
       {section.title && (
-        <h3 className={`text-sm font-bold mb-2 ${alert === 'bad' ? 'text-red-800' : alert === 'warn' ? 'text-amber-900' : 'text-gray-800'}`}>
+        <h3 className={`mb-2 text-sm font-bold uppercase tracking-wide ${alert === 'bad' ? 'text-red-800' : alert === 'warn' ? 'text-amber-900' : 'text-gray-800'}`}>
           {alert ? <span aria-hidden="true" className="mr-1">⚠</span> : null}{section.title}
         </h3>
       )}
@@ -150,13 +176,17 @@ export default function RelatoriosPage() {
   const { canAccess, loading: userLoading, user } = useUser()
   const farmId = user?.farmId ?? ''
   // O veterinário consultor não precisa do relatório de produção de leite (é do produtor)
-  const types = useMemo(() => REPORT_TYPES.filter((rt) => canAccess(rt.module) && !(user?.vet && rt.key === 'leite')), [canAccess, user?.vet])
+  const types = useMemo(() => REPORT_TYPES.filter((rt) => (rt.key === 'personalizado' || canAccess(rt.module)) && !(user?.vet && rt.key === 'leite')), [canAccess, user?.vet])
 
   const [typeKey, setTypeKey] = useState('')
   const [preset, setPreset] = useState<Preset>('mes')
   const [[from, to], setRange] = useState<[string, string]>(presetRange('mes'))
   const [animals, setAnimals] = useState<{ id: string; code: string; name: string }[]>([])
   const [animalId, setAnimalId] = useState('')
+  // Relatório personalizado: as partes escolhidas (as dos módulos que a pessoa vê)
+  const partOptions = useMemo(() => types.filter((rt) => (CUSTOM_PARTS as readonly string[]).includes(rt.key)), [types])
+  const [parts, setParts] = useState<string[]>(['leite', 'rebanho', 'financeiro'])
+  const chosenParts = parts.filter((k) => partOptions.some((o) => o.key === k))
   const [report, setReport] = useState<Report | null>(null)
   const [loading, setLoading] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -194,11 +224,12 @@ export default function RelatoriosPage() {
     const params = new URLSearchParams({ tipo: type.key })
     if (type.needsPeriod) { params.set('from', from); params.set('to', to) }
     if (type.needsAnimal) params.set('animalId', animalId)
+    if (type.key === 'personalizado') params.set('partes', chosenParts.join(','))
 
     setLoading(true)
     try {
       // Cada relatório gerado fica guardado no aparelho por tipo e período: sem internet, abre o último gerado
-      const r = await cachedGet<Report>(`cache_relatorio_${type.key}_${from}_${to}_${animalId}`, `/api/relatorios?${params}`)
+      const r = await cachedGet<Report>(`cache_relatorio_${type.key}_${from}_${to}_${animalId}_${type.key === 'personalizado' ? chosenParts.join('-') : ''}`, `/api/relatorios?${params}`)
       setReport(r.data)
       setFromCache(r.fromCache)
     } catch (err) {
@@ -216,7 +247,7 @@ export default function RelatoriosPage() {
     try { await exportPDF(shown) } finally { setExporting(false) }
   }
 
-  const canGenerate = !!type && (!type.needsAnimal || !!animalId) && (!type.needsPeriod || (from && to && from <= to))
+  const canGenerate = !!type && (!type.needsAnimal || !!animalId) && (!type.needsPeriod || (from && to && from <= to)) && (type.key !== 'personalizado' || chosenParts.length > 0)
 
   if (userLoading) return <p className="text-gray-400 text-sm mt-8">{t('Carregando...')}</p>
 
@@ -233,8 +264,8 @@ export default function RelatoriosPage() {
         <>
           {/* 1. Tipo */}
           <div className="grid sm:grid-cols-2 gap-3">
-            {types.map((rt) => {
-              const Icon = TYPE_ICONS[rt.key] ?? RelatorioIcon
+            {types.filter((rt) => rt.key !== 'personalizado' || partOptions.length > 1).map((rt) => {
+              const { Icon, box } = TYPE_STYLE[rt.key] ?? { Icon: RelatorioIcon, box: 'bg-gray-100 text-gray-700' }
               const active = typeKey === rt.key
               return (
                 <button
@@ -242,12 +273,12 @@ export default function RelatoriosPage() {
                   type="button"
                   onClick={() => chooseType(rt.key)}
                   aria-pressed={active}
-                  className={`flex items-start gap-3 text-left rounded-xl border bg-white p-4 shadow-sm transition-colors ${
-                    active ? 'border-green-700 ring-1 ring-green-700' : 'border-gray-200 hover:border-green-300'
+                  className={`flex items-center gap-3 text-left rounded-xl border p-4 shadow-sm transition-colors ${
+                    active ? 'border-green-700 bg-green-50 ring-1 ring-green-700' : 'border-gray-200 bg-white hover:border-green-300'
                   }`}
                 >
-                  <span className={`shrink-0 rounded-lg p-2 ${active ? 'bg-green-800 text-white' : 'bg-green-50 text-green-800'}`}>
-                    <Icon className="w-5 h-5" />
+                  <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${box}`}>
+                    <Icon className="h-6 w-6" />
                   </span>
                   <span className="min-w-0">
                     <span className="block text-base font-bold text-gray-900">{t(rt.label)}</span>
@@ -295,15 +326,29 @@ export default function RelatoriosPage() {
                 </div>
               )}
 
+              {type.key === 'personalizado' && (
+                <fieldset>
+                  <legend className="text-base font-bold text-gray-900 mb-2">{t('O que entra no relatório')}</legend>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {partOptions.map((o) => {
+                      const on = chosenParts.includes(o.key)
+                      const { Icon, box } = TYPE_STYLE[o.key]
+                      return (
+                        <label key={o.key} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 ${on ? 'border-green-700 bg-green-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                          <input type="checkbox" checked={on} onChange={() => setParts(on ? parts.filter((k) => k !== o.key) : [...parts, o.key])} className="h-5 w-5 accent-green-700" />
+                          <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${box}`}><Icon className="h-5 w-5" /></span>
+                          <span className="text-sm font-semibold text-gray-800">{t(o.label)}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </fieldset>
+              )}
+
               {type.needsAnimal && (
-                <label className="text-sm font-medium text-gray-700 max-w-md">
-                  {t('Animal')}
-                  <select value={animalId} onChange={(e) => setAnimalId(e.target.value)}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-green-600">
-                    <option value="">{t('— Selecione —')}</option>
-                    {animals.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
-                  </select>
-                </label>
+                <div className="max-w-md">
+                  <AnimalPicker animals={animals} value={animalId} onChange={setAnimalId} label="Animal" />
+                </div>
               )}
 
               <div>
@@ -335,17 +380,17 @@ export default function RelatoriosPage() {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handlePDF} disabled={exporting}
-                    className="flex-1 sm:flex-none bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
-                    {t(exporting ? 'Gerando PDF...' : 'Baixar PDF')}
+                    className="inline-flex flex-1 sm:flex-none items-center justify-center gap-2 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
+                    <DownloadIcon />{t(exporting ? 'Gerando PDF...' : 'Baixar PDF')}
                   </button>
                   <button onClick={() => exportCSV(shown)}
-                    className="flex-1 sm:flex-none border border-green-700 text-green-800 hover:bg-green-50 text-sm font-semibold px-4 py-2.5 rounded-lg">
-                    {t('Baixar planilha')}
+                    className="inline-flex flex-1 sm:flex-none items-center justify-center gap-2 border border-green-700 text-green-800 hover:bg-green-50 text-sm font-semibold px-4 py-2.5 rounded-lg">
+                    <SheetIcon />{t('Baixar planilha')}
                   </button>
                 </div>
               </div>
 
-              <div className="p-4 sm:p-5 flex flex-col gap-6">
+              <div className="grid gap-6 p-4 sm:p-5 lg:grid-cols-2">
                 {shown.sections.map((section, i) => <ReportSectionView key={i} section={section} />)}
               </div>
             </div>
@@ -379,7 +424,7 @@ function SortableReportTable({ section }: { section: ShownSection }) {
   return (
     <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
       <table className="w-full text-sm">
-        <thead className="bg-gray-50 text-gray-500 text-xs font-semibold uppercase tracking-wide border-b border-gray-200">
+        <thead className="bg-blue-900 text-blue-50 text-xs font-semibold uppercase tracking-wide">
           <tr>
             {section.columns.map((c, j) => {
               const right = section.numeric?.includes(j)
@@ -388,9 +433,9 @@ function SortableReportTable({ section }: { section: ShownSection }) {
                 <th key={j} aria-sort={active ? (sortCol.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
                   className={`px-3 py-2 whitespace-nowrap ${right ? 'text-right' : 'text-left'}`}>
                   <button type="button" onClick={() => toggle(j)} title={t('Ordenar por {col}', { col: c.toLowerCase() })}
-                    className={`inline-flex items-center gap-1 uppercase hover:text-gray-800 ${right ? 'flex-row-reverse' : ''} ${active ? 'text-gray-800' : ''}`}>
+                    className={`inline-flex items-center gap-1 uppercase hover:text-white ${right ? 'flex-row-reverse' : ''} ${active ? 'text-white' : ''}`}>
                     {c}
-                    <span aria-hidden="true" className={`text-[10px] ${active ? '' : 'text-gray-300'}`}>{active ? (sortCol.dir === 'asc' ? '▲' : '▼') : '▲▼'}</span>
+                    <span aria-hidden="true" className={`text-[10px] ${active ? '' : 'text-blue-300'}`}>{active ? (sortCol.dir === 'asc' ? '▲' : '▼') : '▲▼'}</span>
                   </button>
                 </th>
               )
@@ -399,9 +444,11 @@ function SortableReportTable({ section }: { section: ShownSection }) {
         </thead>
         <tbody className="divide-y divide-gray-100">
           {order.length === 0 ? (
-            <tr><td colSpan={section.columns.length} className="px-3 py-6 text-center text-gray-400">{t('Nenhum registro')}</td></tr>
+            <tr><td colSpan={section.columns.length} className="px-3 py-6 text-center text-gray-400">
+              <span className="inline-flex items-center gap-2"><RelatorioIcon className="h-5 w-5" />{t('Nenhum registro')}</span>
+            </td></tr>
           ) : order.map((r) => (
-            <tr key={r} className="hover:bg-gray-50">
+            <tr key={r} className="odd:bg-white even:bg-gray-50/70 hover:bg-green-50/60">
               {section.rows[r].map((v, j) => (
                 <td key={j} className={`px-3 py-2 text-gray-700 ${cellClass(j, v)}`}>
                   {section.badgeColumn === j && v !== '—' && v !== '' ? <Pill text={v} tone={section.badgeTones?.[r]} /> : v}

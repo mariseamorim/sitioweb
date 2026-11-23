@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { Avatar } from '@/components/Avatar';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
@@ -187,7 +188,7 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
   const account = <div className="shrink-0 border-t border-gray-100 p-4">
     <Link href="/perfil" onClick={() => setOpenPath(null)} className="mb-3 block rounded-lg px-3 py-2 text-sm font-semibold text-green-700 hover:bg-green-50">{t('Meu cadastro')}</Link>
     {user && <div className="mb-3 flex min-w-0 items-center gap-3">
-      <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-sm font-bold text-green-800">{user.name.slice(0, 1).toUpperCase()}</span>
+      <Link href="/perfil" onClick={() => setOpenPath(null)} aria-label={t('Meu cadastro')}><Avatar name={user.name} src={user.avatar} size={40} /></Link>
       <div className="min-w-0"><p className="truncate text-sm font-semibold text-gray-800">{user.name}</p><p className="text-xs text-gray-500">{t(role)}</p></div>
     </div>}
     <LanguagePicker className="mb-3" />

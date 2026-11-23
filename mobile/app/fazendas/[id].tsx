@@ -30,6 +30,7 @@ export default function FazendaForm() {
   const [form, setForm] = useState<FarmInput>(() => editing ? {
     name: editing.name, propertyType: editing.propertyType ?? 'Fazenda', documentType: editing.documentType ?? 'CNPJ', documentNumber: editing.documentNumber ?? '',
     owner: editing.owner ?? '', phone: editing.phone ?? '', address: editing.address ?? '', city: editing.city ?? '', state: editing.state ?? '', segments: editing.segments,
+    lactatingGoal: editing.lactatingGoal ? String(editing.lactatingGoal) : '',
   } : EMPTY_FARM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -71,6 +72,7 @@ export default function FazendaForm() {
       <Text style={styles.label}>{t('Tipo de Propriedade *')}</Text>
       <Chips options={PROPERTY_TYPES.map(p => ({ value: p, label: p }))} value={form.propertyType as (typeof PROPERTY_TYPES)[number]} onChange={v => set({ propertyType: v })} />
       <CheckGroup label="O que a propriedade faz? (pode marcar mais de um)" options={SEGMENT_OPTIONS} value={form.segments} onChange={segments => set({ segments })} />
+      {form.segments.includes('leite') || !form.segments.length ? <Field label="Meta de vacas em lactação (opcional)" value={form.lactatingGoal ?? ''} onChangeText={v => set({ lactatingGoal: v.replace(/\D/g, '') })} keyboardType="number-pad" placeholder="Ex.: 100" hint="O painel mostra quantas vacas estão em lactação e quanto falta para a meta." /> : null}
       <Field label="Nome *" value={form.name} onChangeText={name => set({ name })} placeholder={t(form.propertyType === 'Sítio' ? 'Nome do Sítio' : 'Nome da Fazenda')} />
       <Field label="Proprietário" value={form.owner} onChangeText={owner => set({ owner })} placeholder="Nome do proprietário" autoCapitalize="words" />
       <SelectField label="Doc. Tipo" value={form.documentType} options={DOCUMENT_TYPES.map(d => ({ value: d, label: d }))}

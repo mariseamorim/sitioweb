@@ -11,6 +11,7 @@ import { wipeDevice } from '@/lib/offlineUnlock'
 import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
 import { PasswordInput } from '@/components/PasswordInput'
 import { useT } from '@/lib/i18n'
+import { Avatar, squareAvatar } from '@/components/Avatar'
 
 interface Profile {
   name: string
@@ -24,7 +25,25 @@ interface Profile {
 }
 
 export function ProfileForm() {
-  const { refresh } = useUser()
+  const { refresh, user } = useUser()
+  // Foto do perfil: salva na hora ao escolher (ou remover)
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoError, setPhotoError] = useState('')
+  async function savePhoto(avatar: string | null) {
+    setPhotoBusy(true)
+    setPhotoError('')
+    try {
+      const res = await fetchWithTimeout('/api/perfil/avatar', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ avatar }) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(t(data.error ?? 'Não foi possível salvar'))
+      refresh()
+    } catch (e) { setPhotoError(e instanceof Error ? e.message : t('Verifique sua conexão e tente novamente')) }
+    finally { setPhotoBusy(false) }
+  }
+  async function pickPhoto(file: File | undefined) {
+    if (!file) return
+    try { await savePhoto(await squareAvatar(file)) } catch { setPhotoError(t('Não foi possível abrir essa foto. Tente outra.')) }
+  }
   const { confirm } = useDialog()
   const t = useT()
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -79,6 +98,23 @@ export function ProfileForm() {
   return <div className="mx-auto w-full max-w-xl px-4 py-6">
     <Link href={home} className="text-sm font-medium text-green-700">← {t('Voltar')}</Link>
     <h1 className="mt-4 text-2xl font-bold text-gray-900">{t('Meu cadastro')}</h1>
+    {user && (
+      <div className="mt-4 flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-4">
+        <Avatar name={user.name} src={user.avatar} size={72} />
+        <div className="min-w-0">
+          <p className="font-semibold text-gray-900">{t('Foto do perfil')}</p>
+          <p className="text-sm text-gray-500">{t(user.avatar ? 'Aparece no menu e para quem trabalha com você.' : 'Sem foto, aparecem as iniciais do seu nome.')}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <label className={`cursor-pointer rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-600 ${photoBusy ? 'pointer-events-none opacity-60' : ''}`}>
+              {t(photoBusy ? 'Salvando…' : user.avatar ? 'Trocar foto' : 'Colocar foto')}
+              <input type="file" accept="image/*" className="sr-only" onChange={(e) => { void pickPhoto(e.target.files?.[0]); e.target.value = '' }} />
+            </label>
+            {user.avatar && <button type="button" disabled={photoBusy} onClick={() => void savePhoto(null)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Remover foto')}</button>}
+          </div>
+          {photoError && <p role="alert" className="mt-2 text-sm text-red-600">{photoError}</p>}
+        </div>
+      </div>
+    )}
     {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-red-700">{error}</p>}
     {fromCache && <p role="status" className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">{t('Sinal fraco ou sem internet: mostrando a última cópia guardada neste aparelho. Para alterar, é preciso conexão.')}</p>}
     {!profile ? <p className="mt-4 text-gray-500">{t(error ? 'Cadastro indisponível.' : 'Carregando...')}</p> :

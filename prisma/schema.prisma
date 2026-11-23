@@ -26,6 +26,8 @@ model Farm {
   milkPrice      Float? // valor do litro de leite (estimativa de quanto vai receber)
   /// O que a propriedade faz: leite, cria, recria, engorda (pode ter mais de um; vazio = não informado)
   segments       String[] @default([])
+  /// Meta de vacas em lactação (o painel mostra "70 de 100")
+  lactatingGoal  Int?
   /// Propriedade da demonstração do veterinário (dados fictícios, apagada em 24 h; fora das listas do administrador)
   isDemo         Boolean  @default(false)
   createdAt      DateTime @default(now())
@@ -52,10 +54,13 @@ model Farm {
   @@index([documentNumber])
   @@index([isDemo, createdAt])
   @@map("farms")
+  agendaDone     AgendaDone[]
 }
 
 model User {
   id               String        @id @default(cuid())
+  /// Foto do perfil (data URL JPEG de até 256 px); sem foto, a tela mostra as iniciais
+  avatar           String?
   /// E-mail ou telefone: pelo menos um, os dois servem para entrar
   email            String?       @unique
   name             String
@@ -992,4 +997,19 @@ model VetSupplyMove {
 
   @@index([supplyId])
   @@map("vet_supply_moves")
+}
+
+/// Manejo da agenda marcado como feito (secagem, pré-parto, retorno ao cio): some da agenda.
+/// `key` é a chave do item na agenda (ex.: "secagem:<id da cobertura>"), ver src/lib/agenda.ts
+model AgendaDone {
+  id        String   @id @default(cuid())
+  farmId    String
+  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  key       String
+  doneAt    DateTime @default(now())
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@unique([farmId, key])
+  @@map("agenda_done")
 }

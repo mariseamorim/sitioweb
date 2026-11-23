@@ -13,7 +13,7 @@ export const FULL_ACCESS: AgendaAccess = { vacinas: true, reproducao: true, care
 export async function herdAgenda(farmIds: string[], today: string, until: string, access: AgendaAccess = FULL_ACCESS): Promise<AgendaItem[]> {
   if (!farmIds.length) return []
   const farms = { farmId: { in: farmIds } }
-  const [farmRows, animals, reproductions, vaccinations, treatments] = await Promise.all([
+  const [farmRows, animals, reproductions, vaccinations, treatments, doneRows] = await Promise.all([
     prisma.farm.findMany({ where: { id: { in: farmIds } }, select: { id: true, name: true, segments: true } }),
     prisma.animal.findMany({ where: { ...farms, status: { notIn: ['Morto', 'Vendido'] } }, select: { id: true, farmId: true, name: true, code: true, customCode: true, species: true, motherId: true } }),
     access.reproducao
@@ -28,12 +28,14 @@ export async function herdAgenda(farmIds: string[], today: string, until: string
           select: { id: true, animalId: true, medicine: true, startDate: true, endDate: true, milkWithdrawalDays: true, meatWithdrawalDays: true, animal: { select: { farmId: true } } },
         })
       : [],
+    prisma.agendaDone.findMany({ where: farms, select: { farmId: true, key: true } }),
   ])
   // Sem segmento definido, a propriedade conta como de leite (como nas tarefas do dia)
   return sortAgenda(farmRows.flatMap((farm) => buildAgenda({
     today, until,
     dairy: !farm.segments.length || farm.segments.includes('leite'),
     farmId: farm.id, farmName: farm.name,
+    done: doneRows.filter((d) => d.farmId === farm.id).map((d) => d.key),
     animals: animals.filter((a) => a.farmId === farm.id).map((a) => ({ id: a.id, name: a.name, code: a.customCode ?? a.code, species: a.species, motherId: a.motherId })),
     reproductions: reproductions.filter((r) => r.farmId === farm.id).map((r) => ({ ...r, coverageDate: day(r.coverageDate)!, expectedBirthDate: day(r.expectedBirthDate), actualBirthDate: day(r.actualBirthDate) })),
     vaccinations: vaccinations.filter((v) => v.animal.farmId === farm.id).map((v) => ({ ...v, scheduledDate: day(v.scheduledDate)!, appliedDate: day(v.appliedDate) })),

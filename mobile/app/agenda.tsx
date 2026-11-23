@@ -7,8 +7,8 @@ import { useFarmId, useSession } from '@/auth/session'
 import { getCache, setCache } from '@/db'
 import { useLive } from '@/db/events'
 import { isoDay, todayISO } from '@/lib/format'
-import { AGENDA_KINDS, agendaShareText, countByDay, ddmm, groupAgenda, shiftDay, type AgendaItem, type AgendaKind } from '@/lib/agenda'
-import { localAgenda } from '@/repos/agenda'
+import { AGENDA_KINDS, agendaShareText, canMarkDone, countByDay, sortAgenda, ddmm, groupAgenda, shiftDay, type AgendaItem, type AgendaKind } from '@/lib/agenda'
+import { localAgenda, markAgendaDone, undoAgendaDone } from '@/repos/agenda'
 import { getVaccination, saveVaccination } from '@/repos/vaccinations'
 import { Button, Muted, Notice, Screen } from '@/ui'
 import { useOpenFarm } from '@/vet/panel'
@@ -71,8 +71,21 @@ export default function AgendaScreen() {
   useEffect(() => { void reload() }, [reload])
   const { open, busy } = useOpenFarm(setError)
 
-  const items = useMemo(() => (isVet ? remote ?? [] : local).filter(i => !kind || i.kind === kind), [isVet, remote, local, kind])
-  const all = isVet ? remote ?? [] : local
+  // Produtor: as visitas do veterinário vêm do servidor (com internet), com a última cópia guardada no celular
+  const visitsKey = `farm_visits_${farmId}`
+  const [visits, setVisits] = useState<AgendaItem[]>(() => (isVet ? [] : getCache<AgendaItem[]>(visitsKey) ?? []))
+  useEffect(() => {
+    if (isVet) return
+    api<{ items: AgendaItem[] }>('/api/agenda')
+      .then(d => { const v = d.items.filter(i => i.kind === 'visita'); setCache(visitsKey, v); setVisits(v) })
+      .catch(() => { /* sem internet: fica a cópia */ })
+  }, [isVet, visitsKey])
+
+  // Último manejo marcado como feito, para o "Desfazer"
+  const [lastDone, setLastDone] = useState<{ item: AgendaItem; id: string } | null>(null)
+
+  const all = useMemo(() => (isVet ? remote ?? [] : sortAgenda([...local, ...visits.filter(v => v.date >= shiftDay(today, -30))])), [isVet, remote, local, visits, today])
+  const items = useMemo(() => all.filter(i => !kind || i.kind === kind), [all, kind])
   const counts = useMemo(() => countByDay(items), [items])
   const lateCount = items.filter(i => i.late).length
   const shown = selected ? items.filter(i => i.date === selected) : items
@@ -100,6 +113,34 @@ export default function AgendaScreen() {
     }, v.id)
   }
 
+  async function markDone(item: AgendaItem) {
+    setError('')
+    if (!isVet) {
+      setLastDone({ item, id: markAgendaDone(farmId, item.key) })
+      return
+    }
+    try {
+      const row = await api<{ id: string }>('/api/agenda/feitos', { method: 'POST', body: { key: item.key, farmId: item.farmId } })
+      setRemote(r => (r ?? []).filter(i => i.key !== item.key))
+      setLastDone({ item, id: row.id })
+    } catch (e) {
+      setError(e instanceof NetworkError ? t('Sem internet: marque como feito quando a conexão voltar.') : e instanceof Error ? t(e.message) : t('Não foi possível salvar.'))
+    }
+  }
+
+  async function undoDone() {
+    if (!lastDone) return
+    const { item, id } = lastDone
+    setLastDone(null)
+    if (!isVet) return undoAgendaDone(farmId, id)
+    try {
+      await api(`/api/agenda/feitos/${id}`, { method: 'DELETE' })
+      setRemote(r => sortAgenda([...(r ?? []), item]))
+    } catch {
+      setError(t('Não foi possível desfazer. Tente de novo.'))
+    }
+  }
+
   async function visit(item: AgendaItem, status: 'realizada' | 'cancelada') {
     setError('')
     try {
@@ -124,6 +165,12 @@ export default function AgendaScreen() {
       <Stack.Screen options={{ title: t('Agenda') }} />
       {offline ? <Notice text={t('Sem internet: mostrando a agenda da última vez que carregou.')} /> : null}
       {error ? <Notice tone="red" text={error} /> : null}
+      {lastDone ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm, backgroundColor: colors.greenSoft, borderRadius: radius.md, padding: space.md, marginBottom: space.md }}>
+          <Text style={{ flex: 1, color: colors.greenDark }}>✓ {t('Marcado como feito: {item}', { item: t(lastDone.item.label, lastDone.item.vars) })}</Text>
+          <Pressable onPress={() => void undoDone()} hitSlop={8}><Text style={{ color: colors.greenDark, fontWeight: '800', textDecorationLine: 'underline' }}>{t('Desfazer')}</Text></Pressable>
+        </View>
+      ) : null}
 
       <Button label="Enviar pelo WhatsApp" icon="logo-whatsapp" variant="secondary" onPress={() => void share()} style={{ marginBottom: space.md }} />
 
@@ -207,6 +254,7 @@ export default function AgendaScreen() {
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm }}>
+                  {canMarkDone(item) && (isVet || (canEdit && canAccess('reproducao'))) ? <Button label="Feito" icon="checkmark" onPress={() => void markDone(item)} style={{ flexGrow: 1 }} /> : null}
                   {item.kind === 'vacina' && !isVet && canEdit && canAccess('vacinacao') ? <Button label="Aplicada" icon="checkmark" onPress={() => applyVaccine(item)} style={{ flexGrow: 1 }} /> : null}
                   {item.kind === 'visita' && isVet ? (
                     <>

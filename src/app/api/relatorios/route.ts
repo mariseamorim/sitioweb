@@ -1,8 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
-import { requireFarmAccess } from '@/lib/auth'
+import { canAccessModule, getSessionUser, requireFarmAccess } from '@/lib/auth'
 import { formatarIdade } from '@/lib/utils'
-import { REPORT_TYPES, Report, fmtDate, fmtMoney, fmtNumber } from '@/lib/reports'
+import { CUSTOM_PARTS, REPORT_TYPES, Report, fmtDate, fmtMoney, fmtNumber } from '@/lib/reports'
 import { calvingStatus, cowCalving, herdCalving, LATE_MONTHS } from '@/lib/calving'
 import { animalCodes } from '@/lib/animalCode'
 import { animalCategory } from '@/lib/animalRules'
@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams
   const type = REPORT_TYPES.find((t) => t.key === params.get('tipo'))
   if (!type) return NextResponse.json({ error: 'Relatório desconhecido' }, { status: 400 })
+
+  if (type.key === 'personalizado') return customReport(params)
 
   const auth = await requireFarmAccess(type.module, 'view')
   if (auth.error) return auth.error
@@ -54,6 +56,47 @@ export async function GET(request: NextRequest) {
     if (!report) return NextResponse.json({ error: 'Animal não encontrado' }, { status: 404 })
 
     report.subtitle = [farmName, report.subtitle].filter(Boolean).join(' · ')
+    return NextResponse.json(report)
+  } catch (err) {
+    console.error('Report error:', err)
+    return NextResponse.json({ error: 'Erro ao gerar o relatório' }, { status: 500 })
+  }
+}
+
+// ── Relatório personalizado ────────────────────────────────────────────
+// ?tipo=personalizado&partes=leite,rebanho,...&from&to: junta as partes escolhidas (só as dos módulos que a pessoa vê),
+// cada seção com o nome da parte na frente.
+async function customReport(params: URLSearchParams) {
+  const user = await getSessionUser()
+  if (!user) return NextResponse.json({ error: 'Faça login para continuar' }, { status: 401 })
+  const farmId = user.effectiveFarmId
+  if (!farmId) return NextResponse.json({ error: 'Selecione uma propriedade' }, { status: 400 })
+  const wanted = (params.get('partes') ?? '').split(',').filter((k): k is (typeof CUSTOM_PARTS)[number] => (CUSTOM_PARTS as readonly string[]).includes(k))
+  const parts = wanted.map((k) => REPORT_TYPES.find((t) => t.key === k)!).filter((t) => canAccessModule(user, t.module))
+  if (!parts.length) return NextResponse.json({ error: 'Escolha pelo menos uma parte do relatório' }, { status: 400 })
+  const period = parsePeriod(params.get('from'), params.get('to'))
+  if (!period) return NextResponse.json({ error: 'Informe o período' }, { status: 400 })
+  const farm = await prisma.farm.findUnique({ where: { id: farmId }, select: { name: true } })
+  try {
+    const reports = await Promise.all(parts.map(async (t) => {
+      switch (t.key) {
+        case 'leite': return milkReport(farmId, period)
+        case 'vacinacao': return vaccinationReport(farmId, period)
+        case 'financeiro': return financeReport(farmId, period)
+        case 'rebanho': return herdReport(farmId)
+        case 'partos': return calvingReport(farmId)
+        default: return stockReport(farmId, period)
+      }
+    }))
+    const report: Report = {
+      title: 'Relatório personalizado',
+      subtitle: [farm?.name, period.label].filter(Boolean).join(' · '),
+      sections: reports.flatMap((r, i) => r.sections.map((s, j) => ({
+        ...s,
+        // A primeira seção de cada parte leva o nome da parte; as outras, "parte · seção"
+        title: j === 0 ? `${parts[i].label}${s.title ? ` · ${s.title}` : ''}` : `${parts[i].label} · ${s.title ?? ''}`,
+      }))),
+    }
     return NextResponse.json(report)
   } catch (err) {
     console.error('Report error:', err)
@@ -178,9 +221,10 @@ async function animalReport(farmId: string, animalId: string | null): Promise<Re
     title: `Ficha do animal: ${a.name} (${a.code})`,
     subtitle: `Emitido em ${new Date().toLocaleDateString('pt-BR')}`,
     sections: [
-      { title: 'Dados', columns: ['Campo', 'Valor'], rows: data },
+      { title: 'Dados gerais', columns: ['Campo', 'Valor'], rows: data, kind: 'fields', half: true },
       {
         title: 'Vacinas',
+        half: true,
         columns: ['Vacina', 'Prevista', 'Aplicada', 'Lote', 'Fabricante'],
         rows: a.vaccinations.map((v) => [v.vaccineName, fmtDate(v.scheduledDate), fmtDate(v.appliedDate), v.batch || '—', v.manufacturer || '—']),
       },

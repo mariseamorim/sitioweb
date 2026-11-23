@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Agenda, type AgendaHandle } from './Agenda'
 import { AgendaView } from '@/components/AgendaView'
+import { CalendarioIcon, GraficoIcon, PropriedadeIcon } from '@/components/ModuleIcons'
 import type { AgendaItem } from '@/lib/agenda'
 import { VetCharts } from './VetCharts'
 import { useDialog } from '@/components/DialogProvider'
@@ -57,6 +58,8 @@ export default function ConsultoriaPage() {
   const [copied, setCopied] = useState(false)
   const agenda = useRef<AgendaHandle>(null)
   const [agendaKey, setAgendaKey] = useState(0)
+  // Abas: a agenda abre primeiro; fazendas (com o código de convite) e gráficos ficam a um toque
+  const [tab, setTab] = useState<'agenda' | 'fazendas' | 'indicadores'>('agenda')
   // Visita pela Agenda: remarcar abre o formulário; concluir e cancelar pedem confirmação
   async function visitAction(item: AgendaItem, action: 'concluir' | 'remarcar' | 'cancelar') {
     if (action === 'remarcar') return agenda.current?.edit({ id: item.refId, date: item.date, time: item.time ?? null, purpose: item.detail ?? null })
@@ -151,6 +154,7 @@ export default function ConsultoriaPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={!panel.clients.length} onClick={() => agenda.current?.openNew()} className="rounded-lg bg-green-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:bg-gray-300">{t('+ Marcar visita')}</button>
+          <button type="button" onClick={() => { setTab('fazendas'); setFormError(''); setNewFarm({ name: '', owner: '', phone: '', city: '', state: '' }) }} className="rounded-lg border-2 border-green-700 bg-white px-4 py-2 text-sm font-semibold text-green-800 hover:bg-green-50">{t('Vincular produtor ou novo cadastro')}</button>
           <Link href="/consultoria/recibos" className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Recibos')}</Link>
           <Link href="/consultoria/estoque" className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Meu estoque')}</Link>
         </div>
@@ -163,8 +167,21 @@ export default function ConsultoriaPage() {
         <StatTile accent="green" label={t('Concepção média')} value={averageRate === null ? '—' : `${averageRate}%`} />
       </div>
 
-      {/* O dia do veterinário em primeiro lugar: visitas e manejos de todas as propriedades, por dia */}
-      <div className="mb-8">
+      <nav className="mb-5 flex gap-1 overflow-x-auto border-b border-gray-200" aria-label={t('Seções da consultoria')}>
+        {([
+          ['agenda', t('Agenda e atividades'), CalendarioIcon],
+          ['fazendas', `${t('Fazendas atendidas')} (${panel.clients.length})`, PropriedadeIcon],
+          ['indicadores', t('Indicadores e gráficos'), GraficoIcon],
+        ] as const).map(([key, label, Icon]) => (
+          <button key={key} type="button" onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined}
+            className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold ${tab === key ? 'border-green-700 text-green-800' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+            <Icon className="h-5 w-5" />{label}
+          </button>
+        ))}
+      </nav>
+
+      {/* O dia do veterinário: visitas e manejos de todas as propriedades, por dia */}
+      <div className={tab === 'agenda' ? 'mb-8' : 'hidden'}>
         <AgendaView endpoint="/api/veterinario/agenda" vet refreshKey={agendaKey}
           clients={panel.clients.map((c) => ({ farmId: c.farmId, name: c.name }))}
           onOpen={(item, href) => { const c = panel.clients.find((x) => x.farmId === item.farmId); if (c) void openFarm(c, href) }}
@@ -172,21 +189,29 @@ export default function ConsultoriaPage() {
         <Agenda ref={agenda} formOnly clients={panel.clients.map((c) => ({ id: c.id, name: c.name }))} onChanged={() => { void load(); setAgendaKey((k) => k + 1) }} />
       </div>
 
-      <VetCharts clients={panel.clients} busy={busy} onOpen={(c) => openFarm(c, '/reproducao/indicadores')} />
+      {tab === 'indicadores' && <VetCharts clients={panel.clients} busy={busy} onOpen={(c) => openFarm(c, '/reproducao/indicadores')} />}
+
+      {tab === 'fazendas' && <>
 
 
-      <section className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
-        <h2 className="font-semibold text-green-900">{t('Seu código de veterinário')}</h2>
-        <p className="text-sm text-green-900/80">{t('O produtor informa este código em “Meu veterinário” para liberar a propriedade para você.')}</p>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <span className="font-mono text-2xl font-bold tracking-widest text-green-900">{panel.vet.inviteCode}</span>
-          <a href={`https://wa.me/?text=${encodeURIComponent(inviteText)}`} target="_blank" rel="noreferrer" className="rounded-lg bg-green-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-600">{t('Enviar pelo WhatsApp')}</a>
-          <button type="button" onClick={() => { void navigator.clipboard?.writeText(inviteLink).then(() => setCopied(true)) }} className="rounded-lg border border-green-700 px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-100">{t(copied ? 'Link copiado' : 'Copiar link')}</button>
+
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-800">{t('Propriedades atendidas')}</h2>
+          <p className="text-sm text-gray-500">{t('Abra o painel da fazenda para lançar coberturas, diagnósticos e ver os números dela.')}</p>
         </div>
-      </section>
-
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <h2 className="text-lg font-semibold text-gray-800">{t('Propriedades atendidas')}</h2>
+        {/* Código de convite: compacto, no canto (é para vincular produtor, não para o dia a dia) */}
+        <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+          <p className="text-sm font-semibold text-gray-800">{t('Código de convite')}</p>
+          <p className="text-xs text-gray-500">{t('O produtor informa em “Meu veterinário” para liberar a propriedade.')}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="font-mono text-xl font-bold tracking-widest text-gray-900">{panel.vet.inviteCode}</span>
+            <button type="button" onClick={() => { void navigator.clipboard?.writeText(inviteLink).then(() => setCopied(true)) }} className="rounded-lg border border-green-700 px-2.5 py-1 text-xs font-semibold text-green-800 hover:bg-green-50">{t(copied ? 'Copiado!' : 'Copiar link')}</button>
+            <a href={`https://wa.me/?text=${encodeURIComponent(inviteText)}`} target="_blank" rel="noreferrer" className="rounded-lg bg-green-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-600">WhatsApp</a>
+          </div>
+        </div>
+      </div>
+      <div className="mb-3 flex justify-end">
         <button type="button" onClick={() => { setFormError(''); setNewFarm({ name: '', owner: '', phone: '', city: '', state: '' }) }} className="rounded-lg bg-green-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-600">{t('+ Propriedade de cliente')}</button>
       </div>
 
@@ -196,9 +221,9 @@ export default function ConsultoriaPage() {
         </p>
       )}
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {panel.clients.map((c) => (
-          <article key={c.id} className="bg-white rounded-xl border border-gray-200 p-4">
+          <article key={c.id} className="flex flex-col rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="font-semibold text-gray-900 truncate">{c.name}</h3>
@@ -212,7 +237,9 @@ export default function ConsultoriaPage() {
               <div><dd className={`text-lg font-bold ${c.awaitingDiagnosis ? 'text-amber-700' : 'text-gray-800'}`}>{c.awaitingDiagnosis}</dd><dt className="text-xs text-gray-500">{t('a diagnosticar')}</dt></div>
               <div><dd className="text-lg font-bold text-gray-800">{c.birthsSoon}</dd><dt className="text-xs text-gray-500">{t('partos 30 d')}</dt></div>
             </dl>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <p className="mt-3 text-sm text-gray-600">{t('Situação')}: <span className={`ml-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${c.awaitingDiagnosis ? 'bg-amber-100 text-amber-900' : 'bg-green-100 text-green-800'}`}>{t(c.awaitingDiagnosis ? 'Pendente' : 'Em dia')}</span></p>
+            <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/')} className="mt-4 w-full rounded-xl bg-gradient-to-r from-green-700 to-teal-600 py-2.5 font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-60">{t('Abrir painel')}</button>
+            <div className="mt-2 flex flex-wrap gap-2">
               <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/diagnostico')} className="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-green-400">{t('Diagnóstico em lote')}</button>
               <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/relatorio-visita')} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Relatório de visita')}</button>
               <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/indicadores')} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Indicadores')}</button>
@@ -239,6 +266,7 @@ export default function ConsultoriaPage() {
           </ul>
         </section>
       )}
+      </>}
 
       {newFarm && (
         <Modal title={t('Propriedade de cliente')} onClose={() => setNewFarm(null)}>

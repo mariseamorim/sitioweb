@@ -19,6 +19,8 @@ export interface AdminFarmSummary {
   state: string | null
   isActive: boolean
   segments: string[]
+  /** Meta de vacas em lactação (null = sem meta) */
+  lactatingGoal?: number | null
   /** Animais vivos cadastrados */
   animals: number
   /** Pessoas com acesso */

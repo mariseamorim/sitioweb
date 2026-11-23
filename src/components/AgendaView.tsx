@@ -3,7 +3,7 @@
 // Agenda: visitas e manejos do rebanho por dia, com a faixa da semana (ou o mês), filtros por tipo e propriedade,
 // ações rápidas e o envio da lista pelo WhatsApp. Usada pelo produtor (/agenda) e pelo veterinário (Consultoria).
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AGENDA_KINDS, agendaShareText, countByDay, ddmm, groupAgenda, shiftDay, type AgendaItem, type AgendaKind } from '@/lib/agenda'
+import { AGENDA_KINDS, agendaShareText, canMarkDone, countByDay, ddmm, groupAgenda, shiftDay, type AgendaItem, type AgendaKind } from '@/lib/agenda'
 import { useLocale, useT } from '@/lib/i18n'
 import { CalendarioIcon, LeiteIcon, PropriedadeIcon, ReproducaoIcon, TratamentoIcon, VacinaIcon, WhatsAppLineIcon } from '@/components/ModuleIcons'
 
@@ -30,10 +30,13 @@ export function agendaHref(item: AgendaItem, vet: boolean): string {
   }
 }
 
+/** Itens por grupo antes do "Ver mais" */
+const GROUP_LIMIT = 10
+
 /** Segunda-feira da semana do dia */
 const weekStartOf = (day: string) => shiftDay(day, -((new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7))
 
-export function AgendaView({ endpoint, vet = false, clients, onOpen, onVisit, canApplyVaccine = false, refreshKey = 0, title }: {
+export function AgendaView({ endpoint, vet = false, clients, onOpen, onVisit, canApplyVaccine = false, canMarkItems = true, refreshKey = 0, title }: {
   endpoint: string
   vet?: boolean
   /** Veterinário: propriedades para o filtro */
@@ -43,6 +46,8 @@ export function AgendaView({ endpoint, vet = false, clients, onOpen, onVisit, ca
   onVisit?: (item: AgendaItem, action: 'concluir' | 'remarcar' | 'cancelar') => void
   /** Produtor: marcar a vacina como aplicada pela agenda */
   canApplyVaccine?: boolean
+  /** Pode marcar secagem, pré-parto e retorno ao cio como feitos */
+  canMarkItems?: boolean
   /** Muda para recarregar (depois de marcar ou concluir uma visita) */
   refreshKey?: number
   title?: React.ReactNode
@@ -58,6 +63,10 @@ export function AgendaView({ endpoint, vet = false, clients, onOpen, onVisit, ca
   const [month, setMonth] = useState<string | null>(null)
   const [kind, setKind] = useState<AgendaKind | ''>('')
   const [farm, setFarm] = useState('')
+  // Último manejo marcado como feito, para o "Desfazer"
+  const [lastDone, setLastDone] = useState<{ item: AgendaItem; id: string } | null>(null)
+  // Cada grupo mostra até 10 itens; "Ver mais" abre o resto (evita a lista sem fim)
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   const load = useCallback(async () => {
     try {
@@ -102,6 +111,30 @@ export function AgendaView({ endpoint, vet = false, clients, onOpen, onVisit, ca
     } finally {
       setBusy('')
     }
+  }
+
+  async function markDone(item: AgendaItem) {
+    setBusy(item.key)
+    try {
+      const res = await fetch('/api/agenda/feitos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: item.key, farmId: item.farmId }) })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error)
+      setData((d) => d && { ...d, items: d.items.filter((i) => i.key !== item.key) })
+      setLastDone({ item, id: data.id })
+    } catch (err) {
+      setError(t((err as Error).message || 'Não foi possível salvar.'))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  async function undoDone() {
+    if (!lastDone) return
+    const { item, id } = lastDone
+    setLastDone(null)
+    const res = await fetch(`/api/agenda/feitos/${id}`, { method: 'DELETE' }).catch(() => null)
+    if (res?.ok) setData((d) => d && { ...d, items: [...d.items, item].sort((a, b) => a.date.localeCompare(b.date)) })
+    else setError(t('Não foi possível desfazer. Tente de novo.'))
   }
 
   const days = Array.from({ length: 7 }, (_, i) => shiftDay(week, i))
@@ -183,6 +216,12 @@ export function AgendaView({ endpoint, vet = false, clients, onOpen, onVisit, ca
       </div>
 
       {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      {lastDone && (
+        <p role="status" className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-900">
+          <span>✓ {t('Marcado como feito: {item}', { item: t(lastDone.item.label, lastDone.item.vars) })}</span>
+          <button type="button" onClick={() => void undoDone()} className="font-semibold underline">{t('Desfazer')}</button>
+        </p>
+      )}
       {!data && !error && <p className="mt-3 text-sm text-gray-500">{t('Carregando…')}</p>}
 
       {selected && (
@@ -201,7 +240,7 @@ export function AgendaView({ endpoint, vet = false, clients, onOpen, onVisit, ca
         <div key={g.key} className="mt-4">
           {g.label && <h3 className={`mb-2 text-sm font-bold uppercase tracking-wide ${g.key === 'atrasados' ? 'text-red-700' : 'text-gray-500'}`}>{t(g.label)} <span className="font-semibold">({g.items.length})</span></h3>}
           <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
-            {g.items.map((item) => {
+            {(selected || expanded.has(g.key) ? g.items : g.items.slice(0, GROUP_LIMIT)).map((item) => {
               const style = KIND_STYLE[item.kind]
               const href = agendaHref(item, vet)
               return (
@@ -220,6 +259,9 @@ export function AgendaView({ endpoint, vet = false, clients, onOpen, onVisit, ca
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
+                    {canMarkDone(item) && canMarkItems && (
+                      <button type="button" disabled={busy === item.key} onClick={() => void markDone(item)} className="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-gray-300">{t('Feito')}</button>
+                    )}
                     {item.kind === 'vacina' && canApplyVaccine && (
                       <button type="button" disabled={busy === item.key} onClick={() => void applyVaccine(item)} className="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-gray-300">{t('Aplicada')}</button>
                     )}
@@ -237,6 +279,12 @@ export function AgendaView({ endpoint, vet = false, clients, onOpen, onVisit, ca
               )
             })}
           </ul>
+          {!selected && g.items.length > GROUP_LIMIT && (
+            <button type="button" onClick={() => setExpanded((e) => { const n = new Set(e); if (n.has(g.key)) n.delete(g.key); else n.add(g.key); return n })}
+              className="mt-2 w-full rounded-lg border border-gray-200 bg-white py-2 text-sm font-semibold text-green-800 hover:bg-green-50">
+              {expanded.has(g.key) ? t('Mostrar menos') : t('Ver mais {n}', { n: g.items.length - GROUP_LIMIT })}
+            </button>
+          )}
         </div>
       ))}
     </section>

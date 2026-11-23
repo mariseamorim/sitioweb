@@ -505,4 +505,5 @@ export const gestao: Record<string, string> = {
   'por litro': 'por litro',
   'custo': 'costo',
   'sobra': 'margen',
+  'Ver gráfico do custo por litro': 'Ver gráfico del costo por litro',
 }

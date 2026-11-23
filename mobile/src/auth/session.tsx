@@ -13,6 +13,8 @@ export interface User {
   name: string
   email: string | null
   phone: string | null
+  /** Foto do perfil (data URL); sem foto, as iniciais */
+  avatar?: string | null
   role: string
   farmId: string | null
   farmName: string | null
