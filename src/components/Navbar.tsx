@@ -34,7 +34,7 @@ const groups: NavGroup[] = [
   ] },
   { label: 'Rebanho', Icon: AnimalIcon, links: [
     { href: '/animais', label: 'Animais', module: 'animais', Icon: AnimalIcon },
-    { href: '/engorda', label: 'Recria e engorda', module: 'animais', Icon: BalancaIcon },
+    { href: '/engorda', label: 'Recria e engorda', module: 'animais', vet: 'hide', Icon: BalancaIcon },
     { href: '/reproducao', label: 'Reprodução', module: 'reproducao', Icon: ReproducaoIcon },
   ] },
   { label: 'Manejo', Icon: TratamentoIcon, links: [

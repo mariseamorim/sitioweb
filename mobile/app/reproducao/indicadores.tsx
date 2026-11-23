@@ -24,7 +24,8 @@ const compact = (n: number) => (n >= 10000 ? `${Math.round(n / 1000)} ${tr('mil'
 export default function Indicadores() {
   const farmId = useFarmId()
   const { user, canAccess } = useSession()
-  const showMilk = canAccess('leite')
+  // O veterinário consultor não vê o total de leite (como no site)
+  const showMilk = canAccess('leite') && !user?.vet
   const t = useT()
   const data = useLive(() => {
     const today = todayISO()

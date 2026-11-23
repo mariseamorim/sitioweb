@@ -58,7 +58,8 @@ export default function ConsultoriaPage() {
   const agenda = useRef<AgendaHandle>(null)
   const [agendaKey, setAgendaKey] = useState(0)
   // Abas: a agenda abre primeiro; fazendas (com o código de convite) e gráficos ficam a um toque
-  const [tab, setTab] = useState<'agenda' | 'fazendas'>('agenda')
+  // ?aba=fazendas (atalho "Trocar propriedade" da faixa do veterinário) abre direto nas fazendas
+  const [tab, setTab] = useState<'agenda' | 'fazendas'>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('aba') === 'fazendas' ? 'fazendas' : 'agenda'))
   // Visita pela Agenda: remarcar abre o formulário; concluir e cancelar pedem confirmação
   async function visitAction(item: AgendaItem, action: 'concluir' | 'remarcar' | 'cancelar') {
     if (action === 'remarcar') return agenda.current?.edit({ id: item.refId, date: item.date, time: item.time ?? null, purpose: item.detail ?? null })

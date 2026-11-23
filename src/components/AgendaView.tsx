@@ -3,7 +3,7 @@
 // Agenda: visitas e manejos do rebanho por dia, com a faixa da semana (ou o mês), filtros por tipo e propriedade,
 // ações rápidas e o envio da lista pelo WhatsApp. Usada pelo produtor (/agenda) e pelo veterinário (Consultoria).
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AGENDA_KINDS, agendaShareText, canMarkDone, countByDay, ddmm, groupAgenda, shiftDay, type AgendaItem, type AgendaKind } from '@/lib/agenda'
+import { AGENDA_GROUPS, AGENDA_KINDS, agendaGroup, agendaShareText, canMarkDone, countByDay, ddmm, groupAgenda, shiftDay, type AgendaGroupKey, type AgendaItem, type AgendaKind } from '@/lib/agenda'
 import { useLocale, useT } from '@/lib/i18n'
 import { CalendarioIcon, LeiteIcon, PropriedadeIcon, ReproducaoIcon, TratamentoIcon, VacinaIcon, WhatsAppLineIcon } from '@/components/ModuleIcons'
 
@@ -67,6 +67,8 @@ export function AgendaView({ endpoint, vet = false, clients, onOpen, onVisit, ca
   const [lastDone, setLastDone] = useState<{ item: AgendaItem; id: string } | null>(null)
   // Cada grupo mostra até 10 itens; "Ver mais" abre o resto (evita a lista sem fim)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  // Produtor: a aba escolhida (atrasados, hoje, próximos 7 dias, depois); sem escolha, abre na primeira com itens
+  const [groupTab, setGroupTab] = useState<AgendaGroupKey | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -160,6 +162,92 @@ export function AgendaView({ endpoint, vet = false, clients, onOpen, onVisit, ca
         <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold`}>{Number(day.slice(8, 10))}</span>
         <span className={`mt-0.5 h-5 min-w-5 rounded-full px-1.5 text-xs font-bold leading-5 ${n ? (active ? 'bg-white text-green-800' : 'bg-green-700 text-white') : 'text-transparent'}`}>{n || '·'}</span>
       </button>
+    )
+  }
+
+  // ── Agenda do produtor: mais simples (sem semana/mês e sem filtros de veterinário) ──
+  if (!vet) {
+    const byGroup = new Map(AGENDA_GROUPS.map((g) => [g.key, (data?.items ?? []).filter((i) => agendaGroup(i, today) === g.key)]))
+    const current = groupTab ?? AGENDA_GROUPS.find((g) => byGroup.get(g.key)!.length)?.key ?? 'hoje'
+    const list = byGroup.get(current) ?? []
+    const TAB: Record<AgendaGroupKey, { on: string; off: string; badge: string }> = {
+      atrasados: { on: 'border-red-600 bg-red-600 text-white', off: 'border-red-200 bg-red-50 text-red-800', badge: 'bg-white text-red-700' },
+      hoje: { on: 'border-green-700 bg-green-700 text-white', off: 'border-green-200 bg-green-50 text-green-900', badge: 'bg-white text-green-800' },
+      amanha: { on: 'border-teal-600 bg-teal-600 text-white', off: 'border-teal-200 bg-teal-50 text-teal-900', badge: 'bg-white text-teal-800' },
+      semana: { on: 'border-blue-800 bg-blue-800 text-white', off: 'border-blue-200 bg-blue-50 text-blue-900', badge: 'bg-white text-blue-800' },
+      depois: { on: 'border-gray-700 bg-gray-700 text-white', off: 'border-gray-200 bg-gray-50 text-gray-800', badge: 'bg-white text-gray-800' },
+    }
+    const dateText = (i: AgendaItem) => (i.late ? t('era {date}', { date: ddmm(i.date) }) : dayTitle(i.date))
+    return (
+      <section aria-label={t('Agenda')}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          {title ?? <h2 className="text-lg font-semibold text-gray-800">{t('Agenda')}</h2>}
+          <button type="button" onClick={share} className="inline-flex items-center gap-1.5 rounded-xl border-2 border-green-700 bg-white px-4 py-2 text-sm font-semibold text-green-800 hover:bg-green-50">
+            <WhatsAppLineIcon className="h-4 w-4" />{t('Enviar pelo WhatsApp')}
+          </button>
+        </div>
+
+        {/* Abas grandes: a pessoa vê de cara quantas coisas tem em cada período */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5" role="tablist" aria-label={t('Período')}>
+          {AGENDA_GROUPS.map((g) => {
+            const n = byGroup.get(g.key)!.length
+            const on = current === g.key
+            return (
+              <button key={g.key} type="button" role="tab" aria-selected={on} onClick={() => setGroupTab(g.key)}
+                className={`flex items-center justify-between gap-2 rounded-2xl border-2 px-4 py-3 text-left font-semibold transition-colors ${on ? TAB[g.key].on : TAB[g.key].off} ${!n && !on ? 'opacity-60' : ''}`}>
+                <span>{t(g.label)}</span>
+                <span className={`min-w-8 rounded-full px-2 py-0.5 text-center text-base font-extrabold ${on ? TAB[g.key].badge : 'bg-white/80'}`}>{n}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+        {lastDone && (
+          <p role="status" className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-900">
+            <span>✓ {t('Marcado como feito: {item}', { item: t(lastDone.item.label, lastDone.item.vars) })}</span>
+            <button type="button" onClick={() => void undoDone()} className="font-semibold underline">{t('Desfazer')}</button>
+          </p>
+        )}
+        {!data && !error && <p className="mt-4 text-sm text-gray-500">{t('Carregando…')}</p>}
+
+        {data && !list.length && (
+          <div className="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
+            <CalendarioIcon className="mx-auto h-10 w-10 text-gray-300" />
+            <p className="mt-2 font-semibold text-gray-700">{t(current === 'atrasados' ? 'Nada atrasado.' : 'Nada para este período.')}</p>
+            <p className="mt-1 text-sm text-gray-500">{t('As vacinas, coberturas e tratamentos anotados aparecem aqui com a data de cada manejo.')}</p>
+          </div>
+        )}
+
+        <ul className="mt-4 space-y-3">
+          {list.map((item) => {
+            const style = KIND_STYLE[item.kind]
+            return (
+              <li key={item.key} className={`flex flex-wrap items-center gap-4 rounded-2xl border bg-white p-4 shadow-sm ${item.late ? 'border-red-200' : 'border-gray-200'}`}>
+                <span aria-hidden="true" className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${style.circle}`}><style.Icon className="h-6 w-6" /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-semibold text-gray-900">{t(item.label, item.vars)}</p>
+                  <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-gray-500">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${item.late ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'}`}>{dateText(item)}{item.time ? ` · ${item.time}` : ''}</span>
+                    {item.detail ? <span>{t(item.detail, item.detailVars)}</span> : null}
+                  </p>
+                </div>
+                <div className="flex w-full gap-2 sm:w-auto">
+                  {canMarkDone(item) && canMarkItems && (
+                    <button type="button" disabled={busy === item.key} onClick={() => void markDone(item)} className="flex-1 rounded-xl bg-green-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-gray-300 sm:flex-none">{t('Feito')}</button>
+                  )}
+                  {item.kind === 'vacina' && canApplyVaccine && (
+                    <button type="button" disabled={busy === item.key} onClick={() => void applyVaccine(item)} className="flex-1 rounded-xl bg-green-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-gray-300 sm:flex-none">{t('Aplicada')}</button>
+                  )}
+                  {item.kind !== 'visita' && (
+                    <button type="button" onClick={() => onOpen(item, agendaHref(item, false))} className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 sm:flex-none">{t('Abrir')}</button>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
     )
   }
 

@@ -6,6 +6,7 @@ import { CUSTOM_PARTS, REPORT_TYPES, Report, fmtDate, fmtMoney, fmtNumber } from
 import { calvingStatus, cowCalving, herdCalving, LATE_MONTHS } from '@/lib/calving'
 import { animalCodes } from '@/lib/animalCode'
 import { animalCategory } from '@/lib/animalRules'
+import { isVet } from '@/lib/vets'
 
 interface Period {
   gte: Date
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest) {
     let report: Report | null
     switch (type.key) {
       case 'leite': report = await milkReport(farmId, period!); break
-      case 'ficha-animal': report = await animalReport(farmId, params.get('animalId')); break
+      case 'ficha-animal': report = await animalReport(farmId, params.get('animalId'), await isVet(auth.user.id)); break
       case 'vacinacao': report = await vaccinationReport(farmId, period!); break
       case 'financeiro': report = await financeReport(farmId, period!); break
       case 'rebanho': report = await herdReport(farmId); break
@@ -176,7 +177,7 @@ async function milkReport(farmId: string, period: Period): Promise<Report> {
 
 // ── Ficha do animal ────────────────────────────────────────────────────
 
-async function animalReport(farmId: string, animalId: string | null): Promise<Report | null> {
+async function animalReport(farmId: string, animalId: string | null, hideMilk = false): Promise<Report | null> {
   if (!animalId) return null
   const a = await prisma.animal.findFirst({
     where: { id: animalId, farmId },
@@ -245,12 +246,13 @@ async function animalReport(farmId: string, animalId: string | null): Promise<Re
         badgeColumn: 4,
         rows: a.calves.map((c) => [fmtDate(c.birthDate), c.code, c.name, c.gender === 'Fêmea' ? 'Bezerra' : 'Bezerro', c.status]),
       }] : []),
-      {
+      // Leite por mês: não vai para o veterinário consultor (ele cuida de reprodução e sanidade)
+      ...(hideMilk ? [] : [{
         title: 'Leite por mês',
         columns: ['Mês', 'Total (L)'],
         numeric: [1],
         rows: [...byMonth.entries()].map(([m, total]) => [`${m.slice(5, 7)}/${m.slice(0, 4)}`, fmtNumber(total)]),
-      },
+      }]),
     ],
   }
 }

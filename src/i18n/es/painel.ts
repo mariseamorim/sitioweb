@@ -159,4 +159,9 @@ export const painel: Record<string, string> = {
   'Item da agenda inválido': 'Ítem de la agenda inválido',
   'Ver dashboard': 'Ver dashboard',
   'Manejos que já passaram da data': 'Manejos que ya pasaron de la fecha',
+  'Você está na propriedade': 'Usted está en la propiedad',
+  'Nenhuma propriedade aberta. Abra uma em Fazendas atendidas.': 'Ninguna propiedad abierta. Abra una en Fincas atendidas.',
+  'Nada atrasado.': 'Nada atrasado.',
+  'Nada para este período.': 'Nada para este período.',
+  'As vacinas, coberturas e tratamentos anotados aparecem aqui com a data de cada manejo.': 'Las vacunas, servicios y tratamientos anotados aparecen aquí con la fecha de cada manejo.',
 }
