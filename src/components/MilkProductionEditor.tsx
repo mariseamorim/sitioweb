@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { milkDay, milkNumber, milkPrice } from '@/lib/milkValidation'
 import { fmtMoney } from '@/lib/reports'
 import { useT } from '@/lib/i18n'
+import { AppModal, modalButton } from '@/components/AppModal'
+import { LeiteIcon } from '@/components/ModuleIcons'
 
 export interface EditableMilkProduction {
   id: string
@@ -14,6 +16,8 @@ export interface EditableMilkProduction {
   cowsMilked?: number | null
   observations?: string | null
 }
+
+const fmtDate = (iso: string) => { const [y, m, d] = iso.slice(0, 10).split('-'); return `${d}/${m}/${y}` }
 
 export function MilkProductionEditor({ production, onCancel, onSaved }: { production: EditableMilkProduction; onCancel: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({ date: production.date.slice(0, 10), quantity: String(production.quantity).replace('.', ','), pricePerLiter: production.pricePerLiter == null ? '' : production.pricePerLiter.toFixed(2).replace('.', ','), cowsMilked: production.cowsMilked == null ? '' : String(production.cowsMilked), observations: production.observations || '' })
@@ -34,22 +38,27 @@ export function MilkProductionEditor({ production, onCancel, onSaved }: { produc
     } catch (e) { setError(e instanceof Error ? t(e.message) : t('Verifique a conexão e tente novamente')) }
     finally { setSaving(false) }
   }
-  const input = 'mt-1 block w-full rounded-lg border border-gray-200 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
-  return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-    <div role="dialog" aria-modal="true" aria-labelledby="milk-edit-title" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
-      <h2 id="milk-edit-title" className="mb-4 text-lg font-bold text-gray-800">{t('Editar produção de leite')}</h2>
-      <form onSubmit={save}>
-        <fieldset disabled={saving} className="flex flex-col gap-3">
-          <label>{t('Data')}<input required type="date" className={input} value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></label>
-          <label>{t('Quantidade (litros)')}<MilkDecimalInput required inputMode="decimal" className={input} value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} /></label>
-          <label>{t('Preço por litro (R$)')}<MilkDecimalInput decimals={2} inputMode="decimal" className={input} value={form.pricePerLiter} onChange={e => setForm({ ...form, pricePerLiter: e.target.value })} placeholder={t('Opcional')} /></label>
-          {!production.animalId && <label>{t('Vacas ordenhadas')}<input inputMode="numeric" className={input} value={form.cowsMilked} onChange={e => setForm({ ...form, cowsMilked: e.target.value })} /></label>}
-          <label>{t('Observações')}<textarea rows={2} className={input} value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} /></label>
-          {price != null && Number.isFinite(quantity) && quantity > 0 && <p className="text-sm font-semibold text-green-700">{t('Valor estimado: {value}', { value: fmtMoney(quantity * price) })}</p>}
-          {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-          <div className="mt-2 flex gap-2"><button type="button" onClick={onCancel} className="flex-1 rounded-lg border border-gray-200 py-3 text-gray-600">{t('Cancelar')}</button><button type="submit" className="flex-1 rounded-lg bg-green-700 py-3 font-semibold text-white">{t(saving ? 'Salvando...' : 'Salvar alterações')}</button></div>
-        </fieldset>
-      </form>
-    </div>
-  </div>
+  const input = 'mt-1 block w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
+  const label = 'text-sm font-medium text-gray-700'
+  return <AppModal title={t('Editar produção de leite')} subtitle={fmtDate(production.date)} icon={<LeiteIcon className="h-6 w-6" />} tone="blue" onClose={onCancel}
+    footer={<>
+      <button type="button" onClick={onCancel} disabled={saving} className={modalButton.ghost}>{t('Cancelar')}</button>
+      <button type="submit" form="form-editar-leite" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando...' : 'Salvar alterações')}</button>
+    </>}>
+    <form id="form-editar-leite" onSubmit={save}>
+      <fieldset disabled={saving} className="flex flex-col gap-4">
+        <div className="grid grid-cols-2 gap-3">
+          <label className={label}>{t('Data')}<input required type="date" className={input} value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></label>
+          <label className={label}>{t('Quantidade (litros)')}<MilkDecimalInput required inputMode="decimal" className={input} value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} placeholder={t('Ex.: 25')} /></label>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <label className={label}>{t('Preço por litro (R$)')}<MilkDecimalInput decimals={2} inputMode="decimal" className={input} value={form.pricePerLiter} onChange={e => setForm({ ...form, pricePerLiter: e.target.value })} placeholder={t('Opcional')} /></label>
+          {!production.animalId && <label className={label}>{t('Vacas ordenhadas')}<input inputMode="numeric" className={input} value={form.cowsMilked} onChange={e => setForm({ ...form, cowsMilked: e.target.value })} placeholder={t('Ex.: 12')} /></label>}
+        </div>
+        <label className={label}>{t('Observações')}<textarea rows={2} className={`${input} resize-none`} value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} placeholder={t('Ex.: uma vaca não ordenhou de tarde')} /></label>
+        {price != null && Number.isFinite(quantity) && quantity > 0 && <p className="text-sm font-semibold text-green-700">{t('Valor estimado: {value}', { value: fmtMoney(quantity * price) })}</p>}
+        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      </fieldset>
+    </form>
+  </AppModal>
 }

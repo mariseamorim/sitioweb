@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { FecharIcon } from '@/components/ModuleIcons'
+import { LojaIcon } from '@/components/ModuleIcons'
+import { AppModal, modalButton } from '@/components/AppModal'
 import { whatsappLink } from '@/lib/utils'
 import { useLocale, useT } from '@/lib/i18n'
 
@@ -24,7 +25,7 @@ interface LinkedVendor {
   status: string
 }
 
-const field = 'mt-1 w-full border border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
+const field = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 const fmtQty = (n: number, locale = 'pt-BR') => n.toLocaleString(locale, { maximumFractionDigits: 2 })
 
 // Pedido de orçamento de um item do estoque, ou mensagem solta (sem item), para um fornecedor vinculado.
@@ -80,29 +81,28 @@ export function RequestQuote({ item, vendorId: initialVendorId = '', onClose }: 
     ? t('Olá! Pedi um orçamento de {what} pelo Anota Aí Agro. Pode ver?', { what: `${quantity ? `${quantity} ${item.unit} ${t('de')} ` : ''}${item.name}` })
     : t('Olá! Mandei uma mensagem pelo Anota Aí Agro sobre {subject}: {note}', { subject, note })
 
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70] p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="p-5 sm:p-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-900">
-              {t(sentTo ? (item ? 'Pedido enviado' : 'Mensagem enviada') : (item ? 'Pedir orçamento' : 'Mandar mensagem'))}
-            </h2>
-            <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-          </div>
+  const showForm = !sentTo && vendors !== null && vendors.length > 0
+  const vendorName = vendors?.find((v) => v.id === vendorId)?.companyName
 
+  return (
+    <AppModal title={t(sentTo ? (item ? 'Pedido enviado' : 'Mensagem enviada') : (item ? 'Pedir orçamento' : 'Mandar mensagem'))}
+      subtitle={item ? item.name : (sentTo?.companyName ?? vendorName)}
+      icon={<LojaIcon className="h-6 w-6" />} tone={item ? 'amber' : 'green'} onClose={onClose}
+      footer={sentTo ? <>
+        <button type="button" onClick={onClose} className={modalButton.ghost}>{t('Fechar')}</button>
+        <a href={whatsappLink(sentTo.whatsapp || sentTo.phone, whatsappText)} target="_blank" rel="noopener noreferrer" className={modalButton.primary}>
+          {t('Avisar também pelo WhatsApp')}
+        </a>
+      </> : showForm ? <>
+        <button type="button" onClick={onClose} className={modalButton.ghost}>{t('Cancelar')}</button>
+        <button type="submit" form="form-pedido-fornecedor" disabled={sending || !vendorId} className={modalButton.primary}>
+          {t(sending ? 'Enviando...' : item ? 'Enviar pedido' : 'Enviar mensagem')}
+        </button>
+      </> : undefined}>
           {sentTo ? (
-            <div>
-              <p className="text-gray-700">
-                <strong>{sentTo.companyName}</strong> {t(item ? 'já vê o pedido no painel dela. A resposta aparece em' : 'já vê a mensagem no painel dela. A resposta aparece em')} <strong>{t('Ofertas → Meus pedidos')}</strong> {t('e no sino.')}
-              </p>
-              <a href={whatsappLink(sentTo.whatsapp || sentTo.phone, whatsappText)}
-                target="_blank" rel="noopener noreferrer"
-                className="mt-4 flex w-full items-center justify-center bg-green-700 hover:bg-green-600 text-white font-semibold py-3 rounded-lg">
-                {t('Avisar também pelo WhatsApp')}
-              </a>
-              <button type="button" onClick={onClose} className="mt-2 w-full border border-gray-200 text-gray-600 font-medium py-3 rounded-lg">{t('Fechar')}</button>
-            </div>
+            <p className="text-gray-700">
+              <strong>{sentTo.companyName}</strong> {t(item ? 'já vê o pedido no painel dela. A resposta aparece em' : 'já vê a mensagem no painel dela. A resposta aparece em')} <strong>{t('Ofertas → Meus pedidos')}</strong> {t('e no sino.')}
+            </p>
           ) : vendors === null ? (
             <p className="text-sm text-gray-400">{t('Carregando...')}</p>
           ) : vendors.length === 0 ? (
@@ -111,14 +111,14 @@ export function RequestQuote({ item, vendorId: initialVendorId = '', onClose }: 
               <Link href="/ofertas" className="mt-3 inline-block font-semibold text-green-700 underline">{t('Procurar fornecedor em Ofertas')}</Link>
             </div>
           ) : (
-            <form onSubmit={send} className="flex flex-col gap-3">
+            <form id="form-pedido-fornecedor" onSubmit={send} className="flex flex-col gap-4">
               {item && (
-                <p className="text-sm text-gray-600">
-                  <strong className="text-gray-900">{item.name}</strong> · {t('você tem {qty} {unit} (mínimo {min})', { qty: fmtQty(item.currentQuantity, locale), unit: item.unit, min: fmtQty(item.minimumQuantity, locale) })}
+                <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  <strong>{item.name}</strong> · {t('você tem {qty} {unit} (mínimo {min})', { qty: fmtQty(item.currentQuantity, locale), unit: item.unit, min: fmtQty(item.minimumQuantity, locale) })}
                 </p>
               )}
               <label className="text-sm font-medium text-gray-700">{t('Fornecedor')}
-                <select value={vendorId} onChange={(e) => setVendorId(e.target.value)} required className={field}>
+                <select value={vendorId} onChange={(e) => setVendorId(e.target.value)} required className={`${field} bg-white`}>
                   <option value="" disabled>{t('Escolha')}</option>
                   {vendors.map((v) => <option key={v.id} value={v.id}>{v.companyName}{v.city ? ` (${v.city})` : ''}</option>)}
                 </select>
@@ -139,14 +139,8 @@ export function RequestQuote({ item, vendorId: initialVendorId = '', onClose }: 
                   className={`${field} resize-none`} />
               </label>
               {error && <p className="text-sm text-red-600">{error}</p>}
-              <button type="submit" disabled={sending || !vendorId}
-                className="bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-3 rounded-lg">
-                {t(sending ? 'Enviando...' : item ? 'Enviar pedido' : 'Enviar mensagem')}
-              </button>
             </form>
           )}
-        </div>
-      </div>
-    </div>
+    </AppModal>
   )
 }

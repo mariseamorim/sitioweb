@@ -9,7 +9,7 @@ import { useOfflineModule } from '@/lib/useOffline'
 import { applyPendingMovements, movementDelta, movementReady, parseMovement, type MovementInput, type PendingMovement } from '@/lib/stockMovements'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
-import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon } from '@/components/ModuleIcons'
+import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon, EstoqueIcon } from '@/components/ModuleIcons'
 import { SUPPLY_CATEGORIES } from '@/lib/supplies'
 import { RequestQuote } from '@/components/RequestQuote'
 import { useSort } from '@/lib/useSort'
@@ -20,6 +20,7 @@ import { expenseCategoryFor, purchaseDescription, suggestedAmount } from '@/lib/
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 import { useLocale, useT } from '@/lib/i18n'
 import { StatTile } from '@/components/StatTile'
+import { AppModal, modalButton } from '@/components/AppModal'
 
 interface SupplyMovement { id: string; type: string; quantity: number; date: string; description?: string | null }
 interface Supply {
@@ -44,6 +45,7 @@ interface Supply {
 
 const CATEGORIES = SUPPLY_CATEGORIES
 const MODULE = 'estoque'
+const FIELD = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base font-normal focus:outline-none focus:ring-2 focus:ring-green-600'
 const EMPTY_MOV = () => ({ type: 'Entrada', quantity: '', date: todayISO(), description: '' })
 const EMPTY_FORM = { name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '', expiryDate: '' }
 /** Quantos dias antes da validade o insumo entra em "Próximos a vencer" */
@@ -92,6 +94,8 @@ export default function EstoquePage() {
   const [quoteFor, setQuoteFor] = useState<Supply | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [showMov, setShowMov] = useState(false)
+  // Com a movimentação ou o pedido de orçamento abertos por cima, o Esc fecha só o de cima
+  const closeDetail = useCallback(() => { if (!showMov && !quoteFor) setDetail(null) }, [showMov, quoteFor])
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [mov, setMov] = useState(EMPTY_MOV)
@@ -464,20 +468,23 @@ export default function EstoquePage() {
         </div>
       )}
 
-      {/* Detail modal */}
+      {/* Detalhe do insumo: modal padrão (grande, com a tabela de movimentações) */}
       {detail && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">{detail.name}</h2>
-                  <p className="text-xs text-gray-500">{t(detail.category)} · {t(detail.unit)}</p>
-                </div>
-                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+        <AppModal title={detail.name} subtitle={`${t(detail.category)} · ${t(detail.unit)}`}
+          onClose={closeDetail} icon={<EstoqueIcon className="h-6 w-6" />} tone="amber" size="lg"
+          footer={<>
+            <button type="button" onClick={() => handleDelete(detail.id)} className={`${modalButton.ghost} border-red-200 text-red-600 hover:bg-red-50`}>{t('Excluir Insumo')}</button>
+            {canEdit && !detail.id.startsWith('pending_') && (
+              <button type="button" onClick={() => setQuoteFor(detail)}
+                className={isLow(detail) ? `${modalButton.secondary} border-amber-500 text-amber-800 hover:bg-amber-50` : modalButton.secondary}>
+                {t('Pedir orçamento a um fornecedor')}
+              </button>
+            )}
+            {canEdit && !detail.id.startsWith('pending_') && (
+              <button type="button" onClick={openMov} className={modalButton.primary}>{t('+ Movimentação (Entrada / Saída)')}</button>
+            )}
+          </>}>
+              <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className={`rounded-lg p-3 ${isLow(detail) ? 'bg-red-50 border border-red-100' : 'bg-green-50 border border-green-100'}`}>
                   <p className="text-xs text-gray-500">{t('Quantidade Atual')}</p>
                   <p className={`text-xl font-bold ${isLow(detail) ? 'text-red-600' : 'text-green-700'}`}>{detail.currentQuantity} {t(detail.unit)}</p>
@@ -503,21 +510,7 @@ export default function EstoquePage() {
               {detail.id.startsWith('pending_') ? (
                 <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900">{t('Cadastrado sem internet, aguardando envio. Entradas e saídas ficam disponíveis depois que ele for enviado.')}</p>
               ) : (
-                <>
-                  <PriceLine supply={detail} farmId={farmId} canEdit={canEdit && !isPendingId(detail.id)} onSaved={(updated, queued) => { setDetail({ ...detail, ...updated }); setNotice(queued ? t(net.queuedMessage) : ''); refreshPending(); reload() }} />
-
-                  {canEdit && (
-                    <button onClick={openMov} className="w-full bg-green-800 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg mb-2">
-                      {t('+ Movimentação (Entrada / Saída)')}
-                    </button>
-                  )}
-                </>
-              )}
-              {canEdit && !detail.id.startsWith('pending_') && (
-                <button onClick={() => setQuoteFor(detail)}
-                  className={`w-full text-sm font-semibold py-2 rounded-lg mb-4 border-2 ${isLow(detail) ? 'border-amber-500 text-amber-800 hover:bg-amber-50' : 'border-green-700 text-green-800 hover:bg-green-50'}`}>
-                  {t('Pedir orçamento a um fornecedor')}
-                </button>
+                <PriceLine supply={detail} farmId={farmId} canEdit={canEdit && !isPendingId(detail.id)} onSaved={(updated, queued) => { setDetail({ ...detail, ...updated }); setNotice(queued ? t(net.queuedMessage) : ''); refreshPending(); reload() }} />
               )}
 
               {detail.movements.length > 0 && (
@@ -549,50 +542,48 @@ export default function EstoquePage() {
                   </div>
                 </>
               )}
-
-              <button onClick={() => handleDelete(detail.id)} className="mt-4 w-full border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium py-2 rounded-lg">
-                {t('Excluir Insumo')}
-              </button>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
-      {/* Movimentação modal: salva sozinha enquanto a pessoa preenche */}
+      {/* Movimentação: modal padrão (pequeno), salva sozinha enquanto a pessoa preenche */}
       {showMov && detail && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
-          <div role="dialog" aria-labelledby="mov-title" className="bg-white rounded-2xl shadow-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-1">
-                <h2 id="mov-title" className="text-lg font-bold text-gray-800">{t('Movimentação')}</h2>
-                <button type="button" onClick={() => void closeMov()} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-              <p className="text-xs text-gray-500 mb-4">{detail.name} · {t('saldo atual')} {detail.currentQuantity} {t(detail.unit)}. {t('Salva sozinho enquanto você preenche.')}</p>
-              <form onSubmit={e => { e.preventDefault(); void saveMov() }} className="flex flex-col gap-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <AppModal title={t('Movimentação')} subtitle={`${detail.name} · ${t('saldo atual')} ${detail.currentQuantity} ${t(detail.unit)}`}
+          onClose={() => void closeMov()} icon={<EstoqueIcon className="h-6 w-6" />} tone="amber" size="sm"
+          footer={<>
+            {movSaved ? (
+              <>
+                <button type="button" onClick={() => void undoMov()} className={`${modalButton.ghost} border-red-200 text-red-600 hover:bg-red-50`}>{t('Desfazer')}</button>
+                <button type="button" onClick={resetMov} className={modalButton.ghost}>{t('Lançar outra')}</button>
+              </>
+            ) : (
+              <button type="button" onClick={() => { setShowMov(false); resetMov() }} className={modalButton.ghost}>{t('Cancelar')}</button>
+            )}
+            <button type="button" onClick={() => void closeMov()} className={modalButton.primary}>{t('Concluir')}</button>
+          </>}
+          note={t('Salva sozinho enquanto você preenche.')}>
+              <form onSubmit={e => { e.preventDefault(); void saveMov() }} className="flex flex-col gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="mov-type" className="text-xs font-medium text-gray-600">{t('Tipo')} *</label>
-                    <select id="mov-type" value={mov.type} onChange={e => setMov({ ...mov, type: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
+                    <label htmlFor="mov-type" className="text-sm font-medium text-gray-700">{t('Tipo')} *</label>
+                    <select id="mov-type" value={mov.type} onChange={e => setMov({ ...mov, type: e.target.value })} className={`${FIELD} bg-white`}>
                       <option value="Entrada">{t('Entrada')}</option>
                       <option value="Saída">{t('Saída')}</option>
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="mov-quantity" className="text-xs font-medium text-gray-600">{t('Quantidade')} ({t(detail.unit)}) *</label>
+                    <label htmlFor="mov-quantity" className="text-sm font-medium text-gray-700">{t('Quantidade')} ({t(detail.unit)}) *</label>
                     <input id="mov-quantity" type="number" inputMode="decimal" autoFocus value={mov.quantity} onChange={e => setMov({ ...mov, quantity: e.target.value })} step="0.01" min="0" required
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                      placeholder={t('Ex.: 25')} className={FIELD} />
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="mov-date" className="text-xs font-medium text-gray-600">{t('Data')} *</label>
-                  <input id="mov-date" type="date" value={mov.date} onChange={e => setMov({ ...mov, date: e.target.value })} required
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                  <label htmlFor="mov-date" className="text-sm font-medium text-gray-700">{t('Data')} *</label>
+                  <input id="mov-date" type="date" value={mov.date} onChange={e => setMov({ ...mov, date: e.target.value })} required className={FIELD} />
                 </div>
                 <div>
-                  <label htmlFor="mov-description" className="text-xs font-medium text-gray-600">{t('Descrição')}</label>
+                  <label htmlFor="mov-description" className="text-sm font-medium text-gray-700">{t('Descrição')}</label>
                   <input id="mov-description" type="text" value={mov.description} onChange={e => setMov({ ...mov, description: e.target.value })}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                    placeholder={t('Ex.: compra na cooperativa')} className={FIELD} />
                 </div>
                 <p role="status" className={`text-sm min-h-[1.25rem] ${movStatus === 'error' ? 'text-red-600' : movStatus === 'saved' ? 'text-green-700' : movStatus === 'offline' ? 'text-blue-800' : 'text-gray-500'}`}>
                   {movStatus === 'saving' ? t('Salvando…')
@@ -605,95 +596,59 @@ export default function EstoquePage() {
                 {movStatus === 'saved' && mov.type === 'Entrada' && savedRef.current.id && canAccess('financeiro') && (
                   <PurchaseAfterEntry key={savedRef.current.id} supply={detail} movementId={savedRef.current.id} quantity={parseMovement(mov)?.quantity ?? 0} date={mov.date} description={mov.description} />
                 )}
-                <div className="flex gap-2 pt-1">
-                  {movSaved ? (
-                    <>
-                      <button type="button" onClick={() => void undoMov()} className="flex-1 border border-red-200 text-red-600 text-sm font-medium py-2 rounded-lg hover:bg-red-50">{t('Desfazer')}</button>
-                      <button type="button" onClick={resetMov} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Lançar outra')}</button>
-                    </>
-                  ) : (
-                    <button type="button" onClick={() => { setShowMov(false); resetMov() }} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
-                  )}
-                  <button type="button" onClick={() => void closeMov()} className="flex-1 bg-green-800 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg">{t('Concluir')}</button>
-                </div>
               </form>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
-      {/* New supply modal */}
+      {/* Cadastrar produto: modal padrão (médio) */}
       {showNew && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">{t('Cadastrar produto')}</h2>
-                <button onClick={() => setShowNew(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-              <form onSubmit={handleSaveNew} className="flex flex-col gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Nome')} *</label>
-                  <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required placeholder={t('Ex: Ração Bovinos')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Categoria')} *</label>
-                    <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
+        <AppModal title={t('Cadastrar produto')} subtitle={user?.farmName ?? undefined} onClose={() => setShowNew(false)}
+          icon={<EstoqueIcon className="h-6 w-6" />} tone="amber"
+          footer={<>
+            <button type="button" onClick={() => setShowNew(false)} className={modalButton.ghost}>{t('Cancelar')}</button>
+            <button type="submit" form="form-produto" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando...' : 'Salvar')}</button>
+          </>}
+          note={t('Com o preço, o trato dos lotes mostra o custo por animal. Pode deixar em branco.')}>
+              <form id="form-produto" onSubmit={handleSaveNew} className="flex flex-col gap-4">
+                <label className="text-sm font-medium text-gray-700">{t('Nome')} *
+                  <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required placeholder={t('Ex: Ração Bovinos')} className={FIELD} />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Categoria')} *
+                    <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={`${FIELD} bg-white`}>
                       {CATEGORIES.map(c => <option key={c} value={c}>{t(c)}</option>)}
                     </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Unidade')} *</label>
-                    <select value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Unidade')} *
+                    <select value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} className={`${FIELD} bg-white`}>
                       {['kg', 'L', 'unidades', 'doses', 'sacos'].map(u => <option key={u} value={u}>{t(u)}</option>)}
                     </select>
-                  </div>
+                  </label>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Qtd Inicial')}</label>
-                    <input type="number" value={form.currentQuantity} onChange={e => setForm({ ...form, currentQuantity: e.target.value })} step="0.01" min="0"
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Qtd Mínima')}</label>
-                    <input type="number" value={form.minimumQuantity} onChange={e => setForm({ ...form, minimumQuantity: e.target.value })} step="0.01" min="0"
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Qtd Inicial')}
+                    <input type="number" value={form.currentQuantity} onChange={e => setForm({ ...form, currentQuantity: e.target.value })} step="0.01" min="0" placeholder={t('Ex.: 100')} className={FIELD} />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Qtd Mínima')}
+                    <input type="number" value={form.minimumQuantity} onChange={e => setForm({ ...form, minimumQuantity: e.target.value })} step="0.01" min="0" placeholder={t('Ex.: 30')} className={FIELD} />
+                  </label>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Preço por {u} (R$, opcional)', { u: t(form.unit === 'sacos' ? 'saco' : form.unit) })}</label>
-                    <input inputMode="decimal" value={form.unitPrice} onChange={e => setForm({ ...form, unitPrice: e.target.value.replace(/[^\d.,]/g, '') })} placeholder={t('Ex.: 85,00')}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Validade (opcional)')}</label>
-                    <input type="date" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Preço por {u} (R$, opcional)', { u: t(form.unit === 'sacos' ? 'saco' : form.unit) })}
+                    <input inputMode="decimal" value={form.unitPrice} onChange={e => setForm({ ...form, unitPrice: e.target.value.replace(/[^\d.,]/g, '') })} placeholder={t('Ex.: 85,00')} className={FIELD} />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Validade (opcional)')}
+                    <input type="date" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })} className={FIELD} />
+                  </label>
                   {form.unit === 'sacos' && (
-                    <div>
-                      <label className="text-xs font-medium text-gray-600">{t('Peso do saco (kg, opcional)')}</label>
-                      <input inputMode="decimal" value={form.packageKg} onChange={e => setForm({ ...form, packageKg: e.target.value.replace(/[^\d.,]/g, '') })} placeholder={t('Ex.: 25')}
-                        className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                    </div>
+                    <label className="text-sm font-medium text-gray-700">{t('Peso do saco (kg, opcional)')}
+                      <input inputMode="decimal" value={form.packageKg} onChange={e => setForm({ ...form, packageKg: e.target.value.replace(/[^\d.,]/g, '') })} placeholder={t('Ex.: 25')} className={FIELD} />
+                    </label>
                   )}
                 </div>
-                <p className="text-xs text-gray-500">{t('Com o preço, o trato dos lotes mostra o custo por animal. Pode deixar em branco.')}</p>
-                {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setShowNew(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
-                </div>
+                {saveError && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{saveError}</p>}
               </form>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
       {quoteFor && <RequestQuote item={quoteFor} onClose={() => setQuoteFor(null)} />}
     </div>

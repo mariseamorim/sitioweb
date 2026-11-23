@@ -8,13 +8,15 @@ import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
 import { useLocale, useT } from '@/lib/i18n'
 import { StatTile } from '@/components/StatTile'
+import { AppModal, modalButton } from '@/components/AppModal'
+import { EstoqueIcon } from '@/components/ModuleIcons'
 
 interface Move { id: string; type: string; quantity: number; date: string; farmName: string | null; note: string | null }
 interface Supply { id: string; name: string; unit: string; quantity: number; minimum: number | null; expiry: string | null; moves: Move[] }
 interface ItemForm { id?: string; name: string; unit: string; quantity: string; minimum: string; expiry: string }
 interface MoveForm { supply: Supply; type: 'entrada' | 'saida'; quantity: string; date: string; farmName: string; note: string }
 
-const input = 'mt-1 w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
+const input = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 const DAY = 24 * 60 * 60 * 1000
 /** Validade a menos disso aparece como aviso */
 const EXPIRY_WARNING_DAYS = 30
@@ -132,43 +134,41 @@ export default function EstoqueVeterinarioPage() {
       </ul>
 
       {item && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={t(item.id ? 'Editar item' : 'Novo item')}>
-          <form className="w-full max-w-lg rounded-t-2xl sm:rounded-2xl bg-white p-5 sm:p-6 flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); void send(item.id ? `/api/veterinario/estoque/${item.id}` : '/api/veterinario/estoque', item.id ? 'PATCH' : 'POST', item, () => setItem(null)) }}>
-            <h2 className="text-lg font-bold text-gray-900">{t(item.id ? 'Editar item' : 'Novo item')}</h2>
+        <AppModal title={t(item.id ? 'Editar item' : 'Novo item')} subtitle={item.id ? item.name : undefined} icon={<EstoqueIcon className="h-6 w-6" />} tone="amber" onClose={() => setItem(null)}
+          footer={<>
+            <button type="button" onClick={() => setItem(null)} className={modalButton.ghost}>{t('Fechar')}</button>
+            <button type="submit" form="form-item-estoque" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando…' : 'Salvar')}</button>
+          </>}>
+          <form id="form-item-estoque" className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); void send(item.id ? `/api/veterinario/estoque/${item.id}` : '/api/veterinario/estoque', item.id ? 'PATCH' : 'POST', item, () => setItem(null)) }}>
             <label className="text-sm font-medium text-gray-700">{t('Nome')} *<input value={item.name} onChange={(e) => setItem({ ...item, name: e.target.value })} required autoFocus placeholder={t('Prostaglandina, sêmen Touro X, luva…')} className={input} /></label>
             <div className="grid grid-cols-2 gap-3">
               <label className="text-sm font-medium text-gray-700">{t('Unidade')}<input value={item.unit} onChange={(e) => setItem({ ...item, unit: e.target.value })} placeholder={t('un, ml, dose, frasco')} maxLength={20} className={input} /></label>
-              {!item.id && <label className="text-sm font-medium text-gray-700">{t('Quantidade que tenho')}<input value={item.quantity} onChange={(e) => setItem({ ...item, quantity: e.target.value })} inputMode="decimal" className={input} /></label>}
-              <label className="text-sm font-medium text-gray-700">{t('Avisar abaixo de')}<input value={item.minimum} onChange={(e) => setItem({ ...item, minimum: e.target.value })} inputMode="decimal" className={input} /></label>
+              {!item.id && <label className="text-sm font-medium text-gray-700">{t('Quantidade que tenho')}<input value={item.quantity} onChange={(e) => setItem({ ...item, quantity: e.target.value })} inputMode="decimal" placeholder={t('Ex.: 10')} className={input} /></label>}
+              <label className="text-sm font-medium text-gray-700">{t('Avisar abaixo de')}<input value={item.minimum} onChange={(e) => setItem({ ...item, minimum: e.target.value })} inputMode="decimal" placeholder={t('Ex.: 5')} className={input} /></label>
               <label className="text-sm font-medium text-gray-700">{t('Validade')}<input type="date" value={item.expiry} onChange={(e) => setItem({ ...item, expiry: e.target.value })} className={input} /></label>
             </div>
             {formError && <p role="alert" className="text-sm text-red-600">{formError}</p>}
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setItem(null)} className="flex-1 rounded-lg border border-gray-300 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50">{t('Fechar')}</button>
-              <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-green-800 py-3 text-base font-semibold text-white hover:bg-green-700 disabled:bg-green-400">{t(saving ? 'Salvando…' : 'Salvar')}</button>
-            </div>
           </form>
-        </div>
+        </AppModal>
       )}
 
       {move && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={t(move.type === 'saida' ? 'Saída do estoque' : 'Entrada no estoque')}>
-          <form className="w-full max-w-lg rounded-t-2xl sm:rounded-2xl bg-white p-5 sm:p-6 flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); void send(`/api/veterinario/estoque/${move.supply.id}/movimentos`, 'POST', { type: move.type, quantity: move.quantity, date: move.date, farmName: move.farmName, note: move.note }, () => setMove(null)) }}>
-            <h2 className="text-lg font-bold text-gray-900">{t(move.type === 'saida' ? 'Saída' : 'Entrada')} — {move.supply.name}</h2>
-            <p className="text-sm text-gray-500">{t('Saldo:')} {num(move.supply.quantity)} {move.supply.unit}</p>
+        <AppModal title={t(move.type === 'saida' ? 'Saída do estoque' : 'Entrada no estoque')} subtitle={move.supply.name} icon={<EstoqueIcon className="h-6 w-6" />} tone="amber" onClose={() => setMove(null)}
+          footer={<>
+            <button type="button" onClick={() => setMove(null)} className={modalButton.ghost}>{t('Fechar')}</button>
+            <button type="submit" form="form-movimento-estoque" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando…' : move.type === 'saida' ? 'Registrar saída' : 'Registrar entrada')}</button>
+          </>}>
+          <form id="form-movimento-estoque" className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); void send(`/api/veterinario/estoque/${move.supply.id}/movimentos`, 'POST', { type: move.type, quantity: move.quantity, date: move.date, farmName: move.farmName, note: move.note }, () => setMove(null)) }}>
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">{t('Saldo:')} {num(move.supply.quantity)} {move.supply.unit}</p>
             <div className="grid grid-cols-2 gap-3">
-              <label className="text-sm font-medium text-gray-700">{t('Quantidade')} ({move.supply.unit}) *<input value={move.quantity} onChange={(e) => setMove({ ...move, quantity: e.target.value })} required autoFocus inputMode="decimal" className={input} /></label>
+              <label className="text-sm font-medium text-gray-700">{t('Quantidade')} ({move.supply.unit}) *<input value={move.quantity} onChange={(e) => setMove({ ...move, quantity: e.target.value })} required autoFocus inputMode="decimal" placeholder={t('Ex.: 10')} className={input} /></label>
               <label className="text-sm font-medium text-gray-700">{t('Data')}<input type="date" value={move.date} onChange={(e) => setMove({ ...move, date: e.target.value })} className={input} /></label>
             </div>
-            {move.type === 'saida' && <label className="text-sm font-medium text-gray-700">{t('Propriedade onde usei')}<input value={move.farmName} onChange={(e) => setMove({ ...move, farmName: e.target.value })} className={input} /></label>}
-            <label className="text-sm font-medium text-gray-700">{t('Observação')}<input value={move.note} onChange={(e) => setMove({ ...move, note: e.target.value })} maxLength={300} className={input} /></label>
+            {move.type === 'saida' && <label className="text-sm font-medium text-gray-700">{t('Propriedade onde usei')}<input value={move.farmName} onChange={(e) => setMove({ ...move, farmName: e.target.value })} placeholder={t('Ex.: Sítio Boa Vista')} className={input} /></label>}
+            <label className="text-sm font-medium text-gray-700">{t('Observação')}<input value={move.note} onChange={(e) => setMove({ ...move, note: e.target.value })} maxLength={300} placeholder={t('Ex.: lote das novilhas')} className={input} /></label>
             {formError && <p role="alert" className="text-sm text-red-600">{formError}</p>}
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setMove(null)} className="flex-1 rounded-lg border border-gray-300 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50">{t('Fechar')}</button>
-              <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-green-800 py-3 text-base font-semibold text-white hover:bg-green-700 disabled:bg-green-400">{t(saving ? 'Salvando…' : move.type === 'saida' ? 'Registrar saída' : 'Registrar entrada')}</button>
-            </div>
           </form>
-        </div>
+        </AppModal>
       )}
     </div>
   )

@@ -159,4 +159,8 @@ export const painel: Record<string, string> = {
   'Item da agenda inválido': 'Ítem de la agenda inválido',
   'Ver dashboard': 'Ver dashboard',
   'Manejos que já passaram da data': 'Manejos que ya pasaron de la fecha',
+  'Dados do touro': 'Datos del toro',
+  'Ex.: cio forte, repetir em 21 dias': 'Ej.: celo fuerte, repetir en 21 días',
+  'obrigatório': 'obligatorio',
+  'Buscar por nome, código ou brinco...': 'Buscar por nombre, código o caravana...',
 }

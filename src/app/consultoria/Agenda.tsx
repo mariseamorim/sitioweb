@@ -5,6 +5,8 @@
 import { useCallback, useEffect, useImperativeHandle, useState } from 'react'
 import { todayISO } from '@/lib/utils'
 import { useLocale, useT } from '@/lib/i18n'
+import { AppModal, modalButton } from '@/components/AppModal'
+import { CalendarioIcon } from '@/components/ModuleIcons'
 
 interface Visit { id: string; clientId: string | null; farmName: string; date: string; time: string | null; purpose: string | null; status: string }
 interface Form { id?: string; clientId: string; date: string; time: string; purpose: string }
@@ -12,7 +14,7 @@ interface Form { id?: string; clientId: string; date: string; time: string; purp
 /** Visitas visíveis antes de "Ver todas" */
 const SHOWN = 4
 
-const input = 'mt-1 w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
+const input = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 
 /** O topo da Consultoria abre o formulário de nova visita pelo botão "+ Marcar visita" */
 export interface AgendaHandle {
@@ -114,9 +116,13 @@ export function Agenda({ clients, onChanged, ref, formOnly = false }: { clients:
       </>}
 
       {form && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={t(form.id ? 'Remarcar visita' : 'Marcar visita')}>
-          <form onSubmit={submit} className="w-full max-w-lg rounded-t-2xl sm:rounded-2xl bg-white p-5 sm:p-6 flex flex-col gap-3">
-            <h2 className="text-lg font-bold text-gray-900">{t(form.id ? 'Remarcar visita' : 'Marcar visita')}</h2>
+        <AppModal title={t(form.id ? 'Remarcar visita' : 'Marcar visita')} subtitle={clients.find((c) => c.id === form.clientId)?.name}
+          icon={<CalendarioIcon className="h-6 w-6" />} tone="teal" onClose={() => setForm(null)}
+          footer={<>
+            <button type="button" onClick={() => setForm(null)} className={modalButton.ghost}>{t('Fechar')}</button>
+            <button type="submit" form="form-visita" disabled={busy} className={modalButton.primary}>{t(busy ? 'Salvando…' : form.id ? 'Remarcar' : 'Marcar visita')}</button>
+          </>}>
+          <form id="form-visita" onSubmit={submit} className="flex flex-col gap-4">
             {!form.id && (
               <label className="text-sm font-medium text-gray-700">{t('Propriedade')} *
                 <select value={form.clientId} onChange={(e) => setForm({ ...form, clientId: e.target.value })} required className={input}>
@@ -130,12 +136,8 @@ export function Agenda({ clients, onChanged, ref, formOnly = false }: { clients:
             </div>
             <label className="text-sm font-medium text-gray-700">{t('Motivo')}<input value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })} placeholder={t('Diagnóstico de gestação, inseminação, vacinação…')} maxLength={200} className={input} /></label>
             {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setForm(null)} className="flex-1 rounded-lg border border-gray-300 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50">{t('Fechar')}</button>
-              <button type="submit" disabled={busy} className="flex-1 rounded-lg bg-green-700 py-3 text-base font-semibold text-white hover:bg-green-600 disabled:bg-green-400">{t(busy ? 'Salvando…' : form.id ? 'Remarcar' : 'Marcar visita')}</button>
-            </div>
           </form>
-        </div>
+        </AppModal>
       )}
     </section>
   )

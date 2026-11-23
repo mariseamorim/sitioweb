@@ -11,6 +11,8 @@ import { OwnerGroups } from '@/components/OwnerGroups'
 import type { AdminFarmSummary } from '@/lib/ownerGroups'
 import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
 import { useLang, useT } from '@/lib/i18n'
+import { AppModal, modalButton } from '@/components/AppModal'
+import { PropriedadeIcon } from '@/components/ModuleIcons'
 
 interface Farm {
   id: string
@@ -52,6 +54,7 @@ const typeBar: Record<string, string> = {
   Sítio:   'bg-amber-500',
 }
 
+const FIELD = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base font-normal focus:outline-none focus:ring-2 focus:ring-green-600'
 const OFFLINE_ACTION = 'Sem internet. Esta ação precisa de conexão; tente de novo quando o sinal voltar.'
 
 export default function PropriedadesPage() {
@@ -241,27 +244,30 @@ export default function PropriedadesPage() {
         </div>
       )}
 
+      {/* Cadastrar ou editar propriedade: modal padrão (médio) */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div role="dialog" aria-modal="true" aria-labelledby="farm-form-title" className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 id="farm-form-title" className="text-lg font-bold text-gray-800 mb-4">{t(editingId ? 'Editar propriedade' : 'Cadastrar propriedade')}</h2>
-
-              <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <AppModal title={t(editingId ? 'Editar propriedade' : 'Cadastrar propriedade')} subtitle={editingId ? form.name || undefined : undefined}
+          onClose={() => { if (!saving) setShowForm(false) }} icon={<PropriedadeIcon className="h-6 w-6" />} tone="green"
+          footer={<>
+            <button type="button" disabled={saving} onClick={() => setShowForm(false)} className={modalButton.ghost}>{t('Cancelar')}</button>
+            <button type="submit" form="form-propriedade" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando...' : 'Salvar')}</button>
+          </>}>
+              <form id="form-propriedade" onSubmit={handleSubmit} className="flex flex-col gap-4">
 
                 {/* Tipo de propriedade */}
                 <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Tipo de Propriedade')} *</label>
+                  <span className="text-sm font-medium text-gray-700">{t('Tipo de Propriedade')} *</span>
                   <div className="mt-1 flex gap-2">
                     {['Fazenda', 'Sítio'].map((tipo) => (
                       <button
                         key={tipo}
                         type="button"
+                        aria-pressed={form.propertyType === tipo}
                         onClick={() => setForm({ ...form, propertyType: tipo })}
-                        className={`flex-1 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
                           form.propertyType === tipo
                             ? 'bg-green-800 border-green-800 text-white'
-                            : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                         }`}
                       >
                         {t(tipo)}
@@ -271,14 +277,14 @@ export default function PropriedadesPage() {
                 </div>
 
                 <fieldset>
-                  <legend className="text-xs font-medium text-gray-600">{t('O que a propriedade faz? (pode marcar mais de um)')}</legend>
+                  <legend className="text-sm font-medium text-gray-700">{t('O que a propriedade faz? (pode marcar mais de um)')}</legend>
                   <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {FARM_SEGMENTS.map((seg) => {
                       const on = form.segments.includes(seg.key)
                       return (
                         <button key={seg.key} type="button" aria-pressed={on}
                           onClick={() => setForm({ ...form, segments: on ? form.segments.filter((k) => k !== seg.key) : [...form.segments, seg.key] })}
-                          className={`py-2 rounded-lg text-sm font-medium border transition-colors ${on ? 'bg-green-800 border-green-800 text-white' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                          className={`py-2.5 rounded-xl text-sm font-semibold border transition-colors ${on ? 'bg-green-800 border-green-800 text-white' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
                           {t(seg.label)}
                         </button>
                       )
@@ -288,128 +294,101 @@ export default function PropriedadesPage() {
 
                 {form.segments.includes('leite') || !form.segments.length ? (
                   <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Meta de vacas em lactação (opcional)')}</label>
-                    <input inputMode="numeric" value={form.lactatingGoal ?? ''} onChange={(e) => setForm({ ...form, lactatingGoal: e.target.value.replace(/\D/g, '') })} placeholder={t('Ex.: 100')}
-                      className="mt-1 w-40 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                    <label htmlFor="farm-lactating-goal" className="text-sm font-medium text-gray-700">{t('Meta de vacas em lactação (opcional)')}</label>
+                    <input id="farm-lactating-goal" inputMode="numeric" value={form.lactatingGoal ?? ''} onChange={(e) => setForm({ ...form, lactatingGoal: e.target.value.replace(/\D/g, '') })} placeholder={t('Ex.: 100')}
+                      className={`${FIELD} sm:w-48`} />
                     <p className="mt-1 text-xs text-gray-500">{t('O Dashboard mostra quantas vacas estão em lactação e quanto falta para a meta.')}</p>
                   </div>
                 ) : null}
 
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Nome')} *</label>
+                <label className="text-sm font-medium text-gray-700">{t('Nome')} *
                   <input
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     required
                     placeholder={t(form.propertyType === 'Sítio' ? 'Nome do Sítio' : 'Nome da Fazenda')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                    className={FIELD}
                   />
+                </label>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Proprietário')}
+                    <input
+                      value={form.owner}
+                      onChange={(e) => setForm({ ...form, owner: e.target.value })}
+                      placeholder={t('Nome do proprietário')}
+                      className={FIELD}
+                    />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Telefone')}
+                    <input
+                      value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })}
+                      inputMode="tel"
+                      placeholder={es ? '0981 123456' : '(35) 99999-0000'}
+                      className={FIELD}
+                    />
+                  </label>
                 </div>
 
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Proprietário')}</label>
-                  <input
-                    value={form.owner}
-                    onChange={(e) => setForm({ ...form, owner: e.target.value })}
-                    placeholder={t('Nome do proprietário')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Doc. Tipo')}</label>
+                <div className="grid grid-cols-3 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Doc. Tipo')}
                     <select
                       value={form.documentType}
                       onChange={(e) => setForm({ ...form, documentType: e.target.value, documentNumber: maskDocument(form.documentNumber, e.target.value) })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                      className={`${FIELD} bg-white`}
                     >
                       <option value="CNPJ">CNPJ</option>
                       <option value="CPF">CPF</option>
                       <option value="RUC">RUC (Paraguay)</option>
                       <option value="CI">CI (Paraguay)</option>
                     </select>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="text-xs font-medium text-gray-600">{t('Documento')}</label>
+                  </label>
+                  <label className="col-span-2 text-sm font-medium text-gray-700">{t('Documento')}
                     <input
                       value={form.documentNumber}
                       onChange={(e) => setForm({ ...form, documentNumber: maskDocument(e.target.value, form.documentType) })}
                       inputMode="numeric"
                       placeholder={DOCUMENT_PLACEHOLDER[form.documentType] ?? DOCUMENT_PLACEHOLDER.CPF}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                      className={FIELD}
                     />
-                  </div>
+                  </label>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Telefone')}</label>
-                    <input
-                      value={form.phone}
-                      onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })}
-                      inputMode="tel"
-                      placeholder={es ? '0981 123456' : '(35) 99999-0000'}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Endereço')}</label>
+                <label className="text-sm font-medium text-gray-700">{t('Endereço')}
                   <input
                     value={form.address}
                     onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                    placeholder={t('Ex.: Estrada Municipal, km 12')}
+                    className={FIELD}
                   />
-                </div>
+                </label>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Cidade')}</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Cidade')}
                     <input
                       value={form.city}
                       onChange={(e) => setForm({ ...form, city: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                      placeholder={es ? 'Ej.: Coronel Oviedo' : 'Ex.: Varginha'}
+                      className={FIELD}
                     />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Estado')}</label>
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Estado')}
                     <input
                       value={form.state}
                       onChange={(e) => setForm({ ...form, state: e.target.value })}
                       placeholder={es ? 'Central' : 'SP'}
                       maxLength={es ? 40 : 2}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                      className={FIELD}
                     />
-                  </div>
+                  </label>
                 </div>
 
                 {error && (
-                  <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+                  <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
                 )}
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => setShowForm(false)}
-                    className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50"
-                  >
-                    {t('Cancelar')}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg"
-                  >
-                    {t(saving ? 'Salvando...' : 'Salvar')}
-                  </button>
-                </div>
               </form>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
     </div>
     </PermissionGuard>

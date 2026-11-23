@@ -13,7 +13,11 @@ import { useOfflineModule } from '@/lib/useOffline'
 import { loadHerd } from '@/lib/herdCache'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
-import { SemSinalIcon, SincronizarIcon, FecharIcon, ReproducaoIcon } from '@/components/ModuleIcons'
+import { AnimalIcon, CalendarioRelogioIcon, CheckIcon, FecharIcon, PastoIcon, ReproducaoIcon, SemSinalIcon, SincronizarIcon, VacinaIcon } from '@/components/ModuleIcons'
+import { AppModal, modalButton } from '@/components/AppModal'
+
+/** Ícone de cada tipo de cobertura nos cartões do modal */
+const METHOD_ICON: Record<string, (p: { className?: string }) => React.ReactElement> = { ia: VacinaIcon, iatf: CalendarioRelogioIcon, natural: PastoIcon, repasse: SincronizarIcon }
 import { HerdCalvingPanel, PregnancyCheckPanel } from '@/components/HerdCalvingPanel'
 import { CATTLE_BREEDS, canBreed } from '@/lib/animalRules'
 import { isInRearing } from '@/lib/rearing'
@@ -46,7 +50,7 @@ interface Reproduction {
 }
 
 const STATUS_LIST = ['Coberta', 'Prenha', 'Parida', 'Vazia', 'Perdida']
-const FIELD = 'mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600'
+const FIELD = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base font-normal focus:outline-none focus:ring-2 focus:ring-green-600'
 // Etiqueta da situação: Prenha verde, Vazia vermelha, Coberta azul, Parida roxa, Perdida laranja (a palavra sempre aparece)
 const STATUS_COLOR: Record<string, string> = {
   Coberta: 'bg-blue-100 text-blue-800',
@@ -349,18 +353,14 @@ export default function ReproducaoPage() {
         </div>
       )}
 
-      {/* Detail modal */}
+      {/* Detalhe da cobertura: modal padrão (médio) */}
       {detail && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">{detail.female.name}</h2>
-                  <p className="text-xs text-gray-500">{t('Cobertura')}: {fmt(detail.coverageDate)}{isPendingId(detail.id) ? ` · ${t('a enviar')}` : ''}</p>
-                </div>
-                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
+        <AppModal title={detail.female.name} subtitle={`${t('Cobertura')}: ${fmt(detail.coverageDate)}${isPendingId(detail.id) ? ` · ${t('a enviar')}` : ''}`}
+          onClose={() => setDetail(null)} icon={<ReproducaoIcon className="h-6 w-6" />} tone="violet"
+          footer={<>
+            <button type="button" onClick={() => handleDelete(detail.id)} className={`${modalButton.ghost} border-red-200 text-red-600 hover:bg-red-50`}>{t('Excluir')}</button>
+            <button type="button" onClick={handleUpdateStatus} className={modalButton.primary}>{t('Salvar')}</button>
+          </>}>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
                 <div><p className="text-xs text-gray-500">{t('Touro')}</p><p className="font-medium text-gray-800">{detail.maleName || '—'}{detail.bullBreed ? ` · ${detail.bullBreed}` : ''}{detail.bullRegistry ? ` · ${detail.bullRegistry}` : ''}</p></div>
@@ -417,112 +417,97 @@ export default function ReproducaoPage() {
                 )}
               </div>
 
-              <div className="flex gap-2">
-                <button onClick={handleUpdateStatus} className="flex-1 bg-green-800 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg">{t('Salvar')}</button>
-                <button onClick={() => handleDelete(detail.id)} className="flex-1 border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium py-2 rounded-lg">{t('Excluir')}</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
-      {/* Register modal */}
+      {/* Registrar cobertura: modal padrão (médio) */}
       {showRegister && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">{t('Registrar cobertura')}</h2>
-                <button onClick={closeRegister} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
+        <AppModal title={t('Registrar cobertura')} subtitle={user?.farmName ?? undefined} onClose={closeRegister}
+          icon={<AnimalIcon className="h-6 w-6" />} tone="green"
+          footer={<>
+            <button type="button" disabled={saving} onClick={() => void handleSave(true)} className={modalButton.secondary}>{t('Salvar e repetir para outra fêmea')}</button>
+            <button type="submit" form="form-cobertura" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando...' : 'Salvar cobertura')}</button>
+          </>}
+          note={t('Para o dia de inseminação: a data, o tipo, o touro, a partida e o inseminador ficam preenchidos e só a fêmea muda.')}>
+          {repeated && (
+            <p role="status" className="mb-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
+              <strong>{t(repeated.count === 1 ? '{n} cobertura salva.' : '{n} coberturas salvas.', { n: repeated.count })}</strong> {t('Mantido para a próxima fêmea:')} {repeated.kept.map(k => k.replace(/^(touro|partida|inseminador) /, (w) => `${t(w.trim())} `)).map(k => t(k)).join(', ')}.
+            </p>
+          )}
+          <form id="form-cobertura" onSubmit={e => { e.preventDefault(); void handleSave(false) }} className="flex flex-col gap-4">
+            <AnimalPicker animals={females} value={form.femaleId} onChange={id => setForm({ ...form, femaleId: id })} label={t('Fêmea')} />
+            <fieldset>
+              <legend className="mb-2 text-base font-semibold text-gray-900">{t('Como foi')}</legend>
+              {/* Cartões selecionáveis: o escolhido fica com borda e fundo verdes e a marca no canto */}
+              <div className="grid grid-cols-2 gap-3">
+                {COVERAGE_METHODS.map(m => {
+                  const on = form.method === m.key
+                  const Icon = METHOD_ICON[m.key]
+                  return (
+                    <button key={m.key} type="button" aria-pressed={on} onClick={() => setForm({ ...form, method: on ? '' : m.key })}
+                      className={`relative flex flex-col items-center gap-1 rounded-2xl border-2 px-3 py-4 text-center transition-colors ${on ? 'border-green-600 bg-green-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                      <span aria-hidden="true" className={`absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full border-2 ${on ? 'border-green-600 bg-green-600 text-white' : 'border-gray-300'}`}>{on && <CheckIcon className="h-3.5 w-3.5" />}</span>
+                      <Icon className={`h-8 w-8 ${on ? 'text-green-700' : 'text-gray-500'}`} />
+                      <span className={`text-sm font-semibold ${on ? 'text-green-900' : 'text-gray-800'}`}>{t(m.label)}</span>
+                      <span className="text-xs text-gray-500">({t(m.hint)})</span>
+                    </button>
+                  )
+                })}
               </div>
-              {repeated && (
-                <p role="status" className="mb-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
-                  <strong>{t(repeated.count === 1 ? '{n} cobertura salva.' : '{n} coberturas salvas.', { n: repeated.count })}</strong> {t('Mantido para a próxima fêmea:')} {repeated.kept.map(k => k.replace(/^(touro|partida|inseminador) /, (w) => `${t(w.trim())} `)).map(k => t(k)).join(', ')}.
-                </p>
-              )}
-              <form onSubmit={e => { e.preventDefault(); void handleSave(false) }} className="flex flex-col gap-3">
-                <AnimalPicker animals={females} value={form.femaleId} onChange={id => setForm({ ...form, femaleId: id })} label={t('Fêmea')} />
-                <fieldset>
-                  <legend className="text-xs font-medium text-gray-600">{t('Como foi')}</legend>
-                  <div className="mt-1 grid grid-cols-2 gap-2">
-                    {COVERAGE_METHODS.map(m => (
-                      <button key={m.key} type="button" aria-pressed={form.method === m.key} onClick={() => setForm({ ...form, method: form.method === m.key ? '' : m.key })}
-                        className={`rounded-xl border-2 px-2 py-2 text-left ${form.method === m.key ? 'border-green-700 bg-green-50' : 'border-gray-200'}`}>
-                        <span className={`block text-sm font-semibold ${form.method === m.key ? 'text-green-800' : 'text-gray-700'}`}>{t(m.label)}</span>
-                        <span className="block text-xs text-gray-500">{t(m.hint)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Touro')}</label>
-                    <input type="text" value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} placeholder={t('Nome ou código do touro')}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Raça do touro')}</label>
-                    <input type="text" list="racas-touro" value={form.bullBreed} onChange={e => setForm({ ...form, bullBreed: e.target.value })} placeholder={t('Ex.: Gir, Holandesa')}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                    <datalist id="racas-touro">{CATTLE_BREEDS.map((b) => <option key={b} value={b} />)}</datalist>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Data Cobertura')} *</label>
-                    <input type="date" value={form.coverageDate} onChange={e => setForm({ ...form, coverageDate: e.target.value })} required max={todayISO()}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                    {form.status === 'Prenha' && !form.coverageDate && (
-                      <p className="mt-1 text-xs text-amber-800">{t('Se não souber o dia certo, coloque uma data aproximada: ela define a previsão do parto.')}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Status')}</label>
-                    <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
-                      {STATUS_LIST.map(s => <option key={s} value={s}>{t(s)}</option>)}
-                    </select>
-                  </div>
-                </div>
-                {/* Detalhes recolhidos: o registro rápido é fêmea, como foi, touro e data */}
-                <details className="rounded-lg border border-gray-200 px-3 py-2" open={!!(form.semenBatch || form.inseminator || form.bullRegistry || form.heatDate)}>
-                  <summary className="cursor-pointer text-sm font-medium text-gray-700">{t('Mais detalhes (opcional)')}</summary>
-                  <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {isInsemination(form.method) && (
-                      <>
-                        <label className="text-xs font-medium text-gray-600">{t('Partida do sêmen')}
-                          <input value={form.semenBatch} onChange={e => setForm({ ...form, semenBatch: e.target.value })} placeholder="Ex.: 2412-A" className={FIELD} />
-                        </label>
-                        <label className="text-xs font-medium text-gray-600">{t('Inseminador')}
-                          <input value={form.inseminator} onChange={e => setForm({ ...form, inseminator: e.target.value })} placeholder={t('Quem inseminou')} className={FIELD} />
-                        </label>
-                      </>
-                    )}
-                    <label className="text-xs font-medium text-gray-600">{t('Registro do touro')}
-                      <input value={form.bullRegistry} onChange={e => setForm({ ...form, bullRegistry: e.target.value })} placeholder="Ex.: RGD 12345" className={FIELD} />
-                    </label>
-                    <label className="text-xs font-medium text-gray-600">{t('Data do cio')}
-                      <input type="date" max={todayISO()} value={form.heatDate} onChange={e => setForm({ ...form, heatDate: e.target.value })} className={FIELD} />
-                    </label>
-                    <label className="text-xs font-medium text-gray-600 sm:col-span-2">{t('Observações')}
-                      <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2} className={`${FIELD} resize-none`} />
-                    </label>
-                  </div>
-                </details>
-                {error && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{t(error)}</p>}
-                <div className="flex flex-col gap-2 pt-1 sm:flex-row">
-                  <button type="button" onClick={closeRegister} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-lg hover:bg-gray-50">{t(repeated ? 'Fechar' : 'Cancelar')}</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2.5 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
-                </div>
-                <button type="button" disabled={saving} onClick={() => void handleSave(true)}
-                  className="rounded-lg border-2 border-green-700 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-50 disabled:opacity-50">
-                  {t('Salvar e repetir para outra fêmea')}
-                </button>
-                <p className="text-xs text-gray-500">{t('Para o dia de inseminação: a data, o tipo, o touro, a partida e o inseminador ficam preenchidos e só a fêmea muda.')}</p>
-              </form>
+            </fieldset>
+            <div>
+              <h3 className="mb-2 text-base font-semibold text-gray-900">{t('Dados do touro')}</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-sm font-medium text-gray-700">{t('Touro')}
+                  <input type="text" value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} placeholder={t('Nome ou código do touro')} className={FIELD} />
+                </label>
+                <label className="text-sm font-medium text-gray-700">{t('Raça do touro')}
+                  <input type="text" list="racas-touro" value={form.bullBreed} onChange={e => setForm({ ...form, bullBreed: e.target.value })} placeholder={t('Ex.: Gir, Holandesa')} className={FIELD} />
+                  <datalist id="racas-touro">{CATTLE_BREEDS.map((b) => <option key={b} value={b} />)}</datalist>
+                </label>
+              </div>
             </div>
-          </div>
-        </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-sm font-medium text-gray-700">{t('Data Cobertura')} *
+                <input type="date" value={form.coverageDate} onChange={e => setForm({ ...form, coverageDate: e.target.value })} required max={todayISO()} className={FIELD} />
+                {form.status === 'Prenha' && !form.coverageDate && (
+                  <span className="mt-1 block text-xs text-amber-800">{t('Se não souber o dia certo, coloque uma data aproximada: ela define a previsão do parto.')}</span>
+                )}
+              </label>
+              <label className="text-sm font-medium text-gray-700">{t('Status')}
+                <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} className={`${FIELD} bg-white`}>
+                  {STATUS_LIST.map(s => <option key={s} value={s}>{t(s)}</option>)}
+                </select>
+              </label>
+            </div>
+            {/* Detalhes recolhidos: o registro rápido é fêmea, como foi, touro e data */}
+            <details className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3" open={!!(form.semenBatch || form.inseminator || form.bullRegistry || form.heatDate)}>
+              <summary className="cursor-pointer text-sm font-semibold text-gray-700">{t('Mais detalhes (opcional)')}</summary>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {isInsemination(form.method) && (
+                  <>
+                    <label className="text-sm font-medium text-gray-700">{t('Partida do sêmen')}
+                      <input value={form.semenBatch} onChange={e => setForm({ ...form, semenBatch: e.target.value })} placeholder="Ex.: 2412-A" className={`${FIELD} bg-white`} />
+                    </label>
+                    <label className="text-sm font-medium text-gray-700">{t('Inseminador')}
+                      <input value={form.inseminator} onChange={e => setForm({ ...form, inseminator: e.target.value })} placeholder={t('Quem inseminou')} className={`${FIELD} bg-white`} />
+                    </label>
+                  </>
+                )}
+                <label className="text-sm font-medium text-gray-700">{t('Registro do touro')}
+                  <input value={form.bullRegistry} onChange={e => setForm({ ...form, bullRegistry: e.target.value })} placeholder="Ex.: RGD 12345" className={`${FIELD} bg-white`} />
+                </label>
+                <label className="text-sm font-medium text-gray-700">{t('Data do cio')}
+                  <input type="date" max={todayISO()} value={form.heatDate} onChange={e => setForm({ ...form, heatDate: e.target.value })} className={`${FIELD} bg-white`} />
+                </label>
+                <label className="text-sm font-medium text-gray-700 sm:col-span-2">{t('Observações')}
+                  <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2} placeholder={t('Ex.: cio forte, repetir em 21 dias')} className={`${FIELD} resize-none bg-white`} />
+                </label>
+              </div>
+            </details>
+            {error && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{t(error)}</p>}
+          </form>
+        </AppModal>
       )}
     </PermissionGuard>
   )

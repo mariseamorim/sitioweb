@@ -13,7 +13,8 @@ import { canEnterRearing, isInRearing } from '@/lib/rearing'
 import { syncRearing } from '@/lib/rearingQueue'
 import Link from 'next/link'
 import { useDialog } from '@/components/DialogProvider'
-import { SemSinalIcon, SincronizarIcon, AnimalIcon, FecharIcon } from '@/components/ModuleIcons'
+import { SemSinalIcon, SincronizarIcon, AnimalIcon } from '@/components/ModuleIcons'
+import { AppModal, modalButton } from '@/components/AppModal'
 import { CalfSection } from '@/components/CalfSection'
 import { CALF_AT_FOOT_DAYS, animalCategory, animalRuleError, animalToday, CATTLE_BREEDS, canAddCalf, fixedAnimalGender, isBovine } from '@/lib/animalRules'
 import { animalCodes, animalSearchText } from '@/lib/animalCode'
@@ -22,6 +23,8 @@ import { SortTh } from '@/components/SortTh'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 import { useLocale, useT } from '@/lib/i18n'
 import { StatTile } from '@/components/StatTile'
+
+const FIELD = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 
 interface Animal {
   id: string
@@ -521,41 +524,32 @@ export default function AnimaisPage() {
       )}
 
       {selectedAnimal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-3 sm:p-6">
-              <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
-                <div className="flex items-start gap-3">
-                  {selectedAnimal.imageUrl ? (
-                    <img
-                      src={selectedAnimal.imageUrl}
-                      alt={selectedAnimal.name}
-                      title={t('Ampliar foto')}
-                      onClick={() => setExpandedImage({ src: selectedAnimal.imageUrl!, alt: selectedAnimal.name })}
-                      className="w-12 sm:w-16 h-12 sm:h-16 rounded-xl object-cover flex-shrink-0 cursor-zoom-in"
-                    />
-                  ) : (
-                    <div className="w-12 sm:w-16 h-12 sm:h-16 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 flex-shrink-0"><AnimalIcon className="w-7 h-7 sm:w-8 sm:h-8" /></div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-xs text-gray-500">{t('Código')}</p>
-                    <p className="text-base sm:text-lg font-semibold text-gray-800 break-words">{selectedAnimal.code}</p>
-                    {selectedAnimal.customCode && <p className="text-xs sm:text-sm text-gray-600 break-words">{t('Outro código:')} <strong>{selectedAnimal.customCode}</strong></p>}
-                    <p className="text-xs sm:text-sm text-gray-500 truncate">{t(selectedAnimal.species)}{selectedAnimal.breed ? ` · ${selectedAnimal.breed}` : ''}</p>
-                  </div>
+        <AppModal title={selectedAnimal.name} size="lg" tone="green" icon={<AnimalIcon className="h-6 w-6" />}
+          subtitle={[selectedAnimal.code, t(selectedAnimal.species), selectedAnimal.breed, user?.farmName].filter(Boolean).join(' · ')}
+          onClose={closeDetails}
+          footer={<>
+            <button type="button" onClick={() => { closeDetails(); handleDelete(selectedAnimal.id) }} disabled={!canEdit} className={modalButton.danger}>{t('Excluir')}</button>
+            <button type="button" onClick={() => { closeDetails(); openEdit(selectedAnimal) }} disabled={!canEdit} className={modalButton.primary}>{t('Editar')}</button>
+          </>}>
+              <div className="flex items-start gap-3">
+                {selectedAnimal.imageUrl ? (
+                  <img
+                    src={selectedAnimal.imageUrl}
+                    alt={selectedAnimal.name}
+                    title={t('Ampliar foto')}
+                    onClick={() => setExpandedImage({ src: selectedAnimal.imageUrl!, alt: selectedAnimal.name })}
+                    className="w-12 sm:w-16 h-12 sm:h-16 rounded-xl object-cover flex-shrink-0 cursor-zoom-in"
+                  />
+                ) : (
+                  <div className="w-12 sm:w-16 h-12 sm:h-16 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 flex-shrink-0"><AnimalIcon className="w-7 h-7 sm:w-8 sm:h-8" /></div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-500">{t('Código')}</p>
+                  <p className="text-base sm:text-lg font-semibold text-gray-800 break-words">{selectedAnimal.code}</p>
+                  {selectedAnimal.customCode && <p className="text-xs sm:text-sm text-gray-600 break-words">{t('Outro código:')} <strong>{selectedAnimal.customCode}</strong></p>}
+                  <p className="text-xs sm:text-sm text-gray-500 truncate">{t(selectedAnimal.species)}{selectedAnimal.breed ? ` · ${selectedAnimal.breed}` : ''}</p>
                 </div>
-                <button
-                  onClick={closeDetails}
-                  className="text-gray-500 hover:text-gray-700 p-1 flex-shrink-0"
-                  aria-label={t('Fechar')}
-                >
-                  <FecharIcon />
-                </button>
               </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-4 sm:mt-6 text-sm">
                 <div className="min-w-0">
                   <p className="text-xs text-gray-500">{t('Nome')}</p>
@@ -623,98 +617,61 @@ export default function AnimaisPage() {
                   onChanged={() => { setPendingCount(getPendingRecords('animais').length); fetchAnimals(farmId) }} />
               )}
 
-              <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-6">
-                <button
-                  onClick={() => { closeDetails(); openEdit(selectedAnimal) }}
-                  disabled={!canEdit}
-                  className={`inline-flex items-center justify-center text-white text-sm font-medium px-3 py-2 rounded-lg flex-1 sm:flex-none ${
-                    canEdit
-                      ? 'bg-green-800 hover:bg-green-700'
-                      : 'bg-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  <span className="sr-only">{t('Editar')}</span>
-                  <svg aria-hidden="true" viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => { closeDetails(); handleDelete(selectedAnimal.id) }}
-                  disabled={!canEdit}
-                  className={`inline-flex items-center justify-center text-sm font-medium px-3 py-2 rounded-lg flex-1 sm:flex-none ${
-                    canEdit 
-                      ? 'border border-gray-200 text-gray-700 hover:bg-gray-50'
-                      : 'border border-gray-200 text-gray-300 cursor-not-allowed'
-                  }`}
-                >
-                  <span className="sr-only">{t('Excluir')}</span>
-                  <svg aria-hidden="true" viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 6h18" />
-                    <path d="M8 6V4h8v2" />
-                    <path d="M19 6l-1 14H6L5 6" />
-                    <path d="M10 11v6" />
-                    <path d="M14 11v6" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-4">
-                {t(editing ? 'Editar Animal' : 'Novo Animal')}
-              </h2>
-
-              <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <AppModal title={t(editing ? 'Editar Animal' : 'Novo Animal')} subtitle={editing ? [form.name, form.code].filter(Boolean).join(' · ') : (user?.farmName ?? undefined)}
+          icon={<AnimalIcon className="h-6 w-6" />} tone="green" onClose={() => setShowForm(false)}
+          footer={<>
+            <button type="button" onClick={() => setShowForm(false)} className={modalButton.ghost}>{t('Cancelar')}</button>
+            <button type="submit" form="form-animal" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando...' : 'Salvar')}</button>
+          </>}>
+              <form id="form-animal" onSubmit={handleSubmit} className="flex flex-col gap-4">
                 {/* Foto */}
                 <ImagePicker
                   value={form.imageUrl}
                   onChange={(base64) => setForm({ ...form, imageUrl: base64 })}
                 />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Código')} *</label>
+                    <label className="text-sm font-medium text-gray-700">{t('Código')} *</label>
                     <input
                       value={form.code}
                       onChange={(e) => setForm({ ...form, code: e.target.value })}
                       required
                       disabled={!editing}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                      className={`${FIELD} disabled:bg-gray-50 disabled:text-gray-500`}
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Nome')} *</label>
+                    <label className="text-sm font-medium text-gray-700">{t('Nome')} *</label>
                     <input
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
                       required
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                      placeholder={t('Ex.: Mimosa')}
+                      className={FIELD}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Outro código')} <span className="font-normal text-gray-400">{t('(opcional: brinco, SISBOV ou o número que você já usa)')}</span>
+                  <label className="text-sm font-medium text-gray-700">{t('Outro código')} <span className="font-normal text-gray-400">{t('(opcional: brinco, SISBOV ou o número que você já usa)')}</span>
                     <input
                       value={form.customCode}
                       onChange={(e) => setForm({ ...form, customCode: e.target.value })}
                       maxLength={40}
                       placeholder={t('Ex.: 4471')}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                      className={FIELD}
                     />
                   </label>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Espécie')} *</label>
+                    <label className="text-sm font-medium text-gray-700">{t('Espécie')} *</label>
                     <select
                       value={form.species}
                       onChange={(e) => {
@@ -722,19 +679,19 @@ export default function AnimaisPage() {
                         const gender = fixedAnimalGender(species) ?? form.gender
                         setForm({ ...form, species, gender, isCastrated: species === 'Boi de engorda' })
                       }}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                      className={FIELD}
                     >
                       {ESPECIE_GRUPOS.map((g) => <optgroup key={g.label} label={t(g.label)}>{g.species.map((s) => <option key={s} value={s}>{t(s)}</option>)}</optgroup>)}
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="animal-gender" className="text-xs font-medium text-gray-600">{t('Sexo')} *</label>
+                    <label htmlFor="animal-gender" className="text-sm font-medium text-gray-700">{t('Sexo')} *</label>
                     <select
                       id="animal-gender"
                       value={form.gender}
                       disabled={fixedAnimalGender(form.species) !== null}
                       onChange={(e) => setForm({ ...form, gender: e.target.value, isCastrated: e.target.value === 'Macho' && form.isCastrated })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 disabled:bg-gray-50 disabled:text-gray-500"
+                      className={`${FIELD} bg-white disabled:bg-gray-50 disabled:text-gray-500`}
                     >
                       <option value="Fêmea">{t('Fêmea')}</option>
                       <option value="Macho">{t('Macho')}</option>
@@ -743,24 +700,24 @@ export default function AnimaisPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Data de Nascimento')} *</label>
+                    <label className="text-sm font-medium text-gray-700">{t('Data de Nascimento')} *</label>
                     <input
                       type="date"
                       max={animalToday()}
                       value={form.birthDate}
                       onChange={(e) => setForm({ ...form, birthDate: e.target.value })}
                       required
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                      className={FIELD}
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Status')} *</label>
+                    <label className="text-sm font-medium text-gray-700">{t('Status')} *</label>
                     <select
                       value={form.status}
                       onChange={(e) => setForm({ ...form, status: e.target.value as StatusAnimal })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                      className={FIELD}
                     >
                       {STATUS_LIST.map((s) => <option key={s} value={s}>{t(s)}</option>)}
                     </select>
@@ -770,9 +727,9 @@ export default function AnimaisPage() {
                 {/* Raça: só para bovinos; sugestões, mas aceita qualquer raça digitada */}
                 {isBovine(form.species) && (
                   <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Raça')}
+                    <label className="text-sm font-medium text-gray-700">{t('Raça')}
                       <input list="racas-bovinas" value={form.breed} maxLength={40} onChange={(e) => setForm({ ...form, breed: e.target.value })} placeholder={t('Ex.: Nelore, Girolando, Holandesa')}
-                        className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                        className={FIELD} />
                     </label>
                     <datalist id="racas-bovinas">{CATTLE_BREEDS.map((b) => <option key={b} value={b} />)}</datalist>
                   </div>
@@ -781,18 +738,18 @@ export default function AnimaisPage() {
                   <p>{t('Classificação por idade e sexo:')} <strong>{form.birthDate ? t(animalCategory(form)) : t('Informe a data de nascimento')}</strong></p>
                   {form.gender === 'Macho' && <label className="mt-2 flex items-center gap-2"><input type="checkbox" checked={form.isCastrated} onChange={e => setForm({ ...form, isCastrated: e.target.checked })} />{t('Animal castrado')}</label>}
                 </div>}
-                <label className="text-xs font-medium text-gray-600">{t('Origem do animal')}
-                  <select value={form.acquisitionType} onChange={e => setForm({ ...form, acquisitionType: e.target.value })} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm">
+                <label className="text-sm font-medium text-gray-700">{t('Origem do animal')}
+                  <select value={form.acquisitionType} onChange={e => setForm({ ...form, acquisitionType: e.target.value })} className={`${FIELD} bg-white`}>
                     <option value="nascimento">{t('Nascimento na propriedade')}</option><option value="compra">{t('Compra')}</option><option value="existente">{t('Já estava no rebanho')}</option>
                   </select>
                 </label>
                 {form.acquisitionType === 'compra' && form.gender === 'Fêmea' && isBovine(form.species) && <p className="text-xs text-amber-800">{t('Uma vaca comprada deve ter pelo menos 3 anos. Fêmeas jovens são cadastradas como bezerras.')}</p>}
                 <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Mãe')} <span className="font-normal text-gray-400">{t('(se for cria de uma vaca do rebanho)')}</span>
+                  <label className="text-sm font-medium text-gray-700">{t('Mãe')} <span className="font-normal text-gray-400">{t('(se for cria de uma vaca do rebanho)')}</span>
                     <select
                       value={form.motherId}
                       onChange={(e) => setForm({ ...form, motherId: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                      className={FIELD}
                     >
                       <option value="">{t('Sem mãe no rebanho')}</option>
                       {motherOptions.map((m) => <option key={m.id} value={m.id}>{m.name}{m.code ? ` (${m.code})` : ''}</option>)}
@@ -801,21 +758,23 @@ export default function AnimaisPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-gray-600">{t('GTA (Guia de Trânsito Animal)')}</label>
+                  <label className="text-sm font-medium text-gray-700">{t('GTA (Guia de Trânsito Animal)')}</label>
                   <input
                     value={form.gta}
                     onChange={(e) => setForm({ ...form, gta: e.target.value })}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+                    placeholder={t('Ex.: número da guia, se tiver')}
+                    className={FIELD}
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Observações')}</label>
+                  <label className="text-sm font-medium text-gray-700">{t('Observações')}</label>
                   <textarea
                     value={form.observations}
                     onChange={(e) => setForm({ ...form, observations: e.target.value })}
                     rows={2}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none"
+                    placeholder={t('Ex.: mansa, boa de leite')}
+                    className={`${FIELD} resize-none`}
                   />
                 </div>
 
@@ -823,26 +782,8 @@ export default function AnimaisPage() {
                   <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
                 )}
 
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
-                    className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50"
-                  >
-                    {t('Cancelar')}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-semibold py-2 rounded-lg"
-                  >
-                    {t(saving ? 'Salvando...' : 'Salvar')}
-                  </button>
-                </div>
               </form>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
     </div>
     </PermissionGuard>

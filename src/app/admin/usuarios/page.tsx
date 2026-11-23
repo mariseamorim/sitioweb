@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useUser } from '@/contexts/UserContext'
-import { CadeadoIcon, FecharIcon } from '@/components/ModuleIcons'
+import { CadeadoIcon, UsuariosIcon } from '@/components/ModuleIcons'
+import { AppModal, modalButton } from '@/components/AppModal'
 import { contactLabel } from '@/lib/identity'
 import { maskPhone } from '@/lib/masks'
 import { ROLE_LABELS, roleLabel } from '@/lib/roles'
@@ -27,7 +28,7 @@ const ROLE_STYLE: Record<string, string> = {
   onboarding: 'bg-red-100 text-red-800',
 }
 
-const input = 'mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600'
+const input = 'mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 
 const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
@@ -185,28 +186,28 @@ export default function AdminUsuariosPage() {
       )}
 
       {editing && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => !saving && setEditing(null)}>
-          <div role="dialog" aria-modal="true" aria-labelledby="editar-conta" className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-1">
-                <h2 id="editar-conta" className="text-lg font-bold text-gray-800">Editar conta</h2>
-                <button type="button" onClick={() => setEditing(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
-              </div>
-              <p className="mb-4 text-sm text-gray-500">{roleLabel(editing.role)}{editing.place ? ` · ${editing.place}` : ''}</p>
-              <form onSubmit={save} className="flex flex-col gap-3">
-                <fieldset disabled={saving} className="flex flex-col gap-3 disabled:opacity-70">
-                  <label className="text-xs font-medium text-gray-600">Nome *
-                    <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={input} />
+        <AppModal title="Editar conta" labelledBy="editar-conta" subtitle={`${roleLabel(editing.role)}${editing.place ? ` · ${editing.place}` : ''}`}
+          icon={<UsuariosIcon className="h-6 w-6" />} tone="violet" onClose={() => { if (!saving) setEditing(null) }}
+          footer={<>
+            <button type="button" onClick={() => setEditing(null)} className={modalButton.ghost}>Cancelar</button>
+            <button type="submit" form="form-editar-conta" disabled={saving} className={modalButton.primary}>{saving ? 'Salvando...' : 'Salvar'}</button>
+          </>}>
+              <form id="form-editar-conta" onSubmit={save} className="flex flex-col gap-4">
+                <fieldset disabled={saving} className="flex flex-col gap-4 disabled:opacity-70">
+                  <label className="text-sm font-medium text-gray-700">Nome *
+                    <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="Ex.: Maria Souza" className={input} />
                   </label>
-                  <label className="text-xs font-medium text-gray-600">Telefone
-                    <input type="tel" inputMode="tel" placeholder="(35) 99999-0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })} className={input} />
-                  </label>
-                  <label className="text-xs font-medium text-gray-600">E-mail
-                    <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={input} />
-                  </label>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="text-sm font-medium text-gray-700">Telefone
+                      <input type="tel" inputMode="tel" placeholder="(35) 99999-0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })} className={input} />
+                    </label>
+                    <label className="text-sm font-medium text-gray-700">E-mail
+                      <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Ex.: maria@email.com" className={input} />
+                    </label>
+                  </div>
                   <p className="-mt-1 text-xs text-gray-500">A pessoa entra com o telefone ou com o e-mail. Pelo menos um precisa ficar.</p>
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <label className="text-xs font-medium text-gray-700">Nova senha <span className="font-normal text-gray-500">(deixe vazio para manter a atual)</span>
+                    <label className="text-sm font-medium text-gray-700">Nova senha <span className="font-normal text-gray-500">(deixe vazio para manter a atual)</span>
                       <input type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={input} />
                     </label>
                     <div className="mt-2 flex flex-wrap gap-3">
@@ -217,14 +218,8 @@ export default function AdminUsuariosPage() {
                   </div>
                 </fieldset>
                 {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setEditing(null)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
-                </div>
               </form>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
     </div>
   )

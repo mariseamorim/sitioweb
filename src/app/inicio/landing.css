@@ -92,6 +92,17 @@
 
 /* Primeira anota??o sem cadastro. */
 .demo-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}.demo-summary{margin-top:24px;padding:20px;border-radius:12px;background:#e8eddf;line-height:1.6}.demo-grid .section-description{max-width:520px}.demo-grid input:focus-visible{outline-color:#35634a}@media(max-width:767px){.demo-grid{grid-template-columns:minmax(0,1fr);gap:28px}}
+/* Rodapé alinhado: logo e frase à esquerda, links lado a lado à direita; embaixo, © e e-mail separados por uma linha */
+.landing-footer{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:20px 40px;padding-block:36px 24px}
+.landing-footer .footer-brand{display:flex;flex-direction:column;align-items:flex-start;gap:8px;text-align:left}
+.landing-footer .footer-brand p{color:#6d7b72;font-size:14px}
+.landing-footer .footer-brand .landing-brand{min-height:0;line-height:0}
+.landing-footer .footer-links{justify-self:end;display:flex;flex-wrap:wrap;gap:8px 28px;font-size:14px;font-weight:500}
+.landing-footer .footer-links a{min-height:44px;display:flex;align-items:center}
+.landing-footer .footer-links a:hover,.landing-footer .footer-bottom a:hover{color:var(--forest);text-decoration:underline}
+.landing-footer .footer-bottom{grid-column:1/-1;display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 24px;border-top:1px solid #dce1d4;padding-top:16px;font-size:13px;color:#6d7b72;text-align:left}
+.landing-footer .footer-bottom a{min-height:44px;font-size:14px}
+@media(max-width:767px){.landing-footer{grid-template-columns:minmax(0,1fr);gap:16px}.landing-footer .footer-links{justify-self:start;display:grid;grid-template-columns:repeat(2,max-content);gap:0 28px}.landing-footer .footer-bottom{flex-direction:column;align-items:flex-start}}
 /* Recursos em cartões separados, cada um com o quadrado do ícone na cor do módulo */
 .feature-grid{gap:16px;background:transparent;border:0;overflow:visible}
 .feature-card{border:1px solid #dce1d4;border-radius:18px;background:#fff;box-shadow:0 1px 2px #0000000d;transition:transform .2s,box-shadow .2s}
