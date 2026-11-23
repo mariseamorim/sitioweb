@@ -22,6 +22,9 @@ const TONE: Record<ModalTone, string> = {
   violet: 'bg-violet-50 text-violet-700 ring-violet-100',
   gray: 'bg-gray-100 text-gray-700 ring-gray-200',
 }
+// Modais abertos, do de baixo para o de cima: o Esc fecha só o de cima, e o aberto por último fica na frente
+const openStack: string[] = []
+
 const SIZE: Record<ModalSize, string> = { sm: 'sm:max-w-[400px]', md: 'sm:max-w-[560px]', lg: 'sm:max-w-[800px]' }
 
 /** Classes dos botões do rodapé, para todos os modais ficarem iguais */
@@ -53,17 +56,32 @@ export function AppModal({ title, subtitle, icon, tone = 'green', size = 'md', o
   const id = useId()
   const titleId = labelledBy ?? `${id}-title`
   const box = useRef<HTMLDivElement>(null)
+  const closeRef = useRef(onClose)
+  useEffect(() => { closeRef.current = onClose })
+  // Camada do modal: o z-index sobe com a posição na pilha (acima dos que já estavam abertos)
+  const overlay = useRef<HTMLDivElement>(null)
 
-  // Esc fecha; o foco entra no modal ao abrir
+  // Entra na pilha ao abrir; o foco vai para o primeiro campo
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    openStack.push(id)
+    if (overlay.current) overlay.current.style.zIndex = String(50 + openStack.length)
+    box.current?.querySelector<HTMLElement>('[autofocus], input, select, textarea, button:not([aria-label])')?.focus()
+    return () => { const i = openStack.lastIndexOf(id); if (i >= 0) openStack.splice(i, 1) }
+  }, [id])
+
+  // Esc fecha só o modal de cima
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || openStack[openStack.length - 1] !== id) return
+      e.stopImmediatePropagation()
+      closeRef.current()
+    }
     window.addEventListener('keydown', onKey)
-    if (!box.current?.contains(document.activeElement)) box.current?.querySelector<HTMLElement>('[autofocus], input, select, textarea, button:not([aria-label])')?.focus()
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [id])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-[4px] sm:items-center sm:p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+    <div ref={overlay} className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-[4px] sm:items-center sm:p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div ref={box} role={role} aria-modal="true" aria-labelledby={titleId}
         className={`flex max-h-[94vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[90vh] sm:rounded-2xl ${SIZE[size]}`}>
         <header className="flex items-start gap-3 px-5 pb-3 pt-5 sm:px-6">

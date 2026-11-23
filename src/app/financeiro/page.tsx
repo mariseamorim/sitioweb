@@ -11,9 +11,10 @@ import { useDialog } from '@/components/DialogProvider'
 import { currentMonthRange, inDayRange, todayISO } from '@/lib/utils'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
-import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
+import { SemSinalIcon, SincronizarIcon, FecharIcon, FinanceiroIcon } from '@/components/ModuleIcons'
 import { useLocale, useT } from '@/lib/i18n'
 import { StatTile } from '@/components/StatTile'
+import { AppModal, modalButton } from '@/components/AppModal'
 import { MilkResultPanel, SpendingAlerts, useMilkResult } from '@/components/MilkResult'
 
 interface Animal { id: string; name: string; code: string }
@@ -49,6 +50,7 @@ const OTHER_COLOR = { badge: 'bg-gray-100 text-gray-800', bar: 'bg-gradient-to-r
 const categoryColor = (c: string) => CATEGORY_COLOR[c] ?? OTHER_COLOR
 
 const MODULE = 'financeiro'
+const FIELD = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base font-normal focus:outline-none focus:ring-2 focus:ring-green-600'
 const EMPTY_FORM = { type: 'Receita', category: 'Venda de Leite', date: todayISO(), amount: '', description: '', animalId: '', lotId: '', paid: false, toStock: false, supplyId: '', stockQty: '' }
 
 /** Lançamento guardado sem internet, como aparece na lista e nos totais. Registros antigos da fila têm os campos soltos, sem _body. */
@@ -368,50 +370,43 @@ export default function FinanceiroPage() {
         </div>
       )}
 
-      {/* Register modal */}
+      {/* Anotar entrada ou saída: modal padrão (médio) */}
       {showRegister && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">{t('Anotar entrada ou saída')}</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-              <form onSubmit={handleSave} className="flex flex-col gap-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Tipo')} *</label>
+        <AppModal title={t('Anotar entrada ou saída')} subtitle={user?.farmName ?? undefined} onClose={() => setShowRegister(false)}
+          icon={<FinanceiroIcon className="h-6 w-6" />} tone="blue"
+          footer={<>
+            <button type="button" onClick={() => setShowRegister(false)} className={modalButton.ghost}>{t('Cancelar')}</button>
+            <button type="submit" form="form-financeiro" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando...' : 'Salvar')}</button>
+          </>}>
+              <form id="form-financeiro" onSubmit={handleSave} className="flex flex-col gap-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Tipo')} *
                     <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value, category: e.target.value === 'Receita' ? 'Venda de Leite' : 'Medicamentos', animalId: '' })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
+                      className={`${FIELD} bg-white`}>
                       <option value="Receita">{t('Receita')}</option>
                       <option value="Despesa">{t('Despesa')}</option>
                     </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Categoria')} *</label>
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Categoria')} *
                     <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value, animalId: '' })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
+                      className={`${FIELD} bg-white`}>
                       {cats.map(c => <option key={c} value={c}>{t(c)}</option>)}
                     </select>
-                  </div>
+                  </label>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Data')} *</label>
-                    <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Valor (R$)')} *</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Data')} *
+                    <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required className={FIELD} />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Valor (R$)')} *
                     <input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} step="0.01" min="0" required
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
+                      placeholder={t('Ex.: 450,00')} className={FIELD} />
+                  </label>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Descrição')}</label>
+                <label className="text-sm font-medium text-gray-700">{t('Descrição')}
                   <input type="text" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                </div>
+                    placeholder={t('Ex.: leite da quinzena, sal mineral')} className={FIELD} />
+                </label>
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
                   <input type="checkbox" checked={form.paid} onChange={e => setForm({ ...form, paid: e.target.checked })} className="h-5 w-5 accent-green-700" />
                   {t(form.type === 'Receita' ? 'Já recebido' : 'Já pago')}
@@ -423,49 +418,43 @@ export default function FinanceiroPage() {
                       {t('Dar entrada no estoque')}
                     </label>
                     {form.toStock && (
-                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <label className="text-xs font-medium text-gray-600">{t('Item do estoque')} *
-                          <select value={form.supplyId} onChange={e => setForm({ ...form, supplyId: e.target.value })} className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm">
+                      <div className="mt-3 grid grid-cols-2 gap-3">
+                        <label className="text-sm font-medium text-gray-700">{t('Item do estoque')} *
+                          <select value={form.supplyId} onChange={e => setForm({ ...form, supplyId: e.target.value })} className={`${FIELD} bg-white`}>
                             <option value="">{stockItems === null ? t('Carregando…') : stockItems.length ? t('Escolha') : t('Nenhum item no estoque')}</option>
                             {(stockItems ?? []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                           </select>
                         </label>
-                        <label className="text-xs font-medium text-gray-600">{t('Quantidade')}{form.supplyId ? ` (${t(stockItems?.find(s => s.id === form.supplyId)?.unit ?? '')})` : ''} *
-                          <input inputMode="decimal" value={form.stockQty} onChange={e => setForm({ ...form, stockQty: e.target.value.replace(/[^\d,.]/g, '') })} className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                        <label className="text-sm font-medium text-gray-700">{t('Quantidade')}{form.supplyId ? ` (${t(stockItems?.find(s => s.id === form.supplyId)?.unit ?? '')})` : ''} *
+                          <input inputMode="decimal" value={form.stockQty} onChange={e => setForm({ ...form, stockQty: e.target.value.replace(/[^\d,.]/g, '') })} placeholder={t('Ex.: 25')} className={FIELD} />
                         </label>
                       </div>
                     )}
                   </div>
                 )}
-                {form.type === 'Receita' && form.category === 'Venda de Animal' && <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Animal (opcional)')}</label>
-                  <select value={form.animalId} onChange={e => setForm({ ...form, animalId: e.target.value })}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
-                    <option value="">{t('— Nenhum —')}</option>
-                    {animals.map(a => <option key={a.id} value={a.id}>{a.name} ({a.code})</option>)}
-                  </select>
-                  {!net.online && animals.length === 0 && (
-                    <p className="text-xs text-gray-400 mt-1">{t('Lista de animais ainda não guardada neste aparelho. Abra Animais com internet uma vez.')}</p>
-                  )}
-                </div>}
-                {form.type === 'Despesa' && canLots && <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Lote (opcional)')}</label>
-                  <select value={form.lotId} onChange={e => setForm({ ...form, lotId: e.target.value })}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
-                    <option value="">{t('— Nenhum —')}</option>
-                    {openLots.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                  </select>
-                  <p className="text-xs text-gray-400 mt-1">{t('A despesa entra no desempenho do lote, em Recria e engorda.')}</p>
-                </div>}
-                {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setShowRegister(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
-                </div>
+                {form.type === 'Receita' && form.category === 'Venda de Animal' && (
+                  <label className="text-sm font-medium text-gray-700">{t('Animal (opcional)')}
+                    <select value={form.animalId} onChange={e => setForm({ ...form, animalId: e.target.value })} className={`${FIELD} bg-white`}>
+                      <option value="">{t('— Nenhum —')}</option>
+                      {animals.map(a => <option key={a.id} value={a.id}>{a.name} ({a.code})</option>)}
+                    </select>
+                    {!net.online && animals.length === 0 && (
+                      <span className="mt-1 block text-xs font-normal text-gray-400">{t('Lista de animais ainda não guardada neste aparelho. Abra Animais com internet uma vez.')}</span>
+                    )}
+                  </label>
+                )}
+                {form.type === 'Despesa' && canLots && (
+                  <label className="text-sm font-medium text-gray-700">{t('Lote (opcional)')}
+                    <select value={form.lotId} onChange={e => setForm({ ...form, lotId: e.target.value })} className={`${FIELD} bg-white`}>
+                      <option value="">{t('— Nenhum —')}</option>
+                      {openLots.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </select>
+                    <span className="mt-1 block text-xs font-normal text-gray-400">{t('A despesa entra no desempenho do lote, em Recria e engorda.')}</span>
+                  </label>
+                )}
+                {saveError && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{saveError}</p>}
               </form>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
     </div>
     </PermissionGuard>

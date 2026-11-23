@@ -13,7 +13,8 @@ import { pendingCount as litePendingCount, readCache as readLiteCache, syncLite 
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useDialog } from '@/components/DialogProvider'
-import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
+import { SemSinalIcon, SincronizarIcon, LeiteIcon } from '@/components/ModuleIcons'
+import { AppModal } from '@/components/AppModal'
 import { fmtNumber, fmtMoney } from '@/lib/reports'
 import { inDayRange, lastDaysRange } from '@/lib/utils'
 import { useSort } from '@/lib/useSort'
@@ -459,13 +460,8 @@ export default function MilkProductionPage() {
 
       {/* Detalhe do dia */}
       {detailDay && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">{t('Leite de {date}', { date: fmtDay(detailDay) })}</h2>
-                <button onClick={() => setDetailDay(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
+        <AppModal title={t('Leite de {date}', { date: fmtDay(detailDay) })} subtitle={user?.farmName ?? undefined}
+          icon={<LeiteIcon className="h-6 w-6" />} tone="blue" onClose={() => setDetailDay(null)}>
               <ul className="divide-y divide-gray-100 border border-gray-100 rounded-xl">
                 {detailDayItems.map((p) => (
                   <li key={p.id} className="flex items-center gap-3 px-4 py-3">
@@ -487,23 +483,13 @@ export default function MilkProductionPage() {
                 ))}
               </ul>
               {detailDayItems.length === 0 && <p className="text-center py-6 text-gray-400 text-sm">{t('Nenhum registro')}</p>}
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
       {/* Detalhe da vaca */}
       {detailAnimalId && detailAnimal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">{detailAnimal.name}</h2>
-                  <p className="text-xs text-gray-500">{t('Código: {code}', { code: detailAnimal.code })}</p>
-                </div>
-                <button onClick={() => setDetailAnimalId(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
+        <AppModal title={detailAnimal.name} subtitle={t('Código: {code}', { code: detailAnimal.code })} size="lg"
+          icon={<LeiteIcon className="h-6 w-6" />} tone="blue" onClose={() => setDetailAnimalId(null)}>
 
               <div className="bg-green-50 border border-green-100 rounded-lg px-4 py-3 mb-4 text-sm flex justify-between">
                 <span className="text-gray-600">{t('Total no período selecionado')}</span>
@@ -533,20 +519,13 @@ export default function MilkProductionPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
       {/* Lançar leite */}
       {showRegister && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-5 sm:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">{t('Anotar leite')}</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
+        <AppModal title={t('Anotar leite')} subtitle={user?.farmName ?? undefined} size={registerMode === 'vaca' ? 'lg' : 'md'}
+          icon={<LeiteIcon className="h-6 w-6" />} tone="blue" onClose={() => setShowRegister(false)}>
 
               <div className="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl mb-5">
                 {([['total', 'Total do dia'], ['vaca', 'Por vaca']] as const).map(([mode, label]) => (
@@ -582,9 +561,7 @@ export default function MilkProductionPage() {
                   onDone={onRegistered}
                 />
               )}
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
       {editingProduction && <MilkProductionEditor key={editingProduction.id} production={editingProduction} onCancel={() => setEditingProduction(null)} onSaved={() => { setEditingProduction(null); loadData(farmId) }} />}
       </div>

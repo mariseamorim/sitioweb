@@ -506,4 +506,14 @@ export const gestao: Record<string, string> = {
   'custo': 'costo',
   'sobra': 'margen',
   'Ver gráfico do custo por litro': 'Ver gráfico del costo por litro',
+  // Exemplos nos campos dos modais (vacinação, tratamento, financeiro, estoque, propriedade, usuários)
+  'Ex.: 045/24': 'Ej.: 045/24',
+  'Ex.: reforço em 30 dias': 'Ej.: refuerzo en 30 días',
+  'Ex.: aplicar de manhã, após a ordenha': 'Ej.: aplicar a la mañana, después del ordeñe',
+  'Ex.: 450,00': 'Ej.: 450,00',
+  'Ex.: leite da quinzena, sal mineral': 'Ej.: leche de la quincena, sal mineral',
+  'Ex.: compra na cooperativa': 'Ej.: compra en la cooperativa',
+  'Ex.: Estrada Municipal, km 12': 'Ej.: Camino vecinal, km 12',
+  'Ex.: Maria da Silva': 'Ej.: María González',
+  'Ex.: maria@email.com': 'Ej.: maria@email.com',
 }

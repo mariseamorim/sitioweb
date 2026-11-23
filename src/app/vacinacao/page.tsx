@@ -14,10 +14,13 @@ import { useOfflineModule } from '@/lib/useOffline'
 import { loadHerd } from '@/lib/herdCache'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
-import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon } from '@/components/ModuleIcons'
+import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon, VacinaIcon } from '@/components/ModuleIcons'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 import { useLocale, useT } from '@/lib/i18n'
 import { StatTile } from '@/components/StatTile'
+import { AppModal, modalButton } from '@/components/AppModal'
+
+const FIELD = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base font-normal focus:outline-none focus:ring-2 focus:ring-green-600'
 
 interface Animal { id: string; name: string; code: string; species?: string; status?: string | null; lotId?: string | null }
 
@@ -299,60 +302,43 @@ export default function VacinacaoPage() {
         </div>
       )}
 
-      {/* Detail modal */}
+      {/* Detalhe da vacinação: modal padrão (médio) */}
       {detail && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">{detail.vaccineName}</h2>
-                  <p className="text-xs text-gray-500">{detail.animal.name} · {t('Cód.')} {detail.animal.code}</p>
-                </div>
-                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
-                <div><p className="text-xs text-gray-500">{t('Agendado')}</p><p className="font-medium text-gray-800">{fmt(detail.scheduledDate)}</p></div>
-                <div><p className="text-xs text-gray-500">{t('Aplicado')}</p><p className="font-medium text-gray-800">{detail.appliedDate ? fmt(detail.appliedDate) : '—'}</p></div>
-                {detail.manufacturer && <div><p className="text-xs text-gray-500">{t('Fabricante')}</p><p className="text-gray-700">{detail.manufacturer}</p></div>}
-                {detail.batch && <div><p className="text-xs text-gray-500">{t('Lote')}</p><p className="text-gray-700">{detail.batch}</p></div>}
-                {detail.appliedBy && <div><p className="text-xs text-gray-500">{t('Aplicado por')}</p><p className="text-gray-700">{detail.appliedBy}</p></div>}
-                {detail.observations && <div className="sm:col-span-2"><p className="text-xs text-gray-500">{t('Observações')}</p><p className="text-gray-700">{detail.observations}</p></div>}
-              </div>
-
-              <div className="flex gap-2">
-                {!detail.appliedDate && (
-                  <button onClick={() => handleApply(detail)} className="flex-1 bg-green-800 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg">
-                    {t('Marcar como Aplicada')}
-                  </button>
-                )}
-                <button onClick={() => handleDelete(detail.id)} className="flex-1 border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium py-2 rounded-lg">
-                  {t('Excluir')}
-                </button>
-              </div>
-            </div>
+        <AppModal title={detail.vaccineName} subtitle={`${detail.animal.name} · ${t('Cód.')} ${detail.animal.code}`}
+          onClose={() => setDetail(null)} icon={<VacinaIcon className="h-6 w-6" />} tone="teal"
+          footer={<>
+            <button type="button" onClick={() => handleDelete(detail.id)} className={`${modalButton.ghost} border-red-200 text-red-600 hover:bg-red-50`}>{t('Excluir')}</button>
+            {!detail.appliedDate && (
+              <button type="button" onClick={() => handleApply(detail)} className={modalButton.primary}>{t('Marcar como Aplicada')}</button>
+            )}
+          </>}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div><p className="text-xs text-gray-500">{t('Agendado')}</p><p className="font-medium text-gray-800">{fmt(detail.scheduledDate)}</p></div>
+            <div><p className="text-xs text-gray-500">{t('Aplicado')}</p><p className="font-medium text-gray-800">{detail.appliedDate ? fmt(detail.appliedDate) : '—'}</p></div>
+            {detail.manufacturer && <div><p className="text-xs text-gray-500">{t('Fabricante')}</p><p className="text-gray-700">{detail.manufacturer}</p></div>}
+            {detail.batch && <div><p className="text-xs text-gray-500">{t('Lote')}</p><p className="text-gray-700">{detail.batch}</p></div>}
+            {detail.appliedBy && <div><p className="text-xs text-gray-500">{t('Aplicado por')}</p><p className="text-gray-700">{detail.appliedBy}</p></div>}
+            {detail.observations && <div className="sm:col-span-2"><p className="text-xs text-gray-500">{t('Observações')}</p><p className="text-gray-700">{detail.observations}</p></div>}
           </div>
-        </div>
+        </AppModal>
       )}
 
-      {/* Register modal */}
+      {/* Registrar vacinação: modal padrão (médio) */}
       {showRegister && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">{t('Registrar Vacinação')}</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-              <form onSubmit={handleSave} className="flex flex-col gap-3">
+        <AppModal title={t('Registrar Vacinação')} subtitle={user?.farmName ?? undefined} onClose={() => setShowRegister(false)}
+          icon={<VacinaIcon className="h-6 w-6" />} tone="teal"
+          footer={<>
+            <button type="button" onClick={() => setShowRegister(false)} className={modalButton.ghost}>{t('Cancelar')}</button>
+            <button type="submit" form="form-vacinacao" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando...' : 'Salvar')}</button>
+          </>}>
+              <form id="form-vacinacao" onSubmit={handleSave} className="flex flex-col gap-4">
                 <div>
-                  <span className="text-xs font-medium text-gray-600">{t('Aplicar em')}</span>
-                  <div className="mt-1 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                  <span className="text-sm font-medium text-gray-700">{t('Aplicar em')}</span>
+                  <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {VACC_TARGETS.map(o => (
                       <button key={o.key} type="button" aria-pressed={target === o.key}
                         onClick={() => { setTarget(o.key); if (o.key === 'lote' && lots === null) fetch('/api/lotes').then(r => (r.ok ? r.json() : [])).then(l => setLots(Array.isArray(l) ? l : [])).catch(() => setLots([])) }}
-                        className={`rounded-lg border px-2 py-2 text-sm font-semibold ${target === o.key ? 'border-green-700 bg-green-700 text-white' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}>
+                        className={`rounded-xl border px-2 py-2.5 text-sm font-semibold ${target === o.key ? 'border-green-700 bg-green-700 text-white' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}>
                         {t(o.label)}
                       </button>
                     ))}
@@ -360,16 +346,16 @@ export default function VacinacaoPage() {
                 </div>
                 {target === 'animal' && <AnimalPicker animals={animals} value={form.animalId} onChange={id => setForm({ ...form, animalId: id })} label="Animal" />}
                 {target === 'categoria' && (
-                  <label className="text-xs font-medium text-gray-600">{t('Categoria')} *
-                    <select required value={targetCategory} onChange={e => setTargetCategory(e.target.value)} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                  <label className="text-sm font-medium text-gray-700">{t('Categoria')} *
+                    <select required value={targetCategory} onChange={e => setTargetCategory(e.target.value)} className={`${FIELD} bg-white`}>
                       <option value="">{t('Escolha')}</option>
                       {herdCategories(animals.map(a => ({ ...a, species: a.species ?? '' }))).map(c => <option key={c.species} value={c.species}>{t(c.species)} ({c.n})</option>)}
                     </select>
                   </label>
                 )}
                 {target === 'lote' && (
-                  <label className="text-xs font-medium text-gray-600">{t('Lote de recria ou engorda')} *
-                    <select required value={targetLot} onChange={e => setTargetLot(e.target.value)} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                  <label className="text-sm font-medium text-gray-700">{t('Lote de recria ou engorda')} *
+                    <select required value={targetLot} onChange={e => setTargetLot(e.target.value)} className={`${FIELD} bg-white`}>
                       <option value="">{lots === null ? t('Carregando…') : lots.length ? t('Escolha') : t('Nenhum lote')}</option>
                       {(lots ?? []).filter(l => !l.endDate).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                     </select>
@@ -379,54 +365,34 @@ export default function VacinacaoPage() {
                   const n = targetAnimals(animals.map(a => ({ ...a, species: a.species ?? '' })), target, { category: targetCategory, lotId: targetLot }).length
                   return <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-900">{n === 1 ? t('1 animal vai receber a vacina.') : t('{n} animais vão receber a vacina.', { n })}</p>
                 })()}
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Vacina')} *</label>
-                  <input type="text" value={form.vaccineName} onChange={e => setForm({ ...form, vaccineName: e.target.value })} required placeholder={t('Ex: Febre Aftosa')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                <label className="text-sm font-medium text-gray-700">{t('Vacina')} *
+                  <input type="text" value={form.vaccineName} onChange={e => setForm({ ...form, vaccineName: e.target.value })} required placeholder={t('Ex: Febre Aftosa')} className={FIELD} />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Data Agendada')} *
+                    <input type="date" value={form.scheduledDate} onChange={e => setForm({ ...form, scheduledDate: e.target.value })} required className={FIELD} />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Data Aplicação')}
+                    <input type="date" value={form.appliedDate} onChange={e => setForm({ ...form, appliedDate: e.target.value })} className={FIELD} />
+                  </label>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Data Agendada')} *</label>
-                    <input type="date" value={form.scheduledDate} onChange={e => setForm({ ...form, scheduledDate: e.target.value })} required
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Data Aplicação')}</label>
-                    <input type="date" value={form.appliedDate} onChange={e => setForm({ ...form, appliedDate: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Fabricante')}
+                    <input type="text" value={form.manufacturer} onChange={e => setForm({ ...form, manufacturer: e.target.value })} placeholder={t('Ex: Laboratório X')} className={FIELD} />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Lote')}
+                    <input type="text" value={form.batch} onChange={e => setForm({ ...form, batch: e.target.value })} placeholder={t('Ex.: 045/24')} className={FIELD} />
+                  </label>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Fabricante')}</label>
-                    <input type="text" value={form.manufacturer} onChange={e => setForm({ ...form, manufacturer: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Lote')}</label>
-                    <input type="text" value={form.batch} onChange={e => setForm({ ...form, batch: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Aplicado por')}</label>
-                  <input type="text" value={form.appliedBy} onChange={e => setForm({ ...form, appliedBy: e.target.value })} placeholder={t('Quem aplicou a vacina')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Observações')}</label>
-                  <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none" />
-                </div>
-                {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setShowRegister(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
-                </div>
+                <label className="text-sm font-medium text-gray-700">{t('Aplicado por')}
+                  <input type="text" value={form.appliedBy} onChange={e => setForm({ ...form, appliedBy: e.target.value })} placeholder={t('Quem aplicou a vacina')} className={FIELD} />
+                </label>
+                <label className="text-sm font-medium text-gray-700">{t('Observações')}
+                  <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2} placeholder={t('Ex.: reforço em 30 dias')} className={`${FIELD} resize-none`} />
+                </label>
+                {saveError && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{saveError}</p>}
               </form>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
     </div>
     </PermissionGuard>
