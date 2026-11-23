@@ -1,7 +1,8 @@
 // Relatórios calculados no aparelho a partir do banco local, com as mesmas fórmulas, colunas e rodapés
 // de src/app/api/relatorios/route.ts do site. Funciona sem internet.
 import { all, one } from '@/db'
-import { animalCategory } from '@/lib/animalRules'
+import { buildReproSheet, sheetSummary, type SheetCoverage } from '@/lib/reproSheet'
+import { animalCategory, canBreed } from '@/lib/animalRules'
 import { calvingStatus, cowCalving, herdCalving, LATE_MONTHS, type CowLike } from '@/lib/calving'
 import { brDate, brMoney, brNumber, isoDay, todayISO } from '@/lib/format'
 import { isPaid, type Transaction } from '@/repos/transactions'
@@ -36,7 +37,7 @@ export interface ReportSection {
 }
 
 const GOOD_WORDS = ['Vivo', 'Viva', 'Aplicada', 'OK', 'Em dia', 'Entrada', 'Receita', 'Prenha', 'Parida', 'Pago', 'Recebido']
-const WARN_WORDS = ['Atenção', 'Pendente', 'Repor', 'Saída', 'Coberta', 'Vazia']
+const WARN_WORDS = ['Atenção', 'Pendente', 'Repor', 'Saída', 'Coberta', 'Vazia', 'Inseminada', 'Em aberto']
 const BAD_WORDS = ['Atrasada', 'Vencida', 'Crítico', 'Despesa', 'Perdida']
 
 /**
@@ -71,6 +72,7 @@ export const REPORT_TYPES: ReportType[] = [
   { key: 'ficha-animal', label: 'Ficha do animal', description: 'Dados, vacinas, tratamentos, partos e leite de um animal.', module: 'animais', needsPeriod: false, needsAnimal: true },
   { key: 'vacinacao', label: 'Vacinação do rebanho', description: 'Vacinas aplicadas e pendentes no período, com lote e fabricante.', module: 'vacinacao', needsPeriod: true },
   { key: 'financeiro', label: 'Fluxo de caixa', description: 'Receitas e despesas por categoria e lançamentos do período.', module: 'financeiro', needsPeriod: true },
+  { key: 'ficha-reprodutiva', label: 'Ficha reprodutiva', description: 'Uma linha por vaca: último parto, DEL, última IA, nº de IAs, touro, status e dias de prenhez, com espaço para anotar no curral.', module: 'reproducao', needsPeriod: false },
   { key: 'partos', label: 'Crias e partos', description: 'Crias de cada vaca, intervalo entre partos e vacas demorando para criar.', module: 'animais', needsPeriod: false },
   { key: 'rebanho', label: 'Inventário do rebanho', description: 'Animais por espécie e situação, com lista completa.', module: 'animais', needsPeriod: false },
   { key: 'estoque', label: 'Movimentação de estoque', description: 'Entradas e saídas no período e saldo atual de cada item.', module: 'estoque', needsPeriod: true },
@@ -90,7 +92,7 @@ export function ageLabel(birthDate: string, today = todayISO()): string {
   return `${anos} Anos e ${meses} Meses`
 }
 
-export interface ReportParams { farmId: string; farmName?: string; from?: string; to?: string; animalId?: string | null }
+export interface ReportParams { farmId: string; farmName?: string; from?: string; to?: string; animalId?: string | null; /** Ficha reprodutiva: só este status */ status?: string | null }
 
 interface Period { from: string; to: string; label: string }
 
@@ -108,6 +110,7 @@ export function buildReport(tipo: string, p: ReportParams): Report | null {
     case 'financeiro': report = financeReport(p.farmId, period!); break
     case 'rebanho': report = herdReport(p.farmId); break
     case 'partos': report = calvingReport(p.farmId); break
+    case 'ficha-reprodutiva': report = reproSheetReport(p.farmId, p.status ?? null); break
     case 'estoque': report = stockReport(p.farmId, period!); break
     default: report = null
   }
@@ -396,6 +399,45 @@ function herdReport(farmId: string): Report {
 }
 
 // ── Crias e partos ─────────────────────────────────────────────────────
+
+// ── Ficha reprodutiva (como no site; regra em src/lib/reproSheet.ts) ────
+
+function reproSheetReport(farmId: string, statusFilter: string | null): Report {
+  const day = todayISO()
+  const animals = all<AnimalRow & { lotId?: string | null }>('SELECT * FROM animals WHERE farmId = ?', [farmId])
+  const coverages = all<SheetCoverage>('SELECT id, femaleId, coverageDate, status, maleName, bullBreed, semenBatch, method, expectedBirthDate, actualBirthDate FROM reproductions WHERE farmId = ?', [farmId])
+  const dried = all<{ key: string; doneAt: string }>("SELECT key, doneAt FROM agenda_done WHERE farmId = ? AND key LIKE 'secagem:%'", [farmId])
+  const females = animals.filter(a => canBreed({ ...toCow(a), status: a.status } as Parameters<typeof canBreed>[0], day, { inRearingLot: !!a.lotId }))
+  const rows = buildReproSheet(
+    females.map(a => ({ id: a.id, code: a.code, customCode: a.customCode, name: a.name, status: a.status })),
+    animals.filter(a => a.motherId).map(a => ({ motherId: a.motherId, birthDate: a.birthDate })),
+    coverages, day, new Map(dried.map(d => [d.key.slice('secagem:'.length), String(d.doneAt).slice(0, 10)])),
+  )
+  const shown = statusFilter ? rows.filter(r => r.status === statusFilter) : rows
+  const s = sheetSummary(rows)
+  const dash = (v: string | number | null) => (v === null || v === '' ? '—' : v)
+  return {
+    title: 'Ficha reprodutiva',
+    subtitle: [`Posição em ${today()}`, statusFilter ? `Só: ${statusFilter}` : null].filter(Boolean).join(' · '),
+    sections: [
+      {
+        title: 'Resumo', kind: 'cards', columns: ['Indicador', 'Valor'],
+        rows: [['Fêmeas', s.total], ['Prenhas', s.prenha], ['Inseminadas', s.inseminada], ['Em aberto', s.emAberto], ['Vazias', s.vazia], ['DEL médio (dias)', dash(s.delMedio)]],
+        tones: [null, 'good', 'warn', s.emAberto ? 'bad' : null, s.vazia ? 'warn' : null, null],
+      },
+      {
+        title: 'Por vaca',
+        columns: ['Animal', 'Último parto', 'DEL', 'Última IA', 'Nº IA', 'Dias IA', 'Touro / sêmen', 'Status', 'Dias prenhe', 'Parto previsto', 'Anotações'],
+        numeric: [2, 4, 5, 8],
+        badgeColumn: 7,
+        rows: shown.map(r => [
+          r.animal, r.lastCalving ? fmtDate(r.lastCalving) : '—', dash(r.del), r.lastIA ? fmtDate(r.lastIA) : '—', r.iaCount || '—', dash(r.daysSinceIA),
+          r.bull || '—', r.status, dash(r.daysPregnant), r.expectedBirth ? fmtDate(r.expectedBirth) : '—', '',
+        ]),
+      },
+    ],
+  }
+}
 
 function calvingReport(farmId: string): Report {
   const animals = all<AnimalRow>('SELECT * FROM animals WHERE farmId = ? ORDER BY name COLLATE NOCASE ASC', [farmId])

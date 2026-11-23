@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { SHEET_STATUSES } from '@/lib/reproSheet'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { brNumber, todayISO } from '@/lib/format'
@@ -22,7 +23,7 @@ const PRESETS: { value: Preset; label: string }[] = [
 // Ícone de cada tipo de relatório (só aparência; todos no verde, como no modelo)
 const REPORT_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
   financeiro: 'bar-chart-outline', partos: 'paw', rebanho: 'list', estoque: 'cube-outline',
-  'ficha-animal': 'id-card-outline', leite: 'water-outline', vacinacao: 'medkit',
+  'ficha-animal': 'id-card-outline', leite: 'water-outline', vacinacao: 'medkit', 'ficha-reprodutiva': 'heart-outline',
 }
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -342,6 +343,8 @@ export default function Relatorios() {
   const [preset, setPreset] = useState<Preset>('mes')
   const [[from, to], setRange] = useState<[string, string]>(presetRange('mes'))
   const [animalId, setAnimalId] = useState<string | null>(null)
+  // Ficha reprodutiva: só um status (ex.: as inseminadas, no dia do diagnóstico); vazio = todas
+  const [sheetStatus, setSheetStatus] = useState('')
   const [report, setReport] = useState<Report | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState<'pdf' | 'csv' | null>(null)
@@ -356,7 +359,7 @@ export default function Relatorios() {
     if (!type) return
     setError('')
     try {
-      const r = buildReport(type.key, { farmId, farmName: user?.farmName ?? '', from: type.needsPeriod ? from : undefined, to: type.needsPeriod ? to : undefined, animalId })
+      const r = buildReport(type.key, { farmId, farmName: user?.farmName ?? '', from: type.needsPeriod ? from : undefined, to: type.needsPeriod ? to : undefined, animalId, status: sheetStatus || null })
       if (!r) { setError(t(type.needsAnimal ? 'Animal não encontrado' : 'Não foi possível gerar o relatório.')); return }
       setReport(r)
     } catch (e) {
@@ -411,6 +414,7 @@ export default function Relatorios() {
               ) : <Muted style={{ marginBottom: space.md }}>{t('{from} a {to}', { from: from.split('-').reverse().join('/'), to: to.split('-').reverse().join('/') })}</Muted>}
             </View>
           ) : null}
+          {type.key === 'ficha-reprodutiva' ? <Chips options={[{ value: '', label: 'Todas' }, ...SHEET_STATUSES.map(s => ({ value: s.key, label: s.label }))]} value={sheetStatus} onChange={setSheetStatus} /> : null}
           {type.needsAnimal ? <SelectField label="Animal" value={animalId} options={animalOptions(farmId)} onChange={setAnimalId} searchable placeholder="— Selecione —" /> : null}
           <Button label="Ver relatório" onPress={generate} disabled={!canGenerate} />
           {error ? <View style={{ marginTop: space.md }}><Notice tone="red" text={error} /></View> : null}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useUser } from '@/contexts/UserContext'
+import { SHEET_STATUSES } from '@/lib/reproSheet'
 import { CUSTOM_PARTS, REPORT_TYPES, Report, badgeTone, type ReportSection, type ReportTone } from '@/lib/reports'
 import { StatTile, type Accent } from '@/components/StatTile'
 import { exportCSV, exportPDF } from '@/lib/reportExport'
@@ -20,6 +21,7 @@ type IconC = (p: { className?: string }) => React.ReactElement
 const TYPE_STYLE: Record<string, { Icon: IconC; box: string }> = {
   leite: { Icon: LeiteIcon, box: 'bg-sky-100 text-sky-700' },
   'ficha-animal': { Icon: EtiquetaIcon, box: 'bg-green-100 text-green-700' },
+  'ficha-reprodutiva': { Icon: ReproducaoIcon, box: 'bg-pink-100 text-pink-700' },
   vacinacao: { Icon: VacinaIcon, box: 'bg-blue-100 text-blue-700' },
   financeiro: { Icon: FinanceiroIcon, box: 'bg-emerald-100 text-emerald-700' },
   partos: { Icon: ReproducaoIcon, box: 'bg-orange-100 text-orange-600' },
@@ -179,6 +181,13 @@ export default function RelatoriosPage() {
   const types = useMemo(() => REPORT_TYPES.filter((rt) => (rt.key === 'personalizado' || canAccess(rt.module)) && !(user?.vet && rt.key === 'leite')), [canAccess, user?.vet])
 
   const [typeKey, setTypeKey] = useState('')
+  // Ficha reprodutiva: só um status (ex.: as inseminadas, no dia do diagnóstico); vazio = todas
+  const [sheetStatus, setSheetStatus] = useState('')
+  // ?tipo=ficha-reprodutiva (atalho da Consultoria) já abre o relatório escolhido
+  useEffect(() => {
+    const tipo = new URLSearchParams(window.location.search).get('tipo')
+    if (tipo) setTypeKey(tipo)
+  }, [])
   const [preset, setPreset] = useState<Preset>('mes')
   const [[from, to], setRange] = useState<[string, string]>(presetRange('mes'))
   const [animals, setAnimals] = useState<{ id: string; code: string; name: string }[]>([])
@@ -225,11 +234,12 @@ export default function RelatoriosPage() {
     if (type.needsPeriod) { params.set('from', from); params.set('to', to) }
     if (type.needsAnimal) params.set('animalId', animalId)
     if (type.key === 'personalizado') params.set('partes', chosenParts.join(','))
+    if (type.key === 'ficha-reprodutiva' && sheetStatus) params.set('status', sheetStatus)
 
     setLoading(true)
     try {
       // Cada relatório gerado fica guardado no aparelho por tipo e período: sem internet, abre o último gerado
-      const r = await cachedGet<Report>(`cache_relatorio_${type.key}_${from}_${to}_${animalId}_${type.key === 'personalizado' ? chosenParts.join('-') : ''}`, `/api/relatorios?${params}`)
+      const r = await cachedGet<Report>(`cache_relatorio_${type.key}_${from}_${to}_${animalId}_${type.key === 'personalizado' ? chosenParts.join('-') : ''}${sheetStatus}`, `/api/relatorios?${params}`)
       setReport(r.data)
       setFromCache(r.fromCache)
     } catch (err) {
@@ -324,6 +334,19 @@ export default function RelatoriosPage() {
                     </div>
                   )}
                 </div>
+              )}
+
+              {type.key === 'ficha-reprodutiva' && (
+                <fieldset>
+                  <legend className="text-base font-bold text-gray-900 mb-2">{t('Quais vacas')}</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {[{ key: '', label: 'Todas' }, ...SHEET_STATUSES].map((o) => (
+                      <button key={o.key} type="button" aria-pressed={sheetStatus === o.key} onClick={() => setSheetStatus(o.key)}
+                        className={`rounded-full border px-4 py-2 text-sm font-semibold ${sheetStatus === o.key ? 'border-green-800 bg-green-800 text-white' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}>{t(o.label)}</button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500">{t('A coluna "Anotações" sai em branco, para escrever no curral. O PDF sai com a folha deitada.')}</p>
+                </fieldset>
               )}
 
               {type.key === 'personalizado' && (

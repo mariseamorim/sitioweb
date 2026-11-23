@@ -30,7 +30,7 @@ export interface ReportSection {
 }
 
 const GOOD_WORDS = ['Vivo', 'Viva', 'Aplicada', 'OK', 'Em dia', 'Entrada', 'Receita', 'Prenha', 'Parida', 'Pago', 'Recebido']
-const WARN_WORDS = ['Atenção', 'Pendente', 'Repor', 'Saída', 'Coberta', 'Vazia']
+const WARN_WORDS = ['Atenção', 'Pendente', 'Repor', 'Saída', 'Coberta', 'Vazia', 'Inseminada', 'Em aberto']
 const BAD_WORDS = ['Atrasada', 'Vencida', 'Crítico', 'Despesa', 'Perdida']
 
 /**
@@ -65,6 +65,7 @@ export const REPORT_TYPES: ReportType[] = [
   { key: 'ficha-animal', label: 'Ficha do animal', description: 'Dados, vacinas, tratamentos, partos e leite de um animal.', module: 'animais', needsPeriod: false, needsAnimal: true },
   { key: 'vacinacao', label: 'Vacinação do rebanho', description: 'Vacinas aplicadas e pendentes no período, com lote e fabricante.', module: 'vacinacao', needsPeriod: true },
   { key: 'financeiro', label: 'Fluxo de caixa', description: 'Receitas e despesas por categoria e lançamentos do período.', module: 'financeiro', needsPeriod: true },
+  { key: 'ficha-reprodutiva', label: 'Ficha reprodutiva', description: 'Uma linha por vaca: último parto, DEL, última IA, nº de IAs, touro, status e dias de prenhez, com espaço para anotar no curral.', module: 'reproducao', needsPeriod: false },
   { key: 'partos', label: 'Crias e partos', description: 'Crias de cada vaca, intervalo entre partos e vacas demorando para criar.', module: 'animais', needsPeriod: false },
   { key: 'rebanho', label: 'Inventário do rebanho', description: 'Animais por espécie e situação, com lista completa.', module: 'animais', needsPeriod: false },
   { key: 'estoque', label: 'Movimentação de estoque', description: 'Entradas e saídas no período e saldo atual de cada item.', module: 'estoque', needsPeriod: true },
