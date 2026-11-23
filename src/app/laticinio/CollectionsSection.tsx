@@ -30,7 +30,7 @@ function Totals({ title, rows }: { title: string; rows: [string, number][] }) {
             <li key={name} className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
               <span className="text-gray-800">{name}</span>
               <span className="flex items-center gap-2">
-                <span className="hidden h-2 rounded-full bg-green-600 sm:block" style={{ width: `${total ? Math.max(4, (liters / total) * 120) : 0}px` }} />
+                <span className="hidden h-2.5 rounded-full bg-gradient-to-r from-green-600 to-teal-500 sm:block" style={{ width: `${total ? Math.max(4, (liters / total) * 120) : 0}px` }} />
                 <span className="font-semibold tabular-nums text-gray-900">{fmtL(liters)}</span>
               </span>
             </li>
