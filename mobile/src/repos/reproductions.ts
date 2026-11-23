@@ -93,6 +93,8 @@ export interface CoverageInput {
   observations: string
   /** Previsão digitada (edição); vazio = calcular pela cobertura */
   expectedBirthDate?: string
+  /** Veterinário: sêmen do próprio estoque (o servidor desconta 1 dose) */
+  vetSupplyId?: string | null
 }
 
 /** Mesma conta do servidor: cobertura em andamento tem parto previsto 280 dias depois; Vazia/Perdida não têm */
@@ -110,6 +112,7 @@ export function createCoverage(farmId: string, input: CoverageInput): string {
     femaleId: input.femaleId, coverageDate: input.coverageDate, maleName: input.maleName.trim() || null, status,
     observations: input.observations.trim() || null, ...details,
     ...(input.expectedBirthDate ? { expectedBirthDate: input.expectedBirthDate } : {}),
+    ...(input.vetSupplyId ? { vetSupplyId: input.vetSupplyId } : {}),
   }
   const row = { expectedBirthDate: expectedFor(input.coverageDate, status, input.expectedBirthDate), actualBirthDate: null, calfId: null }
   return createLocal({ table: 'reproductions', farmId, path: '/api/reproducao', body, row })

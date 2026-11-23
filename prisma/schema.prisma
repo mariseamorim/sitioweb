@@ -971,6 +971,12 @@ model VetSupply {
   vetId     String
   vet       VetProfile      @relation(fields: [vetId], references: [id], onDelete: Cascade)
   name      String
+  /// semen | medicamento | material | outro
+  kind      String          @default("outro")
+  /// Sêmen: touro, raça e partida (preenchem a cobertura quando o veterinário usa a dose)
+  bullName  String?
+  bullBreed String?
+  semenBatch String?
   unit      String          @default("un")
   quantity  Float           @default(0)
   minimum   Float?

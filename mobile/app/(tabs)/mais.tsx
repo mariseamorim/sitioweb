@@ -17,6 +17,7 @@ type Item = { title: string; detail?: string; href: string; module?: string; adm
 const GROUPS: { label: string; items: Item[] }[] = [
   { label: '', items: [
     { title: 'Consultoria', detail: 'Propriedades que você atende', href: '/consultoria', vetOnly: true, icon: 'briefcase-outline', tone: 'green' },
+    { title: 'Meu estoque', detail: 'Sêmen, medicamentos e material', href: '/meu-estoque', vetOnly: true, icon: 'flask-outline', tone: 'amber' },
     { title: 'Painel', href: '/(tabs)', icon: 'grid-outline', tone: 'green' },
     { title: 'Agenda', detail: 'Vacinas, partos, secagem, cio e visitas por dia', href: '/agenda', icon: 'calendar-outline', tone: 'blue' },
   ] },

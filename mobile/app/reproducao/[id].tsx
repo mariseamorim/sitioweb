@@ -14,6 +14,8 @@ import {
 import { Badge, Button, Card, Chips, DateField, Field, Muted, Notice, Screen, SelectField } from '@/ui'
 import { colors, font, radius, space } from '@/theme'
 import { useT } from '@/lib/i18n'
+import { useVetStock } from '@/vet/stock'
+import { semenLabel } from '@/lib/vetSupplyKinds'
 
 const statusOptions = (t: (s: string) => string) => STATUS_LIST.map(s => ({ value: s, label: t(s) }))
 
@@ -28,10 +30,14 @@ export default function ReproducaoScreen() {
 
 function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?: string; presetStatus?: string }) {
   const farmId = useFarmId()
-  const { canEdit } = useSession()
+  const { canEdit, user } = useSession()
   const router = useRouter()
   const t = useT()
   const females = useLive(() => breedableFemales(farmId), [farmId])
+  // Veterinário: sêmen do próprio estoque (preenche touro, raça e partida; o servidor desconta 1 dose)
+  const { items: vetStock, setItems: setVetStock } = useVetStock(!!user?.vet)
+  const semenStock = vetStock.filter(x => x.kind === 'semen')
+  const [semenId, setSemenId] = useState<string | null>(null)
   const [form, setForm] = useState<CoverageForm>({
     ...EMPTY_COVERAGE, femaleId: presetFemaleId ?? '', status: presetStatus && STATUS_LIST.includes(presetStatus) ? presetStatus : 'Coberta',
     // Vinda do "Confirmar prenhez": a data da cobertura fica em branco para a pessoa informar
@@ -50,7 +56,9 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
     if (!form.femaleId) { setError(t('Escolha a fêmea')); return }
     if (!form.coverageDate) { setError(t('Informe a data da cobertura')); return }
     setError('')
-    createCoverage(farmId, form)
+    createCoverage(farmId, { ...form, vetSupplyId: semenId })
+    // A dose usada sai da conta na tela (o servidor desconta de verdade ao receber)
+    if (semenId) setVetStock(list => list.map(x => (x.id === semenId ? { ...x, quantity: x.quantity - 1 } : x)))
     if (repeat) {
       setForm(repeatCoverage(form))
       setRepeated(prev => ({ count: (prev?.count ?? 0) + 1, kept: repeatedFields(form) }))
@@ -78,6 +86,19 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
           )
         })}
       </View>
+      {user?.vet ? (
+        <>
+          <SelectField label={t('Sêmen do meu estoque')} value={semenId}
+            options={semenStock.filter(x => x.quantity >= 1).map(x => ({ value: x.id, label: semenLabel(x) }))}
+            placeholder={semenStock.length ? t('Não usar o estoque') : t('Nenhum sêmen no seu estoque')} allowEmpty
+            onChange={id => {
+              setSemenId(id)
+              const sm = semenStock.find(x => x.id === id)
+              if (sm) set({ method: form.method === 'natural' || form.method === 'repasse' || !form.method ? 'ia' : form.method, maleName: sm.bullName || sm.name, bullBreed: sm.bullBreed ?? '', semenBatch: sm.semenBatch ?? '' })
+            }} />
+          {semenId ? <Muted style={{ marginBottom: space.sm }}>{t('Ao salvar, 1 dose sai do seu estoque, com a fazenda e a vaca anotadas.')}</Muted> : null}
+        </>
+      ) : null}
       <Field label={t('Touro')} value={form.maleName} onChangeText={v => set({ maleName: v })} placeholder={t('Nome ou código do touro')} />
       <Field label={t('Raça do touro')} value={form.bullBreed} onChangeText={v => set({ bullBreed: v })} placeholder={t('Ex.: Gir, Holandesa')} />
       <DateField label={t('Data da cobertura *')} value={form.coverageDate} onChange={v => set({ coverageDate: v })} />

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireVet } from '@/lib/vets'
-import { day, positive, text } from '@/lib/vetInput'
+import { day, kindFields, positive, text } from '@/lib/vetInput'
 
 // GET: estoque do veterinário, com as 5 últimas movimentações de cada item
 export async function GET() {
@@ -15,7 +15,7 @@ export async function GET() {
   return NextResponse.json(supplies)
 }
 
-// POST: novo item. Body: { name, unit?, quantity?, minimum?, expiry? }. A quantidade inicial entra como primeira entrada.
+// POST: novo item. Body: { name, kind?, bullName?, bullBreed?, semenBatch?, unit?, quantity?, minimum?, expiry? }. A quantidade inicial entra como primeira entrada.
 export async function POST(request: NextRequest) {
   const auth = await requireVet()
   if ('error' in auth) return auth.error
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   const quantity = positive(body.quantity) ?? 0
   const supply = await prisma.vetSupply.create({
     data: {
-      vetId: auth.vet.id, name, unit: text(body.unit, 20) ?? 'un', quantity, minimum: positive(body.minimum), expiry: day(body.expiry),
+      vetId: auth.vet.id, name, ...kindFields(body), unit: text(body.unit, 20) ?? 'un', quantity, minimum: positive(body.minimum), expiry: day(body.expiry),
       ...(quantity > 0 ? { moves: { create: { type: 'entrada', quantity, date: new Date(), note: 'Quantidade inicial' } } } : {}),
     },
   })
