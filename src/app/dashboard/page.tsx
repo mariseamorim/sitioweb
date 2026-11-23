@@ -16,7 +16,7 @@ const TONE_BADGE = { good: 'bg-green-100 text-green-800', warn: 'bg-amber-100 te
 const TONE_ACCENT = { good: 'green', warn: 'amber', bad: 'red' } as const
 /** Cartões sem cor própria: verde, azul, verde-azulado e laranja, nessa ordem */
 const ACCENTS: Accent[] = ['green', 'blue', 'teal', 'amber']
-const BAR = { green: 'bg-green-700', blue: 'bg-blue-500' } as const
+const BAR = { green: 'bg-gradient-to-r from-green-600 to-teal-500', blue: 'bg-gradient-to-r from-blue-600 to-cyan-500' } as const
 /** Período escolhido fica guardado neste navegador (a TV volta no mesmo) */
 const PERIOD_KEY = 'dashboard_meses'
 
@@ -171,7 +171,7 @@ function TileCard({ tile, index }: { tile: Tile; index: number }) {
   const { t, text, value } = useFormat()
   const accent = tile.tone ? TONE_ACCENT[tile.tone] : tile.accent ?? ACCENTS[index % ACCENTS.length]
   const shown = tile.suffix ? <>{value(tile.value, tile.unit)} <span className="text-xl font-semibold">{t(tile.suffix)}</span></> : value(tile.value, tile.unit)
-  return <StatTile accent={accent} label={t(tile.label)} value={shown} detail={tile.detail ? text(tile.detail) : undefined} />
+  return <StatTile accent={accent} label={t(tile.label)} value={shown} detail={tile.detail ? text(tile.detail) : undefined} badge={tile.tone === 'bad' ? t('Atenção') : undefined} />
 }
 
 function ChartCard({ chart }: { chart: Chart }) {
@@ -244,8 +244,8 @@ function ChartBody({ chart }: { chart: Chart }) {
             return (
               <li key={r.label} title={`${label}: ${value(r.value, chart.unit)}`} className="grid grid-cols-[minmax(0,10rem)_1fr_auto] items-center gap-3">
                 <span className="truncate text-sm text-gray-800">{label}</span>
-                <span className="relative h-3 rounded-r bg-gray-100" aria-hidden="true">
-                  {r.value !== null && r.value > 0 && <span className={`block h-3 rounded-r ${BAR[chart.color ?? 'green']}`} style={{ width: `${Math.max(1, (r.value / max) * 100)}%` }} />}
+                <span className="relative h-3 rounded-full bg-gray-100" aria-hidden="true">
+                  {r.value !== null && r.value > 0 && <span className={`block h-3 rounded-full ${BAR[chart.color ?? 'green']}`} style={{ width: `${Math.max(1, (r.value / max) * 100)}%` }} />}
                   {ref && <span className="absolute -top-1.5 -bottom-1.5 border-l-2 border-dashed border-gray-500" style={{ left: refAt }} />}
                 </span>
                 <span className="min-w-[3rem] text-right text-sm font-semibold tabular-nums text-gray-800">{value(r.value, chart.unit)}</span>
