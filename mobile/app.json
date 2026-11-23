@@ -3,14 +3,14 @@
     "name": "Anota Aí Agro",
     "slug": "anota-ai-agro",
     "scheme": "anotaaiagro",
-    "version": "1.7.2",
+    "version": "1.7.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "android": {
       "package": "br.com.anotaaiagro.app",
-      "versionCode": 17,
+      "versionCode": 18,
       "adaptiveIcon": {
         "backgroundColor": "#0f3f2e",
         "foregroundImage": "./assets/android-icon-foreground.png",
