@@ -18,6 +18,9 @@ const plusDays = (iso: string, days: number) => {
   return d.toISOString().slice(0, 10)
 }
 const arroba = (kgValue: number) => kgValue / LIVE_KG_PER_ARROBA
+
+/** Uma cor por categoria de despesa (a mesma ordem em todo o sistema: laranja, rosa, roxo, azul, verde-água) */
+const CATEGORY_BARS = ['from-orange-500 to-amber-400', 'from-rose-600 to-pink-400', 'from-violet-600 to-purple-400', 'from-blue-600 to-sky-400', 'from-teal-600 to-cyan-400']
 
 export function LotPerformance({ lot, today }: { lot: Lot; today: string }) {
   const t = useT()
@@ -135,11 +138,11 @@ export function LotPerformance({ lot, today }: { lot: Lot; today: string }) {
         <div className="mt-3 rounded-xl border border-gray-100 bg-white p-3">
           <p className="mb-2 text-sm font-medium text-gray-700">{t('Despesas por categoria')}</p>
           <ul className="space-y-2">
-            {categories.map(([category, value]) => (
+            {categories.map(([category, value], i) => (
               <li key={category} title={`${t(category)}: ${money(value)}`} className="grid grid-cols-[minmax(0,8rem)_1fr_auto] items-center gap-3">
                 <span className="truncate text-sm text-gray-800">{t(category)}</span>
-                <span className="h-3 rounded-r bg-gray-100" aria-hidden="true">
-                  <span className="block h-3 rounded-r bg-red-500" style={{ width: `${Math.max(1, (value / maxCategory) * 100)}%` }} />
+                <span className="h-3 rounded-full bg-gray-100" aria-hidden="true">
+                  <span className={`block h-3 rounded-full bg-gradient-to-r ${CATEGORY_BARS[i % CATEGORY_BARS.length]}`} style={{ width: `${Math.max(1, (value / maxCategory) * 100)}%` }} />
                 </span>
                 <span className="min-w-[3rem] text-right text-sm font-semibold tabular-nums text-gray-800">{money(value)}</span>
               </li>

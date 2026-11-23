@@ -9,7 +9,7 @@ import { conceptionBy, type ConceptionBy, type GroupRate } from '@/lib/conceptio
 import { listAnimals } from '@/repos/animals'
 import { listReproductions } from '@/repos/reproductions'
 import { Card, Muted, Screen, Tile, TileGrid, type Accent } from '@/ui'
-import { colors, font, radius, space } from '@/theme'
+import { chartColors, colors, font, radius, space } from '@/theme'
 import { getLang, tr, useLocale, useT } from '@/lib/i18n'
 
 interface Bar { label: string; value: number | null; title: string }
@@ -121,6 +121,8 @@ function Columns({ bars, max: fixedMax, unit = '' }: { bars: Bar[]; max?: number
     if (best < 0 || b.value > (bars[best].value ?? 0)) best = i
     last = i
   })
+  // Uma cor por coluna (como no site); muitas colunas ficam numa cor só
+  const barColor = (i: number) => (bars.length > 14 ? '#0d9488' : chartColors[i % chartColors.length])
   // Com 12 meses, rótulo em meses alternados para não encostar
   const every = bars.length > 8 ? 2 : 1
   return (
@@ -130,8 +132,12 @@ function Columns({ bars, max: fixedMax, unit = '' }: { bars: Bar[]; max?: number
           const height = b.value ? Math.max(2, Math.round((b.value / max) * PLOT_HEIGHT)) : 0
           return (
             <View key={i} accessible accessibilityLabel={b.title} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }}>
-              {i === best || i === last ? <Text style={{ fontSize: 11, fontWeight: '700', color: colors.text, marginBottom: 2 }} numberOfLines={1}>{compact(b.value ?? 0)}{unit}</Text> : null}
-              <View style={{ width: '62%', maxWidth: 24, height, backgroundColor: colors.green, borderTopLeftRadius: Math.min(4, height), borderTopRightRadius: Math.min(4, height) }} />
+              {i === best || i === last ? (
+                <View style={{ backgroundColor: barColor(i), borderRadius: 5, paddingHorizontal: 4, marginBottom: 3 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#ffffff' }} numberOfLines={1}>{compact(b.value ?? 0)}{unit}</Text>
+                </View>
+              ) : null}
+              <View style={{ width: '62%', maxWidth: 24, height, backgroundColor: barColor(i), borderTopLeftRadius: Math.min(5, height), borderTopRightRadius: Math.min(5, height) }} />
             </View>
           )
         })}
