@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useUser } from '@/contexts/UserContext'
 import { GoogleLoginButton, GOOGLE_ERRORS } from '@/components/GoogleLoginButton'
@@ -28,6 +28,7 @@ export function ProfileForm() {
   const { refresh, user } = useUser()
   // Foto do perfil: salva na hora ao escolher (ou remover)
   const [photoBusy, setPhotoBusy] = useState(false)
+  const photoInput = useRef<HTMLInputElement>(null)
   const [photoError, setPhotoError] = useState('')
   async function savePhoto(avatar: string | null) {
     setPhotoBusy(true)
@@ -105,10 +106,11 @@ export function ProfileForm() {
           <p className="font-semibold text-gray-900">{t('Foto do perfil')}</p>
           <p className="text-sm text-gray-500">{t(user.avatar ? 'Aparece no menu e para quem trabalha com você.' : 'Sem foto, aparecem as iniciais do seu nome.')}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <label className={`cursor-pointer rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-600 ${photoBusy ? 'pointer-events-none opacity-60' : ''}`}>
+            {/* Botão de verdade (o estilo geral de <label> deixava o texto cinza sobre o verde) */}
+            <button type="button" disabled={photoBusy} onClick={() => photoInput.current?.click()} className="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-60">
               {t(photoBusy ? 'Salvando…' : user.avatar ? 'Trocar foto' : 'Colocar foto')}
-              <input type="file" accept="image/*" className="sr-only" onChange={(e) => { void pickPhoto(e.target.files?.[0]); e.target.value = '' }} />
-            </label>
+            </button>
+            <input ref={photoInput} type="file" accept="image/*" className="hidden" onChange={(e) => { void pickPhoto(e.target.files?.[0]); e.target.value = '' }} />
             {user.avatar && <button type="button" disabled={photoBusy} onClick={() => void savePhoto(null)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Remover foto')}</button>}
           </div>
           {photoError && <p role="alert" className="mt-2 text-sm text-red-600">{photoError}</p>}

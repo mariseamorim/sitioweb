@@ -6,7 +6,9 @@ import { tr } from '@/lib/i18n'
 
 /** Iniciais do nome: primeira e última palavra (ignora "de", "da", "dos"...) */
 export function initials(name?: string | null): string {
-  const parts = (name ?? '').trim().split(/\s+/).filter(p => p.length > 2 || p === p.toUpperCase())
+  const parts = (name ?? '').trim().split(/\s+/)
+    .filter((p) => !/^(dr|dra|sr|sra|prof|profa|eng|vet)\.?$/i.test(p))
+    .filter((p) => p.length > 2 || p === p.toUpperCase())
   const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] ?? '?').slice(0, 2)
   return letters.toUpperCase()
 }

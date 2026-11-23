@@ -5,7 +5,7 @@ import { canAccessModule, type SessionUser } from '@/lib/auth'
 import { animalCategory, animalToday } from '@/lib/animalRules'
 import { lactatingByMonth, lactatingNow } from '@/lib/lactating'
 import { addMonths, buildIndicators } from '@/lib/reproInsights'
-import { farmOverviews, vetProfileOf, vetTasks } from '@/lib/vets'
+import { farmOverviews, vetProfileOf } from '@/lib/vets'
 import { todayStops } from '@/lib/laticinio'
 import { sharedProduction } from '@/lib/associacao'
 import type { Board, Chart, Tile, Tone } from '@/lib/dashboardTypes'
@@ -144,10 +144,8 @@ async function vetBoard(user: SessionUser, vetId: string, period: number): Promi
   })
   const farmIds = links.map((l) => l.farmId!)
   const periodStart = midnight(`${addMonths(today.slice(0, 7), 1 - period)}-01`)
-  const [overviews, tasks, visits, shots, lastVisits] = await Promise.all([
+  const [overviews, shots, lastVisits] = await Promise.all([
     farmOverviews(farmIds, period),
-    vetTasks(farmIds),
-    prisma.vetVisit.findMany({ where: { vetId, status: 'agendada', date: { gte: midnight(today) } }, select: { farmName: true, date: true, time: true, purpose: true }, orderBy: [{ date: 'asc' }, { time: 'asc' }], take: 8 }),
     // Vacinas em dia: das marcadas no período até hoje, quantas já foram aplicadas
     prisma.vaccination.findMany({ where: { animal: { farmId: { in: farmIds } }, scheduledDate: { gte: periodStart, lte: midnight(today) } }, select: { appliedDate: true, animal: { select: { farmId: true } } } }),
     prisma.vetVisit.groupBy({ by: ['clientId'], where: { vetId, status: 'realizada', clientId: { in: links.map((l) => l.id) } }, _max: { date: true } }),
@@ -163,7 +161,6 @@ async function vetBoard(user: SessionUser, vetId: string, period: number): Promi
   const total = (pick: (f: (typeof farms)[number]) => number) => farms.reduce((sum, f) => sum + pick(f), 0)
   const rates = farms.flatMap((f) => (f.pregnancyRate === null ? [] : [f.pregnancyRate]))
   const average = rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : null
-  const nameOf = (farmId: string) => farms.find((f) => f.farmId === farmId)?.name ?? ''
   const months = farms.find((f) => f.birthsByMonth.length)?.birthsByMonth.map((m) => m.month) ?? []
 
   const tiles: Tile[] = [
@@ -189,15 +186,6 @@ async function vetBoard(user: SessionUser, vetId: string, period: number): Promi
         { value: f.vaccinesOnTime, unit: '%', ...vaccineBadge(f.vaccinesOnTime) },
         { date: f.lastVisit ? dayKey(f.lastVisit) : null },
       ]),
-    },
-    {
-      kind: 'list', title: 'Próximas visitas', empty: 'Nenhuma visita marcada.',
-      rows: visits.map((v) => ({ title: v.farmName, detail: [ddmm(v.date), v.time, v.purpose].filter(Boolean).join(' · '), tone: dayKey(v.date) === today ? 'warn' as const : undefined })),
-    },
-    {
-      kind: 'list', title: 'O que fazer nas propriedades', empty: 'Nada pendente nas propriedades que você atende.',
-      rows: tasks.filter((k) => k.tone !== 'blue').sort((a, b) => (a.tone === 'red' ? 0 : 1) - (b.tone === 'red' ? 0 : 1)).slice(0, 8)
-        .map((k) => ({ title: { text: k.title, vars: { n: k.n } }, detail: nameOf(k.farmId), tone: k.tone === 'red' ? 'bad' as const : 'warn' as const })),
     },
   ]
   return { profile: 'veterinario', name: user.name, tiles, charts, period: { months: period, options: PERIODS }, generatedAt: new Date().toISOString() }
