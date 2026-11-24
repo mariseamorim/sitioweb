@@ -37,9 +37,9 @@ Checklist de verificação do arquivo `.md`:
 3. VALIDAÇÃO DO MANUAL GERADO (`public/manual/campos-editaveis.html`)
 --------------------------------------------------------
 Checklist para rodar após qualquer execução do agente:
-[ ] Todas as telas com campos editáveis encontradas na varredura de `mobile/app/` (sem limite fixo) possuem passo correspondente e exibem imagens reais em `public/manual/screens/` (nenhum SVG/mockup artificial).
-[ ] Todas as imagens carregam no navegador (`naturalWidth > 0`) e estão na proporção de celular (`9:20` / `Pixel_10_Pro`).
-[ ] Nenhuma linha/borda vermelha sobrepõe textos das imagens (apenas círculos numerados `.hl-dot`).
-[ ] Cada `.hl-dot` na tela possui seu `.callout-pill` e item correspondente em `PASSO A PASSO NA TELA:`.
-[ ] Nenhum caminho de arquivo (`public/manual/...`, `.tsx`, `.png`) aparece visível ao usuário.
-[ ] Filtros por módulo no topo e botão `Imprimir / Salvar PDF` funcionam corretamente.
+[OK] Todas as telas com campos editáveis encontradas na varredura de `mobile/app/` (sem limite fixo) possuem passo correspondente e exibem imagens reais em `public/manual/screens/` (nenhum SVG/mockup artificial).
+[OK] Todas as imagens carregam no navegador (`naturalWidth > 0`) e estão na proporção de celular (`9:20` / `Pixel_10_Pro`).
+[OK] Nenhuma linha/borda vermelha sobrepõe textos das imagens (apenas círculos numerados `.hl-dot`).
+[OK] Cada `.hl-dot` na tela possui seu `.callout-pill` e item correspondente em `PASSO A PASSO NA TELA:`.
+[OK] Nenhum caminho de arquivo (`public/manual/...`, `.tsx`, `.png`) aparece visível ao usuário.
+[OK] Filtros por módulo no topo e botão `Imprimir / Salvar PDF` funcionam corretamente.
