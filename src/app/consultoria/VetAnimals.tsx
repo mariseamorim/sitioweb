@@ -8,7 +8,7 @@ import { AppModal, modalButton } from '@/components/AppModal'
 import { AnimalIcon } from '@/components/ModuleIcons'
 import { ESPECIE_GRUPOS } from '@/lib/types'
 import { CATTLE_BREEDS, fixedAnimalGender, isBovine } from '@/lib/animalRules'
-import { animalCodes, animalSearchText } from '@/lib/animalCode'
+import { animalCodes, animalSearchText, searchText } from '@/lib/animalCode'
 import { formatarIdade, todayISO } from '@/lib/utils'
 import { useT } from '@/lib/i18n'
 
@@ -53,8 +53,8 @@ export function VetAnimals({ clients, onFarmCreated, onOpen }: {
   useEffect(() => { void load() }, [load])
 
   const farms = clients.filter((c) => c.farmId)
-  const term = query.trim().toLocaleLowerCase('pt-BR')
-  const shown = useMemo(() => (animals ?? []).filter((a) => (!farm || a.farmId === farm) && (!term || animalSearchText(a).includes(term) || a.farmName.toLocaleLowerCase('pt-BR').includes(term))), [animals, farm, term])
+  const term = searchText(query.trim())
+  const shown = useMemo(() => (animals ?? []).filter((a) => (!farm || a.farmId === farm) && (!term || animalSearchText(a).includes(term) || searchText(a.farmName).includes(term))), [animals, farm, term])
   const countOf = (farmId: string) => (animals ?? []).filter((a) => a.farmId === farmId).length
 
   function openNew() {

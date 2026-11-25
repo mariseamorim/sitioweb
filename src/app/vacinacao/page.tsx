@@ -2,7 +2,7 @@
 import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
-import { animalSearchText } from '@/lib/animalCode'
+import { animalSearchText, searchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 
@@ -116,7 +116,7 @@ export default function VacinacaoPage() {
   useEffect(() => { void Promise.resolve().then(reload) }, [reload])
 
   const filtered = useMemo(() => {
-    const term = animalSearch.trim().toLowerCase()
+    const term = searchText(animalSearch.trim())
     const in7 = new Date(); in7.setDate(in7.getDate() + 7)
     const dueSoon = (v: Vaccination) => !v.appliedDate && new Date(v.scheduledDate) <= in7
     return vaccinations.filter(v => (quick ? dueSoon(v) : filter === 'Todas' || getStatus(v) === filter) && animalSearchText(v.animal).includes(term))
@@ -287,7 +287,7 @@ export default function VacinacaoPage() {
                     <td className="relative px-4 py-3 font-medium text-gray-800">
                       {/* Faixa à esquerda: vermelha se vencida, laranja se pendente */}
                       {status !== 'Aplicada' && <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${status === 'Vencida' ? 'bg-red-600' : 'bg-amber-500'}`} />}
-                      {v.animal.name}{isPendingId(v.id) && <span className="ml-2 text-xs font-normal text-blue-700">{t('a enviar')}</span>}</td>
+                      <button type="button" className="row-open">{v.animal.name}</button>{isPendingId(v.id) && <span className="ml-2 text-xs font-normal text-blue-700">{t('a enviar')}</span>}</td>
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{v.vaccineName}</td>
                     <td className="px-4 py-3 text-gray-600">{fmt(v.scheduledDate)}</td>
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{v.appliedDate ? fmt(v.appliedDate) : '—'}</td>

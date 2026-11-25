@@ -2,7 +2,7 @@
 import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
-import { animalSearchText } from '@/lib/animalCode'
+import { animalSearchText, searchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 
@@ -110,7 +110,7 @@ export default function VeterinaryTreatmentPage() {
   const filtered = useMemo(() => {
     return treatments.filter((t) => {
       if (!inDayRange(t.startDate, from, to)) return false
-      const term = animalSearch.trim().toLowerCase()
+      const term = searchText(animalSearch.trim())
       return animalSearchText(t.animal).includes(term)
     })
   }, [treatments, from, to, animalSearch])

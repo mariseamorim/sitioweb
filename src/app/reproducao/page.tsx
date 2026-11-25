@@ -2,7 +2,7 @@
 import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
-import { animalSearchText } from '@/lib/animalCode'
+import { animalSearchText, searchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 
@@ -144,7 +144,7 @@ export default function ReproducaoPage() {
   useEffect(() => { void Promise.resolve().then(reload) }, [reload])
 
   const filtered = useMemo(() => {
-    const term = animalSearch.trim().toLowerCase()
+    const term = searchText(animalSearch.trim())
     const in30 = new Date(); in30.setDate(in30.getDate() + 30)
     const birthSoon = (r: Reproduction) => (r.status === 'Coberta' || r.status === 'Prenha') && !!r.expectedBirthDate && !r.actualBirthDate && new Date(r.expectedBirthDate) <= in30
     return reproductions.filter(r => (quick ? birthSoon(r) : filterStatus === 'Todas' || r.status === filterStatus) && animalSearchText(r.female).includes(term))
@@ -355,7 +355,7 @@ export default function ReproducaoPage() {
             <tbody className="divide-y divide-gray-100">
               {sortedReproductions.map(r => (
                 <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetail(r); setEditingRecord(false); setRegisteringBirth(false); setEditStatus(r.status); setEditBirthDate(r.actualBirthDate?.slice(0, 10) || '') }}>
-                  <td className="px-4 py-3 font-medium text-gray-800">{r.female.name}{isPendingId(r.id) && <span className="ml-2 text-xs font-normal text-blue-700">{t('a enviar')}</span>}</td>
+                  <td className="px-4 py-3 font-medium text-gray-800"><button type="button" className="row-open">{r.female.name}</button>{isPendingId(r.id) && <span className="ml-2 text-xs font-normal text-blue-700">{t('a enviar')}</span>}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{r.maleName || '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{fmt(r.coverageDate)}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{r.expectedBirthDate ? fmt(r.expectedBirthDate) : '—'}</td>

@@ -134,18 +134,20 @@ export default function LoginPage() {
                 onChange={(e) => setLogin(e.target.value)}
                 required
                 autoFocus
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
+                className="w-full min-h-12 border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
                 placeholder={t('(35) 99999-0000 ou seu@email.com')}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t('Senha')}</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">{t('Senha')}</label>
               <PasswordInput
+                id="password"
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
+                className="w-full min-h-12 border border-gray-300 rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent"
                 placeholder="••••••••"
               />
             </div>
@@ -159,7 +161,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || (offline && !canUnlockOffline())}
-              className="w-full bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white font-medium py-2 rounded-lg text-sm transition-colors mt-2"
+              className="w-full min-h-12 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white font-semibold py-3 rounded-lg text-base transition-colors mt-2"
             >
               {t(loading ? 'Entrando...' : offline ? (canUnlockOffline() ? 'Entrar sem internet' : 'Sem internet para entrar') : 'Entrar')}
             </button>

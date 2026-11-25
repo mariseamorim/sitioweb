@@ -17,7 +17,7 @@ import { SemSinalIcon, SincronizarIcon, AnimalIcon } from '@/components/ModuleIc
 import { AppModal, modalButton } from '@/components/AppModal'
 import { CalfSection } from '@/components/CalfSection'
 import { CALF_AT_FOOT_DAYS, animalCategory, animalRuleError, animalToday, CATTLE_BREEDS, canAddCalf, fixedAnimalGender, isBovine } from '@/lib/animalRules'
-import { animalCodes, animalSearchText } from '@/lib/animalCode'
+import { animalCodes, animalSearchText, searchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
@@ -310,7 +310,7 @@ export default function AnimaisPage() {
   const motherOptions = animals.filter((a) => canAddCalf(a) && a.id !== editing?.id && !a.id.startsWith('pending_'))
 
   // Busca por nome, código, outro código (brinco...) ou espécie; o id interno não entra
-  const term = search.trim().toLocaleLowerCase('pt-BR')
+  const term = searchText(search.trim())
   // Filtro do Painel: matrizes são fêmeas bovinas vivas com 2 anos e meio; "ao pé" é cria viva de até 8 meses filha dela
   const atFootSince = new Date(animalToday()); atFootSince.setUTCDate(atFootSince.getUTCDate() - CALF_AT_FOOT_DAYS)
   const withCalf = new Set(animals.filter((c) => c.motherId && c.status === 'Vivo' && new Date(c.birthDate) >= atFootSince).map((c) => c.motherId!))
@@ -321,7 +321,7 @@ export default function AnimaisPage() {
     'com-cria': (a) => isMatrix(a) && withCalf.has(a.id),
     solteiras: (a) => isMatrix(a) && !withCalf.has(a.id),
   }
-  const filtered = animals.filter((a) => (!quick || quickTest[quick](a)) && `${animalSearchText(a)} ${a.species.toLocaleLowerCase('pt-BR')} ${t(a.species).toLocaleLowerCase(locale)}`.includes(term))
+  const filtered = animals.filter((a) => (!quick || quickTest[quick](a)) && searchText(`${animalSearchText(a)} ${a.species} ${t(a.species)}`).includes(term))
   const { rows: sortedAnimals, sort } = useSort(filtered, {
     code: (a) => a.code, name: (a) => a.name, species: (a) => a.species, gender: (a) => a.gender, status: (a) => a.status,
   })
@@ -460,7 +460,7 @@ export default function AnimaisPage() {
                     {a.customCode && <span className="block font-sans text-gray-500">{a.customCode}</span>}
                   </td>
                   <td className="px-2 sm:px-4 py-3 font-medium text-gray-800 text-xs sm:text-sm">
-                    {a.name}
+                    <button type="button" className="row-open">{a.name}</button>
                     {/* No celular a coluna de código some: mostra os códigos embaixo do nome */}
                     <span className="block sm:hidden font-normal text-gray-500">{animalCodes(a)}</span>
                   </td>
@@ -471,7 +471,7 @@ export default function AnimaisPage() {
                       {t(a.status)}
                     </span>
                   </td>
-                  <td className="px-2 sm:px-4 py-3 text-right space-x-1 sm:space-x-2">
+                  <td className="px-2 sm:px-4 py-3 text-right"><div className="inline-flex items-center gap-4">
                     <button
                       aria-label={t('Editar animal {name}', { name: a.name })}
                       onClick={(e) => { e.stopPropagation(); openEdit(a) }}
@@ -487,7 +487,7 @@ export default function AnimaisPage() {
                       aria-label={t('Excluir animal {name}', { name: a.name })}
                       onClick={(e) => { e.stopPropagation(); handleDelete(a.id) }}
                       disabled={!canEdit}
-                      className={`inline-flex items-center gap-1 text-xs ${canEdit ? 'text-red-500 hover:underline' : 'text-gray-300 cursor-not-allowed'}`}
+                      className={`inline-flex items-center gap-1 text-xs ${canEdit ? 'text-red-700 hover:underline' : 'text-gray-300 cursor-not-allowed'}`}
                     >
                       <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M3 6h18" />
@@ -497,7 +497,7 @@ export default function AnimaisPage() {
                         <path d="M14 11v6" />
                       </svg><span>{t('Excluir')}</span>
                     </button>
-                  </td>
+                  </div></td>
                 </tr>
               ))}
             </tbody>
@@ -528,7 +528,7 @@ export default function AnimaisPage() {
           subtitle={[selectedAnimal.code, t(selectedAnimal.species), selectedAnimal.breed, user?.farmName].filter(Boolean).join(' · ')}
           onClose={closeDetails}
           footer={<>
-            <button type="button" onClick={() => { closeDetails(); handleDelete(selectedAnimal.id) }} disabled={!canEdit} className={modalButton.danger}>{t('Excluir')}</button>
+            <button type="button" onClick={() => { closeDetails(); handleDelete(selectedAnimal.id) }} disabled={!canEdit} className={modalButton.dangerSubtle}>{t('Excluir')}</button>
             <button type="button" onClick={() => { closeDetails(); openEdit(selectedAnimal) }} disabled={!canEdit} className={modalButton.primary}>{t('Editar')}</button>
           </>}>
               <div className="flex items-start gap-3">

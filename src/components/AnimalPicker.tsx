@@ -1,7 +1,7 @@
 'use client'
 
 import { useId, useRef, useState } from 'react'
-import { animalCodes, animalSearchText } from '@/lib/animalCode'
+import { animalCodes, animalSearchText, searchText } from '@/lib/animalCode'
 import { useT } from '@/lib/i18n'
 
 interface AnimalOption { id: string; code: string; name: string; customCode?: string | null }
@@ -29,7 +29,7 @@ export function AnimalPicker({ animals, value, onChange, label = 'Animal', requi
   const [active, setActive] = useState(0)
   const input = useRef<HTMLInputElement>(null)
   const selected = animals.find(a => a.id === value)
-  const term = query.trim().toLocaleLowerCase('pt-BR')
+  const term = searchText(query.trim())
   const matches = (term ? animals.filter(a => animalSearchText(a).includes(term)) : animals).slice(0, SHOWN)
   const shown = (a: AnimalOption) => `${animalCodes(a)} — ${a.name}`
 

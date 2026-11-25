@@ -8,7 +8,8 @@ import { ACQUISITIONS, SPECIES, STATUSES, animalOptions, getAnimal, getAnimalPho
 import { CATTLE_BREEDS, isBovine } from '@/lib/animalRules'
 import { listVaccinations, vaccStatus } from '@/repos/vaccinations'
 import { listTreatments } from '@/repos/treatments'
-import { Badge, Button, Card, DateField, Field, IconCircle, Muted, Notice, Row, Screen, SelectField } from '@/ui'
+import { listReproductions, statusTone as reproTone } from '@/repos/reproductions'
+import { Badge, Button, Card, Chips, DateField, Field, IconCircle, Muted, Notice, Row, Screen, SelectField } from '@/ui'
 import { PhotoField, PhotoView } from '@/ui/photo'
 import { colors, space } from '@/theme'
 import { useT } from '@/lib/i18n'
@@ -34,6 +35,8 @@ export default function AnimalScreen() {
   const vacc = listVaccinations(farmId).filter(v => v.animalId === animal!.id)
   const treats = listTreatments(farmId).filter(tr => tr.animalId === animal!.id)
   const a = animal!
+  // Fêmea: a reprodução fica na própria ficha, com a cobertura já ligada a ela
+  const repros = a.gender === 'Fêmea' ? listReproductions(farmId).filter(r => r.femaleId === a.id) : []
   return (
     <Screen>
       <Stack.Screen options={{ title: a.name }} />
@@ -55,6 +58,18 @@ export default function AnimalScreen() {
         {a.observations ? <Text style={{ marginTop: space.sm, color: colors.text }}>{a.observations}</Text> : null}
         {canEdit ? <Button label={t('Editar')} variant="secondary" onPress={() => setEditing(true)} style={{ marginTop: space.md }} /> : null}
       </Card>
+      {a.gender === 'Fêmea' ? (
+        <Card>
+          <Text style={{ fontWeight: '700', color: colors.text }}>{t('Reprodução')}</Text>
+          {repros.length === 0 ? <Muted>{t('Nenhuma cobertura anotada.')}</Muted> : repros.slice(0, 4).map(r => (
+            <Row key={r.id} left={<IconCircle icon="heart-outline" tone={reproTone(r.status)} size={36} />}
+              title={`${t('Cobertura')} ${brDate(r.coverageDate)}`}
+              detail={r.actualBirthDate ? `${t('Parto real')} ${brDate(r.actualBirthDate)}` : r.expectedBirthDate ? `${t('Parto esperado')} ${brDate(r.expectedBirthDate)}` : r.maleName || undefined}
+              badge={<Badge label={t(r.status)} tone={reproTone(r.status)} />} onPress={() => router.push(`/reproducao/${r.id}`)} />
+          ))}
+          {canEdit && a.status !== 'Morto' && a.status !== 'Vendido' ? <Button label={t('+ Registrar cobertura')} variant="ghost" onPress={() => router.push({ pathname: '/reproducao/[id]', params: { id: 'nova', femaleId: a.id } })} /> : null}
+        </Card>
+      ) : null}
       <Card>
         <Text style={{ fontWeight: '700', color: colors.text }}>{t('Vacinas')}</Text>
         {vacc.length === 0 ? <Muted>{t('Nenhuma vacina anotada.')}</Muted> : vacc.slice(0, 8).map(v => {
@@ -170,11 +185,11 @@ function AnimalForm({ farmId, animal, photo, onDone, canEdit }: { farmId: string
           {breedChoice === 'Outra' ? <Field label={t('Qual raça?')} value={breedOther} onChangeText={setBreedOther} maxLength={40} /> : null}
         </>
       ) : null}
-      <SelectField label={t('Sexo')} value={gender} options={[{ value: 'Fêmea', label: t('Fêmea') }, { value: 'Macho', label: t('Macho') }]} onChange={setGender} />
+      <Chips label={t('Sexo')} value={gender} options={[{ value: 'Fêmea', label: 'Fêmea' }, { value: 'Macho', label: 'Macho' }]} onChange={setGender} />
       <DateField label={t('Data de nascimento')} value={birthDate} onChange={setBirthDate} />
-      <SelectField label={t('Situação')} value={status} options={STATUSES.map(s => ({ value: s, label: t(s) }))} onChange={setStatus} />
+      <Chips label={t('Situação')} value={status} options={STATUSES.map(s => ({ value: s, label: s }))} onChange={setStatus} />
       <Field label={t('Brinco ou outro código (opcional)')} value={customCode} onChangeText={setCustomCode} autoCapitalize="characters" hint={t('O número da propriedade é dado automaticamente')} />
-      <SelectField label={t('Origem')} value={acquisitionType} options={ACQUISITIONS.map(([v, l]) => ({ value: v, label: t(l) }))} onChange={setAcquisitionType} />
+      <Chips label={t('Origem')} value={acquisitionType} options={ACQUISITIONS.map(([v, l]) => ({ value: v as string, label: l as string }))} onChange={setAcquisitionType} />
       {acquisitionType === 'nascimento' ? <SelectField label={t('Mãe (opcional)')} value={motherId} options={mothers} onChange={setMotherId} searchable allowEmpty /> : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.md }}>
         <Text style={{ color: colors.text, fontSize: 16 }}>{t('Castrado')}</Text>
@@ -183,7 +198,7 @@ function AnimalForm({ farmId, animal, photo, onDone, canEdit }: { farmId: string
       <Field label={t('Observações')} value={observations} onChangeText={setObservations} multiline />
       {error ? <Notice tone="red" text={error} /> : null}
       <Button label={t('Salvar')} onPress={save} loading={saving} disabled={!canEdit} />
-      {animal && canEdit ? <Button label={t('Apagar animal')} variant="ghost" onPress={remove} style={{ marginTop: space.sm }} /> : null}
+      {animal && canEdit ? <Button label={t('Apagar animal')} variant="destructive" icon="trash-outline" onPress={remove} style={{ marginTop: space.xl }} /> : null}
     </Screen>
   )
 }

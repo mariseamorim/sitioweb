@@ -83,7 +83,7 @@ export function suggestPassword() {
 }
 
 /** Sem acento e sem maiúscula, para a busca */
-export const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+export { normalize } from '@/lib/search'
 
 /** "pendente" → "1 cadastro aguardando aprovação" */
 export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`

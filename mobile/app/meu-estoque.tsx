@@ -24,13 +24,13 @@ export default function MeuEstoque() {
   const [error, setError] = useState('')
   const fail = (e: unknown) => setError(e instanceof NetworkError ? t('Sem internet: o estoque do veterinário precisa de conexão para mudar.') : e instanceof Error ? t(e.message) : t('Não foi possível salvar.'))
 
-  if (mode.kind === 'item') return <ItemForm item={mode.item} onDone={() => { setMode({ kind: 'list' }); void reload() }} />
+  if (mode.kind === 'item') { const it = mode.item; return <ItemForm item={it} onRemove={it ? () => remove(it) : undefined} onDone={() => { setMode({ kind: 'list' }); void reload() }} /> }
   if (mode.kind === 'move') return <MoveForm item={mode.item} type={mode.type} farms={user?.farms?.map(f => f.name) ?? []} onDone={() => { setMode({ kind: 'list' }); void reload() }} />
 
   function remove(s: VetSupply) {
     Alert.alert(t('Apagar item'), t('Apagar {name} e o histórico dele?', { name: s.name }), [
       { text: t('Cancelar'), style: 'cancel' },
-      { text: t('Apagar'), style: 'destructive', onPress: () => { removeVetSupply(s.id).then(() => reload()).catch(fail) } },
+      { text: t('Apagar'), style: 'destructive', onPress: () => { removeVetSupply(s.id).then(() => { setMode({ kind: 'list' }); return reload() }).catch(e => { setMode({ kind: 'list' }); fail(e) }) } },
     ])
   }
 
@@ -61,7 +61,6 @@ export default function MeuEstoque() {
               <Button label="Saída (usei)" onPress={() => { setError(''); setMode({ kind: 'move', item: s, type: 'saida' }) }} style={{ flexGrow: 1 }} />
               <Button label="Entrada" variant="secondary" onPress={() => { setError(''); setMode({ kind: 'move', item: s, type: 'entrada' }) }} style={{ flexGrow: 1 }} />
               <Button label="Editar" variant="ghost" onPress={() => { setError(''); setMode({ kind: 'item', item: s }) }} />
-              <Button label="Apagar" variant="ghost" onPress={() => remove(s)} />
             </View>
           </Card>
         )
@@ -70,7 +69,7 @@ export default function MeuEstoque() {
   )
 }
 
-function ItemForm({ item, onDone }: { item?: VetSupply; onDone: () => void }) {
+function ItemForm({ item, onDone, onRemove }: { item?: VetSupply; onDone: () => void; onRemove?: () => void }) {
   const t = useT()
   const [kind, setKind] = useState(item?.kind ?? 'semen')
   const [name, setName] = useState(item?.name ?? '')
@@ -113,6 +112,7 @@ function ItemForm({ item, onDone }: { item?: VetSupply; onDone: () => void }) {
       {error ? <Notice tone="red" text={error} /> : null}
       <Button label="Salvar" onPress={() => void save()} loading={busy} />
       <Button label="Cancelar" variant="ghost" onPress={onDone} style={{ marginTop: space.sm }} />
+      {onRemove ? <Button label="Apagar item" variant="destructive" icon="trash-outline" onPress={onRemove} style={{ marginTop: space.xl }} /> : null}
     </Screen>
   )
 }

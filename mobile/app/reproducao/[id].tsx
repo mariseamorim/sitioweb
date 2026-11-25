@@ -17,7 +17,6 @@ import { useT } from '@/lib/i18n'
 import { useVetStock } from '@/vet/stock'
 import { semenLabel } from '@/lib/vetSupplyKinds'
 
-const statusOptions = (t: (s: string) => string) => STATUS_LIST.map(s => ({ value: s, label: t(s) }))
 
 // Reprodução: id = "nova" abre "Registrar cobertura"; um id existente abre o detalhe do registro
 export default function ReproducaoScreen() {
@@ -103,7 +102,7 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
       <Field label={t('Raça do touro')} value={form.bullBreed} onChangeText={v => set({ bullBreed: v })} placeholder={t('Ex.: Gir, Holandesa')} />
       <DateField label={t('Data da cobertura *')} value={form.coverageDate} onChange={v => set({ coverageDate: v })} />
       {form.status === 'Prenha' && !form.coverageDate ? <Notice text={t('Se não souber o dia certo, coloque uma data aproximada: ela define a previsão do parto.')} /> : null}
-      <SelectField label={t('Status')} value={form.status} options={statusOptions(t)} onChange={v => set({ status: v ?? 'Coberta' })} />
+      <Chips label={t('Status')} value={form.status} options={STATUS_LIST.map(s => ({ value: s, label: s }))} onChange={v => set({ status: v })} />
       {/* Detalhes recolhidos: o registro rápido é fêmea, como foi, touro e data */}
       {!more ? <Button label={t('Mais detalhes (opcional)')} variant="ghost" onPress={() => setShowMore(true)} style={{ marginBottom: space.md }} /> : (
         <Card>
@@ -205,12 +204,13 @@ function DetailScreen({ id }: { id: string }) {
       {canEdit ? (
         <Card>
           <Text style={[styles.label, { marginBottom: space.md }]}>{t('Atualizar status')}</Text>
-          <SelectField label={t('Status')} value={editStatus} options={statusOptions(t)} onChange={setEditStatus} />
+          <Chips value={editStatus} options={STATUS_LIST.map(s => ({ value: s, label: s }))} onChange={setEditStatus} />
           {editStatus === 'Parida' ? <DateField label={t('Data do parto')} value={editBirthDate} onChange={setEditBirthDate} allowEmpty /> : null}
           <Button label={t('Salvar')} onPress={saveStatus} />
-          <Button label={t('Excluir')} variant="ghost" onPress={remove} style={{ marginTop: space.sm }} />
         </Card>
       ) : null}
+      {/* Excluir longe das ações do dia a dia */}
+      {canEdit ? <Button label={t('Excluir registro')} variant="destructive" icon="trash-outline" onPress={remove} style={{ marginTop: space.xl }} /> : null}
     </Screen>
   )
 }

@@ -1,6 +1,7 @@
 import { all, one } from '@/db'
 import { createLocal, currentId, deleteLocal, updateLocal } from '@/sync/local'
 import { isBovine } from '@/lib/animalRules'
+import { matches } from '@/lib/search'
 
 export interface Animal {
   id: string
@@ -41,12 +42,14 @@ export const statusTone = (s: string): 'green' | 'amber' | 'blue' | 'red' | 'mut
   s === 'Vivo' ? 'green' : s === 'Doente' ? 'amber' : s === 'Vendido' ? 'blue' : s === 'Morto' ? 'red' : 'muted'
 export const ACQUISITIONS = [['existente', 'Já estava na propriedade'], ['nascimento', 'Nasceu aqui'], ['compra', 'Comprado']] as const
 
+// Busca sem acento: o SQLite só ignora maiúscula em letras sem acento, então o filtro é feito aqui
 export function listAnimals(farmId: string, q = ''): Animal[] {
-  const term = `%${q.trim().toLowerCase()}%`
-  return all<Animal>(
-    `SELECT *, EXISTS(SELECT 1 FROM animal_photos p WHERE p.id = animals.id) AS hasPhoto FROM animals WHERE farmId = ? AND (? = '%%' OR lower(name) LIKE ? OR lower(code) LIKE ? OR lower(coalesce(customCode, '')) LIKE ?) ORDER BY name COLLATE NOCASE`,
-    [farmId, term, term, term, term],
+  const rows = all<Animal>(
+    `SELECT *, EXISTS(SELECT 1 FROM animal_photos p WHERE p.id = animals.id) AS hasPhoto FROM animals WHERE farmId = ? ORDER BY name COLLATE NOCASE`,
+    [farmId],
   )
+  if (!q.trim()) return rows
+  return rows.filter(a => matches(`${a.name} ${a.code} ${a.customCode ?? ''}`, q))
 }
 
 export const getAnimal = (id: string) => one<Animal>('SELECT * FROM animals WHERE id = ?', [currentId(id)])
