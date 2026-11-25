@@ -1,10 +1,10 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Alert, Pressable, Text, View } from 'react-native'
+import { Alert, Pressable, Text, ToastAndroid, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { canAddCalf } from '@/lib/animalRules'
-import { COVERAGE_METHODS, EMPTY_COVERAGE, gestation, isInsemination, methodLabel, repeatCoverage, repeatedFields, type CoverageForm } from '@/lib/coverage'
+import { COVERAGE_METHODS, EMPTY_COVERAGE, GESTATION_DAYS, gestation, plusDays, isInsemination, methodLabel, repeatCoverage, repeatedFields, type CoverageForm } from '@/lib/coverage'
 import { brDate, isoDay, todayISO } from '@/lib/format'
 import { getAnimal } from '@/repos/animals'
 import {
@@ -63,6 +63,8 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
       setRepeated(prev => ({ count: (prev?.count ?? 0) + 1, kept: repeatedFields(form) }))
       return
     }
+    const open = form.status === 'Coberta' || form.status === 'Prenha'
+    ToastAndroid.show(open ? t('Cobertura salva. Parto previsto para {date}.', { date: brDate(plusDays(form.coverageDate, GESTATION_DAYS)) }) : t('Cobertura salva.'), ToastAndroid.LONG)
     router.back()
   }
 
@@ -206,7 +208,7 @@ function DetailScreen({ id }: { id: string }) {
           <Text style={[styles.label, { marginBottom: space.md }]}>{t('Atualizar status')}</Text>
           <Chips value={editStatus} options={STATUS_LIST.map(s => ({ value: s, label: s }))} onChange={setEditStatus} />
           {editStatus === 'Parida' ? <DateField label={t('Data do parto')} value={editBirthDate} onChange={setEditBirthDate} allowEmpty /> : null}
-          <Button label={t('Salvar')} onPress={saveStatus} />
+          <Button label={t('Salvar status')} variant={mother ? 'secondary' : 'primary'} onPress={saveStatus} />
         </Card>
       ) : null}
       {/* Excluir longe das ações do dia a dia */}

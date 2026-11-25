@@ -224,10 +224,11 @@ export function Navbar({ desktopOpen, onToggleDesktop }: { desktopOpen: boolean;
         <div className="flex min-w-0 items-center gap-3">
           <button type="button" onClick={onToggleDesktop} aria-label={t(desktopOpen ? 'Recolher menu' : 'Abrir menu lateral')} aria-expanded={desktopOpen} aria-controls="menu-computador" className={`hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 ${desktopOpen ? 'lg:flex' : ''}`}><MenuIcon className="h-5 w-5" /></button>
           <button ref={trigger} type="button" onClick={() => setOpenPath(pathname)} aria-label={t('Abrir menu')} aria-expanded={drawerOpen} aria-controls={drawerOpen ? 'menu-lateral' : undefined} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-50 lg:hidden"><MenuIcon className="h-5 w-5" /></button>
-          {/* Fora do painel, um "voltar" visível: o menu ☰ não é óbvio para quem não é de tecnologia */}
+          {/* Fora do painel, um atalho visível para o Painel: o menu ☰ não é óbvio para quem não é de tecnologia.
+              Ícone do Painel (não seta de voltar), porque leva sempre ao Painel, e o "voltar" de cada tela é o da própria página. */}
           {pathname !== homeHref && (
-            <Link href={homeHref} aria-label={t('Voltar ao painel')} className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-              <SetaDireitaIcon className="h-4 w-4 rotate-180" /><span className="hidden sm:inline">{t('Painel')}</span>
+            <Link href={homeHref} aria-label={t('Ir para o painel')} className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 px-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+              <PainelIcon className="h-4 w-4" /><span className="hidden sm:inline">{t('Painel')}</span>
             </Link>
           )}
           <div className="min-w-0"><p className="truncate text-sm font-semibold text-gray-800">{activeLink ? t(activeLink.label) : 'Anota Aí Agro'}</p>{panelRole ? <p className="truncate text-xs text-gray-500">{t(panelRole.subtitle)}</p> : <FarmSwitcher fallback={t('Gestão da propriedade')} />}</div>

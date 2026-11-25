@@ -356,11 +356,7 @@ export default function AnimaisPage() {
         <button
           onClick={openNew}
           disabled={!canEdit}
-          className={`text-white text-sm font-semibold px-4 py-2 rounded-lg ${
-            canEdit
-              ? 'bg-green-800 hover:bg-green-700'
-              : 'bg-gray-400 cursor-not-allowed'
-          }`}
+          className="btn-primary"
         >
           {t('Cadastrar animal')}
         </button>

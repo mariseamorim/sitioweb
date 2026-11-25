@@ -66,6 +66,19 @@ body {
 .row-open { min-height: 0; min-width: 0; padding: 0; font: inherit; color: inherit; text-align: left; text-decoration: underline; text-decoration-color: #d1d5db; text-underline-offset: 3px; cursor: pointer; }
 .app-workspace .row-open { min-height: 0; min-width: 0; font-size: inherit; }
 tr:hover .row-open, .row-open:focus-visible { text-decoration-color: #15803d; }
+
+/* Ação principal no topo das telas: o mesmo botão em todas (o mesmo verde do botão principal dos modais) */
+.btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 44px; padding: .625rem 1.25rem; border-radius: .75rem; background: #15803d; color: #fff; font-size: 1rem; font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / .05); }
+.btn-primary:hover:not(:disabled) { background: #16a34a; }
+.btn-primary:disabled { background: #9ca3af; cursor: not-allowed; box-shadow: none; }
+
+/* Números de tabela com a mesma largura: colunas de litros, valores e quantidades ficam alinhadas */
+.app-workspace :where(td, th) { font-variant-numeric: tabular-nums; }
+
+/* Quem pediu menos movimento no aparelho: sem animações nem transições */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
 .app-workspace :where(button:disabled) { cursor: not-allowed; }
 .app-workspace #conteudo .text-gray-400 { color: #64748b; }
 .app-workspace .page-toolbar { flex-wrap: wrap; gap: 12px; }

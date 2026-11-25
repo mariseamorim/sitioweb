@@ -282,4 +282,9 @@ export const reproducao: Record<string, string> = {
   'Nenhuma cobertura anotada.': 'Ninguna cobertura anotada.',
   '+ Registrar cobertura': '+ Registrar cobertura',
   'Excluir registro': 'Eliminar registro',
+  'Cobertura salva. Parto previsto para {date}.': 'Cobertura guardada. Parto previsto para el {date}.',
+  'Cobertura salva.': 'Cobertura guardada.',
+  'Salvar status': 'Guardar estado',
+  'Vacina aplicada hoje: {item}': 'Vacuna aplicada hoy: {item}',
+  'Cancelar visita': 'Cancelar visita',
 }

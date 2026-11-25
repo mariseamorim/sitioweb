@@ -246,7 +246,8 @@ export function Stat({ label, value, tone }: { label: string; value: string; ton
 /** `plain`: sem cor própria; com `color`, o cartão usa essa cor de fundo */
 export type Accent = 'green' | 'blue' | 'teal' | 'amber' | 'red' | 'plain'
 /** Cores sólidas dos cartões (como os cartões do site: verde, azul-marinho, verde-água, laranja e vermelho) */
-const SOLID: Record<Exclude<Accent, 'plain'>, string> = { green: '#15803d', blue: '#1e3a8a', teal: '#0f766e', amber: '#ea580c', red: '#dc2626' }
+// Laranja e vermelho escurecidos para o texto branco passar de 4,5:1 (leitura ao sol)
+const SOLID: Record<Exclude<Accent, 'plain'>, string> = { green: '#15803d', blue: '#1e3a8a', teal: '#0f766e', amber: '#c2410c', red: '#b91c1c' }
 
 type TileIconName = keyof typeof Ionicons.glyphMap
 /** Ícone pelo nome do número, em português e em espanhol (a mesma ideia de src/components/StatTile.tsx do site) */
@@ -277,8 +278,8 @@ export function Tile({ label, value, detail, accent = 'green', color, icon }: { 
         <Text style={{ flex: 1, color: '#ffffff', fontSize: font.md, fontWeight: '700' }}>{label}</Text>
         <Ionicons name={icon ?? tileIcon(label)} size={22} color="rgba(255,255,255,0.92)" />
       </View>
-      <Text style={{ color: '#ffffff', fontSize: 26, fontWeight: '800', marginTop: 2 }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
-      {detail ? <Text style={{ color: 'rgba(255,255,255,0.92)', fontSize: font.sm }}>{detail}</Text> : null}
+      <Text style={{ color: '#ffffff', fontSize: 26, fontWeight: '800', marginTop: 2, fontVariant: ['tabular-nums'] }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
+      {detail ? <Text style={{ color: '#ffffff', fontSize: font.sm }}>{detail}</Text> : null}
     </View>
   )
 }
@@ -294,7 +295,7 @@ export function ActionCard({ title, detail, icon, accent, onPress }: { title: st
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ color: '#ffffff', fontSize: font.md, fontWeight: '700' }}>{title}</Text>
-        {detail ? <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: font.sm }}>{detail}</Text> : null}
+        {detail ? <Text style={{ color: '#ffffff', fontSize: font.sm }}>{detail}</Text> : null}
       </View>
       <Ionicons name="chevron-forward" size={18} color="#ffffff" />
     </Pressable>

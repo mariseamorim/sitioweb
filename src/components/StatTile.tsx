@@ -6,9 +6,10 @@ export type Accent = 'green' | 'blue' | 'teal' | 'amber' | 'red'
 const ACCENT: Record<Accent, string> = {
   green: 'from-green-700 to-green-600 shadow-green-900/20',
   blue: 'from-blue-900 to-blue-700 shadow-blue-900/25',
-  teal: 'from-teal-700 to-teal-500 shadow-teal-900/20',
-  amber: 'from-orange-600 to-amber-500 shadow-orange-900/20',
-  red: 'from-red-600 to-rose-500 shadow-red-900/20',
+  // Fim do gradiente em tons escuros: o número e o detalhe ficam ali, em texto branco (contraste ≥ 4,5:1)
+  teal: 'from-teal-800 to-teal-600 shadow-teal-900/20',
+  amber: 'from-orange-700 to-amber-700 shadow-orange-900/20',
+  red: 'from-red-700 to-rose-600 shadow-red-900/20',
 }
 
 export type TileIcon = 'rebanho' | 'leite' | 'taxa' | 'tarefa' | 'dinheiro' | 'data' | 'vacina' | 'estoque' | 'peso' | 'grafico' | 'visita'
