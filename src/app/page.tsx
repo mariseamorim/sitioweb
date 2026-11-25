@@ -178,9 +178,8 @@ export default async function Home() {
           <Link
             key={label}
             href={href}
-            className={`relative overflow-hidden rounded-xl border p-4 pt-5 transition-shadow hover:shadow-md sm:p-5 sm:pt-6 ${TILE[accent].box}`}
+            className={`rounded-xl border border-gray-200 p-4 transition-shadow hover:shadow-md sm:p-5 ${TILE[accent].box}`}
           >
-            <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-1.5 ${TILE[accent].bar}`} />
             <div className="flex items-center gap-2 text-gray-700">
               <Icon className="w-5 h-5 shrink-0 text-gray-500" />
               <p className="text-sm font-medium leading-tight"><T k={label} /></p>
@@ -200,8 +199,7 @@ export default async function Home() {
               ['Com bezerro ao pé', withCalf, 'green', 'com-cria'],
               ['Solteiras', matrices.length - withCalf, 'amber', 'solteiras'],
             ].map(([label, value, accent, filter]) => (
-              <Link key={label} href={`/animais?filtro=${filter}`} className={`relative overflow-hidden rounded-xl border p-4 pt-5 transition-shadow hover:shadow-md sm:p-5 sm:pt-6 ${TILE[accent as Accent].box}`}>
-                <span aria-hidden="true" className={`absolute inset-x-0 top-0 h-1.5 ${TILE[accent as Accent].bar}`} />
+              <Link key={label} href={`/animais?filtro=${filter}`} className={`rounded-xl border border-gray-200 p-4 transition-shadow hover:shadow-md sm:p-5 ${TILE[accent as Accent].box}`}>
                 <p className="text-sm font-medium leading-tight text-gray-700"><T k={String(label)} /></p>
                 <p className={`mt-3 text-3xl font-bold tabular-nums ${TILE[accent as Accent].value}`}>{value}</p>
               </Link>
@@ -267,10 +265,11 @@ function FarmsOverview({ farms, activeId, fmtBRL }: {
 
 // Mesmas cores do StatTile; aqui o cartão inteiro é um link, por isso a classe fica na página
 // (o StatTile só aceita nome em texto e o Painel é componente de servidor, que traduz com <T />).
-const TILE: Record<Accent, { box: string; bar: string; value: string }> = {
-  green: { box: 'border-green-200 bg-green-50', bar: 'bg-green-600', value: 'text-green-900' },
-  blue: { box: 'border-blue-200 bg-blue-50', bar: 'bg-blue-600', value: 'text-blue-900' },
-  teal: { box: 'border-teal-200 bg-teal-50', bar: 'bg-teal-600', value: 'text-teal-900' },
-  amber: { box: 'border-amber-200 bg-amber-50', bar: 'bg-amber-500', value: 'text-amber-800' },
-  red: { box: 'border-red-200 bg-red-50', bar: 'bg-red-600', value: 'text-red-700' },
+// Cartões do resumo: borda cinza neutra; a cor fica só no fundo suave e no número
+const TILE: Record<Accent, { box: string; value: string }> = {
+  green: { box: 'bg-green-50', value: 'text-green-900' },
+  blue: { box: 'bg-blue-50', value: 'text-blue-900' },
+  teal: { box: 'bg-teal-50', value: 'text-teal-900' },
+  amber: { box: 'bg-amber-50', value: 'text-amber-800' },
+  red: { box: 'bg-red-50', value: 'text-red-700' },
 }
