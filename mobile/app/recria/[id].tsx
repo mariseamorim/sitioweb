@@ -8,8 +8,8 @@ import { decimal, parseKg, toField } from '@/lib/lots'
 import { isInRearing, rearingEntryError, rearingSummary } from '@/lib/rearing'
 import type { HerdAnimal } from '@/repos/lots'
 import { addRearingWeighing, eligibleForRearing, enterRearing, getRearing, isPendingWeighing, removeRearingWeighing, setRearingEnd, setRearingTarget, type RearingRow } from '@/repos/rearing'
-import { Badge, Button, Card, DateField, Field, Muted, Notice, Screen, Search } from '@/ui'
-import { Section, StatGrid, TextButton, coverageLine, kg, plural, tag } from '@/ui/lots'
+import { Badge, Button, Card, DateField, Field, Muted, Notice, Screen, Search, Tile, TileGrid } from '@/ui'
+import { Section, TextButton, coverageLine, kg, plural, tag } from '@/ui/lots'
 import { colors, font, radius, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
@@ -86,12 +86,12 @@ function RearingDetail({ animal, farmId, today, canEdit, canBreed }: { animal: R
           <Badge label={inRearing ? 'Recria' : 'Saiu da recria'} tone={inRearing ? 'blue' : 'muted'} />
         </View>
         <View style={{ marginTop: space.md }}>
-          <StatGrid items={[
-            { title: 'Na desmama', value: s.entry ? kg(s.entry.weight) : '—' },
-            { title: 'Último peso', value: s.last ? kg(s.last.weight) : '—' },
-            { title: 'Ganho', value: s.gainKg !== null ? kg(s.gainKg) : '—', tone: 'green' },
-            { title: 'Ganho/dia', value: s.gmd !== null ? `${brNumber(s.gmd, 3)} kg` : '—', tone: 'green' },
-          ]} />
+          <TileGrid>
+            <Tile accent="blue" label={t('Na desmama')} value={s.entry ? kg(s.entry.weight) : '—'} />
+            <Tile accent="teal" label={t('Último peso')} value={s.last ? kg(s.last.weight) : '—'} />
+            <Tile accent={s.gainKg !== null && s.gainKg < 0 ? 'red' : 'green'} label={t('Ganho')} value={s.gainKg !== null ? kg(s.gainKg) : '—'} />
+            <Tile accent={s.gmd !== null && s.gmd < 0 ? 'red' : 'green'} label={t('Ganho/dia')} value={s.gmd !== null ? `${brNumber(s.gmd, 3)} kg` : '—'} />
+          </TileGrid>
         </View>
         {s.projection ? <Text style={{ marginTop: space.sm, color: colors.text, fontSize: font.sm }}>{t('No ritmo atual chega a {kg} em {days} ({date}).', { kg: kg(animal.rearingTarget!), days: plural(s.projection.days, 'dia', 'dias'), date: brDate(s.projection.date) })}</Text> : null}
         <TextButton label="Abrir a ficha do animal" onPress={() => router.push(`/animais/${animal.id}`)} />

@@ -175,6 +175,56 @@ export function CheckIcon({ className = 'w-5 h-5' }: IconProps) {
   )
 }
 
+export function CalendarioIcon({ className = 'w-6 h-6' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
+      <path d="M8 14h2M14 14h2M8 17h2" />
+    </svg>
+  )
+}
+
+export function WhatsAppLineIcon({ className = 'w-5 h-5' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20l1.3-3.9A8 8 0 1 1 8 18.8L4 20z" />
+      <path d="M9.2 8.6c.2-.4.5-.5.8-.5h.4c.2 0 .4.1.5.4l.6 1.4c.1.2 0 .5-.1.6l-.5.6a5.5 5.5 0 0 0 2.4 2.3l.6-.5c.2-.2.4-.2.6-.1l1.4.6c.3.1.4.3.4.5v.4c0 .3-.2.6-.5.8-.6.4-1.4.5-2.1.2a8.4 8.4 0 0 1-4.8-4.7c-.2-.8-.1-1.6.3-2z" />
+    </svg>
+  )
+}
+
+export function LixeiraIcon({ className = 'w-5 h-5' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h16M10 11v6M14 11v6" />
+      <path d="M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3" />
+    </svg>
+  )
+}
+
+/** Calendário com relógio (IATF: inseminação em tempo fixo) */
+export function CalendarioRelogioIcon({ className = 'w-6 h-6' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 11V7.5A2.5 2.5 0 0017.5 5h-11A2.5 2.5 0 004 7.5v10A2.5 2.5 0 006.5 20H11" />
+      <path d="M4 10h16M8 3v4M16 3v4" />
+      <circle cx="17" cy="17" r="4" />
+      <path d="M17 15.3V17l1.2 1" />
+    </svg>
+  )
+}
+
+/** Cerca do pasto (monta natural) */
+export function PastoIcon({ className = 'w-6 h-6' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 21V7l2-2 2 2v14M15 21V7l2-2 2 2v14" />
+      <path d="M3 11h18M3 16h18" />
+    </svg>
+  )
+}
+
 export function FecharIcon({ className = 'w-5 h-5' }: IconProps) {
   return (
     <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
@@ -271,6 +321,15 @@ export function AjudaIcon({ className = 'w-6 h-6' }: IconProps) {
       <circle cx="12" cy="12" r="9" />
       <path d="M9.5 9.5a2.5 2.5 0 015 0c0 1.5-2.5 2-2.5 3.5" />
       <path d="M12 17h.01" />
+    </svg>
+  )
+}
+
+export function LapisIcon({ className = 'w-4 h-4' }: IconProps) {
+  return (
+    <svg className={className} {...base} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 20h4L19 9a2.8 2.8 0 00-4-4L4 16v4z" />
+      <path d="M13.5 6.5l4 4" />
     </svg>
   )
 }

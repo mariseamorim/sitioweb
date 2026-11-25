@@ -14,12 +14,14 @@ export const GOOGLE_ERRORS: Record<string, string> = {
 
 export function GoogleLoginButton({ next, link = false }: { next?: string; link?: boolean }) {
   const t = useT()
-  const [enabled, setEnabled] = useState(false)
-  useEffect(() => { fetch('/api/auth/google/config', { cache: 'no-store' }).then(r => r.json()).then(data => setEnabled(data.enabled === true)).catch(() => {}) }, [])
+  // null = ainda conferindo: reserva a altura do botão para o formulário não pular quando ele aparece
+  const [enabled, setEnabled] = useState<boolean | null>(null)
+  useEffect(() => { fetch('/api/auth/google/config', { cache: 'no-store' }).then(r => r.json()).then(data => setEnabled(data.enabled === true)).catch(() => setEnabled(false)) }, [])
+  if (enabled === null) return <div aria-hidden="true" className="min-h-12" />
   if (!enabled) return null
   return <button type="button" onClick={() => {
     const params = new URLSearchParams({ next: next ?? new URLSearchParams(window.location.search).get('next') ?? '/' })
     if (link) params.set('link', '1')
     window.location.href = `/api/auth/google?${params}`
-  }} className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t(link ? 'Conectar conta Google' : 'Continuar com Google')}</button>
+  }} className="w-full min-h-12 rounded-lg border border-gray-300 bg-white px-4 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50">{t(link ? 'Conectar conta Google' : 'Continuar com Google')}</button>
 }

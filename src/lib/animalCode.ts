@@ -11,9 +11,14 @@ export function animalCodes(a: { code: string; customCode?: string | null }) {
   return a.customCode ? `${a.code} · ${a.customCode}` : a.code
 }
 
-/** Texto usado na busca: nome, código e outro código */
+/** Sem acento e sem maiúscula, para comparar na busca: "perola" acha "Pérola" */
+export function searchText(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR')
+}
+
+/** Texto usado na busca: nome, código e outro código (sem acento; compare com searchText do termo) */
 export function animalSearchText(a: { code: string; name: string; customCode?: string | null }) {
-  return `${a.name} ${a.code} ${a.customCode ?? ''}`.toLocaleLowerCase('pt-BR')
+  return searchText(`${a.name} ${a.code} ${a.customCode ?? ''}`)
 }
 
 /** Erro de repetição: qual dos códigos já existe na propriedade */

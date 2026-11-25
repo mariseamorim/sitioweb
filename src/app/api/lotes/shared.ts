@@ -1,10 +1,49 @@
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { todayUTC } from '@/lib/utils'
+import { parseStages } from '@/lib/lotPlans'
 
 // Partes comuns das rotas de lotes (recria e engorda)
 
+export const PLAN_SELECT = { id: true, name: true, description: true, active: true, stages: true, targetWeight: true } as const
+
+/** Campos do plano vindos do formulário; texto de erro quando algo está errado */
+export function parsePlan(body: Record<string, unknown>) {
+  const name = typeof body.name === 'string' ? body.name.trim().slice(0, 80) : ''
+  if (!name) return 'Dê um nome ao plano'
+  const targetWeight = parseTarget(body.targetWeight)
+  if (targetWeight === 'invalid') return 'Meta de peso inválida'
+  return {
+    name,
+    description: typeof body.description === 'string' && body.description.trim() ? body.description.trim().slice(0, 500) : null,
+    active: body.active !== false,
+    stages: parseStages(body.stages) as unknown as Prisma.InputJsonValue,
+    targetWeight,
+  }
+}
+
+/** Plano do lote: id de um plano desta propriedade, ou null para tirar; 'invalid' se não for desta propriedade */
+export async function parsePlanId(farmId: string, value: unknown): Promise<string | null | 'invalid'> {
+  if (value === null || value === undefined || value === '') return null
+  if (typeof value !== 'string') return 'invalid'
+  return (await prisma.lotPlan.count({ where: { id: value, farmId } })) ? value : 'invalid'
+}
+
+/** Valor de compra do lote (R$): vazio = sem valor */
+export function parseMoney(value: unknown): number | null | 'invalid' {
+  if (value === null || value === undefined || value === '') return null
+  // "15.000,50" e "1500,5" (vírgula decimal) ou 1500.5 / "1500.50" (ponto decimal, número do app)
+  const text = String(value).trim()
+  const n = typeof value === 'number' ? value : Number(text.includes(',') ? text.replace(/\./g, '').replace(',', '.') : text)
+  return Number.isFinite(n) && n >= 0 && n < 1e9 ? Math.round(n * 100) / 100 : 'invalid'
+}
+
 export const LOT_SELECT = {
   id: true, name: true, phase: true, startDate: true, endDate: true, targetWeight: true, notes: true,
+  planId: true, purchaseValue: true,
+  plan: { select: PLAN_SELECT },
+  // Despesas do Financeiro ligadas ao lote (entram no desempenho)
+  transactions: { where: { type: 'Despesa' }, select: { id: true, category: true, amount: true, date: true, description: true }, orderBy: { date: 'asc' as const } },
   supplies: { select: { id: true, percent: true, supply: { select: { id: true, name: true, unit: true, currentQuantity: true, packageKg: true, unitPrice: true } } }, orderBy: { supply: { name: 'asc' as const } } },
   feedings: { select: { id: true, date: true, kg: true, suggestedKg: true, cost: true, supplyId: true }, orderBy: { date: 'asc' as const } },
   weighings: { select: { id: true, date: true, headCount: true, avgWeight: true }, orderBy: { date: 'asc' as const } },

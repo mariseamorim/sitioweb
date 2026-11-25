@@ -3,11 +3,12 @@
 import { prisma } from '@/lib/prisma'
 import { canAccessModule, type SessionUser } from '@/lib/auth'
 import { animalCategory, animalToday } from '@/lib/animalRules'
+import { lactatingByMonth, lactatingNow } from '@/lib/lactating'
 import { addMonths, buildIndicators } from '@/lib/reproInsights'
-import { farmOverviews, vetProfileOf, vetTasks } from '@/lib/vets'
+import { farmOverviews, vetProfileOf } from '@/lib/vets'
 import { todayStops } from '@/lib/laticinio'
 import { sharedProduction } from '@/lib/associacao'
-import type { Board, Chart, Tile } from '@/lib/dashboardTypes'
+import type { Board, Chart, Tile, Tone } from '@/lib/dashboardTypes'
 
 const DAY = 24 * 60 * 60 * 1000
 const dayKey = (d: Date) => d.toISOString().slice(0, 10)
@@ -33,12 +34,15 @@ function sumBy<T>(rows: T[], key: (row: T) => string, value: (row: T) => number)
 /** As maiores primeiro, até `limit` */
 const top = (rows: { label: string; value: number }[], limit = 10) => rows.filter((r) => r.value > 0).sort((a, b) => b.value - a.value).slice(0, limit)
 
-export async function buildDashboard(user: SessionUser): Promise<Board | null> {
+/** Opções do filtro de período (meses), no quadro do veterinário */
+const PERIODS = [3, 6, 12]
+
+export async function buildDashboard(user: SessionUser, options: { months?: number } = {}): Promise<Board | null> {
   if (user.role === 'fornecedor') return user.vendorId ? vendorBoard(user.vendorId) : null
   if (user.role === 'laticinio' || user.role === 'associacao') return user.organizationId ? organizationBoard(user.organizationId) : null
   if (user.role === 'lite' || user.role === 'motorista') return null
   const vet = await vetProfileOf(user.id)
-  if (vet) return vetBoard(user, vet.id)
+  if (vet) return vetBoard(user, vet.id, PERIODS.includes(options.months ?? 0) ? options.months! : 12)
   return producerBoard(user)
 }
 
@@ -47,7 +51,7 @@ export async function buildDashboard(user: SessionUser): Promise<Board | null> {
 async function producerBoard(user: SessionUser): Promise<Board | null> {
   const farmId = user.effectiveFarmId
   if (!farmId) return null
-  const farm = await prisma.farm.findUnique({ where: { id: farmId }, select: { name: true, segments: true } })
+  const farm = await prisma.farm.findUnique({ where: { id: farmId }, select: { name: true, segments: true, lactatingGoal: true } })
   if (!farm) return null
   const can = (module: string) => canAccessModule(user, module)
   const today = animalToday()
@@ -58,7 +62,7 @@ async function producerBoard(user: SessionUser): Promise<Board | null> {
 
   const [animals, milk, coverages, lateShots, money] = await Promise.all([
     can('animais') ? prisma.animal.findMany({ where: { farmId, status: { in: ['Vivo', 'Doente'] } }, select: { species: true, gender: true, birthDate: true, isCastrated: true } }) : null,
-    showMilk ? prisma.milkProduction.findMany({ where: { farmId, date: { gte: midnight(`${months[0]}-01`) } }, select: { date: true, quantity: true } }) : null,
+    showMilk ? prisma.milkProduction.findMany({ where: { farmId, date: { gte: midnight(`${months[0]}-01`) } }, select: { date: true, quantity: true, animalId: true, cowsMilked: true } }) : null,
     can('reproducao') ? prisma.reproduction.findMany({ where: { farmId }, select: { coverageDate: true, status: true, expectedBirthDate: true, actualBirthDate: true } }) : null,
     can('vacinacao') ? prisma.vaccination.count({ where: { animal: { farmId }, appliedDate: null, scheduledDate: { lt: midnight(today) } } }) : null,
     can('financeiro') ? prisma.transaction.findMany({ where: { farmId, date: { gte: monthStart } }, select: { type: true, amount: true } }) : null,
@@ -76,6 +80,18 @@ async function producerBoard(user: SessionUser): Promise<Board | null> {
     const week = days.slice(22, 29).reduce((sum, d) => sum + (byDay.get(d) ?? 0), 0)
     tiles.push({ label: 'Leite ontem', value: Math.round(byDay.get(yesterday) ?? 0), unit: 'L', detail: { text: 'média de 7 dias: {n} L/dia', vars: { n: Math.round(week / 7) } } })
     tiles.push({ label: 'Leite no mês', value: Math.round(byMonth.get(months[11]) ?? 0), unit: 'L' })
+    // Vacas em lactação e a meta da propriedade ("70 de 100")
+    const lactRows = milk.map((m) => ({ date: dayKey(m.date), animalId: m.animalId, cowsMilked: m.cowsMilked }))
+    const lactating = lactatingNow(lactRows, today)
+    if (lactating !== null || farm.lactatingGoal) {
+      const goal = farm.lactatingGoal
+      tiles.push({
+        label: 'Vacas em lactação', value: lactating ?? 0,
+        ...(goal ? { suffix: `de ${goal}`, detail: { text: '{p}% da meta', vars: { p: Math.round(((lactating ?? 0) / goal) * 100) } } } : {}),
+      })
+      const series = lactatingByMonth(lactRows, months)
+      if (series.some((v) => v !== null)) charts.push({ kind: 'columns', axis: 'month', unit: '', title: 'Vacas em lactação por mês', subtitle: goal ? { text: 'Média de cada mês · meta: {n}', vars: { n: goal } } : 'Média de cada mês', points: months.map((x, i) => ({ x, value: series[i] })) })
+    }
     charts.push({ kind: 'columns', wide: true, axis: 'day', unit: 'L', title: 'Leite por dia', subtitle: 'Últimos 30 dias (hoje ainda em andamento)', points: days.map((x) => ({ x, value: round1(byDay.get(x) ?? 0) })) })
     charts.push({ kind: 'columns', axis: 'month', unit: 'L', title: 'Leite por mês', subtitle: 'Últimos 12 meses', points: months.map((x) => ({ x, value: Math.round(byMonth.get(x) ?? 0) })) })
   }
@@ -112,49 +128,67 @@ async function producerBoard(user: SessionUser): Promise<Board | null> {
 
 // ------------------------------------------------------------------------------------------------ veterinário
 
-async function vetBoard(user: SessionUser, vetId: string): Promise<Board> {
+/** Etiqueta das vacinas no comparativo: em dia (90% ou mais aplicadas), atenção (75% a 89%) ou atrasadas */
+function vaccineBadge(pct: number | null): { tone: Tone; badge: string } | undefined {
+  if (pct === null) return undefined
+  if (pct >= 90) return { tone: 'good', badge: 'Em dia' }
+  return pct >= 75 ? { tone: 'warn', badge: 'Atenção' } : { tone: 'bad', badge: 'Atrasadas' }
+}
+
+async function vetBoard(user: SessionUser, vetId: string, period: number): Promise<Board> {
   const today = animalToday()
   const links = await prisma.vetClient.findMany({
     where: { vetId, status: 'ativo', farm: { isActive: true } },
-    select: { farmId: true, farm: { select: { name: true } } },
+    select: { id: true, farmId: true, farm: { select: { name: true } } },
     orderBy: { createdAt: 'desc' },
   })
   const farmIds = links.map((l) => l.farmId!)
-  const [overviews, tasks, visits] = await Promise.all([
-    farmOverviews(farmIds),
-    vetTasks(farmIds),
-    prisma.vetVisit.findMany({ where: { vetId, status: 'agendada', date: { gte: midnight(today) } }, select: { farmName: true, date: true, time: true, purpose: true }, orderBy: [{ date: 'asc' }, { time: 'asc' }], take: 8 }),
+  const periodStart = midnight(`${addMonths(today.slice(0, 7), 1 - period)}-01`)
+  const [overviews, shots, lastVisits] = await Promise.all([
+    farmOverviews(farmIds, period),
+    // Vacinas em dia: das marcadas no período até hoje, quantas já foram aplicadas
+    prisma.vaccination.findMany({ where: { animal: { farmId: { in: farmIds } }, scheduledDate: { gte: periodStart, lte: midnight(today) } }, select: { appliedDate: true, animal: { select: { farmId: true } } } }),
+    prisma.vetVisit.groupBy({ by: ['clientId'], where: { vetId, status: 'realizada', clientId: { in: links.map((l) => l.id) } }, _max: { date: true } }),
   ])
-  const farms = links.map((l) => ({ name: l.farm!.name, farmId: l.farmId!, ...overviews.get(l.farmId!)! }))
+  const farms = links.map((l) => {
+    const own = shots.filter((s) => s.animal.farmId === l.farmId)
+    return {
+      name: l.farm!.name, farmId: l.farmId!, ...overviews.get(l.farmId!)!,
+      vaccinesOnTime: own.length ? Math.round((own.filter((s) => s.appliedDate).length / own.length) * 100) : null,
+      lastVisit: lastVisits.find((v) => v.clientId === l.id)?._max.date ?? null,
+    }
+  })
   const total = (pick: (f: (typeof farms)[number]) => number) => farms.reduce((sum, f) => sum + pick(f), 0)
   const rates = farms.flatMap((f) => (f.pregnancyRate === null ? [] : [f.pregnancyRate]))
-  const awaiting = total((f) => f.awaitingDiagnosis)
-  const nameOf = (farmId: string) => farms.find((f) => f.farmId === farmId)?.name ?? ''
+  const average = rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : null
   const months = farms.find((f) => f.birthsByMonth.length)?.birthsByMonth.map((m) => m.month) ?? []
 
   const tiles: Tile[] = [
-    { label: 'Propriedades atendidas', value: farms.length },
-    { label: 'Animais', value: total((f) => f.animals) },
-    { label: 'A diagnosticar', value: awaiting, tone: awaiting ? 'warn' : undefined },
-    { label: 'Concepção média', value: rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : null, unit: '%' },
-    { label: 'Partos em 30 dias', value: total((f) => f.birthsSoon) },
-    { label: 'Visitas hoje', value: visits.filter((v) => dayKey(v.date) === today).length },
+    { label: 'Propriedades atendidas', value: farms.length, accent: 'green' },
+    { label: 'Rebanho total', value: total((f) => f.animals), suffix: 'animais', accent: 'blue' },
+    { label: 'Concepção média', value: average, unit: '%', detail: { text: 'Últimos {n} meses', vars: { n: period } }, accent: 'teal' },
+    { label: 'Partos em 30 dias', value: total((f) => f.birthsSoon), accent: 'amber' },
   ]
   const charts: Chart[] = [
     { kind: 'stacked', axis: 'month', title: 'Partos previstos por mês', subtitle: 'Todas as propriedades, pelas coberturas em aberto', xs: months, series: farms.map((f) => ({ name: f.name, values: months.map((m) => f.birthsByMonth.find((b) => b.month === m)?.count ?? 0) })) },
-    { kind: 'bars', unit: '%', max: 100, title: 'Concepção por propriedade', subtitle: 'Das diagnosticadas nos últimos 12 meses, quantas ficaram prenhas', rows: [...farms].sort((a, b) => (b.pregnancyRate ?? -1) - (a.pregnancyRate ?? -1)).map((f) => ({ label: f.name, value: f.pregnancyRate })) },
-    { kind: 'bars', title: 'A diagnosticar por propriedade', subtitle: 'Coberturas ainda sem diagnóstico de gestação', rows: top(farms.map((f) => ({ label: f.name, value: f.awaitingDiagnosis }))) },
     {
-      kind: 'list', title: 'Próximas visitas', empty: 'Nenhuma visita marcada.',
-      rows: visits.map((v) => ({ title: v.farmName, detail: [ddmm(v.date), v.time, v.purpose].filter(Boolean).join(' · '), tone: dayKey(v.date) === today ? 'warn' as const : undefined })),
+      kind: 'bars', unit: '%', max: 100, title: 'Concepção por propriedade',
+      subtitle: { text: 'Das diagnosticadas nos últimos {n} meses, quantas ficaram prenhas', vars: { n: period } },
+      rows: [...farms].sort((a, b) => (b.pregnancyRate ?? -1) - (a.pregnancyRate ?? -1)).map((f) => ({ label: f.name, value: f.pregnancyRate })),
+      ...(average !== null && rates.length > 1 ? { reference: { value: average, label: { text: 'Média: {n}%', vars: { n: average } } } } : {}),
     },
+    { kind: 'bars', color: 'blue', title: 'A diagnosticar por propriedade', subtitle: 'Coberturas ainda sem diagnóstico de gestação', rows: top(farms.map((f) => ({ label: f.name, value: f.awaitingDiagnosis }))) },
     {
-      kind: 'list', title: 'O que fazer nas propriedades', empty: 'Nada pendente nas propriedades que você atende.',
-      rows: tasks.filter((k) => k.tone !== 'blue').sort((a, b) => (a.tone === 'red' ? 0 : 1) - (b.tone === 'red' ? 0 : 1)).slice(0, 8)
-        .map((k) => ({ title: { text: k.title, vars: { n: k.n } }, detail: nameOf(k.farmId), tone: k.tone === 'red' ? 'bad' as const : 'warn' as const })),
+      kind: 'table', full: true, title: 'Comparativo por propriedade',
+      columns: [{ label: 'Propriedade' }, { label: 'Animais', numeric: true }, { label: 'Concepção', numeric: true }, { label: 'A diagnosticar', numeric: true }, { label: 'Vacinas em dia' }, { label: 'Última visita' }],
+      rows: [...farms].sort((a, b) => b.animals - a.animals).map((f) => [
+        { text: f.name }, { value: f.animals }, { value: f.pregnancyRate, unit: '%' }, { value: f.awaitingDiagnosis },
+        { value: f.vaccinesOnTime, unit: '%', ...vaccineBadge(f.vaccinesOnTime) },
+        { date: f.lastVisit ? dayKey(f.lastVisit) : null },
+      ]),
     },
   ]
-  return { profile: 'veterinario', name: user.name, tiles, charts, generatedAt: new Date().toISOString() }
+  return { profile: 'veterinario', name: user.name, tiles, charts, period: { months: period, options: PERIODS }, generatedAt: new Date().toISOString() }
 }
 
 // ------------------------------------------------------------------------------------------------ laticínio e associação

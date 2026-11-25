@@ -5,10 +5,11 @@ import { useLive } from '@/db/events'
 import { todayISO } from '@/lib/format'
 import { addMonths, buildIndicators, monthName, monthShort, type MonthLiters } from '@/lib/reproInsights'
 import { buildHerdIndices, CYCLE_DAYS, type HerdIndices } from '@/lib/herdIndices'
+import { conceptionBy, type ConceptionBy, type GroupRate } from '@/lib/conceptionBy'
 import { listAnimals } from '@/repos/animals'
 import { listReproductions } from '@/repos/reproductions'
-import { Card, Muted, Screen, Stat } from '@/ui'
-import { colors, font, radius, space } from '@/theme'
+import { Card, Muted, Screen, Tile, TileGrid, type Accent } from '@/ui'
+import { chartColors, colors, font, radius, space } from '@/theme'
 import { getLang, tr, useLocale, useT } from '@/lib/i18n'
 
 interface Bar { label: string; value: number | null; title: string }
@@ -23,7 +24,8 @@ const compact = (n: number) => (n >= 10000 ? `${Math.round(n / 1000)} ${tr('mil'
 export default function Indicadores() {
   const farmId = useFarmId()
   const { user, canAccess } = useSession()
-  const showMilk = canAccess('leite')
+  // O veterinário consultor não vê o total de leite (como no site)
+  const showMilk = canAccess('leite') && !user?.vet
   const t = useT()
   const data = useLive(() => {
     const today = todayISO()
@@ -33,7 +35,7 @@ export default function Indicadores() {
       : null
     const coverages = listReproductions(farmId)
     const indicators = buildIndicators(coverages, milk, today)
-    return { ...indicators, indices: buildHerdIndices(listAnimals(farmId), coverages, indicators.rate12, today) }
+    return { ...indicators, indices: buildHerdIndices(listAnimals(farmId), coverages, indicators.rate12, today), by: conceptionBy(coverages, from) }
   }, [farmId, showMilk])
 
   const births = data.births.reduce((sum, m) => sum + m.count, 0)
@@ -42,11 +44,11 @@ export default function Indicadores() {
   return (
     <Screen>
       <Muted style={{ marginBottom: space.md }}>{user?.farmName}</Muted>
-      <View style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.md }}>
-        <Stat label={t('concepção em 12 meses')} value={data.rate12 === null ? '—' : `${data.rate12}%`} />
-        <Stat label={t('partos em 6 meses')} value={String(births)} />
-        <Stat label={t('a diagnosticar')} value={String(data.awaiting)} />
-      </View>
+      <TileGrid>
+        <Tile accent="green" label={t('concepção em 12 meses')} value={data.rate12 === null ? '—' : `${data.rate12}%`} />
+        <Tile accent="blue" label={t('partos em 6 meses')} value={String(births)} />
+        <Tile accent={data.awaiting > 0 ? 'amber' : 'teal'} label={t('a diagnosticar')} value={String(data.awaiting)} />
+      </TileGrid>
 
       <Card style={{ backgroundColor: colors.amberSoft, borderColor: colors.amber }}>
         <Text style={{ fontSize: font.sm, fontWeight: '700', color: colors.amber, marginBottom: space.xs }}>{t('DESTAQUES')}</Text>
@@ -54,6 +56,8 @@ export default function Indicadores() {
       </Card>
 
       <Indices i={data.indices} />
+
+      <ConceptionByCard by={data.by} average={data.rate12} />
 
       <Card>
         <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.md }}>{t('Previsão de partos')}</Text>
@@ -86,26 +90,22 @@ function Indices({ i }: { i: HerdIndices }) {
   const loc = useLocale()
   const months = (n: number) => `${n.toLocaleString(loc)} ${t(n === 1 ? 'mês' : 'meses')}`
   const items = [
-    { label: t('Taxa de serviço'), value: i.serviceRate === null ? '—' : `${i.serviceRate}%`, detail: i.eligible ? t('{a} de {b} aptas em {d} dias', { a: i.served, b: i.eligible, d: CYCLE_DAYS }) : t('nenhuma vaca apta agora') },
-    { label: t('Taxa de concepção'), value: i.conceptionRate === null ? '—' : `${i.conceptionRate}%`, detail: t('diagnosticadas em 12 meses') },
-    { label: t('Taxa de prenhez'), value: i.pregnancyRate === null ? '—' : `${i.pregnancyRate}%`, detail: t('serviço × concepção') },
-    { label: t('Intervalo entre partos'), value: i.iep === null ? '—' : months(i.iep), detail: i.iepCount ? t('média de {n}', { n: i.iepCount }) : t('falta vaca com dois partos') },
-    { label: t('Idade ao 1º parto'), value: i.ipp === null ? '—' : months(i.ipp), detail: i.ippCount ? t('média de {n}', { n: i.ippCount }) : t('falta cria ligada à mãe') },
-    { label: t('Dias pós-parto'), value: i.dpp === null ? '—' : t('{n} dias', { n: i.dpp }), detail: i.dppCount ? t('{n} paridas em aberto', { n: i.dppCount }) : t('nenhuma parida em aberto') },
+    { accent: 'green' as Accent, label: t('Taxa de serviço'), value: i.serviceRate === null ? '—' : `${i.serviceRate}%`, detail: i.eligible ? t('{a} de {b} aptas em {d} dias', { a: i.served, b: i.eligible, d: CYCLE_DAYS }) : t('nenhuma vaca apta agora') },
+    { accent: 'teal' as Accent, label: t('Taxa de concepção'), value: i.conceptionRate === null ? '—' : `${i.conceptionRate}%`, detail: t('diagnosticadas em 12 meses') },
+    { accent: 'blue' as Accent, label: t('Taxa de prenhez'), value: i.pregnancyRate === null ? '—' : `${i.pregnancyRate}%`, detail: t('serviço × concepção') },
+    { accent: 'amber' as Accent, label: t('Intervalo entre partos'), value: i.iep === null ? '—' : months(i.iep), detail: i.iepCount ? t('média de {n}', { n: i.iepCount }) : t('falta vaca com dois partos') },
+    { accent: 'green' as Accent, label: t('Idade ao 1º parto'), value: i.ipp === null ? '—' : months(i.ipp), detail: i.ippCount ? t('média de {n}', { n: i.ippCount }) : t('falta cria ligada à mãe') },
+    { accent: 'blue' as Accent, label: t('Dias pós-parto'), value: i.dpp === null ? '—' : t('{n} dias', { n: i.dpp }), detail: i.dppCount ? t('{n} paridas em aberto', { n: i.dppCount }) : t('nenhuma parida em aberto') },
   ]
   return (
     <Card>
       <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.md }}>{t('Índices zootécnicos')}</Text>
       <Muted>{i.females} {t(i.females === 1 ? 'fêmea' : 'fêmeas')} {t('em idade de cobertura')} · {i.pregnant} {t('com prenhez confirmada')}</Muted>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: space.sm }}>
-        {items.map(it => (
-          <View key={it.label} style={{ width: '50%', paddingVertical: space.sm, paddingRight: space.sm }}>
-            <Text style={{ fontSize: font.sm, color: colors.muted }}>{it.label}</Text>
-            <Text style={{ fontSize: 22, fontWeight: '700', color: colors.text }}>{it.value}</Text>
-            <Text style={{ fontSize: 12, color: colors.muted }}>{it.detail}</Text>
-          </View>
-        ))}
-      </View>
+      {/* Um cartão colorido por índice, dois por linha */}
+      <View style={{ height: space.sm }} />
+      <TileGrid>
+        {items.map(it => <Tile key={it.label} accent={it.accent} label={it.label} value={it.value} detail={it.detail} />)}
+      </TileGrid>
     </Card>
   )
 }
@@ -121,6 +121,8 @@ function Columns({ bars, max: fixedMax, unit = '' }: { bars: Bar[]; max?: number
     if (best < 0 || b.value > (bars[best].value ?? 0)) best = i
     last = i
   })
+  // Uma cor por coluna (como no site); muitas colunas ficam numa cor só
+  const barColor = (i: number) => (bars.length > 14 ? '#0d9488' : chartColors[i % chartColors.length])
   // Com 12 meses, rótulo em meses alternados para não encostar
   const every = bars.length > 8 ? 2 : 1
   return (
@@ -130,8 +132,12 @@ function Columns({ bars, max: fixedMax, unit = '' }: { bars: Bar[]; max?: number
           const height = b.value ? Math.max(2, Math.round((b.value / max) * PLOT_HEIGHT)) : 0
           return (
             <View key={i} accessible accessibilityLabel={b.title} style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end' }}>
-              {i === best || i === last ? <Text style={{ fontSize: 11, fontWeight: '700', color: colors.text, marginBottom: 2 }} numberOfLines={1}>{compact(b.value ?? 0)}{unit}</Text> : null}
-              <View style={{ width: '62%', maxWidth: 24, height, backgroundColor: colors.green, borderTopLeftRadius: Math.min(4, height), borderTopRightRadius: Math.min(4, height) }} />
+              {i === best || i === last ? (
+                <View style={{ backgroundColor: barColor(i), borderRadius: 5, paddingHorizontal: 4, marginBottom: 3 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '800', color: '#ffffff' }} numberOfLines={1}>{compact(b.value ?? 0)}{unit}</Text>
+                </View>
+              ) : null}
+              <View style={{ width: '62%', maxWidth: 24, height, backgroundColor: barColor(i), borderTopLeftRadius: Math.min(5, height), borderTopRightRadius: Math.min(5, height) }} />
             </View>
           )
         })}
@@ -142,6 +148,54 @@ function Columns({ bars, max: fixedMax, unit = '' }: { bars: Bar[]; max?: number
       <View style={{ marginTop: space.sm, backgroundColor: colors.bg, borderRadius: radius.sm, padding: space.sm }}>
         <Text style={{ fontSize: font.sm, color: colors.muted }}>{best >= 0 ? `${t('Maior:')} ${bars[best].title}` : t('Sem dados no período')}</Text>
       </View>
+    </View>
+  )
+}
+
+/** Concepção por touro e por inseminador (como no site), com a média da propriedade como referência */
+function ConceptionByCard({ by, average }: { by: ConceptionBy; average: number | null }) {
+  const t = useT()
+  return (
+    <Card>
+      <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.md }}>{t('Concepção por touro e inseminador')}</Text>
+      {!by.bulls.length && !by.inseminators.length ? <Muted>{t('Anote o touro e o inseminador nas coberturas para comparar quais dão mais prenhez.')}</Muted> : (
+        <>
+          <Muted>{t('Coberturas dos últimos 12 meses com diagnóstico: quantas ficaram prenhas.')}{average !== null ? ` ${t('Média da propriedade: {rate}%.', { rate: average })}` : ''}</Muted>
+          <GroupList title={t('Por touro')} rows={by.bulls} average={average} empty={t('Nenhum touro anotado nas coberturas.')} />
+          <GroupList title={t('Por inseminador')} rows={by.inseminators} average={average} empty={t('Nenhum inseminador anotado nas inseminações.')} />
+          {by.withoutBull > 0 ? <Muted style={{ marginTop: space.sm }}>{t(by.withoutBull === 1 ? '1 cobertura diagnosticada sem touro anotado ficou de fora.' : '{n} coberturas diagnosticadas sem touro anotado ficaram de fora.', { n: by.withoutBull })}</Muted> : null}
+        </>
+      )}
+    </Card>
+  )
+}
+
+function GroupList({ title, rows, average, empty }: { title: string; rows: GroupRate[]; average: number | null; empty: string }) {
+  const t = useT()
+  return (
+    <View style={{ marginTop: space.md }}>
+      <Text style={{ fontSize: font.sm, fontWeight: '800', color: colors.muted, textTransform: 'uppercase', marginBottom: space.xs }}>{title}</Text>
+      {!rows.length ? <Muted>{empty}</Muted> : rows.map(r => {
+        const above = r.rate !== null && average !== null && r.rate >= average
+        const color = r.rate === null || r.fewData ? colors.muted : above ? colors.green : colors.amber
+        return (
+          <View key={r.label} style={{ marginTop: space.sm }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: space.sm }}>
+              <Text style={{ flex: 1, color: colors.text, fontWeight: '600' }} numberOfLines={1}>{r.label}{r.breed ? <Text style={{ color: colors.muted, fontWeight: '400' }}> · {r.breed}</Text> : null}</Text>
+              <Text style={{ fontSize: font.lg, fontWeight: '800', color }}>{r.rate === null ? '—' : `${r.rate}%`}</Text>
+            </View>
+            <View style={{ height: 10, borderRadius: radius.md, backgroundColor: colors.border, marginTop: 4 }}>
+              <View style={{ height: 10, borderRadius: radius.md, width: `${r.rate ?? 0}%`, backgroundColor: color }} />
+              {average !== null ? <View style={{ position: 'absolute', top: -4, left: `${average}%`, width: 2, height: 18, backgroundColor: colors.text }} /> : null}
+            </View>
+            <Muted>
+              {t('{pregnant} prenhas de {diagnosed} diagnosticadas', { pregnant: r.pregnant, diagnosed: r.diagnosed })}
+              {r.awaiting ? ` · ${t(r.awaiting === 1 ? '1 a diagnosticar' : '{n} a diagnosticar', { n: r.awaiting })}` : ''}
+              {r.fewData ? ` · ${t('poucos dados')}` : ''}
+            </Muted>
+          </View>
+        )
+      })}
     </View>
   )
 }

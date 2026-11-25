@@ -62,7 +62,7 @@ export function ReceptionSection({ panel, period, onPeriod, onChanged }: {
           <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className={field} />
         </label>
         {error && <p className="text-sm text-red-600 sm:col-span-4">{error}</p>}
-        <button type="submit" disabled={saving} className="bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg sm:col-span-4 sm:justify-self-start sm:px-8">
+        <button type="submit" disabled={saving} className="bg-green-800 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg sm:col-span-4 sm:justify-self-start sm:px-8">
           {saving ? 'Salvando...' : 'Salvar recebimento'}
         </button>
       </form>
@@ -91,9 +91,9 @@ export function ReceptionSection({ panel, period, onPeriod, onChanged }: {
                   <tr key={r.id}>
                     <td className="px-4 py-2.5">{fmtDay(r.date)}</td>
                     <td className="px-4 py-2.5">{r.routeId ? routeName.get(r.routeId) ?? '—' : 'Todas'}{r.note && <span className="block text-xs text-gray-500">{r.note}</span>}</td>
-                    <td className="px-4 py-2.5 text-right">{fmtL(c)}</td>
-                    <td className="px-4 py-2.5 text-right font-semibold">{fmtL(r.liters)}</td>
-                    <td className={`px-4 py-2.5 text-right font-semibold ${Math.abs(diff) < 0.05 ? 'text-green-700' : 'text-amber-800'}`}>{diff > 0 ? '+' : ''}{fmtL(diff)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{fmtL(c)}</td>
+                    <td className="px-4 py-2.5 text-right font-semibold tabular-nums">{fmtL(r.liters)}</td>
+                    <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${Math.abs(diff) < 0.05 ? 'text-green-700' : diff < 0 ? 'text-red-700' : 'text-amber-800'}`}>{diff > 0 ? '+' : ''}{fmtL(diff)}</td>
                     <td className="px-4 py-2.5 text-right"><button type="button" onClick={() => remove(r)} className="text-red-600 hover:underline">Apagar</button></td>
                   </tr>
                 )

@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
+import { normalizeUnit } from '@/lib/supplies'
 import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
+import { optionalDate } from '@/lib/utils'
 
 // Preço por unidade e peso do saco: opcionais (vazio apaga)
 function optionalNumber(value: unknown): number | null | undefined {
@@ -22,17 +24,18 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params
     if (!(await findOwned(id, auth.farmId))) return notFound('Insumo não encontrado')
     const body = await request.json()
-    const { name, category, unit, minimumQuantity, unitPrice, packageKg } = body
+    const { name, category, unit, minimumQuantity, unitPrice, packageKg, expiryDate } = body
 
     const supply = await prisma.supply.update({
       where: { id },
       data: {
         name,
         category,
-        unit,
+        unit: normalizeUnit(unit),
         minimumQuantity: minimumQuantity !== undefined ? parseFloat(minimumQuantity) : undefined,
         unitPrice: optionalNumber(unitPrice),
         packageKg: optionalNumber(packageKg),
+        expiryDate: optionalDate(expiryDate),
       },
       include: { movements: { orderBy: { date: 'desc' }, take: 10 } },
     })

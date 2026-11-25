@@ -2,7 +2,7 @@
 import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
-import { animalSearchText } from '@/lib/animalCode'
+import { animalSearchText, searchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 
@@ -13,8 +13,12 @@ import { useOfflineModule } from '@/lib/useOffline'
 import { loadHerd } from '@/lib/herdCache'
 import { useDialog } from '@/components/DialogProvider'
 import { currentMonthRange, inDayRange, todayISO } from '@/lib/utils'
-import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
+import { SemSinalIcon, SincronizarIcon, FecharIcon, TratamentoIcon } from '@/components/ModuleIcons'
 import { useLocale, useT, type Vars } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
+import { AppModal, modalButton } from '@/components/AppModal'
+
+const FIELD = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base font-normal focus:outline-none focus:ring-2 focus:ring-green-600'
 
 interface Animal {
   id: string
@@ -33,6 +37,7 @@ interface Treatment {
   meatWithdrawalDays?: number | null
   batch?: string | null
   manufacturer?: string | null
+  responsible?: string | null
   description?: string | null
   observations?: string | null
   animal: Animal
@@ -41,7 +46,7 @@ interface Treatment {
 const MODULE = 'veterinary-treatment'
 const EMPTY_FORM = {
   animalId: '', startDate: todayISO(), endDate: '',
-  medicine: '', milkWithdrawalDays: '', meatWithdrawalDays: '', batch: '', manufacturer: '', description: '', observations: '',
+  medicine: '', milkWithdrawalDays: '', meatWithdrawalDays: '', batch: '', manufacturer: '', responsible: '', description: '', observations: '',
 }
 
 /** Tratamento guardado sem internet, como aparece na lista. Registros antigos da fila têm os campos soltos, sem _body. */
@@ -54,7 +59,7 @@ function pendingTreatment(p: PendingRequest, animals: Animal[]): Treatment | nul
   return {
     id: pendingItemId(p), animalId: String(b.animalId ?? ''), animal, startDate: String(b.startDate ?? ''), endDate: str(b.endDate), medicine: String(b.medicine ?? ''),
     milkWithdrawalDays: days(b.milkWithdrawalDays), meatWithdrawalDays: days(b.meatWithdrawalDays),
-    batch: str(b.batch), manufacturer: str(b.manufacturer), description: str(b.description), observations: str(b.observations),
+    batch: str(b.batch), manufacturer: str(b.manufacturer), responsible: str(b.responsible), description: str(b.description), observations: str(b.observations),
   }
 }
 
@@ -105,7 +110,7 @@ export default function VeterinaryTreatmentPage() {
   const filtered = useMemo(() => {
     return treatments.filter((t) => {
       if (!inDayRange(t.startDate, from, to)) return false
-      const term = animalSearch.trim().toLowerCase()
+      const term = searchText(animalSearch.trim())
       return animalSearchText(t.animal).includes(term)
     })
   }, [treatments, from, to, animalSearch])
@@ -143,6 +148,12 @@ export default function VeterinaryTreatmentPage() {
 
   const detailPeriodCount = filtered.filter((t) => t.animalId === detailAnimalId).length
 
+  // Animais com carência de leite ou carne ainda valendo hoje (qualquer tratamento, não só do período)
+  const inWithdrawal = useMemo(
+    () => new Set(treatments.filter((item) => withdrawalText(item, t, locale)?.active).map((item) => item.animalId)),
+    [treatments, t, locale],
+  )
+
   // Depois de guardar ou enviar: a lista mostra na hora e a barra do topo atualiza a contagem
   const afterChange = (queued: boolean) => {
     setNotice(queued ? t(net.queuedMessage) : '')
@@ -176,6 +187,7 @@ export default function VeterinaryTreatmentPage() {
       meatWithdrawalDays: form.meatWithdrawalDays || null,
       batch: form.batch || null,
       manufacturer: form.manufacturer || null,
+      responsible: form.responsible || null,
       description: form.description || null,
       observations: form.observations || null,
     }
@@ -206,7 +218,7 @@ export default function VeterinaryTreatmentPage() {
           disabled={!canEdit}
           className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${
             canEdit
-              ? 'bg-green-700 hover:bg-green-600'
+              ? 'bg-green-800 hover:bg-green-700'
               : 'bg-gray-400 cursor-not-allowed'
           }`}
         >
@@ -257,11 +269,14 @@ export default function VeterinaryTreatmentPage() {
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
             />
           </div>
-          <div className="ml-auto text-right">
-            <p className="text-xs text-gray-500">{t('Total no período')}</p>
-            <p className="text-2xl font-bold text-green-700">{filtered.length} <span className="text-base font-medium">{t(filtered.length === 1 ? 'tratamento' : 'tratamentos')}</span></p>
-          </div>
         </div>
+      </div>
+
+      {/* Números do período em cartões coloridos */}
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <StatTile accent="blue" label={t('Total no período')} value={<>{filtered.length} <span className="text-lg font-semibold">{t(filtered.length === 1 ? 'tratamento' : 'tratamentos')}</span></>} />
+        <StatTile accent="teal" label={t('Animais')} value={summary.length} />
+        <StatTile accent={inWithdrawal.size > 0 ? 'red' : 'green'} label={t('Animais em carência')} value={inWithdrawal.size} />
       </div>
 
       {/* Animals table */}
@@ -293,17 +308,23 @@ export default function VeterinaryTreatmentPage() {
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => setDetailAnimalId(animal.id)}
                 >
-                  <td className="px-4 py-3 font-medium text-gray-800">{animal.name}{pending > 0 && <span className="ml-2 text-xs font-normal text-blue-700">{t('{n} a enviar', { n: pending })}</span>}</td>
+                  <td className="relative px-4 py-3 font-medium text-gray-800">
+                    {/* Faixa vermelha à esquerda: animal em carência hoje */}
+                    {inWithdrawal.has(animal.id) && <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1 bg-red-600" />}
+                    {animal.name}
+                    {inWithdrawal.has(animal.id) && <span className="ml-2 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">{t('Em carência')}</span>}
+                    {pending > 0 && <span className="ml-2 text-xs font-normal text-blue-700">{t('{n} a enviar', { n: pending })}</span>}
+                  </td>
                   <td className="hidden sm:table-cell px-4 py-3 font-mono text-gray-500 text-xs">{animal.code}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-green-700">{count}</td>
-                  <td className="hidden sm:table-cell px-4 py-3 text-right text-gray-500">{fmt(last)}</td>
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums text-green-800">{count}</td>
+                  <td className="hidden sm:table-cell px-4 py-3 text-right tabular-nums text-gray-500">{fmt(last)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot className="border-t-2 border-gray-200 bg-gray-50">
               <tr>
                 <td colSpan={2} className="px-4 py-3 text-xs font-bold text-gray-600 uppercase">{t('Total Geral')}</td>
-                <td className="px-4 py-3 text-right font-bold text-green-700">{filtered.length}</td>
+                <td className="px-4 py-3 text-right font-bold tabular-nums text-green-800">{filtered.length}</td>
                 <td className="hidden sm:table-cell px-4 py-3" />
               </tr>
             </tfoot>
@@ -311,19 +332,10 @@ export default function VeterinaryTreatmentPage() {
         </div>
       )}
 
-      {/* Detail modal */}
+      {/* Histórico do animal: modal padrão (grande, lista de tratamentos) */}
       {detailAnimalId && detailAnimal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">{detailAnimal.name}</h2>
-                  <p className="text-xs text-gray-500">{t('Código: {code}', { code: detailAnimal.code })}</p>
-                </div>
-                <button onClick={() => setDetailAnimalId(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-
+        <AppModal title={detailAnimal.name} subtitle={t('Código: {code}', { code: detailAnimal.code })}
+          onClose={() => setDetailAnimalId(null)} icon={<TratamentoIcon className="h-6 w-6" />} tone="red" size="lg">
               <div className="bg-green-50 border border-green-100 rounded-lg px-4 py-3 mb-4 text-sm flex justify-between">
                 <span className="text-gray-600">{t('Tratamentos no período selecionado')}</span>
                 <span className="font-bold text-green-700">{detailPeriodCount}</span>
@@ -366,6 +378,12 @@ export default function VeterinaryTreatmentPage() {
                             <p className={`font-medium ${withdrawalText(item, t, locale)!.active ? 'text-red-700' : 'text-gray-700'}`}>{withdrawalText(item, t, locale)!.text}</p>
                           </div>
                         )}
+                        {item.responsible && (
+                          <div>
+                            <p className="text-xs text-gray-500">{t('Responsável')}</p>
+                            <p className="text-gray-700">{item.responsible}</p>
+                          </div>
+                        )}
                         {item.manufacturer && (
                           <div>
                             <p className="text-xs text-gray-500">{t('Fabricante')}</p>
@@ -395,101 +413,77 @@ export default function VeterinaryTreatmentPage() {
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
-      {/* Register modal */}
+      {/* Registrar tratamento: modal padrão (médio) */}
       {showRegister && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">{t('Registrar Tratamento')}</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-
-              <form onSubmit={handleSave} className="flex flex-col gap-3">
+        <AppModal title={t('Registrar Tratamento')} subtitle={user?.farmName ?? undefined} onClose={() => setShowRegister(false)}
+          icon={<TratamentoIcon className="h-6 w-6" />} tone="red"
+          footer={<>
+            <button type="button" onClick={() => setShowRegister(false)} className={modalButton.ghost}>{t('Cancelar')}</button>
+            <button type="submit" form="form-tratamento" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando...' : 'Salvar')}</button>
+          </>}>
+              <form id="form-tratamento" onSubmit={handleSave} className="flex flex-col gap-4">
                 <AnimalPicker animals={allAnimals} value={form.animalId} onChange={id => setForm({ ...form, animalId: id })} label="Animal" />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Data Início')} *</label>
-                    <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} required
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Data Fim')}</label>
-                    <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Data Início')} *
+                    <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} required className={FIELD} />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Data Fim')}
+                    <input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} className={FIELD} />
+                  </label>
                 </div>
 
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Medicamento')} *</label>
+                <label className="text-sm font-medium text-gray-700">{t('Medicamento')} *
                   <input type="text" value={form.medicine} onChange={(e) => setForm({ ...form, medicine: e.target.value })} required
-                    placeholder={t('Ex: Amoxicilina')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                    placeholder={t('Ex: Amoxicilina')} className={FIELD} />
+                </label>
+
+                <div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="text-sm font-medium text-gray-700">{t('Carência do leite (dias)')}
+                      <input inputMode="numeric" value={form.milkWithdrawalDays} onChange={(e) => setForm({ ...form, milkWithdrawalDays: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                        placeholder={t('Ex.: 4')} className={FIELD} />
+                    </label>
+                    <label className="text-sm font-medium text-gray-700">{t('Carência da carne (dias)')}
+                      <input inputMode="numeric" value={form.meatWithdrawalDays} onChange={(e) => setForm({ ...form, meatWithdrawalDays: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                        placeholder={t('Ex.: 30')} className={FIELD} />
+                    </label>
+                  </div>
+                  <p className="mt-1.5 text-xs text-gray-500">{t('Está na bula. Conta a partir do fim do tratamento. O app avisa até quando o leite não pode ir para o tanque e o animal não pode ir para o abate.')}</p>
                 </div>
+
+                <label className="text-sm font-medium text-gray-700">{t('Responsável')}
+                  <input type="text" value={form.responsible} onChange={(e) => setForm({ ...form, responsible: e.target.value })}
+                    placeholder={t('Quem cuida do tratamento')} className={FIELD} />
+                </label>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Carência do leite (dias)')}</label>
-                    <input inputMode="numeric" value={form.milkWithdrawalDays} onChange={(e) => setForm({ ...form, milkWithdrawalDays: e.target.value.replace(/\D/g, '').slice(0, 3) })}
-                      placeholder={t('Ex.: 4')} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Carência da carne (dias)')}</label>
-                    <input inputMode="numeric" value={form.meatWithdrawalDays} onChange={(e) => setForm({ ...form, meatWithdrawalDays: e.target.value.replace(/\D/g, '').slice(0, 3) })}
-                      placeholder={t('Ex.: 30')} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                </div>
-                <p className="-mt-1 text-xs text-gray-500">{t('Está na bula. Conta a partir do fim do tratamento. O app avisa até quando o leite não pode ir para o tanque e o animal não pode ir para o abate.')}</p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Fabricante')}</label>
+                  <label className="text-sm font-medium text-gray-700">{t('Fabricante')}
                     <input type="text" value={form.manufacturer} onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
-                      placeholder={t('Ex: Laboratório X')}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Lote')}</label>
+                      placeholder={t('Ex: Laboratório X')} className={FIELD} />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Lote')}
                     <input type="text" value={form.batch} onChange={(e) => setForm({ ...form, batch: e.target.value })}
-                      placeholder={t('Ex: 123456')}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
+                      placeholder={t('Ex: 123456')} className={FIELD} />
+                  </label>
                 </div>
 
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Descrição')}</label>
+                <label className="text-sm font-medium text-gray-700">{t('Descrição')}
                   <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2}
-                    placeholder={t('Descrição do tratamento')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none" />
-                </div>
+                    placeholder={t('Descrição do tratamento')} className={`${FIELD} resize-none`} />
+                </label>
 
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Observações')}</label>
+                <label className="text-sm font-medium text-gray-700">{t('Observações')}
                   <textarea value={form.observations} onChange={(e) => setForm({ ...form, observations: e.target.value })} rows={2}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none" />
-                </div>
+                    placeholder={t('Ex.: aplicar de manhã, após a ordenha')} className={`${FIELD} resize-none`} />
+                </label>
 
-                {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setShowRegister(false)}
-                    className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">
-                    {t('Cancelar')}
-                  </button>
-                  <button type="submit" disabled={saving}
-                    className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">
-                    {t(saving ? 'Salvando...' : 'Salvar')}
-                  </button>
-                </div>
+                {saveError && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{saveError}</p>}
               </form>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
       </div>
     </PermissionGuard>

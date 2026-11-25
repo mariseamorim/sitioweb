@@ -8,7 +8,7 @@ import { API_BASE } from '@/api/client'
 import { useSession } from '@/auth/session'
 import { visibleHelp, type HelpItem } from '@/lib/pageHelp'
 import { useSyncState } from '@/sync'
-import { Button, Card, Muted, Screen, Title } from '@/ui'
+import { Button, Card, IconCircle, Muted, Screen, Title } from '@/ui'
 import { TextButton } from '@/ui/TextButton'
 import { colors, font, radius, space } from '@/theme'
 import { tr, useT } from '@/lib/i18n'
@@ -36,7 +36,7 @@ export default function Ajuda() {
       <Title sub={t('Dúvida, erro ou ajuda para começar: fale com a gente.')}>{t('Ajuda e suporte')}</Title>
 
       <Card>
-        <IconBox><Ionicons name="logo-whatsapp" size={22} color={colors.green} /></IconBox>
+        <IconBox><IconCircle icon="logo-whatsapp" tone="green" size={44} /></IconBox>
         <Text style={cardTitle}>{t('Falar com o suporte')}</Text>
         <Text style={cardText}>{t('Abre o WhatsApp com a mensagem pronta, já com o seu nome e a propriedade. Conte o que aconteceu e em qual tela.')}</Text>
         <Button label={t('Chamar no WhatsApp')} onPress={() => void open(supportUrl('ajuda'))} disabled={!online || user?.support === false} style={{ marginTop: space.md }} />
@@ -45,7 +45,7 @@ export default function Ajuda() {
       </Card>
 
       <Card>
-        <IconBox><Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.green }}>1</Text></IconBox>
+        <IconBox><IconCircle icon="construct-outline" tone="blue" size={44} /></IconBox>
         <Text style={cardTitle}>{t('Configuração inicial')}</Text>
         <Text style={cardText}>{t('A gente configura com você: propriedade, animais, leite e quem vai usar. O resumo do seu cadastro vai junto na mensagem, para o atendimento já saber por onde começar.')}</Text>
         <Button label={t('Pedir configuração inicial')} onPress={() => void open(supportUrl('configurar'))} disabled={!online || user?.support === false} style={{ marginTop: space.md }} />
@@ -54,7 +54,7 @@ export default function Ajuda() {
       </Card>
 
       <Card>
-        <IconBox><Ionicons name="book-outline" size={22} color={colors.green} /></IconBox>
+        <IconBox><IconCircle icon="book-outline" tone="amber" size={44} /></IconBox>
         <Text style={cardTitle}>Manual do usuário ilustrado</Text>
         <Text style={cardText}>Veja o passo a passo completo com as telas do sistema para produtor (Anota Aí Leite e propriedade completa), motorista, laticínio (incluindo criação de rotas), associação e fornecedor. Funciona sem internet e gera PDF.</Text>
         <Button label="Abrir manual ilustrado" onPress={() => router.push('/manual' as never)} style={{ marginTop: space.md }} />
@@ -63,6 +63,7 @@ export default function Ajuda() {
 
       {user && screens.length > 0 ? (
         <Card>
+          <IconBox><IconCircle icon="help-circle-outline" tone="purple" size={44} /></IconBox>
           <Text style={cardTitle}>{t('Como usar cada tela')}</Text>
           <Text style={[cardText, { marginBottom: space.md }]}>{t('O mesmo passo a passo que aparece em “Como usar esta tela” dentro de cada módulo.')}</Text>
           {screens.map(item => <HelpRow key={item.title} item={item} />)}
@@ -77,8 +78,9 @@ export default function Ajuda() {
 const cardTitle = { fontSize: font.lg, fontWeight: '700' as const, color: colors.text }
 const cardText = { fontSize: font.sm, color: colors.muted, marginTop: 4, lineHeight: 20 }
 
+/** Espaço do ícone colorido no alto de cada cartão */
 function IconBox({ children }: { children: ReactNode }) {
-  return <View style={{ width: 40, height: 40, borderRadius: radius.sm, backgroundColor: colors.greenSoft, alignItems: 'center', justifyContent: 'center', marginBottom: space.md }}>{children}</View>
+  return <View style={{ alignSelf: 'flex-start', marginBottom: space.md }}>{children}</View>
 }
 
 /** Item expansível da lista de telas, com o link "Abrir {título}" para a rota do app */

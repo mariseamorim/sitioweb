@@ -1,7 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { FecharIcon } from '@/components/ModuleIcons'
+import { LojaIcon } from '@/components/ModuleIcons'
+import { AppModal, modalButton } from '@/components/AppModal'
+import { StatTile } from '@/components/StatTile'
 import type { SalesReport } from '@/lib/offerSales'
 import { fmtDate, fmtMoney } from '@/lib/reports'
 import { todayISO } from '@/lib/utils'
@@ -53,6 +55,8 @@ const who = (c: ContactRow) => c.farm?.name ?? c.buyerName ?? '—'
 const money = (v: number | null) => (v === null ? '—' : fmtMoney(v))
 
 const input = 'w-full border border-gray-200 rounded-lg px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
+/** Campo dos modais (padrão do AppModal) */
+const field = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 const EMPTY_SALE = { promotionId: '', farmId: '', buyerName: '', saleValue: '', quantity: '1', soldAt: todayISO() }
 const toNumber = (raw: string) => Number(raw.replace(',', '.'))
 /** Valor sugerido: preço da oferta × quantidade, no formato "95,00" (vazio sem preço) */
@@ -149,7 +153,7 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
       <div className="flex flex-wrap items-center gap-2 mb-4">
         {PRESETS.map((p) => (
           <button key={p.key} type="button" onClick={() => choosePreset(p.key)} aria-pressed={preset === p.key}
-            className={`rounded-full border px-3 py-1.5 text-sm font-medium ${preset === p.key ? 'border-green-700 bg-green-700 text-white' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}>
+            className={`rounded-full border px-3 py-1.5 text-sm font-medium ${preset === p.key ? 'border-green-800 bg-green-800 text-white' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}>
             {p.label}
           </button>
         ))}
@@ -166,18 +170,11 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
 
       {totals && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
-            {([
-              ['Contatos pelo WhatsApp', String(totals.contacts), 'text-gray-900'],
-              ['Vendas', String(totals.sales), 'text-green-700'],
-              ['Conversão', totals.rate === null ? '—' : `${totals.rate}%`, 'text-gray-900'],
-              ['Valor vendido', fmtMoney(totals.revenue), 'text-green-700'],
-            ] as const).map(([label, value, tone]) => (
-              <div key={label} className="rounded-xl border border-gray-200 bg-white p-3 sm:p-4">
-                <p className="text-sm text-gray-600">{label}</p>
-                <p className={`mt-1 text-2xl font-bold ${tone}`}>{value}</p>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
+            <StatTile accent="blue" label="Contatos pelo WhatsApp" value={String(totals.contacts)} />
+            <StatTile accent="green" label="Vendas" value={String(totals.sales)} />
+            <StatTile accent="teal" label="Conversão" value={totals.rate === null ? '—' : `${totals.rate}%`} />
+            <StatTile accent="green" label="Valor vendido" value={fmtMoney(totals.revenue)} />
           </div>
           <p className="mb-6 text-xs text-gray-500">
             Conversão = vendas ÷ contatos. Vendas registradas à mão contam como contato e venda.
@@ -210,10 +207,10 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
                     {data.byOffer.map((o, i) => (
                       <tr key={o.id} className={i === 0 ? 'bg-green-50' : ''}>
                         <td className="px-3 py-2 font-medium text-gray-900">{i + 1}. {o.title}<span className="block text-xs font-normal text-gray-500">{o.category}{o.lost ? ` · ${o.lost} não fechou` : ''}</span></td>
-                        <td className="px-3 py-2 text-right text-gray-700">{o.contacts}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-green-700">{o.sales}</td>
-                        <td className="px-3 py-2 text-right text-gray-700">{o.rate === null ? '—' : `${o.rate}%`}</td>
-                        <td className="px-3 py-2 text-right text-gray-700 whitespace-nowrap">{fmtMoney(o.revenue)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-gray-700">{o.contacts}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-semibold text-green-700">{o.sales}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-gray-700">{o.rate === null ? '—' : `${o.rate}%`}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-semibold text-green-700 whitespace-nowrap">{fmtMoney(o.revenue)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -234,9 +231,9 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
                     {data.byMonth.map((m) => (
                       <tr key={m.month}>
                         <td className="px-3 py-2 text-gray-900">{monthLabel(m.month)}</td>
-                        <td className="px-3 py-2 text-right text-gray-700">{m.contacts}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-green-700">{m.sales}</td>
-                        <td className="px-3 py-2 text-right text-gray-700 whitespace-nowrap">{fmtMoney(m.revenue)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-gray-700">{m.contacts}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-semibold text-green-700">{m.sales}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-semibold text-green-700 whitespace-nowrap">{fmtMoney(m.revenue)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -262,7 +259,7 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
                       {confirming?.id !== c.id && (
                         <div className="flex gap-2 text-sm">
                           <button type="button" onClick={() => { setConfirming(c); startSale(c.promotionId) }}
-                            className="bg-green-700 hover:bg-green-600 text-white font-semibold px-3 py-2 rounded-lg">Virou venda</button>
+                            className="bg-green-800 hover:bg-green-700 text-white font-semibold px-3 py-2 rounded-lg">Virou venda</button>
                           <button type="button" disabled={saving} onClick={() => void markLost(c)} className="border border-gray-200 text-gray-600 font-medium px-3 py-2 rounded-lg hover:bg-gray-50">Não fechou</button>
                         </div>
                       )}
@@ -281,7 +278,7 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
                         {formError && <p className="sm:col-span-3 text-sm text-red-600">{formError}</p>}
                         <div className="sm:col-span-3 flex gap-2">
                           <button type="button" onClick={() => setConfirming(null)} className="flex-1 border border-gray-200 text-gray-600 font-medium py-2.5 rounded-lg">Cancelar</button>
-                          <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg">{saving ? 'Salvando...' : 'Confirmar venda'}</button>
+                          <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold py-2.5 rounded-lg">{saving ? 'Salvando...' : 'Confirmar venda'}</button>
                         </div>
                       </form>
                     )}
@@ -295,7 +292,7 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <h2 id="vendas-periodo" className="text-lg font-semibold text-gray-900">Vendas do período</h2>
               <button type="button" onClick={() => { setRegistering(true); startSale(offers[0]?.id ?? '') }} disabled={offers.length === 0}
-                className="bg-green-700 hover:bg-green-600 disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
+                className="bg-green-800 hover:bg-green-700 disabled:bg-gray-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg">
                 + Registrar venda
               </button>
             </div>
@@ -320,49 +317,44 @@ export function VendasTab({ offers, clients, onChanged }: { offers: SalesOffer[]
       )}
 
       {registering && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <form onSubmit={registerSale} className="p-5 sm:p-6 flex flex-col gap-4" aria-labelledby="registrar-venda">
-              <div className="flex items-center justify-between">
-                <h2 id="registrar-venda" className="text-lg font-bold text-gray-900">Registrar venda</h2>
-                <button type="button" onClick={() => setRegistering(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
-              </div>
-              <p className="text-sm text-gray-600">Venda fechada fora do app (balcão, telefone). Entra no relatório da oferta escolhida. O valor vem do preço da oferta vezes a quantidade; pode corrigir.</p>
+        <AppModal title="Registrar venda" labelledBy="registrar-venda" subtitle={offers.find((o) => o.id === sale.promotionId)?.title}
+          icon={<LojaIcon className="h-6 w-6" />} tone="green" onClose={() => setRegistering(false)}
+          footer={<>
+            <button type="button" onClick={() => setRegistering(false)} className={modalButton.ghost}>Cancelar</button>
+            <button type="submit" form="form-registrar-venda" disabled={saving} className={modalButton.primary}>{saving ? 'Salvando...' : 'Salvar venda'}</button>
+          </>}
+          note="Venda fechada fora do app (balcão, telefone). Entra no relatório da oferta escolhida. O valor vem do preço da oferta vezes a quantidade; pode corrigir.">
+            <form id="form-registrar-venda" onSubmit={registerSale} className="flex flex-col gap-4">
               <label className="text-sm font-medium text-gray-700">Oferta *
-                <select value={sale.promotionId} onChange={(e) => changeOffer(e.target.value)} required className={`mt-1 ${input} bg-white`}>
+                <select value={sale.promotionId} onChange={(e) => changeOffer(e.target.value)} required className={`${field} bg-white`}>
                   {offers.map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
                 </select>
               </label>
               <label className="text-sm font-medium text-gray-700">Cliente do app
-                <select value={sale.farmId} onChange={(e) => setSale({ ...sale, farmId: e.target.value })} className={`mt-1 ${input} bg-white`}>
+                <select value={sale.farmId} onChange={(e) => setSale({ ...sale, farmId: e.target.value })} className={`${field} bg-white`}>
                   <option value="">Não está no app</option>
                   {clients.map((c) => <option key={c.farmId} value={c.farmId}>{c.name}</option>)}
                 </select>
               </label>
               {!sale.farmId && (
                 <label className="text-sm font-medium text-gray-700">Nome do comprador
-                  <input value={sale.buyerName} onChange={(e) => setSale({ ...sale, buyerName: e.target.value })} placeholder="Opcional. Ex.: Sítio Boa Vista" className={`mt-1 ${input}`} />
+                  <input value={sale.buyerName} onChange={(e) => setSale({ ...sale, buyerName: e.target.value })} placeholder="Opcional. Ex.: Sítio Boa Vista" className={field} />
                 </label>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <label className="text-sm font-medium text-gray-700">Valor (R$)
-                  <input inputMode="decimal" value={sale.saleValue} onChange={(e) => changeValue(e.target.value)} placeholder="Opcional" className={`mt-1 ${input}`} />
+                  <input inputMode="decimal" value={sale.saleValue} onChange={(e) => changeValue(e.target.value)} placeholder="Opcional" className={field} />
                 </label>
                 <label className="text-sm font-medium text-gray-700">Quantidade
-                  <input inputMode="decimal" value={sale.quantity} onChange={(e) => changeQuantity(e.target.value, sale.promotionId)} className={`mt-1 ${input}`} />
+                  <input inputMode="decimal" value={sale.quantity} onChange={(e) => changeQuantity(e.target.value, sale.promotionId)} placeholder="Ex.: 10" className={field} />
                 </label>
-                <label className="text-sm font-medium text-gray-700">Dia da venda *
-                  <input type="date" value={sale.soldAt} max={todayISO()} onChange={(e) => setSale({ ...sale, soldAt: e.target.value })} required className={`mt-1 ${input}`} />
+                <label className="col-span-2 sm:col-span-1 text-sm font-medium text-gray-700">Dia da venda *
+                  <input type="date" value={sale.soldAt} max={todayISO()} onChange={(e) => setSale({ ...sale, soldAt: e.target.value })} required className={field} />
                 </label>
               </div>
               {formError && <p className="text-sm text-red-600">{formError}</p>}
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setRegistering(false)} className="flex-1 border border-gray-200 text-gray-600 font-medium py-3 rounded-lg hover:bg-gray-50">Cancelar</button>
-                <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white font-semibold py-3 rounded-lg">{saving ? 'Salvando...' : 'Salvar venda'}</button>
-              </div>
             </form>
-          </div>
-        </div>
+        </AppModal>
       )}
     </div>
   )

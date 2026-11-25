@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
 import { parseWithdrawalDays } from '@/lib/withdrawal'
 
+/** Nome de quem aplicou ou cuida (opcional) */
+const optionalText = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null)
+
 async function findOwned(id: string, farmId: string) {
   return prisma.veterinaryTreatment.findFirst({
     where: { id, animal: { farmId } },
@@ -29,7 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!(await findOwned(id, auth.farmId))) return notFound('Tratamento não encontrado')
 
     const body = await request.json()
-    const { startDate, endDate, medicine, batch, manufacturer, description, observations } = body
+    const { startDate, endDate, medicine, batch, manufacturer, description, observations, responsible } = body
     const milkWithdrawalDays = parseWithdrawalDays(body.milkWithdrawalDays)
     const meatWithdrawalDays = parseWithdrawalDays(body.meatWithdrawalDays)
     if (milkWithdrawalDays === 'invalid' || meatWithdrawalDays === 'invalid') {
@@ -46,6 +49,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         ...('meatWithdrawalDays' in body && { meatWithdrawalDays }),
         batch,
         manufacturer,
+        ...(responsible !== undefined ? { responsible: optionalText(responsible, 80) } : {}),
         description,
         observations,
       },

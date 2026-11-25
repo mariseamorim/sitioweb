@@ -3,11 +3,16 @@
 // Painel do veterinário consultor: as propriedades que ele atende, com os números de reprodução de cada uma,
 // a agenda de visitas, o código para o produtor liberar a propriedade e o histórico das que já encerraram.
 // Recibos e estoque do veterinário ficam em telas próprias (/consultoria/recibos e /consultoria/estoque).
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Agenda } from './Agenda'
-import { VetCharts } from './VetCharts'
+import { Agenda, type AgendaHandle } from './Agenda'
+import { AgendaView } from '@/components/AgendaView'
+import { AppModal } from '@/components/AppModal'
+import { AnimalIcon, CalendarioIcon, GraficoIcon, PropriedadeIcon, UsuariosIcon } from '@/components/ModuleIcons'
+import { VetAnimals } from './VetAnimals'
+import type { AgendaItem } from '@/lib/agenda'
 import { useDialog } from '@/components/DialogProvider'
+import { StatTile } from '@/components/StatTile'
 import { hasPendingOnDevice, PENDING_MESSAGE, reloadInFarm } from '@/lib/farmSwitch'
 import { maskPhone } from '@/lib/masks'
 import { useLang, useLocale, useT } from '@/lib/i18n'
@@ -24,17 +29,14 @@ interface ArchivedRecord {
 }
 interface Task { farmId: string; title: string; detail?: string; n: number; late?: number; href: string; tone: 'red' | 'amber' | 'blue' }
 
-const TONE_DOT = { red: 'bg-red-600', amber: 'bg-amber-500', blue: 'bg-blue-600' } as const
-const TONE_ORDER = { red: 0, amber: 1, blue: 2 } as const
-/** Tarefas visíveis antes de "Ver todas" */
-const TASKS_SHOWN = 6
-
 interface Panel {
   vet: { name: string; crmv: string | null; city: string | null; state: string | null; inviteCode: string }
   openFarmId: string | null
   clients: Client[]
   /** O que fazer em cada propriedade */
   tasks?: Task[]
+  /** Visitas marcadas a partir de hoje */
+  visits?: { date: string }[]
   ended: Ended[]
 }
 
@@ -55,7 +57,19 @@ export default function ConsultoriaPage() {
   const [history, setHistory] = useState<{ name: string; endedAt: string | null; records: ArchivedRecord[] } | null>(null)
   const [formError, setFormError] = useState('')
   const [copied, setCopied] = useState(false)
-  const [allTasks, setAllTasks] = useState(false)
+  const agenda = useRef<AgendaHandle>(null)
+  const [agendaKey, setAgendaKey] = useState(0)
+  // Abas: a agenda abre primeiro; fazendas (com o código de convite) e gráficos ficam a um toque
+  // ?aba=fazendas (atalho "Trocar propriedade" da faixa do veterinário) abre direto nas fazendas
+  const [tab, setTab] = useState<'agenda' | 'fazendas' | 'animais'>(() => { const aba = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('aba') : null; return aba === 'fazendas' || aba === 'animais' ? aba : 'agenda' })
+  // Visita pela Agenda: remarcar abre o formulário; concluir e cancelar pedem confirmação
+  async function visitAction(item: AgendaItem, action: 'concluir' | 'remarcar' | 'cancelar') {
+    if (action === 'remarcar') return agenda.current?.edit({ id: item.refId, date: item.date, time: item.time ?? null, purpose: item.detail ?? null })
+    const done = action === 'concluir'
+    if (!done && !(await confirm({ title: t('Cancelar a visita?'), message: t(item.label, item.vars), confirmLabel: t('Cancelar visita'), danger: true }))) return
+    const ok = await agenda.current?.setStatus(item.refId, done ? 'realizada' : 'cancelada')
+    if (!ok) notify(t('Não foi possível salvar'), t('Confira a internet e tente de novo.'))
+  }
 
   const load = useCallback(async () => {
     try {
@@ -127,13 +141,11 @@ export default function ConsultoriaPage() {
   const inviteText = t('Olá! Sou {name}, veterinário. Para eu acompanhar a sua propriedade no Anota Aí Agro, abra este link e confirme: {link}', { name: panel.vet.name, link: inviteLink })
   const totalAnimals = panel.clients.reduce((sum, c) => sum + c.animals, 0)
   const awaiting = panel.clients.reduce((sum, c) => sum + c.awaitingDiagnosis, 0)
-  const rates = panel.clients.filter((c) => c.pregnancyRate !== null).map((c) => c.pregnancyRate as number)
-  const averageRate = rates.length ? Math.round(rates.reduce((a, b) => a + b, 0) / rates.length) : null
-  // Uma lista só, das propriedades todas: as atrasadas (vermelho) primeiro
-  const tasks = (panel.tasks ?? []).flatMap((task) => {
-    const client = panel.clients.find((c) => c.farmId === task.farmId)
-    return client ? [{ task, client }] : []
-  }).sort((a, b) => TONE_ORDER[a.task.tone] - TONE_ORDER[b.task.tone])
+  const today = new Date().toLocaleDateString('en-CA')
+  const visitsToday = (panel.visits ?? []).filter((v) => v.date.slice(0, 10) === today).length
+  // Manejos atrasados em todas as propriedades (vacinas, partos, secagem, diagnósticos...)
+  const lateTotal = (panel.tasks ?? []).reduce((sum, k) => sum + (k.late ?? 0), 0)
+  const lateShots = (panel.tasks ?? []).filter((k) => k.href.startsWith('/vacinacao')).reduce((sum, k) => sum + (k.late ?? 0), 0)
 
   return (
     <div>
@@ -142,63 +154,71 @@ export default function ConsultoriaPage() {
           <h1 className="text-2xl font-bold text-gray-800">{t('Consultoria')}</h1>
           <p className="text-gray-500">{panel.clients.length} {t(panel.clients.length === 1 ? 'propriedade atendida' : 'propriedades atendidas')} · {totalAnimals} {t('animais')}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={!panel.clients.length} onClick={() => agenda.current?.openNew()} className="rounded-lg bg-green-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:bg-gray-300">{t('+ Marcar visita')}</button>
+          <button type="button" onClick={() => { setTab('fazendas'); setFormError(''); setNewFarm({ name: '', owner: '', phone: '', city: '', state: '' }) }} className="rounded-lg border-2 border-green-700 bg-white px-4 py-2 text-sm font-semibold text-green-800 hover:bg-green-50">{t('Vincular produtor ou novo cadastro')}</button>
+          <Link href="/dashboard" className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"><GraficoIcon className="h-4 w-4" />{t('Ver dashboard')}</Link>
           <Link href="/consultoria/recibos" className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Recibos')}</Link>
           <Link href="/consultoria/estoque" className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Meu estoque')}</Link>
         </div>
       </div>
 
-      {/* O dia do veterinário em primeiro lugar: agenda e tarefas lado a lado */}
-      <div className="mb-6 grid gap-4 lg:grid-cols-2">
-        <Agenda clients={panel.clients.map((c) => ({ id: c.id, name: c.name }))} />
-
-        <section aria-labelledby="vet-tasks">
-          <h2 id="vet-tasks" className="mb-3 flex min-h-[44px] items-center text-lg font-semibold text-gray-800">{t('O que fazer nas propriedades')}</h2>
-          {!tasks.length ? (
-            <p className="bg-white rounded-xl border border-gray-200 p-4 text-sm text-gray-500">{t('Nada pendente nas propriedades que você atende.')}</p>
-          ) : (
-            <ul className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-              {(allTasks ? tasks : tasks.slice(0, TASKS_SHOWN)).map(({ task: k, client: c }) => (
-                <li key={`${k.farmId}${k.title}`}>
-                  <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, k.href)} className="flex w-full items-start gap-3 px-4 py-2.5 text-left hover:bg-gray-50 disabled:opacity-60">
-                    <span aria-hidden="true" className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${TONE_DOT[k.tone]}`} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-medium text-gray-800">{t(k.title, { n: k.n })}</span>
-                      <span className="block text-sm text-gray-500">{[c.name, k.late ? t(k.late === 1 ? '{n} já passou da data' : '{n} já passaram da data', { n: k.late }) : null, k.detail ? t(k.detail) : null].filter(Boolean).join(' · ')}</span>
-                    </span>
-                    <span aria-hidden="true" className="text-gray-400">›</span>
-                  </button>
-                </li>
-              ))}
-              {tasks.length > TASKS_SHOWN && (
-                <li><button type="button" onClick={() => setAllTasks(!allTasks)} className="w-full px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-50">{allTasks ? t('Mostrar menos') : t('Ver todas ({n})', { n: tasks.length })}</button></li>
-              )}
-            </ul>
-          )}
-        </section>
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile accent="amber" label={t('Visitas hoje')} value={visitsToday} />
+        <StatTile accent="blue" label={t('A diagnosticar')} value={awaiting} />
+        <StatTile accent="red" label={t('Vacinas atrasadas')} value={lateShots} />
+        <StatTile accent="green" icon="tarefa" label={t('Atrasados')} value={lateTotal} detail={t('Manejos que já passaram da data')} />
       </div>
 
-      <VetCharts clients={panel.clients} busy={busy} onOpen={(c) => openFarm(c, '/reproducao/indicadores')} />
+      <nav className="mb-5 flex gap-1 overflow-x-auto border-b border-gray-200" aria-label={t('Seções da consultoria')}>
+        {([
+          ['agenda', t('Agenda e atividades'), CalendarioIcon],
+          ['fazendas', `${t('Fazendas atendidas')} (${panel.clients.length})`, PropriedadeIcon],
+          ['animais', `${t('Animais')} (${totalAnimals})`, AnimalIcon],
+        ] as const).map(([key, label, Icon]) => (
+          <button key={key} type="button" onClick={() => setTab(key)} aria-current={tab === key ? 'page' : undefined}
+            className={`inline-flex shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold ${tab === key ? 'border-green-700 text-green-800' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+            <Icon className="h-5 w-5" />{label}
+          </button>
+        ))}
+      </nav>
 
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-4"><p className="text-2xl font-bold text-gray-800">{awaiting}</p><p className="text-sm text-gray-500">{t('aguardando diagnóstico')}</p></div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4"><p className="text-2xl font-bold text-green-700">{averageRate === null ? '—' : `${averageRate}%`}</p><p className="text-sm text-gray-500">{t('concepção média')}</p></div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4"><p className="text-2xl font-bold text-gray-800">{panel.clients.reduce((sum, c) => sum + c.birthsSoon, 0)}</p><p className="text-sm text-gray-500">{t('partos em 30 dias')}</p></div>
+      {/* O dia do veterinário: visitas e manejos de todas as propriedades, por dia */}
+      <div className={tab === 'agenda' ? 'mb-8' : 'hidden'}>
+        <AgendaView endpoint="/api/veterinario/agenda" vet refreshKey={agendaKey}
+          clients={panel.clients.map((c) => ({ farmId: c.farmId, name: c.name }))}
+          onOpen={(item, href) => { const c = panel.clients.find((x) => x.farmId === item.farmId); if (c) void openFarm(c, href) }}
+          onVisit={(item, action) => void visitAction(item, action)} />
+        <Agenda ref={agenda} formOnly clients={panel.clients.map((c) => ({ id: c.id, name: c.name }))} onChanged={() => { void load(); setAgendaKey((k) => k + 1) }} />
       </div>
 
 
-      <section className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6">
-        <h2 className="font-semibold text-green-900">{t('Seu código de veterinário')}</h2>
-        <p className="text-sm text-green-900/80">{t('O produtor informa este código em “Meu veterinário” para liberar a propriedade para você.')}</p>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <span className="font-mono text-2xl font-bold tracking-widest text-green-900">{panel.vet.inviteCode}</span>
-          <a href={`https://wa.me/?text=${encodeURIComponent(inviteText)}`} target="_blank" rel="noreferrer" className="rounded-lg bg-green-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-600">{t('Enviar pelo WhatsApp')}</a>
-          <button type="button" onClick={() => { void navigator.clipboard?.writeText(inviteLink).then(() => setCopied(true)) }} className="rounded-lg border border-green-700 px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-100">{t(copied ? 'Link copiado' : 'Copiar link')}</button>
+      {tab === 'animais' && (
+        <VetAnimals clients={panel.clients} onFarmCreated={() => void load()}
+          onOpen={(farmId) => { const c = panel.clients.find((x) => x.farmId === farmId); if (c) void openFarm(c, '/animais') }} />
+      )}
+
+      {tab === 'fazendas' && <>
+
+
+
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-800">{t('Propriedades atendidas')}</h2>
+          <p className="text-sm text-gray-500">{t('Abra o painel da fazenda para lançar coberturas, diagnósticos e ver os números dela.')}</p>
         </div>
-      </section>
-
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <h2 className="text-lg font-semibold text-gray-800">{t('Propriedades atendidas')}</h2>
+        {/* Código de convite: compacto, no canto (é para vincular produtor, não para o dia a dia) */}
+        <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+          <p className="text-sm font-semibold text-gray-800">{t('Código de convite')}</p>
+          <p className="text-xs text-gray-500">{t('O produtor informa em “Meu veterinário” para liberar a propriedade.')}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="font-mono text-xl font-bold tracking-widest text-gray-900">{panel.vet.inviteCode}</span>
+            <button type="button" onClick={() => { void navigator.clipboard?.writeText(inviteLink).then(() => setCopied(true)) }} className="rounded-lg border border-green-700 px-2.5 py-1 text-xs font-semibold text-green-800 hover:bg-green-50">{t(copied ? 'Copiado!' : 'Copiar link')}</button>
+            <a href={`https://wa.me/?text=${encodeURIComponent(inviteText)}`} target="_blank" rel="noreferrer" className="rounded-lg bg-green-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-600">WhatsApp</a>
+          </div>
+        </div>
+      </div>
+      <div className="mb-3 flex justify-end">
         <button type="button" onClick={() => { setFormError(''); setNewFarm({ name: '', owner: '', phone: '', city: '', state: '' }) }} className="rounded-lg bg-green-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-600">{t('+ Propriedade de cliente')}</button>
       </div>
 
@@ -208,9 +228,9 @@ export default function ConsultoriaPage() {
         </p>
       )}
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {panel.clients.map((c) => (
-          <article key={c.id} className="bg-white rounded-xl border border-gray-200 p-4">
+          <article key={c.id} className="flex flex-col rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <h3 className="font-semibold text-gray-900 truncate">{c.name}</h3>
@@ -224,15 +244,30 @@ export default function ConsultoriaPage() {
               <div><dd className={`text-lg font-bold ${c.awaitingDiagnosis ? 'text-amber-700' : 'text-gray-800'}`}>{c.awaitingDiagnosis}</dd><dt className="text-xs text-gray-500">{t('a diagnosticar')}</dt></div>
               <div><dd className="text-lg font-bold text-gray-800">{c.birthsSoon}</dd><dt className="text-xs text-gray-500">{t('partos 30 d')}</dt></div>
             </dl>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/diagnostico')} className="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-green-400">{t('Diagnóstico em lote')}</button>
-              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/relatorio-visita')} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Relatório de visita')}</button>
-              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/indicadores')} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Indicadores')}</button>
-              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao')} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Reprodução')}</button>
-              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/animais')} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Animais')}</button>
-              {c.createdByVet && <button type="button" onClick={() => { setFormError(''); setProducer({ name: c.owner ?? '', phone: c.phone ?? '', email: '', password: '' }); setProducerFor(c) }} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Dar acesso ao produtor')}</button>}
-              <button type="button" onClick={() => endLink(c)} className="rounded-lg px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">{t('Deixar de atender')}</button>
+            <p className="mt-3 text-sm text-gray-600">{t('Situação')}: <span className={`ml-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${c.awaitingDiagnosis ? 'bg-amber-100 text-amber-900' : 'bg-green-100 text-green-800'}`}>{t(c.awaitingDiagnosis ? 'Pendente' : 'Em dia')}</span></p>
+            <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/')} className="mt-4 w-full rounded-xl bg-gradient-to-r from-green-700 to-teal-600 py-2.5 font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-60">{t('Abrir painel')}</button>
+            {/* Atalhos do dia a dia, todos com o mesmo peso; o principal é "Abrir painel" */}
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/diagnostico')} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Diagnóstico em lote')}</button>
+              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/relatorios?tipo=ficha-reprodutiva')} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Ficha reprodutiva')}</button>
+              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/relatorio-visita')} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Relatório de visita')}</button>
+              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao')} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Reprodução')}</button>
             </div>
+            <details className="group mt-2">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-1 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50">
+                {t('Mais opções')}
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+              </summary>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/indicadores')} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Indicadores')}</button>
+                <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/animais')} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Animais')}</button>
+                {c.createdByVet && <button type="button" onClick={() => { setFormError(''); setProducer({ name: c.owner ?? '', phone: c.phone ?? '', email: '', password: '' }); setProducerFor(c) }} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Dar acesso ao produtor')}</button>}
+              </div>
+              {/* Ação que desfaz o vínculo: separada, no fim */}
+              <div className="mt-3 border-t border-gray-100 pt-3">
+                <button type="button" onClick={() => endLink(c)} className="rounded-lg px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">{t('Deixar de atender')}</button>
+              </div>
+            </details>
           </article>
         ))}
       </div>
@@ -251,6 +286,7 @@ export default function ConsultoriaPage() {
           </ul>
         </section>
       )}
+      </>}
 
       {newFarm && (
         <Modal title={t('Propriedade de cliente')} onClose={() => setNewFarm(null)}>
@@ -305,22 +341,7 @@ export default function ConsultoriaPage() {
   )
 }
 
+/** Modais da Consultoria: o modal padrão (médio), com o ícone de pessoas */
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  const t = useT()
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <h2 className="text-lg font-bold text-gray-900">{title}</h2>
-          <button type="button" onClick={onClose} aria-label={t('Fechar')} className="-mr-1 -mt-1 flex h-10 w-10 items-center justify-center rounded-full text-2xl leading-none text-gray-500 hover:bg-gray-100">×</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
+  return <AppModal title={title} onClose={onClose} tone="teal" icon={<UsuariosIcon className="h-5 w-5" />}>{children}</AppModal>
 }

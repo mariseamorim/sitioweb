@@ -26,6 +26,8 @@ model Farm {
   milkPrice      Float? // valor do litro de leite (estimativa de quanto vai receber)
   /// O que a propriedade faz: leite, cria, recria, engorda (pode ter mais de um; vazio = não informado)
   segments       String[] @default([])
+  /// Meta de vacas em lactação (o painel mostra "70 de 100")
+  lactatingGoal  Int?
   /// Propriedade da demonstração do veterinário (dados fictícios, apagada em 24 h; fora das listas do administrador)
   isDemo         Boolean  @default(false)
   createdAt      DateTime @default(now())
@@ -45,16 +47,20 @@ model Farm {
   milkPayees      MilkPayee[] // nomes da nota do laticínio (versão completa)
   members         FarmMember[] // quem tem acesso (o dono pode ter várias propriedades)
   lots            Lot[] // lotes de recria e engorda
+  lotPlans        LotPlan[] // planos de recria/engorda (etapas com ganho por dia e meta de peso)
   offerContacts   OfferContact[] // contatos e compras em ofertas de fornecedores
   vetClients      VetClient[] // veterinários consultores que atendem a propriedade
 
   @@index([documentNumber])
   @@index([isDemo, createdAt])
   @@map("farms")
+  agendaDone     AgendaDone[]
 }
 
 model User {
   id               String        @id @default(cuid())
+  /// Foto do perfil (data URL JPEG de até 256 px); sem foto, a tela mostra as iniciais
+  avatar           String?
   /// E-mail ou telefone: pelo menos um, os dois servem para entrar
   email            String?       @unique
   name             String
@@ -97,6 +103,8 @@ model Animal {
   customCode      String? // outro código opcional do produtor: brinco, SISBOV...
   name            String
   species         String
+  /// Raça (só bovinos): Nelore, Gir, Girolando... texto livre com sugestões
+  breed           String?
   gender          String
   birthDate       DateTime
   isCastrated     Boolean          @default(false)
@@ -181,6 +189,8 @@ model VeterinaryTreatment {
   meatWithdrawalDays Int?
   batch              String?
   manufacturer       String?
+  /// Quem cuida do tratamento (aplica o remédio)
+  responsible        String?
   description        String?
   observations       String?
   createdAt          DateTime  @default(now())
@@ -196,6 +206,8 @@ model Vaccination {
   vaccineName   String
   scheduledDate DateTime
   appliedDate   DateTime?
+  /// Quem aplicou a vacina
+  appliedBy     String?
   batch         String?
   manufacturer  String?
   observations  String?
@@ -218,6 +230,8 @@ model Reproduction {
   semenBatch        String?
   /// Registro do touro (do sêmen ou da monta)
   bullRegistry      String?
+  /// Raça do touro (do sêmen ou da monta)
+  bullBreed         String?
   /// Quem inseminou (a taxa de prenhez muda por inseminador)
   inseminator       String?
   coverageDate      DateTime
@@ -246,13 +260,22 @@ model Transaction {
   date        DateTime
   amount      Float
   description String?
+  /// Já foi pago (despesa) ou recebido (receita); os lançamentos antigos contam como pagos
+  paid        Boolean  @default(true)
+  /// Despesa de um lote de recria/engorda (entra no desempenho do lote)
+  lotId       String?
+  lot         Lot?     @relation(fields: [lotId], references: [id], onDelete: SetNull)
   animalId    String?
   animal      Animal?  @relation(fields: [animalId], references: [id])
+  /// Compra ligada a uma entrada no estoque (criadas juntas, pelo estoque ou pelo financeiro)
+  supplyMovementId String?         @unique
+  supplyMovement   SupplyMovement? @relation(fields: [supplyMovementId], references: [id], onDelete: SetNull)
   farmId      String
   farm        Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@index([lotId])
   @@map("transactions")
 }
 
@@ -267,6 +290,8 @@ model Supply {
   packageKg       Float?
   /// Preço por unidade do estoque (por saco, por kg...), opcional: com ele o trato mostra o custo
   unitPrice       Float?
+  /// Validade do lote em estoque (remédio, vacina, sêmen...), opcional: alimenta "Próximos a vencer"
+  expiryDate      DateTime?
   farmId          String
   farm            Farm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
   lotSupplies     LotSupply[] // lotes que recebem este produto
@@ -289,6 +314,8 @@ model SupplyMovement {
   description String?
   /// Saída gerada por um trato de lote (apagar o trato devolve ao estoque)
   feeding     LotFeeding?
+  /// Despesa do financeiro ligada a esta entrada (a compra)
+  transaction Transaction?
   createdAt   DateTime    @default(now())
 
   @@map("supply_movements")
@@ -467,27 +494,54 @@ model MilkEntry {
 /// Lote de recria ou engorda: acompanha o peso médio do lote ao longo do tempo (pesagens)
 /// e o suplemento dado, com consumo em % do peso vivo por dia.
 model Lot {
-  id           String        @id @default(cuid())
-  farmId       String
-  farm         Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  name         String
-  phase        String        @default("engorda") // recria | engorda
-  startDate    DateTime
+  id            String        @id @default(cuid())
+  farmId        String
+  farm          Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  name          String
+  phase         String        @default("engorda") // recria | engorda
+  startDate     DateTime
   /// Preenchido quando o lote sai (vendido, abatido ou passou de fase)
-  endDate      DateTime?
+  endDate       DateTime?
   /// Produtos dados ao lote (suplementos, sal, ração), cada um com seu consumo em % do peso vivo
-  supplies     LotSupply[]
+  supplies      LotSupply[]
   /// Peso de saída desejado por cabeça (kg), para prever quando o lote chega lá
-  targetWeight Float?
-  notes        String?
-  weighings    LotWeighing[]
-  animals      Animal[]
-  feedings     LotFeeding[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  targetWeight  Float?
+  notes         String?
+  /// Plano do lote (etapas e meta); o desempenho compara o lote com ele
+  planId        String?
+  plan          LotPlan?      @relation(fields: [planId], references: [id], onDelete: SetNull)
+  /// Quanto custou comprar os animais do lote (R$), opcional
+  purchaseValue Float?
+  /// Despesas do Financeiro ligadas ao lote
+  transactions  Transaction[]
+  weighings     LotWeighing[]
+  animals       Animal[]
+  feedings      LotFeeding[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
   @@index([farmId])
   @@map("lots")
+}
+
+/// Plano de recria/engorda reaproveitável: até 5 etapas com ganho por dia (GMD), dias e peso ao fim, e a meta final
+model LotPlan {
+  id           String   @id @default(cuid())
+  farmId       String
+  farm         Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  active       Boolean  @default(true)
+  /// [{ name, gmd, days, weight }] (gmd em kg/dia, weight em kg ao fim da etapa)
+  stages       Json
+  /// Meta de peso final por cabeça (kg)
+  targetWeight Float?
+  lots         Lot[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([farmId])
+  @@map("lot_plans")
 }
 
 /// Pesagem do lote: peso médio e quantas cabeças tinha no dia. A primeira é a entrada.
@@ -827,15 +881,15 @@ model GroupPurchaseOrder {
 
 /// Veterinário consultor: uma conta de edição (role "editor") que atende várias propriedades.
 model VetProfile {
-  id         String      @id @default(cuid())
-  userId     String      @unique
-  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String       @id @default(cuid())
+  userId     String       @unique
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   crmv       String?
   city       String?
   state      String?
   /// Código que o produtor informa para liberar a propriedade ao veterinário
-  inviteCode String      @unique
-  createdAt  DateTime    @default(now())
+  inviteCode String       @unique
+  createdAt  DateTime     @default(now())
   clients    VetClient[]
   visits     VetVisit[]
   receipts   VetReceipt[]
@@ -917,6 +971,12 @@ model VetSupply {
   vetId     String
   vet       VetProfile      @relation(fields: [vetId], references: [id], onDelete: Cascade)
   name      String
+  /// semen | medicamento | material | outro
+  kind      String          @default("outro")
+  /// Sêmen: touro, raça e partida (preenchem a cobertura quando o veterinário usa a dose)
+  bullName  String?
+  bullBreed String?
+  semenBatch String?
   unit      String          @default("un")
   quantity  Float           @default(0)
   minimum   Float?
@@ -943,4 +1003,19 @@ model VetSupplyMove {
 
   @@index([supplyId])
   @@map("vet_supply_moves")
+}
+
+/// Manejo da agenda marcado como feito (secagem, pré-parto, retorno ao cio): some da agenda.
+/// `key` é a chave do item na agenda (ex.: "secagem:<id da cobertura>"), ver src/lib/agenda.ts
+model AgendaDone {
+  id        String   @id @default(cuid())
+  farmId    String
+  farm      Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  key       String
+  doneAt    DateTime @default(now())
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@unique([farmId, key])
+  @@map("agenda_done")
 }

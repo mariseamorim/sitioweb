@@ -1,12 +1,15 @@
-export const BOVINE_CATEGORIES = ['Vaca', 'Boi', 'Boi de engorda', 'Touro', 'Bezerro', 'Bezerra']
+export const BOVINE_CATEGORIES = ['Vaca', 'Novilha', 'Bezerra', 'Touro', 'Garrote', 'Bezerro', 'Boi', 'Boi de engorda']
 export const isBovine = (species: string) => BOVINE_CATEGORIES.includes(species)
+
+/** Raças sugeridas no cadastro de bovinos (cópia de src/lib/animalRules.ts do site; o produtor pode escolher "Outra" e digitar) */
+export const CATTLE_BREEDS = ['Nelore', 'Gir', 'Girolando', 'Holandesa', 'Jersey', 'Guzerá', 'Sindi', 'Tabapuã', 'Brahman', 'Angus', 'Senepol', 'Pardo-Suíço', 'Simental', 'Mestiço']
 
 /** Até quantos dias de vida a cria conta como "bezerro ao pé" da mãe (desmama por volta dos 8 meses) */
 export const CALF_AT_FOOT_DAYS = 240
 
 export function fixedAnimalGender(species: string): 'Fêmea' | 'Macho' | null {
-  if (['Vaca', 'Bezerra'].includes(species)) return 'Fêmea'
-  if (['Boi', 'Boi de engorda', 'Touro'].includes(species)) return 'Macho'
+  if (['Vaca', 'Novilha', 'Bezerra'].includes(species)) return 'Fêmea'
+  if (['Boi', 'Boi de engorda', 'Touro', 'Garrote'].includes(species)) return 'Macho'
   return null
 }
 
@@ -48,13 +51,18 @@ export function hasAnimalAge(birthDate: string | Date, months: number, today = a
   return threshold !== null && threshold <= today
 }
 
+/** A partir de 12 meses a bezerra vira novilha e o bezerro inteiro vira garrote */
+export const YOUNG_MONTHS = 12
+
 export function animalCategory(animal: ClassifiedAnimal, today = animalToday()): string {
   if (!isBovine(animal.species)) return animal.species
   if (animal.gender === 'Macho') {
     if (animal.isCastrated || animal.species === 'Boi' && animal.isCastrated === undefined) return 'Boi de engorda'
-    return hasAnimalAge(animal.birthDate, 36, today) ? 'Touro' : 'Bezerro'
+    // Inteiro: bezerro até 12 meses, garrote até 3 anos, depois touro
+    return hasAnimalAge(animal.birthDate, 36, today) ? 'Touro' : hasAnimalAge(animal.birthDate, YOUNG_MONTHS, today) ? 'Garrote' : 'Bezerro'
   }
-  return hasAnimalAge(animal.birthDate, 30, today) ? 'Vaca' : 'Bezerra'
+  // Fêmea: bezerra até 12 meses, novilha até 30 meses, depois vaca
+  return hasAnimalAge(animal.birthDate, 30, today) ? 'Vaca' : hasAnimalAge(animal.birthDate, YOUNG_MONTHS, today) ? 'Novilha' : 'Bezerra'
 }
 
 /** Idade mínima para cobertura (Reprodução): 2 anos */

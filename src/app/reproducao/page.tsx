@@ -2,7 +2,7 @@
 import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
-import { animalSearchText } from '@/lib/animalCode'
+import { animalSearchText, searchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 
@@ -13,9 +13,14 @@ import { useOfflineModule } from '@/lib/useOffline'
 import { loadHerd } from '@/lib/herdCache'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
-import { SemSinalIcon, SincronizarIcon, FecharIcon, ReproducaoIcon } from '@/components/ModuleIcons'
+import { AnimalIcon, CalendarioRelogioIcon, CheckIcon, FecharIcon, PastoIcon, ReproducaoIcon, SemSinalIcon, SincronizarIcon, VacinaIcon } from '@/components/ModuleIcons'
+import { AppModal, modalButton } from '@/components/AppModal'
+import { semenLabel } from '@/lib/vetSupplyKinds'
+
+/** Ícone de cada tipo de cobertura nos cartões do modal */
+const METHOD_ICON: Record<string, (p: { className?: string }) => React.ReactElement> = { ia: VacinaIcon, iatf: CalendarioRelogioIcon, natural: PastoIcon, repasse: SincronizarIcon }
 import { HerdCalvingPanel, PregnancyCheckPanel } from '@/components/HerdCalvingPanel'
-import { canBreed } from '@/lib/animalRules'
+import { CATTLE_BREEDS, canBreed } from '@/lib/animalRules'
 import { isInRearing } from '@/lib/rearing'
 import { pregnancyChecks, type PregnancyCheck } from '@/lib/calving'
 import { AddCalfForm } from '@/components/CalfSection'
@@ -41,17 +46,19 @@ interface Reproduction {
   heatDate?: string | null
   semenBatch?: string | null
   bullRegistry?: string | null
+  bullBreed?: string | null
   inseminator?: string | null
 }
 
 const STATUS_LIST = ['Coberta', 'Prenha', 'Parida', 'Vazia', 'Perdida']
-const FIELD = 'mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600'
+const FIELD = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base font-normal focus:outline-none focus:ring-2 focus:ring-green-600'
+// Etiqueta da situação: Prenha verde, Vazia vermelha, Coberta azul, Parida roxa, Perdida laranja (a palavra sempre aparece)
 const STATUS_COLOR: Record<string, string> = {
-  Coberta: 'bg-blue-100 text-blue-700',
-  Prenha: 'bg-purple-100 text-purple-700',
-  Parida: 'bg-green-100 text-green-700',
-  Vazia: 'bg-gray-100 text-gray-600',
-  Perdida: 'bg-red-100 text-red-700',
+  Coberta: 'bg-blue-100 text-blue-800',
+  Prenha: 'bg-green-100 text-green-800',
+  Parida: 'bg-purple-100 text-purple-800',
+  Vazia: 'bg-red-100 text-red-800',
+  Perdida: 'bg-orange-100 text-orange-800',
 }
 
 const MODULE = 'reproducao'
@@ -67,7 +74,7 @@ function pendingReproduction(p: PendingRequest, herd: Animal[]): Reproduction | 
     // O servidor calcula o parto previsto; aqui a mesma conta, para a lista e o painel de partos
     expectedBirthDate: b.expectedBirthDate || (b.coverageDate ? plusDays(b.coverageDate, GESTATION_DAYS) : null),
     actualBirthDate: b.actualBirthDate || null, status: b.status || 'Coberta', calfId: null, observations: b.observations || null,
-    method: b.method || null, heatDate: b.heatDate || null, semenBatch: b.semenBatch || null, bullRegistry: b.bullRegistry || null, inseminator: b.inseminator || null,
+    method: b.method || null, heatDate: b.heatDate || null, semenBatch: b.semenBatch || null, bullRegistry: b.bullRegistry || null, bullBreed: b.bullBreed || null, inseminator: b.inseminator || null,
   }
 }
 
@@ -99,6 +106,18 @@ export default function ReproducaoPage() {
   const [showRegister, setShowRegister] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<CoverageForm>({ ...EMPTY_COVERAGE, coverageDate: todayISO() })
+  // Veterinário: sêmen do próprio estoque (preenche touro, raça e partida; o servidor desconta 1 dose)
+  const [semenStock, setSemenStock] = useState<{ id: string; name: string; bullName: string | null; bullBreed: string | null; semenBatch: string | null; quantity: number }[]>([])
+  const [semenId, setSemenId] = useState('')
+  useEffect(() => {
+    if (!user?.vet || !showRegister) return
+    fetch('/api/veterinario/estoque').then((r) => (r.ok ? r.json() : [])).then((list) => setSemenStock((Array.isArray(list) ? list : []).filter((x: { kind?: string }) => x.kind === 'semen'))).catch(() => {})
+  }, [user?.vet, showRegister])
+  function chooseSemen(id: string) {
+    setSemenId(id)
+    const sm = semenStock.find((x) => x.id === id)
+    if (sm) setForm((f) => ({ ...f, method: f.method === 'natural' || f.method === 'repasse' || !f.method ? 'ia' : f.method, maleName: sm.bullName || sm.name, bullBreed: sm.bullBreed ?? '', semenBatch: sm.semenBatch ?? '' }))
+  }
   // "Salvar e repetir": quantas fêmeas já foram salvas nesta fila e o que ficou preenchido para a próxima
   const [repeated, setRepeated] = useState<{ count: number; kept: string[] } | null>(null)
   const [error, setError] = useState('')
@@ -125,7 +144,7 @@ export default function ReproducaoPage() {
   useEffect(() => { void Promise.resolve().then(reload) }, [reload])
 
   const filtered = useMemo(() => {
-    const term = animalSearch.trim().toLowerCase()
+    const term = searchText(animalSearch.trim())
     const in30 = new Date(); in30.setDate(in30.getDate() + 30)
     const birthSoon = (r: Reproduction) => (r.status === 'Coberta' || r.status === 'Prenha') && !!r.expectedBirthDate && !r.actualBirthDate && new Date(r.expectedBirthDate) <= in30
     return reproductions.filter(r => (quick ? birthSoon(r) : filterStatus === 'Todas' || r.status === filterStatus) && animalSearchText(r.female).includes(term))
@@ -214,7 +233,7 @@ export default function ReproducaoPage() {
     if (!form.coverageDate) return setError(t('Informe a data da cobertura'))
     setSaving(true)
     setError('')
-    const payload = { ...form, farmId, maleName: form.maleName || null, observations: form.observations || null }
+    const payload = { ...form, farmId, maleName: form.maleName || null, observations: form.observations || null, ...(semenId ? { vetSupplyId: semenId } : {}) }
     const female = females.find(f => f.id === form.femaleId)
     const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/reproducao', method: 'POST', body: payload, local: { farmId, female } })
     setSaving(false)
@@ -222,6 +241,8 @@ export default function ReproducaoPage() {
     const queued = r.status === 'queued'
     net.refresh()
 
+    // A dose usada sai da conta na tela (o servidor desconta de verdade)
+    if (semenId) setSemenStock((list) => list.map((x) => (x.id === semenId ? { ...x, quantity: x.quantity - 1 } : x)))
     if (repeat) {
       setForm(repeatCoverage(form))
       setRepeated((prev) => ({ count: (prev?.count ?? 0) + 1, kept: repeatedFields(form) }))
@@ -230,6 +251,7 @@ export default function ReproducaoPage() {
     }
     setShowRegister(false)
     setForm({ ...EMPTY_COVERAGE, coverageDate: todayISO() })
+    setSemenId('')
     setRepeated(null)
     afterChange(queued)
   }
@@ -253,7 +275,7 @@ export default function ReproducaoPage() {
           <a href="/reproducao/indicadores" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-gray-300 text-gray-700 hover:bg-gray-50">{t('Indicadores')}</a>
           <a href="/reproducao/relatorio-visita" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-gray-300 text-gray-700 hover:bg-gray-50">{t('Relatório de visita')}</a>
           <a href="/reproducao/diagnostico" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-green-700 text-green-800 hover:bg-green-50">{t('Diagnóstico em lote')}</a>
-          <button onClick={openRegister} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
+          <button onClick={openRegister} disabled={!canEdit} className="btn-primary shrink-0 whitespace-nowrap">
             + {t('Registrar')}
           </button>
         </div>
@@ -303,7 +325,8 @@ export default function ReproducaoPage() {
       <div className="flex flex-wrap gap-2 mb-4">
         {(['Todas', ...STATUS_LIST]).map(s => (
           <button key={s} onClick={() => { setQuick(null); setFilterStatus(s) }}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filterStatus === s ? 'bg-green-700 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            aria-pressed={filterStatus === s}
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${filterStatus === s ? 'bg-green-800 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
             {t(s)}
           </button>
         ))}
@@ -332,12 +355,12 @@ export default function ReproducaoPage() {
             <tbody className="divide-y divide-gray-100">
               {sortedReproductions.map(r => (
                 <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => { setDetail(r); setEditingRecord(false); setRegisteringBirth(false); setEditStatus(r.status); setEditBirthDate(r.actualBirthDate?.slice(0, 10) || '') }}>
-                  <td className="px-4 py-3 font-medium text-gray-800">{r.female.name}{isPendingId(r.id) && <span className="ml-2 text-xs font-normal text-blue-700">{t('a enviar')}</span>}</td>
+                  <td className="px-4 py-3 font-medium text-gray-800"><button type="button" className="row-open">{r.female.name}</button>{isPendingId(r.id) && <span className="ml-2 text-xs font-normal text-blue-700">{t('a enviar')}</span>}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{r.maleName || '—'}</td>
                   <td className="px-4 py-3 text-gray-600">{fmt(r.coverageDate)}</td>
                   <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{r.expectedBirthDate ? fmt(r.expectedBirthDate) : '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLOR[r.status] || 'bg-gray-100 text-gray-600'}`}>{t(r.status)}</span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLOR[r.status] || 'bg-gray-100 text-gray-700'}`}>{t(r.status)}</span>
                   </td>
                 </tr>
               ))}
@@ -346,21 +369,17 @@ export default function ReproducaoPage() {
         </div>
       )}
 
-      {/* Detail modal */}
+      {/* Detalhe da cobertura: modal padrão (médio) */}
       {detail && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">{detail.female.name}</h2>
-                  <p className="text-xs text-gray-500">{t('Cobertura')}: {fmt(detail.coverageDate)}{isPendingId(detail.id) ? ` · ${t('a enviar')}` : ''}</p>
-                </div>
-                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
+        <AppModal title={detail.female.name} subtitle={`${t('Cobertura')}: ${fmt(detail.coverageDate)}${isPendingId(detail.id) ? ` · ${t('a enviar')}` : ''}`}
+          onClose={() => setDetail(null)} icon={<ReproducaoIcon className="h-6 w-6" />} tone="violet"
+          footer={<>
+            <button type="button" onClick={() => handleDelete(detail.id)} className={`${modalButton.ghost} border-red-200 text-red-600 hover:bg-red-50`}>{t('Excluir')}</button>
+            <button type="button" onClick={handleUpdateStatus} className={modalButton.primary}>{t('Salvar')}</button>
+          </>}>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
-                <div><p className="text-xs text-gray-500">{t('Touro')}</p><p className="font-medium text-gray-800">{detail.maleName || '—'}{detail.bullRegistry ? ` · ${detail.bullRegistry}` : ''}</p></div>
+                <div><p className="text-xs text-gray-500">{t('Touro')}</p><p className="font-medium text-gray-800">{detail.maleName || '—'}{detail.bullBreed ? ` · ${detail.bullBreed}` : ''}{detail.bullRegistry ? ` · ${detail.bullRegistry}` : ''}</p></div>
                 {detail.method && <div><p className="text-xs text-gray-500">{t('Como foi')}</p><p className="font-medium text-gray-800">{t(methodLabel(detail.method))}{detail.semenBatch ? ` · ${t('partida')} ${detail.semenBatch}` : ''}</p></div>}
                 {detail.inseminator && <div><p className="text-xs text-gray-500">{t('Inseminador')}</p><p className="font-medium text-gray-800">{detail.inseminator}</p></div>}
                 {detail.heatDate && <div><p className="text-xs text-gray-500">{t('Cio')}</p><p className="font-medium text-gray-800">{fmt(detail.heatDate)}</p></div>}
@@ -389,7 +408,7 @@ export default function ReproducaoPage() {
                   </div>
                 ) : (
                   <button type="button" onClick={() => setRegisteringBirth(true)}
-                    className="mb-4 w-full bg-green-700 hover:bg-green-600 text-white font-semibold py-3 rounded-lg">
+                    className="mb-4 w-full bg-green-800 hover:bg-green-700 text-white font-semibold py-3 rounded-lg">
                     {t('Registrar parto e anotar a cria')}
                   </button>
                 )
@@ -414,104 +433,106 @@ export default function ReproducaoPage() {
                 )}
               </div>
 
-              <div className="flex gap-2">
-                <button onClick={handleUpdateStatus} className="flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg">{t('Salvar')}</button>
-                <button onClick={() => handleDelete(detail.id)} className="flex-1 border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium py-2 rounded-lg">{t('Excluir')}</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
-      {/* Register modal */}
+      {/* Registrar cobertura: modal padrão (médio) */}
       {showRegister && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">{t('Registrar cobertura')}</h2>
-                <button onClick={closeRegister} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
+        <AppModal title={t('Registrar cobertura')} subtitle={user?.farmName ?? undefined} onClose={closeRegister}
+          icon={<AnimalIcon className="h-6 w-6" />} tone="green"
+          footer={<>
+            <button type="button" disabled={saving} onClick={() => void handleSave(true)} className={modalButton.secondary}>{t('Salvar e repetir para outra fêmea')}</button>
+            <button type="submit" form="form-cobertura" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando...' : 'Salvar cobertura')}</button>
+          </>}
+          note={t('Para o dia de inseminação: a data, o tipo, o touro, a partida e o inseminador ficam preenchidos e só a fêmea muda.')}>
+          {repeated && (
+            <p role="status" className="mb-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
+              <strong>{t(repeated.count === 1 ? '{n} cobertura salva.' : '{n} coberturas salvas.', { n: repeated.count })}</strong> {t('Mantido para a próxima fêmea:')} {repeated.kept.map(k => k.replace(/^(touro|partida|inseminador) /, (w) => `${t(w.trim())} `)).map(k => t(k)).join(', ')}.
+            </p>
+          )}
+          <form id="form-cobertura" onSubmit={e => { e.preventDefault(); void handleSave(false) }} className="flex flex-col gap-4">
+            <AnimalPicker animals={females} value={form.femaleId} onChange={id => setForm({ ...form, femaleId: id })} label={t('Fêmea')} />
+            <fieldset>
+              <legend className="mb-2 text-base font-semibold text-gray-900">{t('Como foi')}</legend>
+              {/* Cartões selecionáveis: o escolhido fica com borda e fundo verdes e a marca no canto */}
+              <div className="grid grid-cols-2 gap-3">
+                {COVERAGE_METHODS.map(m => {
+                  const on = form.method === m.key
+                  const Icon = METHOD_ICON[m.key]
+                  return (
+                    <button key={m.key} type="button" aria-pressed={on} onClick={() => setForm({ ...form, method: on ? '' : m.key })}
+                      className={`relative flex flex-col items-center gap-1 rounded-2xl border-2 px-3 py-4 text-center transition-colors ${on ? 'border-green-600 bg-green-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                      <span aria-hidden="true" className={`absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full border-2 ${on ? 'border-green-600 bg-green-600 text-white' : 'border-gray-300'}`}>{on && <CheckIcon className="h-3.5 w-3.5" />}</span>
+                      <Icon className={`h-8 w-8 ${on ? 'text-green-700' : 'text-gray-500'}`} />
+                      <span className={`text-sm font-semibold ${on ? 'text-green-900' : 'text-gray-800'}`}>{t(m.label)}</span>
+                      <span className="text-xs text-gray-500">({t(m.hint)})</span>
+                    </button>
+                  )
+                })}
               </div>
-              {repeated && (
-                <p role="status" className="mb-3 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
-                  <strong>{t(repeated.count === 1 ? '{n} cobertura salva.' : '{n} coberturas salvas.', { n: repeated.count })}</strong> {t('Mantido para a próxima fêmea:')} {repeated.kept.map(k => k.replace(/^(touro|partida|inseminador) /, (w) => `${t(w.trim())} `)).map(k => t(k)).join(', ')}.
-                </p>
+            </fieldset>
+            <div>
+              <h3 className="mb-2 text-base font-semibold text-gray-900">{t('Dados do touro')}</h3>
+              {user?.vet && (
+                <label className="mb-3 block text-sm font-medium text-gray-700">{t('Sêmen do meu estoque')}
+                  <select value={semenId} onChange={(e) => chooseSemen(e.target.value)} className={`${FIELD} bg-white`}>
+                    <option value="">{t(semenStock.length ? 'Não usar o estoque' : 'Nenhum sêmen no seu estoque')}</option>
+                    {semenStock.map((x) => <option key={x.id} value={x.id} disabled={x.quantity < 1}>{semenLabel(x)}</option>)}
+                  </select>
+                  {semenId && <span className="mt-1 block text-xs text-amber-800">{t('Ao salvar, 1 dose sai do seu estoque, com a fazenda e a vaca anotadas.')}</span>}
+                </label>
               )}
-              <form onSubmit={e => { e.preventDefault(); void handleSave(false) }} className="flex flex-col gap-3">
-                <AnimalPicker animals={females} value={form.femaleId} onChange={id => setForm({ ...form, femaleId: id })} label={t('Fêmea')} />
-                <fieldset>
-                  <legend className="text-xs font-medium text-gray-600">{t('Como foi')}</legend>
-                  <div className="mt-1 grid grid-cols-2 gap-2">
-                    {COVERAGE_METHODS.map(m => (
-                      <button key={m.key} type="button" aria-pressed={form.method === m.key} onClick={() => setForm({ ...form, method: form.method === m.key ? '' : m.key })}
-                        className={`rounded-xl border-2 px-2 py-2 text-left ${form.method === m.key ? 'border-green-700 bg-green-50' : 'border-gray-200'}`}>
-                        <span className={`block text-sm font-semibold ${form.method === m.key ? 'text-green-800' : 'text-gray-700'}`}>{t(m.label)}</span>
-                        <span className="block text-xs text-gray-500">{t(m.hint)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Touro')}</label>
-                  <input type="text" value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} placeholder={t('Nome ou código do touro')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Data Cobertura')} *</label>
-                    <input type="date" value={form.coverageDate} onChange={e => setForm({ ...form, coverageDate: e.target.value })} required max={todayISO()}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                    {form.status === 'Prenha' && !form.coverageDate && (
-                      <p className="mt-1 text-xs text-amber-800">{t('Se não souber o dia certo, coloque uma data aproximada: ela define a previsão do parto.')}</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Status')}</label>
-                    <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
-                      {STATUS_LIST.map(s => <option key={s} value={s}>{t(s)}</option>)}
-                    </select>
-                  </div>
-                </div>
-                {/* Detalhes recolhidos: o registro rápido é fêmea, como foi, touro e data */}
-                <details className="rounded-lg border border-gray-200 px-3 py-2" open={!!(form.semenBatch || form.inseminator || form.bullRegistry || form.heatDate)}>
-                  <summary className="cursor-pointer text-sm font-medium text-gray-700">{t('Mais detalhes (opcional)')}</summary>
-                  <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {isInsemination(form.method) && (
-                      <>
-                        <label className="text-xs font-medium text-gray-600">{t('Partida do sêmen')}
-                          <input value={form.semenBatch} onChange={e => setForm({ ...form, semenBatch: e.target.value })} placeholder="Ex.: 2412-A" className={FIELD} />
-                        </label>
-                        <label className="text-xs font-medium text-gray-600">{t('Inseminador')}
-                          <input value={form.inseminator} onChange={e => setForm({ ...form, inseminator: e.target.value })} placeholder={t('Quem inseminou')} className={FIELD} />
-                        </label>
-                      </>
-                    )}
-                    <label className="text-xs font-medium text-gray-600">{t('Registro do touro')}
-                      <input value={form.bullRegistry} onChange={e => setForm({ ...form, bullRegistry: e.target.value })} placeholder="Ex.: RGD 12345" className={FIELD} />
-                    </label>
-                    <label className="text-xs font-medium text-gray-600">{t('Data do cio')}
-                      <input type="date" max={todayISO()} value={form.heatDate} onChange={e => setForm({ ...form, heatDate: e.target.value })} className={FIELD} />
-                    </label>
-                    <label className="text-xs font-medium text-gray-600 sm:col-span-2">{t('Observações')}
-                      <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2} className={`${FIELD} resize-none`} />
-                    </label>
-                  </div>
-                </details>
-                {error && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{t(error)}</p>}
-                <div className="flex flex-col gap-2 pt-1 sm:flex-row">
-                  <button type="button" onClick={closeRegister} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-lg hover:bg-gray-50">{t(repeated ? 'Fechar' : 'Cancelar')}</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2.5 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
-                </div>
-                <button type="button" disabled={saving} onClick={() => void handleSave(true)}
-                  className="rounded-lg border-2 border-green-700 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-50 disabled:opacity-50">
-                  {t('Salvar e repetir para outra fêmea')}
-                </button>
-                <p className="text-xs text-gray-500">{t('Para o dia de inseminação: a data, o tipo, o touro, a partida e o inseminador ficam preenchidos e só a fêmea muda.')}</p>
-              </form>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-sm font-medium text-gray-700">{t('Touro')}
+                  <input type="text" value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} placeholder={t('Nome ou código do touro')} className={FIELD} />
+                </label>
+                <label className="text-sm font-medium text-gray-700">{t('Raça do touro')}
+                  <input type="text" list="racas-touro" value={form.bullBreed} onChange={e => setForm({ ...form, bullBreed: e.target.value })} placeholder={t('Ex.: Gir, Holandesa')} className={FIELD} />
+                  <datalist id="racas-touro">{CATTLE_BREEDS.map((b) => <option key={b} value={b} />)}</datalist>
+                </label>
+              </div>
             </div>
-          </div>
-        </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-sm font-medium text-gray-700">{t('Data Cobertura')} *
+                <input type="date" value={form.coverageDate} onChange={e => setForm({ ...form, coverageDate: e.target.value })} required max={todayISO()} className={FIELD} />
+                {form.status === 'Prenha' && !form.coverageDate && (
+                  <span className="mt-1 block text-xs text-amber-800">{t('Se não souber o dia certo, coloque uma data aproximada: ela define a previsão do parto.')}</span>
+                )}
+              </label>
+              <label className="text-sm font-medium text-gray-700">{t('Status')}
+                <select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })} className={`${FIELD} bg-white`}>
+                  {STATUS_LIST.map(s => <option key={s} value={s}>{t(s)}</option>)}
+                </select>
+              </label>
+            </div>
+            {/* Detalhes recolhidos: o registro rápido é fêmea, como foi, touro e data */}
+            <details className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3" open={!!(form.semenBatch || form.inseminator || form.bullRegistry || form.heatDate)}>
+              <summary className="cursor-pointer text-sm font-semibold text-gray-700">{t('Mais detalhes (opcional)')}</summary>
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {isInsemination(form.method) && (
+                  <>
+                    <label className="text-sm font-medium text-gray-700">{t('Partida do sêmen')}
+                      <input value={form.semenBatch} onChange={e => setForm({ ...form, semenBatch: e.target.value })} placeholder="Ex.: 2412-A" className={`${FIELD} bg-white`} />
+                    </label>
+                    <label className="text-sm font-medium text-gray-700">{t('Inseminador')}
+                      <input value={form.inseminator} onChange={e => setForm({ ...form, inseminator: e.target.value })} placeholder={t('Quem inseminou')} className={`${FIELD} bg-white`} />
+                    </label>
+                  </>
+                )}
+                <label className="text-sm font-medium text-gray-700">{t('Registro do touro')}
+                  <input value={form.bullRegistry} onChange={e => setForm({ ...form, bullRegistry: e.target.value })} placeholder="Ex.: RGD 12345" className={`${FIELD} bg-white`} />
+                </label>
+                <label className="text-sm font-medium text-gray-700">{t('Data do cio')}
+                  <input type="date" max={todayISO()} value={form.heatDate} onChange={e => setForm({ ...form, heatDate: e.target.value })} className={`${FIELD} bg-white`} />
+                </label>
+                <label className="text-sm font-medium text-gray-700 sm:col-span-2">{t('Observações')}
+                  <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2} placeholder={t('Ex.: cio forte, repetir em 21 dias')} className={`${FIELD} resize-none bg-white`} />
+                </label>
+              </div>
+            </details>
+            {error && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{t(error)}</p>}
+          </form>
+        </AppModal>
       )}
     </PermissionGuard>
   )
@@ -522,7 +543,7 @@ function RecordEditor({ record, farmId, onCancel, onSaved }: { record: Reproduct
   const day = (v?: string | null) => (v ? v.slice(0, 10) : '')
   const [form, setForm] = useState({
     coverageDate: day(record.coverageDate), expectedBirthDate: day(record.expectedBirthDate), heatDate: day(record.heatDate),
-    method: record.method ?? '', maleName: record.maleName ?? '', bullRegistry: record.bullRegistry ?? '', semenBatch: record.semenBatch ?? '',
+    method: record.method ?? '', maleName: record.maleName ?? '', bullBreed: record.bullBreed ?? '', bullRegistry: record.bullRegistry ?? '', semenBatch: record.semenBatch ?? '',
     inseminator: record.inseminator ?? '', observations: record.observations ?? '',
   })
   const [saving, setSaving] = useState(false)
@@ -562,6 +583,10 @@ function RecordEditor({ record, farmId, onCancel, onSaved }: { record: Reproduct
       <label className="text-xs font-medium text-gray-600">{t('Touro (nome)')}
         <input value={form.maleName} onChange={e => setForm({ ...form, maleName: e.target.value })} className={field} />
       </label>
+      <label className="text-xs font-medium text-gray-600">{t('Raça do touro')}
+        <input list="racas-touro-editar" value={form.bullBreed} onChange={e => setForm({ ...form, bullBreed: e.target.value })} className={field} />
+        <datalist id="racas-touro-editar">{CATTLE_BREEDS.map((b) => <option key={b} value={b} />)}</datalist>
+      </label>
       <label className="text-xs font-medium text-gray-600">{t('Registro do touro')}
         <input value={form.bullRegistry} onChange={e => setForm({ ...form, bullRegistry: e.target.value })} className={field} />
       </label>
@@ -581,7 +606,7 @@ function RecordEditor({ record, farmId, onCancel, onSaved }: { record: Reproduct
       {error && <p role="alert" className="text-sm text-red-700 sm:col-span-2">{t(error)}</p>}
       <div className="flex gap-2 sm:col-span-2">
         <button type="button" onClick={onCancel} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg">{t('Cancelar')}</button>
-        <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar alteração')}</button>
+        <button type="submit" disabled={saving} className="flex-1 bg-green-800 hover:bg-green-700 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar alteração')}</button>
       </div>
     </form>
   )

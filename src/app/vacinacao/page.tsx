@@ -2,22 +2,27 @@
 import { AnimalPicker } from '@/components/AnimalPicker'
 import { PermissionGuard } from '@/components/PermissionGuard'
 import { useUser } from '@/contexts/UserContext'
-import { animalSearchText } from '@/lib/animalCode'
+import { animalSearchText, searchText } from '@/lib/animalCode'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 
 import { useCallback, useEffect, useState, useMemo } from 'react'
 import { removePendingRecord, type OfflineRecord } from '@/lib/offlineStorage'
+import { VACC_TARGETS, herdCategories, targetAnimals, type VaccTarget } from '@/lib/vaccinationGroups'
 import { cachedGet, isPendingId, pendingIdOf, pendingItemId, pendingOf, sendOrQueue, updatePending, withPending, type PendingRequest, type QueuedRequest } from '@/lib/offlineData'
 import { useOfflineModule } from '@/lib/useOffline'
 import { loadHerd } from '@/lib/herdCache'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
-import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon } from '@/components/ModuleIcons'
+import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon, VacinaIcon } from '@/components/ModuleIcons'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 import { useLocale, useT } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
+import { AppModal, modalButton } from '@/components/AppModal'
 
-interface Animal { id: string; name: string; code: string }
+const FIELD = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base font-normal focus:outline-none focus:ring-2 focus:ring-green-600'
+
+interface Animal { id: string; name: string; code: string; species?: string; status?: string | null; lotId?: string | null }
 
 interface Vaccination {
   id: string
@@ -28,6 +33,7 @@ interface Vaccination {
   appliedDate?: string | null
   batch?: string | null
   manufacturer?: string | null
+  appliedBy?: string | null
   observations?: string | null
 }
 
@@ -39,14 +45,15 @@ function getStatus(v: Vaccination): 'Pendente' | 'Aplicada' | 'Vencida' {
   return 'Pendente'
 }
 
+// Etiqueta da situação: Aplicada verde, Pendente laranja, Vencida vermelha (a palavra sempre aparece)
 const STATUS_COLOR: Record<string, string> = {
-  Aplicada: 'bg-green-100 text-green-700',
-  Pendente: 'bg-yellow-100 text-yellow-700',
-  Vencida: 'bg-red-100 text-red-700',
+  Aplicada: 'bg-green-100 text-green-800',
+  Pendente: 'bg-amber-100 text-amber-800',
+  Vencida: 'bg-red-100 text-red-800',
 }
 
 const MODULE = 'vacinacao'
-const EMPTY_FORM = { animalId: '', vaccineName: '', scheduledDate: todayISO(), appliedDate: '', batch: '', manufacturer: '', observations: '' }
+const EMPTY_FORM = { animalId: '', vaccineName: '', scheduledDate: todayISO(), appliedDate: '', batch: '', manufacturer: '', appliedBy: '', observations: '' }
 
 /** Vacinação guardada sem internet, como aparece na lista. Registros antigos da fila têm os campos soltos, sem _body. */
 function pendingVaccination(p: PendingRequest, animals: Animal[]): Vaccination | null {
@@ -83,6 +90,11 @@ export default function VacinacaoPage() {
   const [quick, setQuick] = useQuickFilter(['pendentes'] as const)
   const [detail, setDetail] = useState<Vaccination | null>(null)
   const [showRegister, setShowRegister] = useState(false)
+  // Aplicar em: um animal, o rebanho inteiro, uma categoria ou um lote
+  const [target, setTarget] = useState<VaccTarget>('animal')
+  const [targetCategory, setTargetCategory] = useState('')
+  const [targetLot, setTargetLot] = useState('')
+  const [lots, setLots] = useState<{ id: string; name: string; endDate: string | null }[] | null>(null)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
 
@@ -104,7 +116,7 @@ export default function VacinacaoPage() {
   useEffect(() => { void Promise.resolve().then(reload) }, [reload])
 
   const filtered = useMemo(() => {
-    const term = animalSearch.trim().toLowerCase()
+    const term = searchText(animalSearch.trim())
     const in7 = new Date(); in7.setDate(in7.getDate() + 7)
     const dueSoon = (v: Vaccination) => !v.appliedDate && new Date(v.scheduledDate) <= in7
     return vaccinations.filter(v => (quick ? dueSoon(v) : filter === 'Todas' || getStatus(v) === filter) && animalSearchText(v.animal).includes(term))
@@ -117,6 +129,12 @@ export default function VacinacaoPage() {
   const alertCount = useMemo(() => {
     const in7 = new Date(); in7.setDate(in7.getDate() + 7)
     return vaccinations.filter(v => !v.appliedDate && new Date(v.scheduledDate) <= in7).length
+  }, [vaccinations])
+  // Contagem por situação, para os cartões do topo
+  const statusCount = useMemo(() => {
+    const c = { Pendente: 0, Aplicada: 0, Vencida: 0 }
+    for (const v of vaccinations) c[getStatus(v)]++
+    return c
   }, [vaccinations])
 
   // Depois de guardar ou enviar: a lista mostra na hora e a barra do topo atualiza a contagem
@@ -148,7 +166,7 @@ export default function VacinacaoPage() {
       updatePending(MODULE, pendingIdOf(v.id), p => (p._body ? { ...p, _body: { ...(p._body as object), appliedDate: today } } : { ...p, appliedDate: today }))
       return afterChange(true)
     }
-    const body = { animalId: v.animalId, vaccineName: v.vaccineName, scheduledDate: v.scheduledDate, appliedDate: today, batch: v.batch ?? null, manufacturer: v.manufacturer ?? null, observations: v.observations ?? null }
+    const body = { animalId: v.animalId, vaccineName: v.vaccineName, scheduledDate: v.scheduledDate, appliedDate: today, batch: v.batch ?? null, manufacturer: v.manufacturer ?? null, appliedBy: v.appliedBy ?? null, observations: v.observations ?? null }
     const r = await sendOrQueue(MODULE, { type: 'update', id: v.id, url: `/api/vacinacao/${v.id}`, method: 'PUT', body, local: { farmId } })
     if (r.status === 'rejected') setNotice(t(r.error))
     else afterChange(r.status === 'queued')
@@ -158,13 +176,18 @@ export default function VacinacaoPage() {
     e.preventDefault()
     setSaving(true)
     setSaveError('')
-    const body = { ...form, appliedDate: form.appliedDate || null, batch: form.batch || null, manufacturer: form.manufacturer || null, observations: form.observations || null, farmId }
+    const base = { ...form, appliedDate: form.appliedDate || null, batch: form.batch || null, manufacturer: form.manufacturer || null, appliedBy: form.appliedBy || null, observations: form.observations || null, farmId }
+    const many = target === 'animal' ? null : targetAnimals(animals.map(a => ({ ...a, species: a.species ?? '' })), target, { category: targetCategory, lotId: targetLot })
+    if (many && !many.length) { setSaving(false); return setSaveError(t('Nenhum animal vivo nesse grupo.')) }
     const animal = animals.find(a => a.id === form.animalId)
-    const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/vacinacao', method: 'POST', body, local: { farmId, animal } })
+    const body = many ? { ...base, animalId: undefined, animalIds: many.map(a => a.id) } : base
+    const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/vacinacao', method: 'POST', body, local: { farmId, animal: many ? { id: '', name: t('{n} animais', { n: many.length }), code: '' } : animal } })
     setSaving(false)
     if (r.status === 'rejected') return setSaveError(t(r.error))
     setShowRegister(false)
     setForm(EMPTY_FORM)
+    setTarget('animal')
+    if (many && r.status !== 'queued') setNotice(t('Vacina registrada para {n} animais.', { n: many.length }))
     afterChange(r.status === 'queued')
   }
 
@@ -179,10 +202,19 @@ export default function VacinacaoPage() {
           <h1 className="text-2xl font-bold text-gray-800">{t('Vacinação')}</h1>
           <p className="text-gray-500 text-sm mt-1">{t('Agenda e controle de vacinas por animal')}</p>
         </div>
-        <button onClick={() => setShowRegister(true)} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
+        <button onClick={() => setShowRegister(true)} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${canEdit ? 'bg-green-800 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}>
           + {t('Registrar')}
         </button>
       </div>
+
+      {!loading && vaccinations.length > 0 && (
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatTile accent="blue" label={t('Total')} value={vaccinations.length} />
+          <StatTile accent="green" label={t('Vacinas aplicadas')} value={statusCount.Aplicada} />
+          <StatTile accent="amber" label={t('Vacinas pendentes')} value={statusCount.Pendente} />
+          <StatTile accent={statusCount.Vencida > 0 ? 'red' : 'teal'} label={t('Vacinas atrasadas')} value={statusCount.Vencida} />
+        </div>
+      )}
 
       {/* Sem internet / fila / aviso */}
       {(!net.online || fromCache) && (
@@ -220,7 +252,8 @@ export default function VacinacaoPage() {
       <div className="flex flex-wrap gap-2 mb-4">
         {(['Todas', 'Pendente', 'Aplicada', 'Vencida'] as VaccStatus[]).map(s => (
           <button key={s} onClick={() => { setQuick(null); setFilter(s) }}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${filter === s ? 'bg-green-700 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+            aria-pressed={filter === s}
+            className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${filter === s ? 'bg-green-800 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
             {t(s)}
           </button>
         ))}
@@ -251,12 +284,15 @@ export default function VacinacaoPage() {
                 const status = getStatus(v)
                 return (
                   <tr key={v.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetail(v)}>
-                    <td className="px-4 py-3 font-medium text-gray-800">{v.animal.name}{isPendingId(v.id) && <span className="ml-2 text-xs font-normal text-blue-700">{t('a enviar')}</span>}</td>
+                    <td className="relative px-4 py-3 font-medium text-gray-800">
+                      {/* Faixa à esquerda: vermelha se vencida, laranja se pendente */}
+                      {status !== 'Aplicada' && <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${status === 'Vencida' ? 'bg-red-600' : 'bg-amber-500'}`} />}
+                      <button type="button" className="row-open">{v.animal.name}</button>{isPendingId(v.id) && <span className="ml-2 text-xs font-normal text-blue-700">{t('a enviar')}</span>}</td>
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{v.vaccineName}</td>
                     <td className="px-4 py-3 text-gray-600">{fmt(v.scheduledDate)}</td>
                     <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{v.appliedDate ? fmt(v.appliedDate) : '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLOR[status]}`}>{t(status)}</span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLOR[status]}`}>{t(status)}</span>
                     </td>
                   </tr>
                 )
@@ -266,96 +302,97 @@ export default function VacinacaoPage() {
         </div>
       )}
 
-      {/* Detail modal */}
+      {/* Detalhe da vacinação: modal padrão (médio) */}
       {detail && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">{detail.vaccineName}</h2>
-                  <p className="text-xs text-gray-500">{detail.animal.name} · {t('Cód.')} {detail.animal.code}</p>
-                </div>
-                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
-                <div><p className="text-xs text-gray-500">{t('Agendado')}</p><p className="font-medium text-gray-800">{fmt(detail.scheduledDate)}</p></div>
-                <div><p className="text-xs text-gray-500">{t('Aplicado')}</p><p className="font-medium text-gray-800">{detail.appliedDate ? fmt(detail.appliedDate) : '—'}</p></div>
-                {detail.manufacturer && <div><p className="text-xs text-gray-500">{t('Fabricante')}</p><p className="text-gray-700">{detail.manufacturer}</p></div>}
-                {detail.batch && <div><p className="text-xs text-gray-500">{t('Lote')}</p><p className="text-gray-700">{detail.batch}</p></div>}
-                {detail.observations && <div className="sm:col-span-2"><p className="text-xs text-gray-500">{t('Observações')}</p><p className="text-gray-700">{detail.observations}</p></div>}
-              </div>
-
-              <div className="flex gap-2">
-                {!detail.appliedDate && (
-                  <button onClick={() => handleApply(detail)} className="flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg">
-                    {t('Marcar como Aplicada')}
-                  </button>
-                )}
-                <button onClick={() => handleDelete(detail.id)} className="flex-1 border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium py-2 rounded-lg">
-                  {t('Excluir')}
-                </button>
-              </div>
-            </div>
+        <AppModal title={detail.vaccineName} subtitle={`${detail.animal.name} · ${t('Cód.')} ${detail.animal.code}`}
+          onClose={() => setDetail(null)} icon={<VacinaIcon className="h-6 w-6" />} tone="teal"
+          footer={<>
+            <button type="button" onClick={() => handleDelete(detail.id)} className={`${modalButton.ghost} border-red-200 text-red-600 hover:bg-red-50`}>{t('Excluir')}</button>
+            {!detail.appliedDate && (
+              <button type="button" onClick={() => handleApply(detail)} className={modalButton.primary}>{t('Marcar como Aplicada')}</button>
+            )}
+          </>}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div><p className="text-xs text-gray-500">{t('Agendado')}</p><p className="font-medium text-gray-800">{fmt(detail.scheduledDate)}</p></div>
+            <div><p className="text-xs text-gray-500">{t('Aplicado')}</p><p className="font-medium text-gray-800">{detail.appliedDate ? fmt(detail.appliedDate) : '—'}</p></div>
+            {detail.manufacturer && <div><p className="text-xs text-gray-500">{t('Fabricante')}</p><p className="text-gray-700">{detail.manufacturer}</p></div>}
+            {detail.batch && <div><p className="text-xs text-gray-500">{t('Lote')}</p><p className="text-gray-700">{detail.batch}</p></div>}
+            {detail.appliedBy && <div><p className="text-xs text-gray-500">{t('Aplicado por')}</p><p className="text-gray-700">{detail.appliedBy}</p></div>}
+            {detail.observations && <div className="sm:col-span-2"><p className="text-xs text-gray-500">{t('Observações')}</p><p className="text-gray-700">{detail.observations}</p></div>}
           </div>
-        </div>
+        </AppModal>
       )}
 
-      {/* Register modal */}
+      {/* Registrar vacinação: modal padrão (médio) */}
       {showRegister && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">{t('Registrar Vacinação')}</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-              <form onSubmit={handleSave} className="flex flex-col gap-3">
-                <AnimalPicker animals={animals} value={form.animalId} onChange={id => setForm({ ...form, animalId: id })} label="Animal" />
+        <AppModal title={t('Registrar Vacinação')} subtitle={user?.farmName ?? undefined} onClose={() => setShowRegister(false)}
+          icon={<VacinaIcon className="h-6 w-6" />} tone="teal"
+          footer={<>
+            <button type="button" onClick={() => setShowRegister(false)} className={modalButton.ghost}>{t('Cancelar')}</button>
+            <button type="submit" form="form-vacinacao" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando...' : 'Salvar')}</button>
+          </>}>
+              <form id="form-vacinacao" onSubmit={handleSave} className="flex flex-col gap-4">
                 <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Vacina')} *</label>
-                  <input type="text" value={form.vaccineName} onChange={e => setForm({ ...form, vaccineName: e.target.value })} required placeholder={t('Ex: Febre Aftosa')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Data Agendada')} *</label>
-                    <input type="date" value={form.scheduledDate} onChange={e => setForm({ ...form, scheduledDate: e.target.value })} required
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Data Aplicação')}</label>
-                    <input type="date" value={form.appliedDate} onChange={e => setForm({ ...form, appliedDate: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                  <span className="text-sm font-medium text-gray-700">{t('Aplicar em')}</span>
+                  <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {VACC_TARGETS.map(o => (
+                      <button key={o.key} type="button" aria-pressed={target === o.key}
+                        onClick={() => { setTarget(o.key); if (o.key === 'lote' && lots === null) fetch('/api/lotes').then(r => (r.ok ? r.json() : [])).then(l => setLots(Array.isArray(l) ? l : [])).catch(() => setLots([])) }}
+                        className={`rounded-xl border px-2 py-2.5 text-sm font-semibold ${target === o.key ? 'border-green-700 bg-green-700 text-white' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}>
+                        {t(o.label)}
+                      </button>
+                    ))}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Fabricante')}</label>
-                    <input type="text" value={form.manufacturer} onChange={e => setForm({ ...form, manufacturer: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Lote')}</label>
-                    <input type="text" value={form.batch} onChange={e => setForm({ ...form, batch: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
+                {target === 'animal' && <AnimalPicker animals={animals} value={form.animalId} onChange={id => setForm({ ...form, animalId: id })} label="Animal" />}
+                {target === 'categoria' && (
+                  <label className="text-sm font-medium text-gray-700">{t('Categoria')} *
+                    <select required value={targetCategory} onChange={e => setTargetCategory(e.target.value)} className={`${FIELD} bg-white`}>
+                      <option value="">{t('Escolha')}</option>
+                      {herdCategories(animals.map(a => ({ ...a, species: a.species ?? '' }))).map(c => <option key={c.species} value={c.species}>{t(c.species)} ({c.n})</option>)}
+                    </select>
+                  </label>
+                )}
+                {target === 'lote' && (
+                  <label className="text-sm font-medium text-gray-700">{t('Lote de recria ou engorda')} *
+                    <select required value={targetLot} onChange={e => setTargetLot(e.target.value)} className={`${FIELD} bg-white`}>
+                      <option value="">{lots === null ? t('Carregando…') : lots.length ? t('Escolha') : t('Nenhum lote')}</option>
+                      {(lots ?? []).filter(l => !l.endDate).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                    </select>
+                  </label>
+                )}
+                {target !== 'animal' && (() => {
+                  const n = targetAnimals(animals.map(a => ({ ...a, species: a.species ?? '' })), target, { category: targetCategory, lotId: targetLot }).length
+                  return <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-900">{n === 1 ? t('1 animal vai receber a vacina.') : t('{n} animais vão receber a vacina.', { n })}</p>
+                })()}
+                <label className="text-sm font-medium text-gray-700">{t('Vacina')} *
+                  <input type="text" value={form.vaccineName} onChange={e => setForm({ ...form, vaccineName: e.target.value })} required placeholder={t('Ex: Febre Aftosa')} className={FIELD} />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Data Agendada')} *
+                    <input type="date" value={form.scheduledDate} onChange={e => setForm({ ...form, scheduledDate: e.target.value })} required className={FIELD} />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Data Aplicação')}
+                    <input type="date" value={form.appliedDate} onChange={e => setForm({ ...form, appliedDate: e.target.value })} className={FIELD} />
+                  </label>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Observações')}</label>
-                  <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 resize-none" />
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Fabricante')}
+                    <input type="text" value={form.manufacturer} onChange={e => setForm({ ...form, manufacturer: e.target.value })} placeholder={t('Ex: Laboratório X')} className={FIELD} />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Lote')}
+                    <input type="text" value={form.batch} onChange={e => setForm({ ...form, batch: e.target.value })} placeholder={t('Ex.: 045/24')} className={FIELD} />
+                  </label>
                 </div>
-                {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setShowRegister(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
-                </div>
+                <label className="text-sm font-medium text-gray-700">{t('Aplicado por')}
+                  <input type="text" value={form.appliedBy} onChange={e => setForm({ ...form, appliedBy: e.target.value })} placeholder={t('Quem aplicou a vacina')} className={FIELD} />
+                </label>
+                <label className="text-sm font-medium text-gray-700">{t('Observações')}
+                  <textarea value={form.observations} onChange={e => setForm({ ...form, observations: e.target.value })} rows={2} placeholder={t('Ex.: reforço em 30 dias')} className={`${FIELD} resize-none`} />
+                </label>
+                {saveError && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{saveError}</p>}
               </form>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
     </div>
     </PermissionGuard>

@@ -15,6 +15,7 @@ export interface Reproduction {
   heatDate: string | null
   semenBatch: string | null
   bullRegistry: string | null
+  bullBreed: string | null
   inseminator: string | null
   coverageDate: string
   expectedBirthDate: string | null
@@ -31,12 +32,13 @@ export interface Reproduction {
 export const STATUS_LIST = ['Coberta', 'Prenha', 'Parida', 'Vazia', 'Perdida']
 const OPEN_STATUSES = ['Coberta', 'Prenha']
 
-/** Cor do selo de situação, como no site (Coberta azul, Prenha roxo, Parida verde, Vazia cinza, Perdida vermelho) */
+/** Cor do selo de situação no app (visual com mais cores): Prenha verde, Vazia vermelho, Coberta azul, Parida roxo, Perdida âmbar */
 export function statusTone(status: string): 'green' | 'amber' | 'red' | 'blue' | 'purple' | 'muted' {
   if (status === 'Coberta') return 'blue'
-  if (status === 'Prenha') return 'purple'
-  if (status === 'Parida') return 'green'
-  if (status === 'Perdida') return 'red'
+  if (status === 'Prenha') return 'green'
+  if (status === 'Parida') return 'purple'
+  if (status === 'Vazia') return 'red'
+  if (status === 'Perdida') return 'amber'
   return 'muted'
 }
 
@@ -83,6 +85,7 @@ export interface CoverageInput {
   method: string
   maleName: string
   bullRegistry: string
+  bullBreed: string
   semenBatch: string
   inseminator: string
   heatDate: string
@@ -90,6 +93,8 @@ export interface CoverageInput {
   observations: string
   /** Previsão digitada (edição); vazio = calcular pela cobertura */
   expectedBirthDate?: string
+  /** Veterinário: sêmen do próprio estoque (o servidor desconta 1 dose) */
+  vetSupplyId?: string | null
 }
 
 /** Mesma conta do servidor: cobertura em andamento tem parto previsto 280 dias depois; Vazia/Perdida não têm */
@@ -107,6 +112,7 @@ export function createCoverage(farmId: string, input: CoverageInput): string {
     femaleId: input.femaleId, coverageDate: input.coverageDate, maleName: input.maleName.trim() || null, status,
     observations: input.observations.trim() || null, ...details,
     ...(input.expectedBirthDate ? { expectedBirthDate: input.expectedBirthDate } : {}),
+    ...(input.vetSupplyId ? { vetSupplyId: input.vetSupplyId } : {}),
   }
   const row = { expectedBirthDate: expectedFor(input.coverageDate, status, input.expectedBirthDate), actualBirthDate: null, calfId: null }
   return createLocal({ table: 'reproductions', farmId, path: '/api/reproducao', body, row })
@@ -147,7 +153,7 @@ export function removeReproduction(farmId: string, id: string) {
 export function markEmptyAfterCalving(farmId: string, femaleId: string) {
   return createCoverage(farmId, {
     femaleId, coverageDate: todayISO(), status: 'Vazia', observations: 'Confirmada vazia depois do parto',
-    method: '', maleName: '', bullRegistry: '', semenBatch: '', inseminator: '', heatDate: '',
+    method: '', maleName: '', bullRegistry: '', bullBreed: '', semenBatch: '', inseminator: '', heatDate: '',
   })
 }
 

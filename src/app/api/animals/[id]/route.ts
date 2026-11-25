@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
 import { closeOpenPregnancy, findValidMother } from '@/lib/calves'
-import { animalCategory, animalRuleError } from '@/lib/animalRules'
+import { animalCategory, animalRuleError, cleanBreed } from '@/lib/animalRules'
 import { cleanCustomCode, duplicateCodeMessage } from '@/lib/animalCode'
 
 async function findOwned(id: string, farmId: string) {
@@ -41,6 +41,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       ...(body.customCode !== undefined ? { customCode: cleanCustomCode(body.customCode) } : {}),
       name,
       species: animalCategory(classification),
+      // Só muda a raça quando o pedido manda o campo (versões antigas do app não mandam)
+      ...(body.breed !== undefined ? { breed: cleanBreed(body.breed, animalCategory(classification)) } : {}),
       gender: classification.gender,
       birthDate: new Date(classification.birthDate),
       isCastrated: classification.isCastrated,

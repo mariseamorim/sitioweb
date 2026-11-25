@@ -1,10 +1,10 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Alert, Pressable, Text, View } from 'react-native'
+import { Alert, Pressable, Text, ToastAndroid, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { canAddCalf } from '@/lib/animalRules'
-import { COVERAGE_METHODS, EMPTY_COVERAGE, gestation, isInsemination, methodLabel, repeatCoverage, repeatedFields, type CoverageForm } from '@/lib/coverage'
+import { COVERAGE_METHODS, EMPTY_COVERAGE, GESTATION_DAYS, gestation, plusDays, isInsemination, methodLabel, repeatCoverage, repeatedFields, type CoverageForm } from '@/lib/coverage'
 import { brDate, isoDay, todayISO } from '@/lib/format'
 import { getAnimal } from '@/repos/animals'
 import {
@@ -14,8 +14,9 @@ import {
 import { Badge, Button, Card, Chips, DateField, Field, Muted, Notice, Screen, SelectField } from '@/ui'
 import { colors, font, radius, space } from '@/theme'
 import { useT } from '@/lib/i18n'
+import { useVetStock } from '@/vet/stock'
+import { semenLabel } from '@/lib/vetSupplyKinds'
 
-const statusOptions = (t: (s: string) => string) => STATUS_LIST.map(s => ({ value: s, label: t(s) }))
 
 // Reprodução: id = "nova" abre "Registrar cobertura"; um id existente abre o detalhe do registro
 export default function ReproducaoScreen() {
@@ -28,10 +29,14 @@ export default function ReproducaoScreen() {
 
 function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?: string; presetStatus?: string }) {
   const farmId = useFarmId()
-  const { canEdit } = useSession()
+  const { canEdit, user } = useSession()
   const router = useRouter()
   const t = useT()
   const females = useLive(() => breedableFemales(farmId), [farmId])
+  // Veterinário: sêmen do próprio estoque (preenche touro, raça e partida; o servidor desconta 1 dose)
+  const { items: vetStock, setItems: setVetStock } = useVetStock(!!user?.vet)
+  const semenStock = vetStock.filter(x => x.kind === 'semen')
+  const [semenId, setSemenId] = useState<string | null>(null)
   const [form, setForm] = useState<CoverageForm>({
     ...EMPTY_COVERAGE, femaleId: presetFemaleId ?? '', status: presetStatus && STATUS_LIST.includes(presetStatus) ? presetStatus : 'Coberta',
     // Vinda do "Confirmar prenhez": a data da cobertura fica em branco para a pessoa informar
@@ -50,12 +55,16 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
     if (!form.femaleId) { setError(t('Escolha a fêmea')); return }
     if (!form.coverageDate) { setError(t('Informe a data da cobertura')); return }
     setError('')
-    createCoverage(farmId, form)
+    createCoverage(farmId, { ...form, vetSupplyId: semenId })
+    // A dose usada sai da conta na tela (o servidor desconta de verdade ao receber)
+    if (semenId) setVetStock(list => list.map(x => (x.id === semenId ? { ...x, quantity: x.quantity - 1 } : x)))
     if (repeat) {
       setForm(repeatCoverage(form))
       setRepeated(prev => ({ count: (prev?.count ?? 0) + 1, kept: repeatedFields(form) }))
       return
     }
+    const open = form.status === 'Coberta' || form.status === 'Prenha'
+    ToastAndroid.show(open ? t('Cobertura salva. Parto previsto para {date}.', { date: brDate(plusDays(form.coverageDate, GESTATION_DAYS)) }) : t('Cobertura salva.'), ToastAndroid.LONG)
     router.back()
   }
 
@@ -78,10 +87,24 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
           )
         })}
       </View>
+      {user?.vet ? (
+        <>
+          <SelectField label={t('Sêmen do meu estoque')} value={semenId}
+            options={semenStock.filter(x => x.quantity >= 1).map(x => ({ value: x.id, label: semenLabel(x) }))}
+            placeholder={semenStock.length ? t('Não usar o estoque') : t('Nenhum sêmen no seu estoque')} allowEmpty
+            onChange={id => {
+              setSemenId(id)
+              const sm = semenStock.find(x => x.id === id)
+              if (sm) set({ method: form.method === 'natural' || form.method === 'repasse' || !form.method ? 'ia' : form.method, maleName: sm.bullName || sm.name, bullBreed: sm.bullBreed ?? '', semenBatch: sm.semenBatch ?? '' })
+            }} />
+          {semenId ? <Muted style={{ marginBottom: space.sm }}>{t('Ao salvar, 1 dose sai do seu estoque, com a fazenda e a vaca anotadas.')}</Muted> : null}
+        </>
+      ) : null}
       <Field label={t('Touro')} value={form.maleName} onChangeText={v => set({ maleName: v })} placeholder={t('Nome ou código do touro')} />
+      <Field label={t('Raça do touro')} value={form.bullBreed} onChangeText={v => set({ bullBreed: v })} placeholder={t('Ex.: Gir, Holandesa')} />
       <DateField label={t('Data da cobertura *')} value={form.coverageDate} onChange={v => set({ coverageDate: v })} />
       {form.status === 'Prenha' && !form.coverageDate ? <Notice text={t('Se não souber o dia certo, coloque uma data aproximada: ela define a previsão do parto.')} /> : null}
-      <SelectField label={t('Status')} value={form.status} options={statusOptions(t)} onChange={v => set({ status: v ?? 'Coberta' })} />
+      <Chips label={t('Status')} value={form.status} options={STATUS_LIST.map(s => ({ value: s, label: s }))} onChange={v => set({ status: v })} />
       {/* Detalhes recolhidos: o registro rápido é fêmea, como foi, touro e data */}
       {!more ? <Button label={t('Mais detalhes (opcional)')} variant="ghost" onPress={() => setShowMore(true)} style={{ marginBottom: space.md }} /> : (
         <Card>
@@ -153,7 +176,7 @@ function DetailScreen({ id }: { id: string }) {
           </View>
           <Badge label={t(r.status)} tone={statusTone(r.status)} />
         </View>
-        {item('Touro', `${r.maleName || '—'}${r.bullRegistry ? ` · ${r.bullRegistry}` : ''}`)}
+        {item('Touro', `${r.maleName || '—'}${r.bullBreed ? ` · ${r.bullBreed}` : ''}${r.bullRegistry ? ` · ${r.bullRegistry}` : ''}`)}
         {r.method ? item('Como foi', `${methodLabel(r.method)}${r.semenBatch ? ` · ${t('partida')} ${r.semenBatch}` : ''}`) : null}
         {r.inseminator ? item('Inseminador', r.inseminator) : null}
         {r.heatDate ? item('Cio', brDate(r.heatDate)) : null}
@@ -183,12 +206,13 @@ function DetailScreen({ id }: { id: string }) {
       {canEdit ? (
         <Card>
           <Text style={[styles.label, { marginBottom: space.md }]}>{t('Atualizar status')}</Text>
-          <SelectField label={t('Status')} value={editStatus} options={statusOptions(t)} onChange={setEditStatus} />
+          <Chips value={editStatus} options={STATUS_LIST.map(s => ({ value: s, label: s }))} onChange={setEditStatus} />
           {editStatus === 'Parida' ? <DateField label={t('Data do parto')} value={editBirthDate} onChange={setEditBirthDate} allowEmpty /> : null}
-          <Button label={t('Salvar')} onPress={saveStatus} />
-          <Button label={t('Excluir')} variant="ghost" onPress={remove} style={{ marginTop: space.sm }} />
+          <Button label={t('Salvar status')} variant={mother ? 'secondary' : 'primary'} onPress={saveStatus} />
         </Card>
       ) : null}
+      {/* Excluir longe das ações do dia a dia */}
+      {canEdit ? <Button label={t('Excluir registro')} variant="destructive" icon="trash-outline" onPress={remove} style={{ marginTop: space.xl }} /> : null}
     </Screen>
   )
 }
@@ -197,7 +221,7 @@ function DetailScreen({ id }: { id: string }) {
 function RecordEditor({ farmId, record, onCancel, onSaved }: { farmId: string; record: Reproduction; onCancel: () => void; onSaved: () => void }) {
   const [form, setForm] = useState<CoverageForm & { expectedBirthDate: string }>({
     femaleId: record.femaleId, status: record.status, coverageDate: isoDay(record.coverageDate), expectedBirthDate: isoDay(record.expectedBirthDate),
-    heatDate: isoDay(record.heatDate), method: record.method ?? '', maleName: record.maleName ?? '', bullRegistry: record.bullRegistry ?? '',
+    heatDate: isoDay(record.heatDate), method: record.method ?? '', maleName: record.maleName ?? '', bullBreed: record.bullBreed ?? '', bullRegistry: record.bullRegistry ?? '',
     semenBatch: record.semenBatch ?? '', inseminator: record.inseminator ?? '', observations: record.observations ?? '',
   })
   const [error, setError] = useState('')
@@ -220,6 +244,7 @@ function RecordEditor({ farmId, record, onCancel, onSaved }: { farmId: string; r
       <SelectField label={t('Como foi')} value={form.method || null} onChange={v => set({ method: v ?? '' })} allowEmpty placeholder={t('Não informado')}
         options={COVERAGE_METHODS.map(m => ({ value: m.key, label: t(m.label), detail: t(m.hint) }))} />
       <Field label={t('Touro (nome)')} value={form.maleName} onChangeText={v => set({ maleName: v })} />
+      <Field label={t('Raça do touro')} value={form.bullBreed} onChangeText={v => set({ bullBreed: v })} />
       <Field label={t('Registro do touro')} value={form.bullRegistry} onChangeText={v => set({ bullRegistry: v })} />
       {isInsemination(form.method) || !form.method ? (
         <View>

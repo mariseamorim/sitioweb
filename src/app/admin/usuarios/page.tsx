@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useUser } from '@/contexts/UserContext'
-import { CadeadoIcon, FecharIcon } from '@/components/ModuleIcons'
+import { CadeadoIcon, UsuariosIcon } from '@/components/ModuleIcons'
+import { AppModal, modalButton } from '@/components/AppModal'
 import { contactLabel } from '@/lib/identity'
 import { maskPhone } from '@/lib/masks'
 import { ROLE_LABELS, roleLabel } from '@/lib/roles'
@@ -10,23 +11,24 @@ import { fmtDate } from '@/lib/reports'
 import type { Account } from '@/lib/adminAccounts'
 import { cachedGet, fetchWithTimeout } from '@/lib/offlineData'
 import { DemoConsultant, suggestPassword } from './DemoConsultant'
+import { StatTile } from '@/components/StatTile'
 
 // Contas e senhas: o administrador vê todas as contas (produtor, equipe, fornecedor, laticínio, associação, Anota Aí Leite),
 // corrige nome, telefone e e-mail e define uma senha nova para quem esqueceu a sua.
 
 const ROLE_STYLE: Record<string, string> = {
-  admin: 'bg-purple-100 text-purple-700',
-  editor: 'bg-blue-100 text-blue-700',
-  viewer: 'bg-gray-100 text-gray-600',
+  admin: 'bg-purple-100 text-purple-800',
+  editor: 'bg-blue-100 text-blue-800',
+  viewer: 'bg-gray-100 text-gray-700',
   fornecedor: 'bg-amber-100 text-amber-800',
   laticinio: 'bg-sky-100 text-sky-800',
   associacao: 'bg-teal-100 text-teal-800',
   lite: 'bg-green-100 text-green-800',
   motorista: 'bg-green-100 text-green-800',
-  onboarding: 'bg-red-50 text-red-700',
+  onboarding: 'bg-red-100 text-red-800',
 }
 
-const input = 'mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600'
+const input = 'mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-green-600'
 
 const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
@@ -127,6 +129,15 @@ export default function AdminUsuariosPage() {
         </div>
       )}
 
+      {/* Resumo das contas carregadas: total, sem senha (atenção) e quem entra com Google */}
+      {accounts && accounts.length > 0 && (
+        <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatTile accent="blue" label="Contas" value={accounts.length} />
+          <StatTile accent={accounts.some((a) => !a.hasPassword) ? 'amber' : 'green'} label="Sem senha" value={accounts.filter((a) => !a.hasPassword).length} />
+          <StatTile accent="teal" label="Entra com Google" value={accounts.filter((a) => a.googleConnected).length} />
+        </div>
+      )}
+
       <DemoConsultant onDone={load} />
 
       <div className="mb-4 flex flex-col gap-2 sm:flex-row">
@@ -155,9 +166,9 @@ export default function AdminUsuariosPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-base font-semibold text-gray-900">{a.name}</p>
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${ROLE_STYLE[a.role] ?? 'bg-gray-100 text-gray-600'}`}>{roleLabel(a.role)}</span>
-                      {a.googleConnected && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Entra com Google</span>}
-                      {!a.hasPassword && <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-800">Sem senha</span>}
+                      <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${ROLE_STYLE[a.role] ?? 'bg-gray-100 text-gray-600'}`}>{roleLabel(a.role)}</span>
+                      {a.googleConnected && <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">Entra com Google</span>}
+                      {!a.hasPassword && <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Sem senha</span>}
                     </div>
                     <p className="text-sm text-gray-500">
                       {[a.phone ? maskPhone(a.phone) : null, a.email].filter(Boolean).join(' · ') || contactLabel(a) || 'Sem telefone nem e-mail'}
@@ -175,28 +186,28 @@ export default function AdminUsuariosPage() {
       )}
 
       {editing && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => !saving && setEditing(null)}>
-          <div role="dialog" aria-modal="true" aria-labelledby="editar-conta" className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-1">
-                <h2 id="editar-conta" className="text-lg font-bold text-gray-800">Editar conta</h2>
-                <button type="button" onClick={() => setEditing(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Fechar"><FecharIcon /></button>
-              </div>
-              <p className="mb-4 text-sm text-gray-500">{roleLabel(editing.role)}{editing.place ? ` · ${editing.place}` : ''}</p>
-              <form onSubmit={save} className="flex flex-col gap-3">
-                <fieldset disabled={saving} className="flex flex-col gap-3 disabled:opacity-70">
-                  <label className="text-xs font-medium text-gray-600">Nome *
-                    <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required className={input} />
+        <AppModal title="Editar conta" labelledBy="editar-conta" subtitle={`${roleLabel(editing.role)}${editing.place ? ` · ${editing.place}` : ''}`}
+          icon={<UsuariosIcon className="h-6 w-6" />} tone="violet" onClose={() => { if (!saving) setEditing(null) }}
+          footer={<>
+            <button type="button" onClick={() => setEditing(null)} className={modalButton.ghost}>Cancelar</button>
+            <button type="submit" form="form-editar-conta" disabled={saving} className={modalButton.primary}>{saving ? 'Salvando...' : 'Salvar'}</button>
+          </>}>
+              <form id="form-editar-conta" onSubmit={save} className="flex flex-col gap-4">
+                <fieldset disabled={saving} className="flex flex-col gap-4 disabled:opacity-70">
+                  <label className="text-sm font-medium text-gray-700">Nome *
+                    <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="Ex.: Maria Souza" className={input} />
                   </label>
-                  <label className="text-xs font-medium text-gray-600">Telefone
-                    <input type="tel" inputMode="tel" placeholder="(35) 99999-0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })} className={input} />
-                  </label>
-                  <label className="text-xs font-medium text-gray-600">E-mail
-                    <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={input} />
-                  </label>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="text-sm font-medium text-gray-700">Telefone
+                      <input type="tel" inputMode="tel" placeholder="(35) 99999-0000" value={form.phone} onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })} className={input} />
+                    </label>
+                    <label className="text-sm font-medium text-gray-700">E-mail
+                      <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Ex.: maria@email.com" className={input} />
+                    </label>
+                  </div>
                   <p className="-mt-1 text-xs text-gray-500">A pessoa entra com o telefone ou com o e-mail. Pelo menos um precisa ficar.</p>
                   <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <label className="text-xs font-medium text-gray-700">Nova senha <span className="font-normal text-gray-500">(deixe vazio para manter a atual)</span>
+                    <label className="text-sm font-medium text-gray-700">Nova senha <span className="font-normal text-gray-500">(deixe vazio para manter a atual)</span>
                       <input type={showPassword ? 'text' : 'password'} autoComplete="new-password" minLength={6} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={input} />
                     </label>
                     <div className="mt-2 flex flex-wrap gap-3">
@@ -207,14 +218,8 @@ export default function AdminUsuariosPage() {
                   </div>
                 </fieldset>
                 {error && <p role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setEditing(null)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Cancelar</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>
-                </div>
               </form>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
     </div>
   )

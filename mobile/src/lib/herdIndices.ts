@@ -42,7 +42,7 @@ export interface HerdIndices {
   dppCount: number
 }
 
-const BOVINE = ['Vaca', 'Boi', 'Boi de engorda', 'Touro', 'Bezerro', 'Bezerra']
+const BOVINE = ['Vaca', 'Novilha', 'Bezerra', 'Touro', 'Garrote', 'Bezerro', 'Boi', 'Boi de engorda']
 const DAY = 24 * 60 * 60 * 1000
 /** Ciclo da vaca: a janela da taxa de serviço */
 export const CYCLE_DAYS = 21

@@ -13,12 +13,40 @@ import { pendingCount as litePendingCount, readCache as readLiteCache, syncLite 
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useDialog } from '@/components/DialogProvider'
-import { SemSinalIcon, SincronizarIcon, FecharIcon } from '@/components/ModuleIcons'
+import { SemSinalIcon, SincronizarIcon, LeiteIcon } from '@/components/ModuleIcons'
+import { AppModal } from '@/components/AppModal'
 import { fmtNumber, fmtMoney } from '@/lib/reports'
 import { inDayRange, lastDaysRange } from '@/lib/utils'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 import { useLocale, useT } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
+import { ColumnChart, type MonthPoint } from '@/components/MonthCharts'
+
+/** Gráfico do leite de cada dia do período (até 62 dias; períodos maiores ficam só na tabela) */
+function DailyChart({ from, to, byDay }: { from: string; to: string; byDay: { day: string; total: number }[] }) {
+  const t = useT()
+  const days: string[] = []
+  for (let d = new Date(`${from}T00:00:00Z`); d.toISOString().slice(0, 10) <= to && days.length <= 62; d.setUTCDate(d.getUTCDate() + 1)) days.push(d.toISOString().slice(0, 10))
+  if (days.length > 62 || !days.length) return null
+  const totals = new Map(byDay.map((d) => [d.day, d.total]))
+  const ddmm = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}`
+  // Rótulo de todos os dias até 10; acima disso, a cada poucos dias contando do último para trás
+  const every = days.length <= 10 ? 1 : Math.ceil(days.length / 7)
+  const points: MonthPoint[] = days.map((day, i) => {
+    const value = totals.get(day) ?? null
+    return { label: (days.length - 1 - i) % every === 0 ? ddmm(day) : '', value, title: `${ddmm(day)}: ${value === null ? t('sem anotação') : `${fmtNumber(value)} L`}` }
+  })
+  return (
+    // Fechado: abre ao tocar, na largura de um gráfico comum (a letra fica do tamanho das outras telas)
+    <details className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
+      <summary className="cursor-pointer font-semibold text-gray-800">{t('Ver gráfico da produção diária (L)')}</summary>
+      <div className="mt-3 max-w-3xl">
+        <ColumnChart points={points} name={t('Produção diária (L)')} width={760} />
+      </div>
+    </details>
+  )
+}
 
 interface Animal {
   id: string
@@ -280,11 +308,7 @@ export default function MilkProductionPage() {
         <button
           onClick={openRegister}
           disabled={!canEdit}
-          className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${
-            canEdit
-              ? 'bg-green-700 hover:bg-green-600'
-              : 'bg-gray-400 cursor-not-allowed'
-          }`}
+          className="btn-primary"
         >
           {t('Anotar leite')}
         </button>
@@ -332,23 +356,17 @@ export default function MilkProductionPage() {
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
             />
           </div>
-          <div className="ml-auto flex gap-6 text-right">
-            <div>
-              <p className="text-xs text-gray-500">{t('Média por dia')}</p>
-              <p className="text-2xl font-bold text-gray-800">{fmtNumber(average)} L</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">{t('Total no período')}</p>
-              <p className="text-2xl font-bold text-green-700">{fmtNumber(grandTotal)} L</p>
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 rounded-lg bg-green-50 p-3 text-green-900">
-          <p className="text-xs font-medium">{t('Valor estimado no período')}</p>
-          <p className="text-2xl font-bold">{price !== null ? fmtMoney(grandTotal * price) : t('Informe o preço por litro')}</p>
-          {price !== null && <p className="mt-1 text-sm">{fmtNumber(grandTotal)} L × {fmtMoney(price)}/L</p>}
         </div>
       </div>
+
+      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <StatTile accent="blue" label={t('Média por dia')} value={`${fmtNumber(average)} L`} />
+        <StatTile accent="teal" label={t('Total no período')} value={`${fmtNumber(grandTotal)} L`} />
+        <StatTile accent="green" label={t('Valor estimado')} value={price !== null ? fmtMoney(grandTotal * price) : '—'}
+          detail={price !== null ? `${fmtNumber(grandTotal)} L × ${fmtMoney(price)}/L` : t('Informe o preço por litro')} />
+      </div>
+
+      {byDay.length > 0 && <DailyChart from={from} to={to} byDay={byDay} />}
 
       {/* Por dia / por vaca */}
       {hasCowRecords && (
@@ -389,7 +407,7 @@ export default function MilkProductionPage() {
                 return (
                   <tr key={d.day} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetailDay(d.day)}>
                     <td className="px-3 py-3 sm:px-4 text-gray-800 whitespace-nowrap">
-                      <span className="font-medium">{fmtDay(d.day)}</span>
+                      <button type="button" className="row-open">{fmtDay(d.day)}</button>
                       <span className="ml-1.5 text-xs text-gray-400">{fmtWeekday(d.day)}</span>
                     </td>
                     <td className="px-3 py-3 sm:px-4 text-right text-gray-500">{cows || '—'}</td>
@@ -420,7 +438,7 @@ export default function MilkProductionPage() {
             <tbody className="divide-y divide-gray-100">
               {sortedCows.map(({ animal, total, count }) => (
                 <tr key={animal.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetailAnimalId(animal.id)}>
-                  <td className="px-3 py-3 sm:px-4 font-medium text-gray-800">{animal.name}</td>
+                  <td className="px-3 py-3 sm:px-4 font-medium text-gray-800"><button type="button" className="row-open">{animal.name}</button></td>
                   <td className="hidden sm:table-cell px-3 py-3 sm:px-4 font-mono text-gray-500 text-xs">{animal.code}</td>
                   <td className="px-3 py-3 sm:px-4 text-right font-semibold text-green-700">{fmtNumber(total)}</td>
                   <td className="hidden sm:table-cell px-3 py-3 sm:px-4 text-right text-gray-500">{count}</td>
@@ -441,13 +459,8 @@ export default function MilkProductionPage() {
 
       {/* Detalhe do dia */}
       {detailDay && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">{t('Leite de {date}', { date: fmtDay(detailDay) })}</h2>
-                <button onClick={() => setDetailDay(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
+        <AppModal title={t('Leite de {date}', { date: fmtDay(detailDay) })} subtitle={user?.farmName ?? undefined}
+          icon={<LeiteIcon className="h-6 w-6" />} tone="blue" onClose={() => setDetailDay(null)}>
               <ul className="divide-y divide-gray-100 border border-gray-100 rounded-xl">
                 {detailDayItems.map((p) => (
                   <li key={p.id} className="flex items-center gap-3 px-4 py-3">
@@ -469,23 +482,13 @@ export default function MilkProductionPage() {
                 ))}
               </ul>
               {detailDayItems.length === 0 && <p className="text-center py-6 text-gray-400 text-sm">{t('Nenhum registro')}</p>}
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
       {/* Detalhe da vaca */}
       {detailAnimalId && detailAnimal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">{detailAnimal.name}</h2>
-                  <p className="text-xs text-gray-500">{t('Código: {code}', { code: detailAnimal.code })}</p>
-                </div>
-                <button onClick={() => setDetailAnimalId(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
+        <AppModal title={detailAnimal.name} subtitle={t('Código: {code}', { code: detailAnimal.code })} size="lg"
+          icon={<LeiteIcon className="h-6 w-6" />} tone="blue" onClose={() => setDetailAnimalId(null)}>
 
               <div className="bg-green-50 border border-green-100 rounded-lg px-4 py-3 mb-4 text-sm flex justify-between">
                 <span className="text-gray-600">{t('Total no período selecionado')}</span>
@@ -515,20 +518,13 @@ export default function MilkProductionPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
       {/* Lançar leite */}
       {showRegister && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-5 sm:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">{t('Anotar leite')}</h2>
-                <button onClick={() => setShowRegister(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
+        <AppModal title={t('Anotar leite')} subtitle={user?.farmName ?? undefined} size={registerMode === 'vaca' ? 'lg' : 'md'}
+          icon={<LeiteIcon className="h-6 w-6" />} tone="blue" onClose={() => setShowRegister(false)}>
 
               <div className="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-xl mb-5">
                 {([['total', 'Total do dia'], ['vaca', 'Por vaca']] as const).map(([mode, label]) => (
@@ -564,9 +560,7 @@ export default function MilkProductionPage() {
                   onDone={onRegistered}
                 />
               )}
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
       {editingProduction && <MilkProductionEditor key={editingProduction.id} production={editingProduction} onCancel={() => setEditingProduction(null)} onSaved={() => { setEditingProduction(null); loadData(farmId) }} />}
       </div>

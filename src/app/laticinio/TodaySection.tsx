@@ -3,7 +3,7 @@
 import { type TodayStop, fmtDay, fmtL } from './types'
 
 const STATUS = {
-  pendente: { label: 'Pendente', style: 'bg-amber-100 text-amber-800' },
+  pendente: { label: 'Pendente', style: 'bg-orange-100 text-orange-800' },
   coletado: { label: 'Coletado', style: 'bg-green-100 text-green-800' },
   'nao-coletado': { label: 'Não coletado', style: 'bg-red-100 text-red-800' },
 } as const
@@ -48,9 +48,9 @@ export function TodaySection({ stops, today, hasRoutes, onGo }: {
                 <li key={s.pointId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
                   <span className="text-gray-800"><span className="text-gray-400">{s.position + 1}.</span> {s.pointName}</span>
                   <span className="flex items-center gap-2 text-sm">
-                    {s.status === 'coletado' && <span className="font-semibold text-gray-900">{fmtL(s.liters ?? 0)}</span>}
+                    {s.status === 'coletado' && <span className="font-semibold tabular-nums text-gray-900">{fmtL(s.liters ?? 0)}</span>}
                     {s.skipReason && <span className="text-red-800">{s.skipReason}</span>}
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS[s.status].style}`}>{STATUS[s.status].label}</span>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS[s.status].style}`}>{STATUS[s.status].label}</span>
                   </span>
                 </li>
               ))}

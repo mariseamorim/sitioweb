@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useState } from 'react'
-import { Alert, Text, View } from 'react-native'
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
 import { brDate, brMoney, brNumber, todayISO } from '@/lib/format'
@@ -8,22 +8,24 @@ import {
   LIVE_KG_PER_ARROBA, STOCK_WARNING_DAYS, animalGain, arrobasProduced, dailySupplyKg, daysBetween, decimal, feedingSummary, kgInStockUnit, lotSummary,
   parseKg, pricePerKg, projectTarget, toField,
 } from '@/lib/lots'
+import { expectedWeight, planDays } from '@/lib/lotPlans'
+import { usePlans } from '@/repos/lotPlans'
 import {
   addFeeding, addWeighing, editFeeding, editWeighing, getLot, isPending, listHerd, listLots, openLotNames, patchLot, productLines, removeFeeding, removeLot,
   removeWeighing, supplyRef, type Lot, type LotAnimal, type SupplyRef,
 } from '@/repos/lots'
 import { listSupplies } from '@/repos/supplies'
-import { Badge, Button, Card, DateField, Field, Muted, Notice, Screen, SelectField } from '@/ui'
+import { Badge, Button, Card, DateField, Field, Muted, Notice, Screen, SelectField, Tile, TileGrid } from '@/ui'
 import {
-  AnimalPicker, OptionCards, ProductsEditor, Section, StatGrid, TextButton, WeightList, averageOf, coverageLine, kg, numericWeights, parseProducts, phaseLabel, plural,
-  productsFromLot, tag, type ProductForm,
+  AnimalPicker, OptionCards, PlanField, ProductsEditor, Section, StatGrid, TextButton, WeightList, averageOf, coverageLine, kg, moneyField, numericWeights, parseMoney,
+  parseProducts, phaseLabel, plural, productsFromLot, tag, type ProductForm,
 } from '@/ui/lots'
 import { colors, font, radius, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 
 interface SectionProps { lot: Lot; farmId: string; canEdit: boolean; today: string; fail: (message: string) => void }
 
-/** Detalhe do lote (porte de src/app/engorda/LotDetail.tsx do site; sem o gráfico) */
+/** Detalhe do lote (porte de src/app/engorda/LotDetail.tsx do site; sem o gráfico), com o desempenho logo abaixo do cabeçalho */
 export default function LoteScreen() {
   const { id, focus } = useLocalSearchParams<{ id: string; focus?: string }>()
   const farmId = useFarmId()
@@ -32,6 +34,7 @@ export default function LoteScreen() {
   const today = todayISO()
   const lot = useLive(() => getLot(id), [id])
   const [editingLot, setEditingLot] = useState(false)
+  const [tab, setTab] = useState<LotTab>(focus === 'pesar' ? 'pesagens' : focus === 'animais' ? 'animais' : 'resumo')
   const t = useT()
   const [error, setError] = useState('')
 
@@ -58,7 +61,6 @@ export default function LoteScreen() {
     ])
   }
 
-  const weighingForm = canEdit && open ? <WeighingForm {...props} autoFocus={focus === 'pesar'} /> : null
 
   return (
     <Screen>
@@ -72,40 +74,84 @@ export default function LoteScreen() {
           <Badge label={lot.endDate ? 'Encerrado' : phaseLabel(lot.phase)} tone={lot.endDate ? 'muted' : isRecria ? 'blue' : 'amber'} />
         </View>
         {lot.notes ? <Text style={{ marginTop: space.sm, color: colors.text }}>{lot.notes}</Text> : null}
-        {canEdit ? (editingLot
-          ? <LotEditForm lot={lot} farmId={farmId} onDone={() => setEditingLot(false)} />
-          : <TextButton label="Editar lote (nome, fase, data de entrada)" onPress={() => setEditingLot(true)} />) : null}
+        {/* Ações principais sempre à vista */}
+        {canEdit && !editingLot ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.md }}>
+            {open ? <Button label="Pesar" icon="scale-outline" onPress={() => setTab('pesagens')} style={{ flexGrow: 1 }} /> : null}
+            {open && lot.supplies.length > 0 ? <Button label="Dar trato" icon="leaf-outline" variant="accent" onPress={() => setTab('trato')} style={{ flexGrow: 1 }} /> : null}
+            <Button label="Editar lote" icon="create-outline" variant="secondary" onPress={() => setEditingLot(true)} style={{ flexGrow: 1 }} />
+          </View>
+        ) : null}
+        {canEdit && editingLot ? <LotEditForm lot={lot} farmId={farmId} onDone={() => setEditingLot(false)} /> : null}
       </Card>
 
-      <StatGrid items={[
-        { title: 'Entrada', value: s.entry ? kg(s.entry.avgWeight) : '—' },
-        { title: 'Última pesagem', value: s.last ? kg(s.last.avgWeight) : '—' },
-        { title: 'Ganho por cabeça', value: s.gainKg !== null ? kg(s.gainKg) : '—' },
-        { title: 'Ganho por dia', value: s.gmd !== null ? `${brNumber(s.gmd, 3)} kg` : '—', tone: 'green' },
-        ...(isRecria ? [] : [{ title: '@ produzidas', value: arrobas !== null ? brNumber(arrobas) : '—' }]),
-      ]} />
-      <Muted style={{ marginTop: space.sm }}>
-        {hasAnimals ? lot.animals.length : s.last?.headCount ?? 0} {t('cabeças')} · {plural(s.days, 'dia', 'dias')} {t('no lote')}
-        {arrobas !== null ? ` · ${t('arrobas estimadas pelo peso vivo ({kg} kg = 1 @, rendimento de 50%)', { kg: LIVE_KG_PER_ARROBA })}` : ''}
-      </Muted>
-
-      {focus === 'pesar' ? weighingForm : null}
-
-      <TargetSection {...props} />
-
-      {isRecria && females.length > 0 ? <ReproductionSection females={females} today={today} canBreed={canEdit && open && canAccess('reproducao')} /> : null}
-
-      {focus !== 'pesar' ? weighingForm : null}
-
-      <AnimalsSection {...props} startAdding={focus === 'animais'} />
-      <ProductsSection {...props} />
-      {lot.supplies.length > 0 ? <FeedingSection {...props} /> : null}
-      <WeighingHistory {...props} />
+      <LotTabs value={tab} onChange={setTab} animalsLabel={isRecria && females.length ? 'Animais e reprodução' : 'Animais'} />
 
       {error ? <View style={{ marginTop: space.md }}><Notice tone="red" text={error} /></View> : null}
 
-      {canEdit ? <LotFooter lot={lot} today={today} onClose={closeLot} onReopen={() => patchLot(farmId, lot, { endDate: null })} onRemove={remove} /> : null}
+      {tab === 'resumo' ? (
+        <>
+          <View style={{ marginTop: space.md }}>
+            <StatGrid items={[
+              { title: t('Cabeças'), value: String(hasAnimals ? lot.animals.length : s.last?.headCount ?? 0) },
+              { title: t('Peso atual'), value: s.last ? kg(s.last.avgWeight) : '—' },
+              { title: t('Ganho por dia'), value: s.gmd !== null ? `${brNumber(s.gmd, 3)} kg` : '—', tone: 'green' },
+              { title: t('Ganho por cabeça'), value: s.gainKg !== null ? kg(s.gainKg) : '—' },
+              ...(isRecria ? [] : [{ title: t('@ produzidas'), value: arrobas !== null ? brNumber(arrobas, 1) : '—', tone: 'amber' as const }]),
+              { title: t('Dias no lote'), value: String(s.days) },
+            ]} />
+          </View>
+          <Muted style={{ marginTop: space.sm }}>
+            {s.entry ? t('entrou com {weight}', { weight: kg(s.entry.avgWeight) }) : ''}
+            {arrobas !== null ? ` · ${t('arrobas estimadas pelo peso vivo ({kg} kg = 1 @, rendimento de 50%)', { kg: LIVE_KG_PER_ARROBA })}` : ''}
+          </Muted>
+          <TargetSection {...props} />
+          {canEdit ? <LotFooter lot={lot} today={today} onClose={closeLot} onReopen={() => patchLot(farmId, lot, { endDate: null })} onRemove={remove} /> : null}
+        </>
+      ) : null}
+
+      {tab === 'pesagens' ? (
+        <>
+          {canEdit && open ? <WeighingForm {...props} autoFocus={focus === 'pesar'} /> : null}
+          <WeighingHistory {...props} />
+        </>
+      ) : null}
+
+      {tab === 'animais' ? (
+        <>
+          <AnimalsSection {...props} startAdding={focus === 'animais'} />
+          {isRecria && females.length > 0 ? <ReproductionSection females={females} today={today} canBreed={canEdit && open && canAccess('reproducao')} /> : null}
+        </>
+      ) : null}
+
+      {tab === 'trato' ? (
+        <>
+          <ProductsSection {...props} />
+          {lot.supplies.length > 0 ? <FeedingSection {...props} /> : null}
+        </>
+      ) : null}
+
+      {tab === 'desempenho' ? <LotPerformance lot={lot} today={today} /> : null}
     </Screen>
+  )
+}
+
+// ── Abas da ficha: cada assunto numa tela, em vez de tudo numa coluna só ──
+
+type LotTab = 'resumo' | 'pesagens' | 'animais' | 'trato' | 'desempenho'
+
+function LotTabs({ value, onChange, animalsLabel }: { value: LotTab; onChange: (tab: LotTab) => void; animalsLabel: string }) {
+  const t = useT()
+  const tabs: [LotTab, string][] = [['resumo', 'Resumo'], ['pesagens', 'Pesagens'], ['animais', animalsLabel], ['trato', 'Trato e produtos'], ['desempenho', 'Desempenho']]
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: space.md, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+      {tabs.map(([key, label]) => (
+        <Pressable key={key} onPress={() => onChange(key)} accessibilityRole="tab" accessibilityState={{ selected: value === key }}
+          style={{ paddingHorizontal: space.md, paddingVertical: space.sm + 2, borderBottomWidth: 3, borderBottomColor: value === key ? colors.green : 'transparent', minHeight: 44, justifyContent: 'center' }}>
+          <Text style={{ fontWeight: '700', fontSize: font.sm, color: value === key ? colors.green : colors.muted }}>{t(label)}</Text>
+        </Pressable>
+      ))}
+    </ScrollView>
   )
 }
 
@@ -135,15 +181,24 @@ function LotFooter({ lot, today, onClose, onReopen, onRemove }: { lot: Lot; toda
 
 function LotEditForm({ lot, farmId, onDone }: { lot: Lot; farmId: string; onDone: () => void }) {
   const today = todayISO()
+  const t = useT()
   const [name, setName] = useState(lot.name)
   const [phase, setPhase] = useState<'recria' | 'engorda'>(lot.phase === 'recria' ? 'recria' : 'engorda')
   const [startDate, setStartDate] = useState(lot.startDate)
   const [notes, setNotes] = useState(lot.notes ?? '')
+  const [planId, setPlanId] = useState<string | null>(lot.planId)
+  const [purchaseValue, setPurchaseValue] = useState(moneyField(lot.purchaseValue))
   const [error, setError] = useState('')
+  const { plans, offline } = usePlans(farmId)
   function save() {
     if (!name.trim()) return setError('Dê um nome ao lote')
     if (startDate > today) return setError('A data de entrada não pode ser no futuro')
-    patchLot(farmId, lot, { name, phase, startDate, notes })
+    const purchase = parseMoney(purchaseValue)
+    if (purchase === 'invalid') return setError('Valor de compra inválido')
+    // Peso-alvo vazio: usa a meta do plano escolhido
+    const plan = planId ? plans.find(p => p.id === planId) : null
+    const targetWeight = !lot.targetWeight && plan?.targetWeight ? plan.targetWeight : undefined
+    patchLot(farmId, lot, { name, phase, startDate, notes, planId, purchaseValue: purchase, targetWeight })
     onDone()
   }
   return (
@@ -151,6 +206,9 @@ function LotEditForm({ lot, farmId, onDone }: { lot: Lot; farmId: string; onDone
       <Field label="Nome do lote" value={name} onChangeText={setName} />
       <OptionCards value={phase} onChange={setPhase} options={[{ value: 'recria', title: 'Recria' }, { value: 'engorda', title: 'Engorda' }]} />
       <DateField label="Data de entrada (a pesagem de entrada acompanha)" value={startDate} onChange={setStartDate} />
+      <PlanField plans={plans} value={planId} offline={offline} onChange={id => setPlanId(id)} />
+      {planId && !lot.targetWeight && plans.find(p => p.id === planId)?.targetWeight ? <Muted style={{ marginTop: -space.sm, marginBottom: space.md }}>{t('O peso-alvo do lote passa a ser a meta do plano.')}</Muted> : null}
+      <Field label="Valor de compra do lote (R$, opcional)" value={purchaseValue} onChangeText={v => setPurchaseValue(decimal(v))} keyboardType="decimal-pad" placeholder="Ex.: 85000,00" />
       <Field label="Observações" value={notes} onChangeText={setNotes} multiline />
       {error ? <Notice tone="red" text={error} /> : null}
       <View style={{ flexDirection: 'row', gap: space.sm }}>
@@ -158,6 +216,133 @@ function LotEditForm({ lot, farmId, onDone }: { lot: Lot; farmId: string; onDone
         <Button label="Salvar" onPress={save} style={{ flex: 1 }} />
       </View>
     </View>
+  )
+}
+
+// ── Desempenho (porte de src/app/engorda/LotPerformance.tsx do site; sem o gráfico) ──
+
+const plusDays = (iso: string, days: number) => {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+const arroba = (kgValue: number) => kgValue / LIVE_KG_PER_ARROBA
+
+/** Resumo com o plano, ganho por animal e do lote, GMD, comparação com o plano e despesas. Sem dado, aparece "—". */
+function LotPerformance({ lot, today }: { lot: Lot; today: string }) {
+  const t = useT()
+  const s = lotSummary(lot.weighings, today, lot.endDate)
+  const heads = lot.animals.length || s.last?.headCount || 0
+  const plan = lot.plan
+  const duration = plan ? planDays(plan) : 0
+  const target = plan?.targetWeight ?? lot.targetWeight
+  // Previsão de término: início + duração do plano; sem plano (ou plano sem dias), pelo ritmo de ganho até a meta
+  const endForecast = duration > 0 ? plusDays(lot.startDate, duration) : (lot.endDate ? null : projectTarget(s, target)?.date ?? null)
+
+  // Média por animal e total do lote (peso médio × cabeças da pesagem)
+  const totalEntry = s.entry ? s.entry.avgWeight * s.entry.headCount : null
+  const totalLast = s.last ? s.last.avgWeight * s.last.headCount : null
+  const totalGain = s.gainKg !== null && s.last ? s.gainKg * s.last.headCount : null
+  const arrobas = arrobasProduced(s)
+
+  // Comparação com o plano: esperado hoje e na data da última pesagem (para a diferença ser justa)
+  const end = lot.endDate ?? today
+  const expectedToday = plan && s.entry ? expectedWeight(plan, s.entry.avgWeight, daysBetween(s.entry.date, end)) : null
+  const expectedAtLast = plan && s.entry && s.last && s.last !== s.entry ? expectedWeight(plan, s.entry.avgWeight, daysBetween(s.entry.date, s.last.date)) : null
+  const diff = expectedAtLast !== null && s.last ? Math.round((s.last.avgWeight - expectedAtLast) * 10) / 10 : null
+
+  // Despesas: trato (custo das baixas no cocho) + despesas do Financeiro ligadas ao lote
+  const feed = feedingSummary(lot.feedings, heads)
+  const txTotal = lot.transactions.reduce((sum, x) => sum + x.amount, 0)
+  const hasOperational = feed.cost !== null || lot.transactions.length > 0
+  const operational = hasOperational ? (feed.cost ?? 0) + txTotal : null
+  const purchase = lot.purchaseValue
+  const per = (value: number | null, divisor: number | null) => (value !== null && divisor && divisor > 0 ? brMoney(value / divisor) : '—')
+  const byCategory = new Map<string, number>()
+  if (feed.cost) byCategory.set('Trato', feed.cost)
+  for (const x of lot.transactions) byCategory.set(x.category, (byCategory.get(x.category) ?? 0) + x.amount)
+  const categories = [...byCategory.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
+  const maxCategory = categories[0]?.[1] ?? 1
+
+  const summary: [string, string][] = [
+    [t('Animais'), String(heads)],
+    [t('Data de início'), brDate(lot.startDate)],
+    [t('Plano'), plan?.name ?? '—'],
+    [t('Duração do plano'), duration > 0 ? t('{n} dias', { n: duration }) : '—'],
+    [t('Meta de peso'), target ? kg(target) : '—'],
+    [t('Previsão de término'), endForecast ? brDate(endForecast) : '—'],
+  ]
+  const subtitle = { fontSize: font.sm, fontWeight: '700' as const, color: colors.muted, marginTop: space.md, marginBottom: space.sm }
+
+  return (
+    <Section title="Desempenho">
+      <Card>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: space.sm, columnGap: space.md }}>
+          {summary.map(([title, value]) => (
+            <View key={title} style={{ flexGrow: 1, flexBasis: '40%' }}>
+              <Muted>{title}</Muted>
+              <Text style={{ color: colors.text, fontWeight: '700', fontSize: font.md }}>{value}</Text>
+            </View>
+          ))}
+        </View>
+      </Card>
+
+      <Text style={subtitle}>{t('Média por animal')}</Text>
+      <TileGrid>
+        <Tile accent="blue" label={t('Peso inicial')} value={s.entry ? kg(s.entry.avgWeight) : '—'} />
+        <Tile accent="green" label={t('Peso atual')} value={s.last ? kg(s.last.avgWeight) : '—'} />
+        <Tile accent={s.gainKg !== null && s.gainKg < 0 ? 'red' : 'teal'} label={t('Ganho médio')} value={s.gainKg !== null ? kg(s.gainKg) : '—'} />
+        <Tile accent="amber" label={t('Ganho em @')} value={s.gainKg !== null ? `${brNumber(arroba(s.gainKg), 2)} @` : '—'} />
+      </TileGrid>
+
+      <Text style={subtitle}>{t('Total do lote')}</Text>
+      <TileGrid>
+        <Tile accent="blue" label={t('Peso inicial total')} value={totalEntry !== null ? kg(totalEntry) : '—'} />
+        <Tile accent="green" label={t('Peso atual total')} value={totalLast !== null ? kg(totalLast) : '—'} />
+        <Tile accent={totalGain !== null && totalGain < 0 ? 'red' : 'teal'} label={t('Ganho total')} value={totalGain !== null ? kg(totalGain) : '—'} />
+        <Tile accent="amber" label={t('Ganho total em @')} value={totalGain !== null ? `${brNumber(arroba(totalGain), 1)} @` : '—'} />
+      </TileGrid>
+
+      <TileGrid>
+        <Tile accent={s.gmd !== null && s.gmd < 0 ? 'red' : 'green'} label={t('GMD do lote')} value={s.gmd !== null ? `${brNumber(s.gmd, 3)} ${t('kg/dia')}` : '—'}
+          detail={s.gmd === null ? t('Faça mais uma pesagem para o app calcular o ganho por dia.') : undefined} />
+      </TileGrid>
+      {expectedToday !== null ? (
+        <Notice tone={diff !== null && diff < 0 ? 'amber' : 'blue'} text={[
+          t('Esperado pelo plano hoje: {weight}', { weight: kg(expectedToday) }),
+          diff !== null && s.last ? t(diff >= 0 ? 'Na última pesagem ({date}), o lote estava {kg} acima do plano.' : 'Na última pesagem ({date}), o lote estava {kg} abaixo do plano.', { date: brDate(s.last.date), kg: kg(Math.abs(diff)) }) : '',
+        ].filter(Boolean).join(' · ')} />
+      ) : null}
+
+      <Text style={subtitle}>{t('Despesas')}</Text>
+      <TileGrid>
+        <Tile accent="amber" label={t('Valor de compra do lote')} value={purchase !== null ? brMoney(purchase) : '—'} />
+        <Tile accent="amber" label={t('Valor médio de compra por animal')} value={per(purchase, heads)} />
+        <Tile accent="red" label={t('Despesas operacionais')} value={operational !== null ? brMoney(operational) : '—'}
+          detail={hasOperational ? t('Trato {feed} + Financeiro {other}', { feed: brMoney(feed.cost ?? 0), other: brMoney(txTotal) }) : undefined} />
+        <Tile accent="red" label={t('Despesas por animal')} value={per(operational, heads)} />
+        <Tile accent="teal" label={t('Despesas por kg ganho')} value={per(operational, totalGain)} />
+        <Tile accent="blue" label={t('Despesas por @ produzida')} value={per(operational, arrobas)} />
+      </TileGrid>
+      {!hasOperational ? <Muted>{t('Para ver as despesas, lance o trato com o preço do produto ou anote a despesa no Financeiro escolhendo este lote.')}</Muted> : null}
+
+      {categories.length > 0 ? (
+        <Card>
+          <Text style={{ color: colors.text, fontWeight: '700', marginBottom: space.sm }}>{t('Despesas por categoria')}</Text>
+          {categories.map(([category, value]) => (
+            <View key={category} style={{ marginBottom: space.sm }} accessible accessibilityLabel={`${t(category)}: ${brMoney(value)}`}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', columnGap: space.sm }}>
+                <Text style={{ color: colors.text, flexShrink: 1 }}>{t(category)}</Text>
+                <Text style={{ color: colors.text, fontWeight: '700' }}>{brMoney(value)}</Text>
+              </View>
+              <View style={{ height: 10, borderRadius: 5, backgroundColor: colors.border, marginTop: 4 }}>
+                <View style={{ width: `${Math.max(1, (value / maxCategory) * 100)}%`, height: 10, borderRadius: 5, backgroundColor: colors.red }} />
+              </View>
+            </View>
+          ))}
+        </Card>
+      ) : null}
+    </Section>
   )
 }
 
@@ -272,7 +457,8 @@ function AnimalsSection({ lot, farmId, canEdit, startAdding }: SectionProps & { 
 
   if (!hasAnimals && !canEdit) return null
   return (
-    <Section title="Animais do lote" right={canEdit && open && adding === null ? <TextButton label="+ Animais" onPress={() => setAdding([])} /> : undefined}>
+    <Section title="Animais do lote">
+      {canEdit && open && adding === null ? <Button label="Pôr animais no lote" icon="add" variant="secondary" onPress={() => setAdding([])} style={{ marginBottom: space.sm }} /> : null}
       {adding !== null ? (
         <Card>
           <AnimalPicker herd={herd} lotNames={lotNames} exclude={lot.animals.map(a => a.id)} selected={adding} onChange={setAdding} />
@@ -337,20 +523,26 @@ function ProductsSection({ lot, farmId, canEdit, today, fail }: SectionProps) {
           </View>
         </View>
       ) : (
-        <Card>
-          {lot.supplies.length === 0 ? <Muted>{t('Nenhum produto ligado a este lote.')}</Muted> : lines.map(p => (
-            <View key={p.id} style={{ marginBottom: space.sm }}>
-              <Text style={{ color: colors.text }}><Text style={{ fontWeight: '700' }}>{p.supply.name}</Text>{p.percent ? ` ${t('a {n}% do peso vivo', { n: brNumber(p.percent, 2) })}` : ''}</Text>
-              {p.perDay ? (
-                <Text style={{ color: colors.muted, fontSize: font.sm }}>
-                  {t('{kg} por dia para o lote', { kg: kg(p.perDay) })}{p.perHead !== null ? ` (${t('{g} g por cabeça', { g: brNumber(p.perHead, 0) })})` : ''}.
-                  {p.days !== null ? <Text style={p.days <= STOCK_WARNING_DAYS ? { fontWeight: '700', color: colors.amber } : undefined}> {t('O estoque dá para {days}.', { days: plural(p.days, 'dia', 'dias') })}</Text> : null}
-                </Text>
-              ) : <Muted>{t('Informe o consumo em % do peso vivo para calcular quanto o lote come.')}</Muted>}
-            </View>
-          ))}
-          {canEdit ? <TextButton label={lot.supplies.length ? 'Alterar produtos' : 'Ligar produtos'} onPress={() => setEditing(productsFromLot(lot))} /> : null}
-        </Card>
+        <View style={{ gap: space.sm }}>
+          {lot.supplies.length === 0 ? <Card><Muted>{t('Nenhum produto ligado a este lote. Ligue a ração ou o sal do estoque para anotar o trato e saber em quantos dias acaba.')}</Muted></Card> : lines.map(p => {
+            const low = p.days !== null && p.days <= STOCK_WARNING_DAYS
+            return (
+              <Card key={p.id} style={low ? { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' } : undefined}>
+                <Text style={{ fontWeight: '700', fontSize: font.md, color: colors.text }}>{p.supply.name}</Text>
+                {p.percent ? <Muted>{t('a {n}% do peso vivo', { n: brNumber(p.percent, 2) })}</Muted> : null}
+                {p.perDay ? (
+                  <>
+                    <Text style={{ marginTop: 4, color: colors.text }}><Text style={{ fontWeight: '700' }}>{kg(p.perDay)}</Text> {t('por dia para o lote')}{p.perHead !== null ? ` · ${t('{g} g por cabeça', { g: brNumber(p.perHead, 0) })}` : ''}</Text>
+                    {p.days !== null
+                      ? <Text style={{ marginTop: 4, fontWeight: '700', color: low ? colors.amber : colors.green }}>{t('O estoque dá para {days}.', { days: plural(p.days, 'dia', 'dias') })}</Text>
+                      : <Muted>{t('Para saber em quantos dias acaba, o estoque precisa estar em kg ou em sacos com o peso do saco.')}</Muted>}
+                  </>
+                ) : <Muted>{t('Informe o consumo em % do peso vivo para calcular quanto o lote come.')}</Muted>}
+              </Card>
+            )
+          })}
+          {canEdit ? <Button label={lot.supplies.length ? 'Alterar produtos' : 'Ligar produtos'} icon={lot.supplies.length ? 'create-outline' : 'add'} variant="secondary" onPress={() => setEditing(productsFromLot(lot))} /> : null}
+        </View>
       )}
     </Section>
   )

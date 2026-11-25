@@ -9,15 +9,19 @@ import { useOfflineModule } from '@/lib/useOffline'
 import { applyPendingMovements, movementDelta, movementReady, parseMovement, type MovementInput, type PendingMovement } from '@/lib/stockMovements'
 import { useDialog } from '@/components/DialogProvider'
 import { todayISO } from '@/lib/utils'
-import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon } from '@/components/ModuleIcons'
+import { SemSinalIcon, SincronizarIcon, AlertaIcon, FecharIcon, EstoqueIcon } from '@/components/ModuleIcons'
 import { SUPPLY_CATEGORIES } from '@/lib/supplies'
 import { RequestQuote } from '@/components/RequestQuote'
 import { useSort } from '@/lib/useSort'
 import { SortTh } from '@/components/SortTh'
 import { STOCK_WARNING_DAYS } from '@/lib/lots'
 import { fmtMoney } from '@/lib/reports'
+import { expenseCategoryFor, purchaseDescription, suggestedAmount } from '@/lib/stockFinance'
 import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 import { useLocale, useT } from '@/lib/i18n'
+import { StatTile } from '@/components/StatTile'
+import { AppModal, modalButton } from '@/components/AppModal'
+import { keepNumberChars, parseBrNumber } from '@/lib/brNumber'
 
 interface SupplyMovement { id: string; type: string; quantity: number; date: string; description?: string | null }
 interface Supply {
@@ -31,15 +35,25 @@ interface Supply {
   /** Consumo dos lotes de recria/engorda (kg por dia) e em quantos dias acaba */
   dailyUseKg?: number | null
   daysLeft?: number | null
+  /** Por que não dá para saber em quantos dias acaba (insumo usado por lote aberto) */
+  daysLeftHint?: string | null
   /** Preço por unidade (opcional) e peso do saco */
   unitPrice?: number | null
   packageKg?: number | null
+  /** Validade (opcional), "AAAA-MM-DD..." */
+  expiryDate?: string | null
 }
 
 const CATEGORIES = SUPPLY_CATEGORIES
 const MODULE = 'estoque'
+const FIELD = 'mt-1 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-base font-normal focus:outline-none focus:ring-2 focus:ring-green-600'
 const EMPTY_MOV = () => ({ type: 'Entrada', quantity: '', date: todayISO(), description: '' })
-const EMPTY_FORM = { name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '' }
+const EMPTY_FORM = { name: '', category: 'Ração', unit: 'kg', currentQuantity: '', minimumQuantity: '', unitPrice: '', packageKg: '', expiryDate: '' }
+/** Quantos dias antes da validade o insumo entra em "Próximos a vencer" */
+const EXPIRY_WARNING_DAYS = 30
+/** Dias até a validade (negativo: já venceu); null sem validade */
+const daysToExpiry = (s: { expiryDate?: string | null }) => (s.expiryDate ? Math.round((Date.parse(s.expiryDate.slice(0, 10)) - Date.parse(todayISO())) / 86_400_000) : null)
+const fmtDay = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`
 /** Movimentações feitas sem internet, à espera de envio (fila própria, com saldo já refletido na tela) */
 const countMovPending = () => getPendingRecords('estoque-mov').length
 const parseDec = (v: string) => { const n = Number(v.replace(',', '.')); return v.trim() && Number.isFinite(n) && n > 0 ? n : null }
@@ -52,6 +66,7 @@ function pendingSupply(p: PendingRequest): Supply | null {
     id: pendingItemId(p), name: String(b.name ?? ''), category: String(b.category ?? ''), unit: String(b.unit ?? ''),
     currentQuantity: Number(b.currentQuantity ?? 0), minimumQuantity: Number(b.minimumQuantity ?? 0), movements: [],
     unitPrice: parseDec(String(b.unitPrice ?? '')), packageKg: parseDec(String(b.packageKg ?? '')),
+    expiryDate: b.expiryDate ? String(b.expiryDate) : null,
   }
 }
 
@@ -67,7 +82,7 @@ export default function EstoquePage() {
   const { confirm } = useDialog()
   const t = useT()
   const locale = useLocale()
-  const { user } = useUser()
+  const { user, canAccess } = useUser()
   const canEdit = user?.role === 'admin' || user?.role === 'editor'
   const [supplies, setSupplies] = useState<Supply[]>([])
   const [loading, setLoading] = useState(true)
@@ -80,6 +95,8 @@ export default function EstoquePage() {
   const [quoteFor, setQuoteFor] = useState<Supply | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [showMov, setShowMov] = useState(false)
+  // Com a movimentação ou o pedido de orçamento abertos por cima, o Esc fecha só o de cima
+  const closeDetail = useCallback(() => { if (!showMov && !quoteFor) setDetail(null) }, [showMov, quoteFor])
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [mov, setMov] = useState(EMPTY_MOV)
@@ -117,11 +134,22 @@ export default function EstoquePage() {
   const refreshPending = () => { setMovPending(countMovPending()); net.refresh() }
 
   const alertCount = supplies.filter(s => s.currentQuantity <= s.minimumQuantity).length
-  const shown = quick ? supplies.filter(s => s.currentQuantity <= s.minimumQuantity) : supplies
+  // Abas por categoria: só as categorias que têm insumo cadastrado
+  const [catTab, setCatTab] = useState('Todas')
+  const tabCats = CATEGORIES.filter(c => supplies.some(s => s.category === c))
+  const byQuick = quick ? supplies.filter(s => s.currentQuantity <= s.minimumQuantity) : supplies
+  const shown = catTab === 'Todas' ? byQuick : byQuick.filter(s => s.category === catTab)
   const { rows: sortedSupplies, sort } = useSort(shown, {
     name: s => s.name, category: s => s.category, current: s => s.currentQuantity, minimum: s => s.minimumQuantity,
-    status: s => (s.currentQuantity <= s.minimumQuantity ? 0 : 1),
+    status: s => (s.currentQuantity <= 0 ? 0 : s.currentQuantity <= s.minimumQuantity ? 1 : 2),
   })
+  // Valor em estoque: só os insumos com preço informado entram na soma
+  const priced = supplies.filter(s => s.unitPrice)
+  // Vencem nos próximos 30 dias ou já venceram
+  const expiring = supplies.filter(s => { const d = daysToExpiry(s); return d !== null && d <= EXPIRY_WARNING_DAYS })
+  const expired = expiring.filter(s => (daysToExpiry(s) ?? 0) < 0).length
+  const stockValue = priced.reduce((sum, s) => sum + Math.max(0, s.currentQuantity) * (s.unitPrice ?? 0), 0)
+  const unpriced = supplies.length - priced.length
   const { rows: sortedMovements, sort: movementSort } = useSort(detail?.movements ?? [], {
     date: m => new Date(m.date), type: m => m.type, quantity: m => m.quantity,
   })
@@ -174,7 +202,7 @@ export default function EstoquePage() {
     setSaving(true)
     setSaveError('')
     // Com internet envia; sem internet ou com sinal fraco fica na fila do aparelho e já aparece na lista
-    const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/estoque', method: 'POST', body: { ...form, farmId }, local: { farmId } })
+    const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/estoque', method: 'POST', body: { ...form, currentQuantity: parseBrNumber(form.currentQuantity) || 0, minimumQuantity: parseBrNumber(form.minimumQuantity) || 0, unitPrice: parseDec(String(parseBrNumber(form.unitPrice) || '')), packageKg: parseDec(String(parseBrNumber(form.packageKg) || '')), farmId }, local: { farmId } })
     setSaving(false)
     if (r.status === 'rejected') return setSaveError(t(r.error))
     setShowNew(false)
@@ -318,6 +346,12 @@ export default function EstoquePage() {
   const fmt = (d: string) => new Date(d).toLocaleDateString(locale, { timeZone: 'UTC' })
 
   const isLow = (s: Supply) => s.currentQuantity <= s.minimumQuantity
+  // Situação do insumo: acabou = Crítico, no mínimo ou abaixo = Baixo; a palavra sempre aparece junto da cor
+  const statusOf = (s: Supply) => s.currentQuantity <= 0
+    ? { label: 'Crítico', badge: 'bg-red-100 text-red-800', dot: 'bg-red-600' }
+    : isLow(s)
+      ? { label: 'Baixo', badge: 'bg-orange-100 text-orange-800', dot: 'bg-orange-500' }
+      : { label: 'OK', badge: 'bg-green-100 text-green-800', dot: 'bg-green-600' }
 
   return (
     <PermissionGuard module="estoque">
@@ -327,7 +361,7 @@ export default function EstoquePage() {
           <h1 className="text-2xl font-bold text-gray-800">{t('Estoque')}</h1>
           <p className="text-gray-500 text-sm mt-1">{t('Insumos, medicamentos e vacinas')}</p>
         </div>
-        <button onClick={() => setShowNew(true)} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${canEdit ? 'bg-green-700 hover:bg-green-600' : 'bg-gray-400 cursor-not-allowed'}`}>
+        <button onClick={() => setShowNew(true)} disabled={!canEdit} className="btn-primary">
           {t('Cadastrar produto')}
         </button>
       </div>
@@ -365,7 +399,31 @@ export default function EstoquePage() {
         </div>
       )}
 
+      {/* Números do estoque */}
+      {!loading && supplies.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <StatTile accent="blue" label={t('Insumos cadastrados')} value={supplies.length} />
+          <StatTile accent="green" label={t('Valor total em estoque')} value={priced.length ? fmtMoney(stockValue) : '—'}
+            detail={unpriced > 0 ? t('{n} sem preço informado', { n: unpriced }) : undefined} />
+          <StatTile accent="red" label={t('Abaixo do mínimo')} value={alertCount} />
+          <StatTile accent="amber" label={t('Próximos a vencer')} value={expiring.length}
+            detail={expired ? t(expired === 1 ? '1 já venceu' : '{n} já venceram', { n: expired }) : t('Nos próximos {n} dias', { n: EXPIRY_WARNING_DAYS })} />
+        </div>
+      )}
+
       {quick && <QuickFilterChip label={t('itens abaixo do estoque mínimo')} count={shown.length} onClear={() => setQuick(null)} />}
+
+      {/* Abas por categoria */}
+      {!loading && tabCats.length > 1 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {['Todas', ...tabCats].map(c => (
+            <button key={c} type="button" onClick={() => setCatTab(c)} aria-pressed={catTab === c}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${catTab === c ? 'bg-green-800 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'}`}>
+              {t(c)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? <p className="text-gray-400 text-sm">{t('Carregando...')}</p> : supplies.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
@@ -388,18 +446,20 @@ export default function EstoquePage() {
               {sortedSupplies.map(s => (
                 <tr key={s.id} className={`hover:bg-gray-50 cursor-pointer ${isLow(s) ? 'bg-red-50/40' : ''}`} onClick={() => setDetail(s)}>
                   <td className="px-4 py-3 font-medium text-gray-800">
-                    {s.name}
+                    <button type="button" className="row-open">{s.name}</button>
                     {s.id.startsWith('pending_') && <span className="block text-xs font-medium text-blue-700">{t('Aguardando envio')}</span>}
+                    <ExpiryNote supply={s} />
                   </td>
-                  <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{t(s.category)}</td>
-                  <td className={`px-4 py-3 text-right font-semibold ${isLow(s) ? 'text-red-600' : 'text-gray-800'}`}>
+                  <td className="hidden sm:table-cell px-4 py-3 text-gray-600">{t(s.category)}</td>
+                  <td className={`px-4 py-3 text-right font-semibold tabular-nums ${isLow(s) ? 'text-red-700' : 'text-gray-800'}`}>
                     {s.currentQuantity} {t(s.unit)}
                     {s.daysLeft != null && <span className={`block text-xs font-medium ${s.daysLeft <= STOCK_WARNING_DAYS ? 'text-amber-700' : 'text-gray-500'}`}>{s.daysLeft === 1 ? t('acaba em 1 dia') : t('acaba em {n} dias', { n: s.daysLeft })}</span>}
                   </td>
-                  <td className="hidden sm:table-cell px-4 py-3 text-right text-gray-500">{s.minimumQuantity} {t(s.unit)}</td>
+                  <td className="hidden sm:table-cell px-4 py-3 text-right text-gray-600 tabular-nums">{s.minimumQuantity} {t(s.unit)}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${isLow(s) ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                      {t(isLow(s) ? 'Baixo' : 'OK')}
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ${statusOf(s).badge}`}>
+                      <span aria-hidden="true" className={`h-2 w-2 rounded-full ${statusOf(s).dot}`} />
+                      {t(statusOf(s).label)}
                     </span>
                   </td>
                 </tr>
@@ -409,20 +469,23 @@ export default function EstoquePage() {
         </div>
       )}
 
-      {/* Detail modal */}
+      {/* Detalhe do insumo: modal padrão (grande, com a tabela de movimentações) */}
       {detail && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">{detail.name}</h2>
-                  <p className="text-xs text-gray-500">{t(detail.category)} · {t(detail.unit)}</p>
-                </div>
-                <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+        <AppModal title={detail.name} subtitle={`${t(detail.category)} · ${t(detail.unit)}`}
+          onClose={closeDetail} icon={<EstoqueIcon className="h-6 w-6" />} tone="amber" size="lg"
+          footer={<>
+            <button type="button" onClick={() => handleDelete(detail.id)} className={`${modalButton.ghost} border-red-200 text-red-600 hover:bg-red-50`}>{t('Excluir Insumo')}</button>
+            {canEdit && !detail.id.startsWith('pending_') && (
+              <button type="button" onClick={() => setQuoteFor(detail)}
+                className={isLow(detail) ? `${modalButton.secondary} border-amber-500 text-amber-800 hover:bg-amber-50` : modalButton.secondary}>
+                {t('Pedir orçamento a um fornecedor')}
+              </button>
+            )}
+            {canEdit && !detail.id.startsWith('pending_') && (
+              <button type="button" onClick={openMov} className={modalButton.primary}>{t('+ Movimentação (Entrada / Saída)')}</button>
+            )}
+          </>}>
+              <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className={`rounded-lg p-3 ${isLow(detail) ? 'bg-red-50 border border-red-100' : 'bg-green-50 border border-green-100'}`}>
                   <p className="text-xs text-gray-500">{t('Quantidade Atual')}</p>
                   <p className={`text-xl font-bold ${isLow(detail) ? 'text-red-600' : 'text-green-700'}`}>{detail.currentQuantity} {t(detail.unit)}</p>
@@ -438,28 +501,17 @@ export default function EstoquePage() {
                   {t('Os lotes de recria e engorda consomem')} <strong>{t('{n} kg por dia', { n: detail.dailyUseKg })}</strong>.{' '}
                   {detail.daysLeft != null
                     ? <>{t('No ritmo atual, o estoque acaba em')} <strong>{detail.daysLeft === 1 ? t('1 dia') : t('{n} dias', { n: detail.daysLeft })}</strong>.</>
-                    : t(detail.unit === 'sacos' ? 'Informe o peso do saco no lote para saber em quantos dias acaba.' : 'Cadastre o estoque em kg ou sacos para saber em quantos dias acaba.')}
+                    : t(detail.daysLeftHint ?? 'Cadastre o estoque em kg ou sacos para saber em quantos dias acaba.')}
                 </p>
+              )}
+              {detail.dailyUseKg == null && detail.daysLeftHint && (
+                <p className="mb-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">{t(detail.daysLeftHint)}</p>
               )}
 
               {detail.id.startsWith('pending_') ? (
                 <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-900">{t('Cadastrado sem internet, aguardando envio. Entradas e saídas ficam disponíveis depois que ele for enviado.')}</p>
               ) : (
-                <>
-                  <PriceLine supply={detail} farmId={farmId} canEdit={canEdit && !isPendingId(detail.id)} onSaved={(updated, queued) => { setDetail({ ...detail, ...updated }); setNotice(queued ? t(net.queuedMessage) : ''); refreshPending(); reload() }} />
-
-                  {canEdit && (
-                    <button onClick={openMov} className="w-full bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg mb-2">
-                      {t('+ Movimentação (Entrada / Saída)')}
-                    </button>
-                  )}
-                </>
-              )}
-              {canEdit && !detail.id.startsWith('pending_') && (
-                <button onClick={() => setQuoteFor(detail)}
-                  className={`w-full text-sm font-semibold py-2 rounded-lg mb-4 border-2 ${isLow(detail) ? 'border-amber-500 text-amber-800 hover:bg-amber-50' : 'border-green-700 text-green-800 hover:bg-green-50'}`}>
-                  {t('Pedir orçamento a um fornecedor')}
-                </button>
+                <PriceLine supply={detail} farmId={farmId} canEdit={canEdit && !isPendingId(detail.id)} onSaved={(updated, queued) => { setDetail({ ...detail, ...updated }); setNotice(queued ? t(net.queuedMessage) : ''); refreshPending(); reload() }} />
               )}
 
               {detail.movements.length > 0 && (
@@ -491,50 +543,48 @@ export default function EstoquePage() {
                   </div>
                 </>
               )}
-
-              <button onClick={() => handleDelete(detail.id)} className="mt-4 w-full border border-red-200 text-red-500 hover:bg-red-50 text-sm font-medium py-2 rounded-lg">
-                {t('Excluir Insumo')}
-              </button>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
-      {/* Movimentação modal: salva sozinha enquanto a pessoa preenche */}
+      {/* Movimentação: modal padrão (pequeno), salva sozinha enquanto a pessoa preenche */}
       {showMov && detail && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
-          <div role="dialog" aria-labelledby="mov-title" className="bg-white rounded-2xl shadow-xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-1">
-                <h2 id="mov-title" className="text-lg font-bold text-gray-800">{t('Movimentação')}</h2>
-                <button type="button" onClick={() => void closeMov()} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-              <p className="text-xs text-gray-500 mb-4">{detail.name} · {t('saldo atual')} {detail.currentQuantity} {t(detail.unit)}. {t('Salva sozinho enquanto você preenche.')}</p>
-              <form onSubmit={e => { e.preventDefault(); void saveMov() }} className="flex flex-col gap-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <AppModal title={t('Movimentação')} subtitle={`${detail.name} · ${t('saldo atual')} ${detail.currentQuantity} ${t(detail.unit)}`}
+          onClose={() => void closeMov()} icon={<EstoqueIcon className="h-6 w-6" />} tone="amber" size="sm"
+          footer={<>
+            {movSaved ? (
+              <>
+                <button type="button" onClick={() => void undoMov()} className={`${modalButton.ghost} border-red-200 text-red-600 hover:bg-red-50`}>{t('Desfazer')}</button>
+                <button type="button" onClick={resetMov} className={modalButton.ghost}>{t('Lançar outra')}</button>
+              </>
+            ) : (
+              <button type="button" onClick={() => { setShowMov(false); resetMov() }} className={modalButton.ghost}>{t('Cancelar')}</button>
+            )}
+            <button type="button" onClick={() => void closeMov()} className={modalButton.primary}>{t('Concluir')}</button>
+          </>}
+          note={t('Salva sozinho enquanto você preenche.')}>
+              <form onSubmit={e => { e.preventDefault(); void saveMov() }} className="flex flex-col gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="mov-type" className="text-xs font-medium text-gray-600">{t('Tipo')} *</label>
-                    <select id="mov-type" value={mov.type} onChange={e => setMov({ ...mov, type: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
+                    <label htmlFor="mov-type" className="text-sm font-medium text-gray-700">{t('Tipo')} *</label>
+                    <select id="mov-type" value={mov.type} onChange={e => setMov({ ...mov, type: e.target.value })} className={`${FIELD} bg-white`}>
                       <option value="Entrada">{t('Entrada')}</option>
                       <option value="Saída">{t('Saída')}</option>
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="mov-quantity" className="text-xs font-medium text-gray-600">{t('Quantidade')} ({t(detail.unit)}) *</label>
+                    <label htmlFor="mov-quantity" className="text-sm font-medium text-gray-700">{t('Quantidade')} ({t(detail.unit)}) *</label>
                     <input id="mov-quantity" type="number" inputMode="decimal" autoFocus value={mov.quantity} onChange={e => setMov({ ...mov, quantity: e.target.value })} step="0.01" min="0" required
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                      placeholder={t('Ex.: 25')} className={FIELD} />
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="mov-date" className="text-xs font-medium text-gray-600">{t('Data')} *</label>
-                  <input id="mov-date" type="date" value={mov.date} onChange={e => setMov({ ...mov, date: e.target.value })} required
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                  <label htmlFor="mov-date" className="text-sm font-medium text-gray-700">{t('Data')} *</label>
+                  <input id="mov-date" type="date" value={mov.date} onChange={e => setMov({ ...mov, date: e.target.value })} required className={FIELD} />
                 </div>
                 <div>
-                  <label htmlFor="mov-description" className="text-xs font-medium text-gray-600">{t('Descrição')}</label>
+                  <label htmlFor="mov-description" className="text-sm font-medium text-gray-700">{t('Descrição')}</label>
                   <input id="mov-description" type="text" value={mov.description} onChange={e => setMov({ ...mov, description: e.target.value })}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
+                    placeholder={t('Ex.: compra na cooperativa')} className={FIELD} />
                 </div>
                 <p role="status" className={`text-sm min-h-[1.25rem] ${movStatus === 'error' ? 'text-red-600' : movStatus === 'saved' ? 'text-green-700' : movStatus === 'offline' ? 'text-blue-800' : 'text-gray-500'}`}>
                   {movStatus === 'saving' ? t('Salvando…')
@@ -543,90 +593,63 @@ export default function EstoquePage() {
                     : movStatus === 'error' ? movError
                     : t('Informe a quantidade: o lançamento é salvo sozinho.')}
                 </p>
-                <div className="flex gap-2 pt-1">
-                  {movSaved ? (
-                    <>
-                      <button type="button" onClick={() => void undoMov()} className="flex-1 border border-red-200 text-red-600 text-sm font-medium py-2 rounded-lg hover:bg-red-50">{t('Desfazer')}</button>
-                      <button type="button" onClick={resetMov} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Lançar outra')}</button>
-                    </>
-                  ) : (
-                    <button type="button" onClick={() => { setShowMov(false); resetMov() }} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
-                  )}
-                  <button type="button" onClick={() => void closeMov()} className="flex-1 bg-green-700 hover:bg-green-600 text-white text-sm font-medium py-2 rounded-lg">{t('Concluir')}</button>
-                </div>
+                {/* Entrada salva no servidor: oferece lançar a compra no financeiro, ligada a ela */}
+                {movStatus === 'saved' && mov.type === 'Entrada' && savedRef.current.id && canAccess('financeiro') && (
+                  <PurchaseAfterEntry key={savedRef.current.id} supply={detail} movementId={savedRef.current.id} quantity={parseMovement(mov)?.quantity ?? 0} date={mov.date} description={mov.description} />
+                )}
               </form>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
 
-      {/* New supply modal */}
+      {/* Cadastrar produto: modal padrão (médio) */}
       {showNew && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">{t('Cadastrar produto')}</h2>
-                <button onClick={() => setShowNew(false)} className="text-gray-400 hover:text-gray-600 p-1" aria-label={t('Fechar')}><FecharIcon /></button>
-              </div>
-              <form onSubmit={handleSaveNew} className="flex flex-col gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-600">{t('Nome')} *</label>
-                  <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required placeholder={t('Ex: Ração Bovinos')}
-                    className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Categoria')} *</label>
-                    <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
+        <AppModal title={t('Cadastrar produto')} subtitle={user?.farmName ?? undefined} onClose={() => setShowNew(false)}
+          icon={<EstoqueIcon className="h-6 w-6" />} tone="amber"
+          footer={<>
+            <button type="button" onClick={() => setShowNew(false)} className={modalButton.ghost}>{t('Cancelar')}</button>
+            <button type="submit" form="form-produto" disabled={saving} className={modalButton.primary}>{t(saving ? 'Salvando...' : 'Salvar')}</button>
+          </>}
+          note={t('Com o preço, o trato dos lotes mostra o custo por animal. Pode deixar em branco.')}>
+              <form id="form-produto" onSubmit={handleSaveNew} className="flex flex-col gap-4">
+                <label className="text-sm font-medium text-gray-700">{t('Nome')} *
+                  <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required placeholder={t('Ex: Ração Bovinos')} className={FIELD} />
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Categoria')} *
+                    <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={`${FIELD} bg-white`}>
                       {CATEGORIES.map(c => <option key={c} value={c}>{t(c)}</option>)}
                     </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Unidade')} *</label>
-                    <select value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600">
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Unidade')} *
+                    <select value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} className={`${FIELD} bg-white`}>
                       {['kg', 'L', 'unidades', 'doses', 'sacos'].map(u => <option key={u} value={u}>{t(u)}</option>)}
                     </select>
-                  </div>
+                  </label>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Qtd Inicial')}</label>
-                    <input type="number" value={form.currentQuantity} onChange={e => setForm({ ...form, currentQuantity: e.target.value })} step="0.01" min="0"
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Qtd Mínima')}</label>
-                    <input type="number" value={form.minimumQuantity} onChange={e => setForm({ ...form, minimumQuantity: e.target.value })} step="0.01" min="0"
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Qtd Inicial')}
+                    <input type="text" inputMode="decimal" value={form.currentQuantity} onChange={e => setForm({ ...form, currentQuantity: keepNumberChars(e.target.value) })} placeholder={t('Ex.: 100')} className={FIELD} />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Qtd Mínima')}
+                    <input type="text" inputMode="decimal" value={form.minimumQuantity} onChange={e => setForm({ ...form, minimumQuantity: keepNumberChars(e.target.value) })} placeholder={t('Ex.: 30')} className={FIELD} />
+                  </label>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-600">{t('Preço por {u} (R$, opcional)', { u: t(form.unit === 'sacos' ? 'saco' : form.unit) })}</label>
-                    <input inputMode="decimal" value={form.unitPrice} onChange={e => setForm({ ...form, unitPrice: e.target.value.replace(/[^\d.,]/g, '') })} placeholder={t('Ex.: 85,00')}
-                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm font-medium text-gray-700">{t('Preço por {u} (R$, opcional)', { u: t(form.unit === 'sacos' ? 'saco' : form.unit) })}
+                    <input inputMode="decimal" value={form.unitPrice} onChange={e => setForm({ ...form, unitPrice: e.target.value.replace(/[^\d.,]/g, '') })} placeholder={t('Ex.: 85,00')} className={FIELD} />
+                  </label>
+                  <label className="text-sm font-medium text-gray-700">{t('Validade (opcional)')}
+                    <input type="date" value={form.expiryDate} onChange={e => setForm({ ...form, expiryDate: e.target.value })} className={FIELD} />
+                  </label>
                   {form.unit === 'sacos' && (
-                    <div>
-                      <label className="text-xs font-medium text-gray-600">{t('Peso do saco (kg, opcional)')}</label>
-                      <input inputMode="decimal" value={form.packageKg} onChange={e => setForm({ ...form, packageKg: e.target.value.replace(/[^\d.,]/g, '') })} placeholder={t('Ex.: 25')}
-                        className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-600" />
-                    </div>
+                    <label className="text-sm font-medium text-gray-700">{t('Peso do saco (kg, opcional)')}
+                      <input inputMode="decimal" value={form.packageKg} onChange={e => setForm({ ...form, packageKg: e.target.value.replace(/[^\d.,]/g, '') })} placeholder={t('Ex.: 25')} className={FIELD} />
+                    </label>
                   )}
                 </div>
-                <p className="text-xs text-gray-500">{t('Com o preço, o trato dos lotes mostra o custo por animal. Pode deixar em branco.')}</p>
-                {saveError && <p role="alert" className="text-sm text-red-600">{saveError}</p>}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setShowNew(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">{t('Cancelar')}</button>
-                  <button type="submit" disabled={saving} className="flex-1 bg-green-700 hover:bg-green-600 disabled:bg-green-400 text-white text-sm font-medium py-2 rounded-lg">{t(saving ? 'Salvando...' : 'Salvar')}</button>
-                </div>
+                {saveError && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{saveError}</p>}
               </form>
-            </div>
-          </div>
-        </div>
+        </AppModal>
       )}
       {quoteFor && <RequestQuote item={quoteFor} onClose={() => setQuoteFor(null)} />}
     </div>
@@ -640,17 +663,18 @@ function PriceLine({ supply, farmId, canEdit, onSaved }: { supply: Supply; farmI
   const [editing, setEditing] = useState(false)
   const [price, setPrice] = useState(supply.unitPrice ? String(supply.unitPrice).replace('.', ',') : '')
   const [bag, setBag] = useState(supply.packageKg ? String(supply.packageKg).replace('.', ',') : '')
+  const [expiry, setExpiry] = useState(supply.expiryDate ? supply.expiryDate.slice(0, 10) : '')
   const [error, setError] = useState('')
   const unitName = t(supply.unit === 'sacos' ? 'saco' : supply.unit)
 
   async function save() {
     setError('')
     // Números já convertidos: sem internet o pedido fica na fila e a lista mostra estes valores até o envio
-    const body = { unitPrice: parseDec(price), ...(supply.unit === 'sacos' && { packageKg: parseDec(bag) }) }
-    const r = await sendOrQueue<{ unitPrice?: number | null; packageKg?: number | null }>(MODULE, { type: 'update', id: supply.id, url: `/api/estoque/${supply.id}`, method: 'PUT', body, local: { farmId } })
+    const body = { unitPrice: parseDec(price), expiryDate: expiry || null, ...(supply.unit === 'sacos' && { packageKg: parseDec(bag) }) }
+    const r = await sendOrQueue<{ unitPrice?: number | null; packageKg?: number | null; expiryDate?: string | null }>(MODULE, { type: 'update', id: supply.id, url: `/api/estoque/${supply.id}`, method: 'PUT', body, local: { farmId } })
     if (r.status === 'rejected') return setError(t(r.error))
-    if (r.status === 'sent') onSaved({ unitPrice: r.data.unitPrice ?? null, packageKg: r.data.packageKg ?? null }, false)
-    else onSaved({ unitPrice: body.unitPrice, packageKg: 'packageKg' in body ? body.packageKg ?? null : supply.packageKg }, true)
+    if (r.status === 'sent') onSaved({ unitPrice: r.data.unitPrice ?? null, packageKg: r.data.packageKg ?? null, expiryDate: r.data.expiryDate ?? null }, false)
+    else onSaved({ unitPrice: body.unitPrice, expiryDate: body.expiryDate, packageKg: 'packageKg' in body ? body.packageKg ?? null : supply.packageKg }, true)
     setEditing(false)
   }
 
@@ -666,12 +690,15 @@ function PriceLine({ supply, farmId, canEdit, onSaved }: { supply: Supply; farmI
               <input inputMode="decimal" value={bag} onChange={e => setBag(e.target.value.replace(/[^\d.,]/g, ''))} placeholder={t('Ex.: 25')} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </label>
           )}
+          <label className="text-xs font-medium text-gray-600">{t('Validade')}
+            <input type="date" value={expiry} onChange={e => setExpiry(e.target.value)} className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          </label>
         </div>
         <p className="mt-1 text-xs text-gray-500">{t('Opcional. Deixe em branco para não usar.')}</p>
         {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         <div className="mt-2 flex gap-2">
           <button type="button" onClick={() => setEditing(false)} className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-lg">{t('Cancelar')}</button>
-          <button type="button" onClick={() => void save()} className="flex-1 bg-green-700 text-white text-sm font-medium py-2 rounded-lg">{t('Salvar')}</button>
+          <button type="button" onClick={() => void save()} className="flex-1 bg-green-800 hover:bg-green-700 text-white text-sm font-medium py-2 rounded-lg">{t('Salvar')}</button>
         </div>
       </div>
     )
@@ -680,7 +707,85 @@ function PriceLine({ supply, farmId, canEdit, onSaved }: { supply: Supply; farmI
     <p className="mb-4 text-sm text-gray-600">
       {supply.unitPrice ? <>{t('Preço:')} <strong className="text-gray-800">{fmtMoney(supply.unitPrice)}</strong> {t('por {u}', { u: unitName })}</> : t('Sem preço informado')}
       {supply.unit === 'sacos' && supply.packageKg ? ` · ${t('saco de {n} kg', { n: supply.packageKg })}` : ''}
-      {canEdit && <button type="button" onClick={() => setEditing(true)} className="ml-2 font-semibold text-green-700 underline">{t(supply.unitPrice ? 'Alterar' : 'Informar preço')}</button>}
+      {supply.expiryDate ? ` · ${t('validade {date}', { date: fmtDay(supply.expiryDate) })}` : ''}
+      {canEdit && <button type="button" onClick={() => setEditing(true)} className="ml-2 font-semibold text-green-700 underline">{t(supply.unitPrice || supply.expiryDate ? 'Alterar' : 'Informar preço e validade')}</button>}
     </p>
+  )
+}
+
+/** Aviso de validade na lista: vencido em vermelho, vencendo em até 30 dias em laranja */
+function ExpiryNote({ supply }: { supply: Supply }) {
+  const t = useT()
+  const days = daysToExpiry(supply)
+  if (days === null || days > EXPIRY_WARNING_DAYS) return null
+  return (
+    <span className={`block text-xs font-medium ${days < 0 ? 'text-red-700' : 'text-amber-700'}`}>
+      {days < 0 ? t('Venceu em {date}', { date: fmtDay(supply.expiryDate!) }) : days === 0 ? t('Vence hoje') : t('Vence em {date}', { date: fmtDay(supply.expiryDate!) })}
+    </span>
+  )
+}
+
+/** Depois de salvar uma entrada: lança a compra no financeiro como despesa, ligada à entrada (valor sugerido pelo preço) */
+function PurchaseAfterEntry({ supply, movementId, quantity, date, description }: {
+  supply: { name: string; unit: string; category: string; unitPrice?: number | null }
+  movementId: string
+  quantity: number
+  date: string
+  description: string
+}) {
+  const t = useT()
+  const suggested = suggestedAmount(quantity, supply.unitPrice)
+  const [open, setOpen] = useState(false)
+  const [amount, setAmount] = useState(suggested ? suggested.toFixed(2).replace('.', ',') : '')
+  const [paid, setPaid] = useState(false)
+  const [state, setState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle')
+  const [message, setMessage] = useState('')
+
+  async function launch() {
+    setState('saving')
+    try {
+      const res = await fetchWithTimeout('/api/financeiro', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'Despesa', category: expenseCategoryFor(supply.category), date, amount: amount.includes(',') ? amount.replace(/\./g, '').replace(',', '.') : amount, paid,
+          description: description.trim() || purchaseDescription(supply.name, quantity, supply.unit), supplyMovementId: movementId,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Não foi possível lançar a compra.')
+      setState('done')
+      setMessage(t(paid ? 'Despesa lançada no financeiro como paga.' : 'Despesa lançada no financeiro como a pagar.'))
+    } catch (err) {
+      setState('error')
+      setMessage(t(navigator.onLine ? (err as Error).message : 'Sem internet. Tente de novo quando a conexão voltar.'))
+    }
+  }
+
+  if (state === 'done') return <p className="rounded-lg bg-green-50 px-3 py-2 text-sm font-medium text-green-800">✓ {message}</p>
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="rounded-lg border-2 border-green-700 px-3 py-2 text-sm font-semibold text-green-800 hover:bg-green-50">
+        {t('Lançar a compra no financeiro')}
+      </button>
+    )
+  }
+  return (
+    <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+      <p className="mb-2 text-sm font-semibold text-green-900">{t('Lançar a compra no financeiro')}</p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs font-medium text-gray-700">{t('Valor da compra (R$)')}
+          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d,.]/g, ''))} placeholder="0,00"
+            className="mt-1 block w-36 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+        </label>
+        <label className="flex items-center gap-2 pb-2 text-sm font-medium text-gray-700">
+          <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="h-5 w-5 accent-green-700" />{t('Já pago')}
+        </label>
+        <button type="button" disabled={state === 'saving' || !amount} onClick={() => void launch()} className="rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-gray-300">
+          {t(state === 'saving' ? 'Salvando…' : 'Lançar despesa')}
+        </button>
+      </div>
+      {!suggested && <p className="mt-2 text-xs text-gray-600">{t('Dica: com o preço por unidade no cadastro do produto, o valor vem calculado.')}</p>}
+      {state === 'error' && <p role="alert" className="mt-2 text-sm text-red-700">{message}</p>}
+    </div>
   )
 }

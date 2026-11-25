@@ -2,6 +2,9 @@ import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
 
+/** Nome de quem aplicou ou cuida (opcional) */
+const optionalText = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null)
+
 export async function GET(request: NextRequest) {
   const auth = await requireFarmAccess('vacinacao', 'view')
   if (auth.error) return auth.error
@@ -26,7 +29,21 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { animalId, vaccineName, scheduledDate, appliedDate, batch, manufacturer, observations } = body
+    const { animalId, vaccineName, scheduledDate, appliedDate, batch, manufacturer, observations, appliedBy } = body
+
+    // Vários animais de uma vez (rebanho inteiro, uma categoria ou um lote): { animalIds: [...] }
+    if (Array.isArray(body.animalIds)) {
+      const ids: string[] = [...new Set<string>((body.animalIds as unknown[]).filter((id): id is string => typeof id === 'string' && !!id))].slice(0, 5000)
+      if (!ids.length || !vaccineName || !scheduledDate) return NextResponse.json({ error: 'Escolha os animais, a vacina e a data agendada' }, { status: 400 })
+      const owned = await prisma.animal.findMany({ where: { id: { in: ids }, farmId: auth.farmId }, select: { id: true } })
+      if (owned.length !== ids.length) return notFound('Algum animal não foi encontrado')
+      const shared = {
+        vaccineName, scheduledDate: new Date(scheduledDate), appliedDate: appliedDate ? new Date(appliedDate) : null,
+        batch: batch || null, manufacturer: manufacturer || null, appliedBy: optionalText(appliedBy, 80), observations: observations || null,
+      }
+      const { count } = await prisma.vaccination.createMany({ data: ids.map((id) => ({ ...shared, animalId: id })) })
+      return NextResponse.json({ count }, { status: 201 })
+    }
 
     if (!animalId || !vaccineName || !scheduledDate) {
       return NextResponse.json({ error: 'Animal, vacina e data agendada são obrigatórios' }, { status: 400 })
@@ -42,6 +59,7 @@ export async function POST(request: NextRequest) {
         appliedDate: appliedDate ? new Date(appliedDate) : null,
         batch: batch || null,
         manufacturer: manufacturer || null,
+        appliedBy: optionalText(appliedBy, 80),
         observations: observations || null,
       },
       include: { animal: true },

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { parseGoal } from '@/lib/lactating'
 import { NextRequest, NextResponse } from 'next/server'
 import { canEdit, getSessionUser } from '@/lib/auth'
 import { addFarmMember, parseSegments } from '@/lib/farms'
@@ -26,7 +27,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Você não tem permissão para esta ação' }, { status: 403 })
   }
 
-  const { name, propertyType, documentType, documentNumber, owner, phone, address, city, state, segments } = await request.json()
+  const { name, propertyType, documentType, documentNumber, owner, phone, address, city, state, segments, lactatingGoal } = await request.json()
+  const goal = parseGoal(lactatingGoal)
+  if (goal === 'invalid') return NextResponse.json({ error: 'Meta de vacas em lactação inválida' }, { status: 400 })
 
   if (!name) return NextResponse.json({ error: 'Nome é obrigatório' }, { status: 400 })
   const parsedSegments = segments === undefined ? [] : parseSegments(segments)
@@ -45,6 +48,7 @@ export async function POST(request: NextRequest) {
         city: city || null,
         state: state || null,
         segments: parsedSegments,
+        lactatingGoal: goal,
       },
     })
     if (me.role !== 'admin') {

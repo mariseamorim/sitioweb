@@ -48,6 +48,9 @@ export const common: Record<string, string> = {
   'Abrir menu lateral': 'Abrir menú lateral',
   'Abrir menu': 'Abrir menú',
   'Voltar ao painel': 'Volver al panel',
+  'Ir para o painel': 'Ir al panel',
+  'Mais opções': 'Más opciones',
+  'Informe o valor, por exemplo 450,00 ou 1.500,00': 'Indique el valor, por ejemplo 450,00 o 1.500,00',
   'Gestão da propriedade': 'Gestión del establecimiento',
   'Atalhos': 'Accesos',
   'Mais opções do menu': 'Más opciones del menú',
@@ -80,4 +83,5 @@ export const common: Record<string, string> = {
   'Tentar de novo': 'Intentar de nuevo',
   'Mostrar senha': 'Mostrar contraseña',
   'Esconder senha': 'Ocultar contraseña',
+  'Rebanho': 'Rodeo',
 }

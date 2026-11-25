@@ -2,6 +2,7 @@
 // Gráficos por mês, de uma série só (o título do cartão diz o que é, então não há legenda).
 // Colunas para quantidades, linha para taxa ao longo do tempo. Rótulos só no maior valor e no último ponto;
 // o valor de cada mês aparece ao passar o mouse ou focar, e a tabela abaixo do gráfico traz todos.
+import { useId } from 'react'
 import { useLocale, useT } from '@/lib/i18n'
 
 export interface MonthPoint {
@@ -19,7 +20,6 @@ const PAD = { top: 18, right: 18, bottom: 26, left: 52 }
 /** Largura útil do gráfico; `width` maior deixa o gráfico mais largo sem aumentar letras e altura */
 const plotWidth = (width = W) => width - PAD.left - PAD.right
 const PLOT_H = H - PAD.top - PAD.bottom
-const SERIES = '#15803d'
 const GRID = '#e5e7eb'
 const TEXT = '#6b7280'
 const INK = '#111827'
@@ -78,27 +78,56 @@ function labeled(points: MonthPoint[], band: number): Set<number> {
   return set
 }
 
+/** Cores das colunas (uma por coluna, como no painel de BI) e dos pontos da linha */
+const COLUMN_COLORS = ['#16a34a', '#f59e0b', '#2563eb', '#f97316', '#0d9488', '#7c3aed']
+const DOT_COLORS = ['#f97316', '#16a34a', '#2563eb', '#ef4444', '#0d9488']
+
+/** Rótulo em selo colorido (valor da coluna ou do ponto) */
+function Pill({ x, y, text, color }: { x: number; y: number; text: string; color: string }) {
+  const w = text.length * 6.4 + 12
+  return (
+    <g aria-hidden="true">
+      <rect x={x - w / 2} y={y - 15} width={w} height={17} rx={5} fill={color} />
+      <text x={x} y={y - 3} textAnchor="middle" fontSize={10.5} fontWeight={700} fill="#ffffff">{text}</text>
+    </g>
+  )
+}
+
 export function ColumnChart({ points, name, unit = '', width }: { points: MonthPoint[]; name: string; unit?: string; width?: number }) {
   const max = niceMax(Math.max(0, ...points.map((p) => p.value ?? 0)))
   const band = plotWidth(width) / points.length
-  const barWidth = Math.min(24, band - 4)
+  const barWidth = Math.min(26, band - 4)
   const base = PAD.top + PLOT_H
   const marks = labeled(points, band)
+  // Poucas colunas (meses): uma cor por coluna; muitas (dias): degradê verde-azulado, rótulo no maior e no último
+  const many = points.length > 14
   const locale = useLocale()
+  const id = useId().replace(/:/g, '')
+  const colorOf = (i: number) => (many ? '#0d9488' : COLUMN_COLORS[i % COLUMN_COLORS.length])
+  const gradients = many ? [0] : COLUMN_COLORS.map((_, i) => i)
   return (
     <Frame max={max} unit={unit} labels={points.map((p) => p.label)} name={name} width={width}>
+      <defs>
+        {gradients.map((i) => (
+          <linearGradient key={i} id={`${id}-c${i}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={many ? '#14b8a6' : COLUMN_COLORS[i]} stopOpacity={0.75} />
+            <stop offset="100%" stopColor={many ? '#16a34a' : COLUMN_COLORS[i]} stopOpacity={1} />
+          </linearGradient>
+        ))}
+      </defs>
       {points.map((p, i) => {
         const value = p.value ?? 0
         const h = (value / max) * PLOT_H
         const x = PAD.left + band * (i + 0.5) - barWidth / 2
-        const r = Math.min(4, h)
+        const r = Math.min(5, h)
+        const showLabel = value > 0 && (marks.has(i) || points.length <= 6)
         return (
           <g key={i} tabIndex={0} aria-label={p.title} className="outline-none [&:focus-visible>rect:first-of-type]:fill-green-100 [&:hover>rect:first-of-type]:fill-gray-100">
             <title>{p.title}</title>
             {/* Alvo do toque: a faixa inteira do mês, maior que a coluna */}
             <rect x={PAD.left + band * i} y={PAD.top} width={band} height={PLOT_H} fill="transparent" />
-            {h > 0 && <path d={`M${x},${base} V${base - h + r} Q${x},${base - h} ${x + r},${base - h} H${x + barWidth - r} Q${x + barWidth},${base - h} ${x + barWidth},${base - h + r} V${base} Z`} fill={SERIES} />}
-            {marks.has(i) && <text x={x + barWidth / 2} y={base - h - 5} textAnchor="middle" fontSize={11} fontWeight={600} fill={INK}>{compact(value, locale)}{unit}</text>}
+            {h > 0 && <path d={`M${x},${base} V${base - h + r} Q${x},${base - h} ${x + r},${base - h} H${x + barWidth - r} Q${x + barWidth},${base - h} ${x + barWidth},${base - h + r} V${base} Z`} fill={`url(#${id}-c${many ? 0 : i % COLUMN_COLORS.length})`} />}
+            {showLabel && <Pill x={x + barWidth / 2} y={base - h - 4} text={`${compact(value, locale)}${unit}`} color={colorOf(i)} />}
           </g>
         )
       })}
@@ -106,33 +135,73 @@ export function ColumnChart({ points, name, unit = '', width }: { points: MonthP
   )
 }
 
+type Pt = readonly [number, number]
+
 export function LineChart({ points, name, unit = '', max: fixedMax, width }: { points: MonthPoint[]; name: string; unit?: string; max?: number; width?: number }) {
   const max = fixedMax ?? niceMax(Math.max(0, ...points.map((p) => p.value ?? 0)))
   const band = plotWidth(width) / points.length
-  const xy = (i: number, value: number) => [PAD.left + band * (i + 0.5), PAD.top + PLOT_H * (1 - value / max)] as const
-  // Mês sem dado não tem ponto; a linha liga os meses que têm, para a tendência ficar legível
-  let d = ''
-  let pen = false
+  const base = PAD.top + PLOT_H
+  const xy = (i: number, value: number): Pt => [PAD.left + band * (i + 0.5), PAD.top + PLOT_H * (1 - value / max)]
+  // Trechos de pontos seguidos com valor; mês sem dado corta a área (a linha liga só os vizinhos)
+  const runs: Pt[][] = []
   points.forEach((p, i) => {
     if (p.value === null) return
-    const [x, y] = xy(i, p.value)
-    d += `${pen ? 'L' : 'M'}${x},${y} `
-    pen = true
+    const pt = xy(i, p.value)
+    if (i > 0 && points[i - 1].value !== null && runs.length) runs[runs.length - 1].push(pt)
+    else runs.push([pt])
   })
+  // Curva suave (Catmull-Rom), sem passar do topo nem do eixo
+  const clampY = (y: number) => Math.min(base, Math.max(PAD.top, y))
+  const curve = (pts: Pt[]) => pts.reduce((d, [x, y], i) => {
+    if (i === 0) return `M${x},${y}`
+    const p0 = pts[i - 2] ?? pts[i - 1]
+    const p1 = pts[i - 1]
+    const p3 = pts[i + 1] ?? ([x, y] as Pt)
+    const c1x = p1[0] + (x - p0[0]) / 6
+    const c1y = clampY(p1[1] + (y - p0[1]) / 6)
+    const c2x = x - (p3[0] - p1[0]) / 6
+    const c2y = clampY(y - (p3[1] - p1[1]) / 6)
+    return `${d} C${c1x},${c1y} ${c2x},${c2y} ${x},${y}`
+  }, '')
   const marks = labeled(points, band)
+  const best = [...marks][0]
+  const valued = points.filter((p) => p.value !== null).length
+  // Muitos pontos (dias): bolinha a cada 5 e nas marcadas; poucos (meses): em todos
+  const lastIndex = points.length - 1
+  const dotAt = (i: number) => valued <= 14 || marks.has(i) || (lastIndex - i) % 5 === 0
   const locale = useLocale()
+  const id = useId().replace(/:/g, '')
+  let dot = 0
   return (
     <Frame max={max} unit={unit} labels={points.map((p) => p.label)} name={name} width={width}>
-      <path d={d} fill="none" stroke={SERIES} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+      <defs>
+        <linearGradient id={`${id}-area`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.85} />
+          <stop offset="100%" stopColor="#22c55e" stopOpacity={0.12} />
+        </linearGradient>
+        <linearGradient id={`${id}-line`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#16a34a" />
+          <stop offset="100%" stopColor="#0891b2" />
+        </linearGradient>
+      </defs>
+      {runs.map((run, k) => (run.length > 1 ? (
+        <g key={k}>
+          <path d={`${curve(run)} L${run[run.length - 1][0]},${base} L${run[0][0]},${base} Z`} fill={`url(#${id}-area)`} />
+          <path d={curve(run)} fill="none" stroke={`url(#${id}-line)`} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+        </g>
+      ) : null))}
       {points.map((p, i) => {
         if (p.value === null) return null
         const [x, y] = xy(i, p.value)
+        const color = DOT_COLORS[dot++ % DOT_COLORS.length]
         return (
           <g key={i} tabIndex={0} aria-label={p.title} className="outline-none [&:focus-visible>rect:first-of-type]:fill-green-100 [&:hover>rect:first-of-type]:fill-gray-100">
             <title>{p.title}</title>
             <rect x={PAD.left + band * i} y={PAD.top} width={band} height={PLOT_H} fill="transparent" />
-            <circle cx={x} cy={y} r={4} fill={SERIES} stroke="#ffffff" strokeWidth={2} />
-            {marks.has(i) && <text x={x} y={y - 9} textAnchor="middle" fontSize={11} fontWeight={600} fill={INK}>{compact(p.value, locale)}{unit}</text>}
+            {dotAt(i) && <circle cx={x} cy={y} r={4.5} fill={color} stroke="#ffffff" strokeWidth={2} />}
+            {marks.has(i) && (i === best
+              ? <Pill x={x} y={y - 8 < PAD.top + 4 ? y + 24 : y - 8} text={`${compact(p.value, locale)}${unit}`} color={INK} />
+              : <text x={x} y={y - 10 < PAD.top ? y + 18 : y - 10} textAnchor="middle" fontSize={11} fontWeight={700} fill={INK}>{compact(p.value, locale)}{unit}</text>)}
           </g>
         )
       })}

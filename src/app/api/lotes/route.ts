@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireFarmAccess } from '@/lib/auth'
 import { isLotPhase } from '@/lib/lots'
-import { LOT_SELECT, average, farmAnimals, parseAnimalWeights, parseDay, parseLotSupplies, parseTarget, parseWeighing, serializeLot, setLotSupplies } from './shared'
+import { LOT_SELECT, average, farmAnimals, parseAnimalWeights, parseDay, parseLotSupplies, parseMoney, parsePlanId, parseTarget, parseWeighing, serializeLot, setLotSupplies } from './shared'
 
 // Lotes de recria e engorda da propriedade (permissão do módulo Animais)
 export async function GET() {
@@ -36,13 +36,17 @@ export async function POST(request: NextRequest) {
   if (typeof weighing === 'string') return NextResponse.json({ error: weighing }, { status: 400 })
   const targetWeight = parseTarget(body.targetWeight)
   if (targetWeight === 'invalid') return NextResponse.json({ error: 'Peso-alvo inválido' }, { status: 400 })
+  const planId = await parsePlanId(farmId, body.planId)
+  if (planId === 'invalid') return NextResponse.json({ error: 'Plano não encontrado' }, { status: 400 })
+  const purchaseValue = parseMoney(body.purchaseValue)
+  if (purchaseValue === 'invalid') return NextResponse.json({ error: 'Valor de compra inválido' }, { status: 400 })
   const supplies = await parseLotSupplies(farmId, body.supplies ?? [])
   if (typeof supplies === 'string') return NextResponse.json({ error: supplies }, { status: 400 })
 
   const created = await prisma.$transaction(async (tx) => {
     const lot = await tx.lot.create({
       data: {
-        farmId, name, phase, startDate, targetWeight,
+        farmId, name, phase, startDate, targetWeight, planId, purchaseValue,
         notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim().slice(0, 500) : null,
         weighings: { create: { date: startDate, ...weighing } },
       },

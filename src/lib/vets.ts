@@ -5,9 +5,12 @@
 import { NextResponse } from 'next/server'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { regionOrNull } from '@/lib/identity'
+import { addFarmMember } from '@/lib/farms'
 import { getSessionUser } from '@/lib/auth'
 import { animalToday } from '@/lib/animalRules'
 import { pregnancyChecks } from '@/lib/calving'
+import { prepRange, prepSteps } from '@/lib/calvingPrep'
 import { addMonths } from '@/lib/reproInsights'
 
 /** Módulos que o veterinário usa nas propriedades que atende (sem financeiro, estoque, usuários e cadastro da propriedade). */
@@ -47,7 +50,8 @@ export interface FarmOverview {
 }
 
 /** Números de cada propriedade para o painel do veterinário. */
-export async function farmOverviews(farmIds: string[]): Promise<Map<string, FarmOverview>> {
+/** `rateMonths`: janela da taxa de concepção (meses de cobertura, contando o atual); o resto usa os últimos 12 meses. */
+export async function farmOverviews(farmIds: string[], rateMonths = 12): Promise<Map<string, FarmOverview>> {
   const result = new Map<string, FarmOverview>()
   if (!farmIds.length) return result
   const now = Date.now()
@@ -57,12 +61,13 @@ export async function farmOverviews(farmIds: string[]): Promise<Map<string, Farm
     prisma.animal.groupBy({ by: ['farmId'], where: { farmId: { in: farmIds }, status: { in: ['Vivo', 'Doente'] } }, _count: { _all: true } }),
     prisma.reproduction.findMany({
       where: { farmId: { in: farmIds }, coverageDate: { gte: new Date(now - 365 * DAY) } },
-      select: { farmId: true, status: true, expectedBirthDate: true, actualBirthDate: true },
+      select: { farmId: true, status: true, coverageDate: true, expectedBirthDate: true, actualBirthDate: true },
     }),
   ])
+  const rateFrom = Math.max(now - 365 * DAY, new Date(`${addMonths(current, 1 - rateMonths)}-01T00:00:00.000Z`).getTime())
   for (const id of farmIds) {
     const own = reproductions.filter((r) => r.farmId === id)
-    const diagnosed = own.filter((r) => r.status !== 'Coberta')
+    const diagnosed = own.filter((r) => r.status !== 'Coberta' && r.coverageDate.getTime() >= rateFrom)
     const pregnant = diagnosed.filter((r) => PREGNANT.includes(r.status))
     const open = own.filter((r) => (r.status === 'Coberta' || r.status === 'Prenha') && !r.actualBirthDate && !!r.expectedBirthDate)
     result.set(id, {
@@ -167,14 +172,25 @@ export async function vetTasks(farmIds: string[]): Promise<VetTask[]> {
   const in7 = new Date(today.getTime() + 7 * DAY)
   const diagnosable = new Date(today.getTime() - DIAGNOSIS_DAYS * DAY)
   const farms = { farmId: { in: farmIds } }
-  const [covered, births, vaccines, treatments, herd, reproductions] = await Promise.all([
+  const range = prepRange(todayStr)
+  const [covered, births, vaccines, treatments, herd, reproductions, upcoming, farmSegments] = await Promise.all([
     prisma.reproduction.groupBy({ by: ['farmId'], where: { ...farms, status: 'Coberta', coverageDate: { lte: diagnosable } }, _count: { _all: true } }),
     prisma.reproduction.findMany({ where: { ...farms, actualBirthDate: null, status: { in: ['Coberta', 'Prenha'] }, expectedBirthDate: { lte: in7 } }, select: { farmId: true, expectedBirthDate: true } }),
     prisma.vaccination.findMany({ where: { animal: farms, appliedDate: null, scheduledDate: { lte: in7 } }, select: { scheduledDate: true, animal: { select: { farmId: true } } } }),
     prisma.veterinaryTreatment.findMany({ where: { animal: farms, startDate: { lte: today }, endDate: { gte: today } }, select: { animal: { select: { farmId: true } } } }),
     prisma.animal.findMany({ where: farms, select: { id: true, farmId: true, code: true, name: true, species: true, gender: true, status: true, birthDate: true, motherId: true } }),
     prisma.reproduction.findMany({ where: farms, select: { id: true, farmId: true, femaleId: true, coverageDate: true, status: true } }),
+    // Partos previstos que podem pedir secagem ou pré-parto hoje
+    prisma.reproduction.findMany({
+      where: { ...farms, actualBirthDate: null, status: { in: ['Coberta', 'Prenha'] }, expectedBirthDate: { gte: new Date(`${range.from}T00:00:00.000Z`), lte: new Date(`${range.to}T00:00:00.000Z`) } },
+      select: { farmId: true, femaleId: true, expectedBirthDate: true },
+    }),
+    prisma.farm.findMany({ where: { id: { in: farmIds } }, select: { id: true, segments: true } }),
   ])
+  // Secagem só para quem já pariu (vaca em lactação), em propriedade de leite (ou sem segmento definido)
+  const mothers = new Set(herd.map((a) => a.motherId).filter(Boolean))
+  const speciesOf = new Map(herd.map((a) => [a.id, a.species]))
+  const dairy = new Set(farmSegments.filter((f) => !f.segments.length || f.segments.includes('leite')).map((f) => f.id))
 
   const tasks: VetTask[] = []
   for (const farmId of farmIds) {
@@ -184,6 +200,15 @@ export async function vetTasks(farmIds: string[]): Promise<VetTask[]> {
     const own = births.filter((b) => b.farmId === farmId)
     const lateBirths = own.filter((b) => b.expectedBirthDate! < today).length
     if (own.length) tasks.push({ farmId, n: own.length, late: lateBirths, title: own.length === 1 ? '{n} parto previsto até a semana que vem' : '{n} partos previstos até a semana que vem', href: '/reproducao?filtro=partos', tone: lateBirths ? 'red' : 'amber' })
+
+    const steps = upcoming.filter((r) => r.farmId === farmId).flatMap((r) => prepSteps(r.expectedBirthDate!.toISOString(), todayStr,
+      dairy.has(farmId) && (mothers.has(r.femaleId) || speciesOf.get(r.femaleId) === 'Vaca')))
+    const dry = steps.filter((s) => s.kind === 'secagem')
+    const lateDry = dry.filter((s) => s.late).length
+    if (dry.length) tasks.push({ farmId, n: dry.length, late: lateDry, title: dry.length === 1 ? '{n} vaca para secar' : '{n} vacas para secar', detail: '60 dias antes do parto previsto', href: '/reproducao?filtro=partos', tone: lateDry ? 'red' : 'amber' })
+    const pre = steps.filter((s) => s.kind === 'preparto')
+    const latePre = pre.filter((s) => s.late).length
+    if (pre.length) tasks.push({ farmId, n: pre.length, late: latePre, title: pre.length === 1 ? '{n} vaca para o pré-parto' : '{n} vacas para o pré-parto', detail: '21 dias antes do parto previsto', href: '/reproducao?filtro=partos', tone: latePre ? 'red' : 'amber' })
 
     const shots = vaccines.filter((v) => v.animal.farmId === farmId)
     const lateShots = shots.filter((v) => v.scheduledDate! < today).length
@@ -197,4 +222,21 @@ export async function vetTasks(farmIds: string[]): Promise<VetTask[]> {
     if (care) tasks.push({ farmId, n: care, title: care === 1 ? '{n} tratamento em andamento' : '{n} tratamentos em andamento', href: '/veterinary-treatment', tone: 'blue' })
   }
   return tasks
+}
+
+/**
+ * Propriedade de um cliente que ainda não usa o sistema, cadastrada pelo veterinário (ele passa a atendê-la;
+ * o produtor pode receber o acesso depois). Usada no cadastro de propriedade e no de animal ("fazenda não cadastrada").
+ */
+export async function createClientFarm(user: { id: string; farmId: string | null; isDemo: boolean }, vetId: string, data: { name: string; owner?: unknown; phone?: unknown; city?: unknown; state?: unknown }) {
+  const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
+  return prisma.$transaction(async (tx) => {
+    const farm = await tx.farm.create({
+      data: { name: data.name.trim(), owner: text(data.owner), phone: text(data.phone), city: text(data.city), state: regionOrNull(data.state), isDemo: user.isDemo },
+    })
+    await addFarmMember(tx, user.id, farm.id)
+    // Sem nenhuma propriedade aberta, esta já fica aberta
+    if (!user.farmId) await tx.user.update({ where: { id: user.id }, data: { farmId: farm.id } })
+    return tx.vetClient.create({ data: { vetId, farmId: farm.id, farmName: farm.name, createdByVet: true } })
+  })
 }

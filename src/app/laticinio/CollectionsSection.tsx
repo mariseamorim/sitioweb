@@ -1,5 +1,6 @@
 'use client'
 
+import { StatTile } from '@/components/StatTile'
 import { type DairyPanel, fmtDay, fmtL } from './types'
 
 export function PeriodPicker({ period, onPeriod }: { period: { from: string; to: string }; onPeriod: (p: { from: string; to: string }) => void }) {
@@ -29,8 +30,8 @@ function Totals({ title, rows }: { title: string; rows: [string, number][] }) {
             <li key={name} className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
               <span className="text-gray-800">{name}</span>
               <span className="flex items-center gap-2">
-                <span className="hidden h-2 rounded-full bg-green-600 sm:block" style={{ width: `${total ? Math.max(4, (liters / total) * 120) : 0}px` }} />
-                <span className="font-semibold text-gray-900">{fmtL(liters)}</span>
+                <span className="hidden h-2.5 rounded-full bg-gradient-to-r from-green-600 to-teal-500 sm:block" style={{ width: `${total ? Math.max(4, (liters / total) * 120) : 0}px` }} />
+                <span className="font-semibold tabular-nums text-gray-900">{fmtL(liters)}</span>
               </span>
             </li>
           ))}
@@ -58,17 +59,18 @@ export function CollectionsSection({ panel, period, onPeriod }: { panel: DairyPa
   return (
     <div>
       <PeriodPicker period={period} onPeriod={onPeriod} />
-      <p className="mb-4 text-sm text-gray-600">
-        <strong className="text-lg text-gray-900">{fmtL(total)}</strong> coletados de {fmtDay(panel.period.from)} a {fmtDay(panel.period.to)}
-        {' '}· produção, coleta e recebimento são registros separados.
-      </p>
+      <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile accent="green" label="Coletado no período" value={fmtL(total)} detail={`${fmtDay(panel.period.from)} a ${fmtDay(panel.period.to)}`} />
+        <StatTile accent={skips.length > 0 ? 'red' : 'teal'} label="Coletas não realizadas" value={String(skips.length)} />
+      </div>
+      <p className="mb-4 text-sm text-gray-600">Produção, coleta e recebimento são registros separados.</p>
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-gray-200 bg-white">
           <h2 className="border-b border-gray-100 px-4 py-3 font-semibold text-gray-900">Por dia</h2>
           {byDay.length === 0 ? <p className="px-4 py-3 text-sm text-gray-500">Nenhuma coleta.</p> : (
             <ul className="divide-y divide-gray-100">
               {byDay.map(([day, liters]) => (
-                <li key={day} className="flex justify-between px-4 py-2 text-sm"><span>{day}</span><span className="font-semibold">{fmtL(liters)}</span></li>
+                <li key={day} className="flex justify-between px-4 py-2 text-sm"><span>{day}</span><span className="font-semibold tabular-nums">{fmtL(liters)}</span></li>
               ))}
             </ul>
           )}

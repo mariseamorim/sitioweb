@@ -29,6 +29,9 @@ interface Report {
 const cow = (n: Named) => `${n.animal} (${n.code})`
 const TYPE = { secagem: 'Secar', 'pre-parto': 'Pré-parto', parto: 'Parto previsto' } as const
 const h2 = 'mt-6 mb-2 border-b border-gray-300 pb-1 text-base font-bold text-gray-900'
+// Etiquetas coloridas (a palavra sempre aparece; na folha impressa sem cor de fundo continua legível)
+const RESULT_COLOR: Record<string, string> = { Prenha: 'bg-green-100 text-green-800', Vazia: 'bg-red-100 text-red-800', Coberta: 'bg-blue-100 text-blue-800', Parida: 'bg-purple-100 text-purple-800' }
+const TYPE_COLOR = { secagem: 'bg-amber-100 text-amber-800', 'pre-parto': 'bg-teal-100 text-teal-800', parto: 'bg-purple-100 text-purple-800' } as const
 
 export default function RelatorioVisitaPage() {
   const { user } = useUser()
@@ -99,7 +102,7 @@ export default function RelatorioVisitaPage() {
           <label className="text-sm font-medium text-gray-700">{t('Dia da visita')}
             <input type="date" value={date} max={todayISO()} onChange={(e) => e.target.value && setDate(e.target.value)} className="mt-1 block rounded-lg border border-gray-300 px-3 py-2 text-base" />
           </label>
-          {report && <button type="button" onClick={() => window.print()} className="rounded-lg bg-green-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-600">{t('Imprimir')}</button>}
+          {report && <button type="button" onClick={() => window.print()} className="rounded-lg bg-green-800 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700">{t('Imprimir')}</button>}
           {report && <a href={`https://wa.me/?text=${encodeURIComponent(summary(report))}`} target="_blank" rel="noreferrer" className="rounded-lg border border-green-700 px-4 py-2.5 text-sm font-semibold text-green-800 hover:bg-green-50">{t('Enviar pelo WhatsApp')}</a>}
         </div>
       </div>
@@ -128,7 +131,7 @@ export default function RelatorioVisitaPage() {
               <p className="text-sm font-semibold">{t('Diagnóstico de gestação')}: {t('{n} prenhas', { n: report.done.diagnoses.filter((d) => d.result === 'Prenha').length })}, {t('{n} vazias', { n: report.done.diagnoses.filter((d) => d.result === 'Vazia').length })}</p>
               <table className="mt-1 mb-3 w-full text-left text-sm">
                 <thead><tr><th scope="col" className="border-b border-gray-200 py-1 pr-3 font-medium text-gray-600">{t('Animal')}</th><th scope="col" className="border-b border-gray-200 py-1 pr-3 font-medium text-gray-600">{t('Resultado')}</th><th scope="col" className="border-b border-gray-200 py-1 font-medium text-gray-600">{t('Parto previsto')}</th></tr></thead>
-                <tbody>{report.done.diagnoses.map((d, i) => <tr key={i}><td className="border-b border-gray-100 py-1 pr-3">{cow(d)}</td><td className="border-b border-gray-100 py-1 pr-3 font-semibold">{t(d.result)}</td><td className="border-b border-gray-100 py-1">{d.expectedBirthDate ? day(d.expectedBirthDate) : d.result === 'Vazia' ? t('cobrir de novo') : '—'}</td></tr>)}</tbody>
+                <tbody>{report.done.diagnoses.map((d, i) => <tr key={i}><td className="border-b border-gray-100 py-1 pr-3">{cow(d)}</td><td className="border-b border-gray-100 py-1 pr-3"><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${RESULT_COLOR[d.result] ?? 'bg-gray-100 text-gray-800'}`}>{t(d.result)}</span></td><td className="border-b border-gray-100 py-1">{d.expectedBirthDate ? day(d.expectedBirthDate) : d.result === 'Vazia' ? t('cobrir de novo') : '—'}</td></tr>)}</tbody>
               </table>
             </>
           )}
@@ -140,7 +143,7 @@ export default function RelatorioVisitaPage() {
           {report.upcoming.length === 0 ? <p className="text-sm text-gray-600">{t('Nenhuma secagem, pré-parto ou parto previsto no período.')}</p> : (
             <table className="w-full text-left text-sm">
               <thead><tr><th scope="col" className="border-b border-gray-200 py-1 pr-3 font-medium text-gray-600">{t('Data')}</th><th scope="col" className="border-b border-gray-200 py-1 pr-3 font-medium text-gray-600">{t('Manejo')}</th><th scope="col" className="border-b border-gray-200 py-1 font-medium text-gray-600">{t('Animal')}</th></tr></thead>
-              <tbody>{report.upcoming.map((u, i) => <tr key={i}><td className="border-b border-gray-100 py-1 pr-3 whitespace-nowrap">{day(u.date)}</td><td className="border-b border-gray-100 py-1 pr-3 font-semibold">{t(TYPE[u.type])}</td><td className="border-b border-gray-100 py-1">{cow(u)}</td></tr>)}</tbody>
+              <tbody>{report.upcoming.map((u, i) => <tr key={i}><td className="border-b border-gray-100 py-1 pr-3 whitespace-nowrap">{day(u.date)}</td><td className="border-b border-gray-100 py-1 pr-3"><span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${TYPE_COLOR[u.type]}`}>{t(TYPE[u.type])}</span></td><td className="border-b border-gray-100 py-1">{cow(u)}</td></tr>)}</tbody>
             </table>
           )}
 

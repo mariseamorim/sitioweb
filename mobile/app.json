@@ -3,14 +3,14 @@
     "name": "Anota Aí Agro",
     "slug": "anota-ai-agro",
     "scheme": "anotaaiagro",
-    "version": "1.6.3",
+    "version": "1.7.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "android": {
       "package": "br.com.anotaaiagro.app",
-      "versionCode": 11,
+      "versionCode": 21,
       "adaptiveIcon": {
         "backgroundColor": "#0f3f2e",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -46,8 +46,7 @@
         "expo-image-picker",
         {
           "cameraPermission": "O app usa a câmera para você tirar a foto do animal.",
-          "photosPermission": "O app abre as suas fotos para você escolher a foto do animal.",
-          "microphonePermission": false
+          "photosPermission": "O app abre as suas fotos para você escolher a foto do animal."
         }
       ],
       [
