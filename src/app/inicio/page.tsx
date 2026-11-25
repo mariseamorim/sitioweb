@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import Image from 'next/image'
+import Image, { getImageProps } from 'next/image'
 import { MilkDemo } from '@/components/MilkDemo'
 import Link from 'next/link'
 import { AnimalIcon, LeiteIcon, TratamentoIcon, FinanceiroIcon, EstoqueIcon, PainelIcon, SincronizarIcon, CheckIcon, SetaDireitaIcon } from '@/components/ModuleIcons'
@@ -66,11 +66,19 @@ const features = [
   { Icon: PainelIcon, title: 'Painel completo', text: 'Os indicadores mais importantes da propriedade em uma visão.' },
 ]
 export default function LandingPage() {
+  const { props: { srcSet: desktopHeroSrcSet } } = getImageProps({ src: '/rural-hero.png', alt: '', width: 1376, height: 768, sizes: '100vw', quality: 75 })
+  const { props: { srcSet: mobileHeroSrcSet, ...mobileHeroRest } } = getImageProps({ src: '/rural-hero-mobile.jpg', alt: '', width: 896, height: 1152, sizes: '100vw', quality: 75 })
   return <main className="rural-landing" id="inicio">
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
     <a className="landing-skip" href="#experimentar">Pular para o conteúdo</a>
     <LandingHeader />
-    <section className="landing-hero"><div className="landing-container hero-content">
+    <section className="landing-hero">
+      <picture className="hero-media" aria-hidden="true">
+        <source media="(min-width: 768px)" srcSet={desktopHeroSrcSet} />
+        <source media="(max-width: 767px)" srcSet={mobileHeroSrcSet} />
+        <img {...mobileHeroRest} fetchPriority="high" decoding="async" className="hero-bg-image" />
+      </picture>
+      <div className="landing-container hero-content">
       <p className="landing-eyebrow">Anota Aí Leite · Grátis para sempre</p>
       <h1>Anote o leite do dia.<br /><em>Confira os litros</em><br />com o motorista.</h1>
       <p className="hero-description">Guarde suas anotações no celular, acompanhe o total e confira a folha do motorista. As anotações funcionam mesmo sem internet.</p>
@@ -97,6 +105,6 @@ export default function LandingPage() {
       <ContactForm />
     </section>
     <section id="comecar" className="landing-cta"><div className="landing-container"><div><p className="landing-eyebrow">Pronto para simplificar?</p><h2>Comece anotando o leite de hoje.</h2></div><Link href="/lite/cadastro" className="landing-button button-dark">Começar grátis <SetaDireitaIcon /></Link></div></section>
-    <footer className="landing-footer landing-container"><a href="#inicio" className="landing-brand"><Image src="/anota-ai-agro-logo.png" width={1632} height={473} alt="Anota Aí Agro" className="landing-brand-logo" /></a><p>Gestão rural simples, de verdade.</p><div><Link href="/login">Entrar no sistema</Link><Link href="/ajuda">Ajuda e suporte</Link><Link href="/privacidade">Privacidade</Link><a href="#contato">Fale conosco</a><a href="mailto:anotaaiagro@gmail.com">anotaaiagro@gmail.com</a><span>© {new Date().getFullYear()} Anota Aí Agro</span></div></footer>
+    <footer className="landing-footer landing-container"><a href="#inicio" className="landing-brand"><Image src="/anota-ai-agro-logo.png" width={1632} height={473} sizes="144px" alt="Anota Aí Agro" className="landing-brand-logo" /></a><p>Gestão rural simples, de verdade.</p><div><Link href="/login">Entrar no sistema</Link><Link href="/ajuda">Ajuda e suporte</Link><Link href="/privacidade">Privacidade</Link><a href="#contato">Fale conosco</a><a href="mailto:anotaaiagro@gmail.com">anotaaiagro@gmail.com</a><span>© {new Date().getFullYear()} Anota Aí Agro</span></div></footer>
   </main>
 }
