@@ -84,7 +84,10 @@ export default function AgendaScreen() {
   }, [isVet, visitsKey])
 
   // Último manejo marcado como feito, para o "Desfazer"
-  const [lastDone, setLastDone] = useState<{ item: AgendaItem; id: string } | null>(null)
+  // Última ação da agenda, para o "Desfazer": Feito (id do registro) ou vacina Aplicada (volta a ficar sem data de aplicação)
+  const [lastDone, setLastDone] = useState<{ item: AgendaItem; id: string; vaccine?: boolean } | null>(null)
+  // Item esperando a resposta do servidor (veterinário): o botão mostra carregando e não aceita outro toque
+  const [busyKey, setBusyKey] = useState<string | null>(null)
 
   const all = useMemo(() => (isVet ? remote ?? [] : sortAgenda([...local, ...visits.filter(v => v.date >= shiftDay(today, -30))])), [isVet, remote, local, visits, today])
   const items = useMemo(() => all.filter(i => !kind || i.kind === kind), [all, kind])
@@ -110,13 +113,19 @@ export default function AgendaScreen() {
     await Share.share({ message: text })
   }
 
-  function applyVaccine(item: AgendaItem) {
-    const v = getVaccination(item.refId)
-    if (!v) return
+  function setVaccineApplied(refId: string, appliedDate: string) {
+    const v = getVaccination(refId)
+    if (!v) return false
     saveVaccination(farmId, {
-      animalId: v.animalId, vaccineName: v.vaccineName, scheduledDate: isoDay(v.scheduledDate), appliedDate: today, appliedBy: v.appliedBy ?? '',
+      animalId: v.animalId, vaccineName: v.vaccineName, scheduledDate: isoDay(v.scheduledDate), appliedDate, appliedBy: v.appliedBy ?? '',
       batch: v.batch ?? '', manufacturer: v.manufacturer ?? '', observations: v.observations ?? '',
     }, v.id)
+    return true
+  }
+
+  function applyVaccine(item: AgendaItem) {
+    setError('')
+    if (setVaccineApplied(item.refId, today)) setLastDone({ item, id: item.refId, vaccine: true })
   }
 
   async function markDone(item: AgendaItem) {
@@ -125,19 +134,23 @@ export default function AgendaScreen() {
       setLastDone({ item, id: markAgendaDone(farmId, item.key) })
       return
     }
+    setBusyKey(item.key)
     try {
       const row = await api<{ id: string }>('/api/agenda/feitos', { method: 'POST', body: { key: item.key, farmId: item.farmId } })
       setRemote(r => (r ?? []).filter(i => i.key !== item.key))
       setLastDone({ item, id: row.id })
     } catch (e) {
       setError(e instanceof NetworkError ? t('Sem internet: marque como feito quando a conexão voltar.') : e instanceof Error ? t(e.message) : t('Não foi possível salvar.'))
+    } finally {
+      setBusyKey(null)
     }
   }
 
   async function undoDone() {
     if (!lastDone) return
-    const { item, id } = lastDone
+    const { item, id, vaccine } = lastDone
     setLastDone(null)
+    if (vaccine) return void setVaccineApplied(id, '')
     if (!isVet) return undoAgendaDone(farmId, id)
     try {
       await api(`/api/agenda/feitos/${id}`, { method: 'DELETE' })
@@ -149,11 +162,14 @@ export default function AgendaScreen() {
 
   async function visit(item: AgendaItem, status: 'realizada' | 'cancelada') {
     setError('')
+    setBusyKey(item.key)
     try {
       await api(`/api/veterinario/visitas/${item.refId}`, { method: 'PATCH', body: { status } })
       await reload()
     } catch (e) {
       setError(e instanceof NetworkError ? t('Sem internet: conclua ou cancele a visita quando a conexão voltar.') : e instanceof Error ? t(e.message) : t('Não foi possível salvar.'))
+    } finally {
+      setBusyKey(null)
     }
   }
 
@@ -173,8 +189,9 @@ export default function AgendaScreen() {
       {error ? <Notice tone="red" text={error} /> : null}
       {lastDone ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm, backgroundColor: colors.greenSoft, borderRadius: radius.md, padding: space.md, marginBottom: space.md }}>
-          <Text style={{ flex: 1, color: colors.greenDark }}>✓ {t('Marcado como feito: {item}', { item: t(lastDone.item.label, lastDone.item.vars) })}</Text>
-          <Pressable onPress={() => void undoDone()} hitSlop={8}><Text style={{ color: colors.greenDark, fontWeight: '800', textDecorationLine: 'underline' }}>{t('Desfazer')}</Text></Pressable>
+          <Ionicons name="checkmark-circle" size={20} color={colors.greenDark} />
+          <Text style={{ flex: 1, color: colors.greenDark }}>{t(lastDone.vaccine ? 'Vacina aplicada hoje: {item}' : 'Marcado como feito: {item}', { item: t(lastDone.item.label, lastDone.item.vars) })}</Text>
+          <Pressable onPress={() => void undoDone()} accessibilityRole="button" hitSlop={8} style={{ minHeight: 44, minWidth: 44, justifyContent: 'center', paddingHorizontal: space.sm }}><Text style={{ color: colors.greenDark, fontWeight: '800', textDecorationLine: 'underline' }}>{t('Desfazer')}</Text></Pressable>
         </View>
       ) : null}
 
@@ -281,12 +298,12 @@ export default function AgendaScreen() {
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm }}>
-                  {canMarkDone(item) && (isVet || (canEdit && canAccess('reproducao'))) ? <Button label="Feito" icon="checkmark" onPress={() => void markDone(item)} style={{ flexGrow: 1 }} /> : null}
+                  {canMarkDone(item) && (isVet || (canEdit && canAccess('reproducao'))) ? <Button label="Feito" icon="checkmark" loading={busyKey === item.key} disabled={!!busyKey} onPress={() => void markDone(item)} style={{ flexGrow: 1 }} /> : null}
                   {item.kind === 'vacina' && !isVet && canEdit && canAccess('vacinacao') ? <Button label="Aplicada" icon="checkmark" onPress={() => applyVaccine(item)} style={{ flexGrow: 1 }} /> : null}
                   {item.kind === 'visita' && isVet ? (
                     <>
-                      <Button label="Concluir" icon="checkmark" onPress={() => void visit(item, 'realizada')} style={{ flexGrow: 1 }} />
-                      <Button label="Cancelar" variant="ghost" onPress={() => void visit(item, 'cancelada')} />
+                      <Button label="Concluir" icon="checkmark" loading={busyKey === item.key} disabled={!!busyKey} onPress={() => void visit(item, 'realizada')} style={{ flexGrow: 1 }} />
+                      <Button label="Cancelar visita" variant="ghost" disabled={!!busyKey} onPress={() => void visit(item, 'cancelada')} />
                     </>
                   ) : item.kind !== 'visita' ? (
                     <Button label="Abrir" variant="secondary" disabled={!!busy} onPress={() => openItem(item)} style={{ flexGrow: 1 }} />

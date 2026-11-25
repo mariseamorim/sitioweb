@@ -308,11 +308,7 @@ export default function MilkProductionPage() {
         <button
           onClick={openRegister}
           disabled={!canEdit}
-          className={`text-white text-sm font-medium px-4 py-2 rounded-lg ${
-            canEdit
-              ? 'bg-green-700 hover:bg-green-600'
-              : 'bg-gray-400 cursor-not-allowed'
-          }`}
+          className="btn-primary"
         >
           {t('Anotar leite')}
         </button>

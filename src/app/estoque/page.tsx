@@ -21,6 +21,7 @@ import { QuickFilterChip, useQuickFilter } from '@/components/QuickFilter'
 import { useLocale, useT } from '@/lib/i18n'
 import { StatTile } from '@/components/StatTile'
 import { AppModal, modalButton } from '@/components/AppModal'
+import { keepNumberChars, parseBrNumber } from '@/lib/brNumber'
 
 interface SupplyMovement { id: string; type: string; quantity: number; date: string; description?: string | null }
 interface Supply {
@@ -201,7 +202,7 @@ export default function EstoquePage() {
     setSaving(true)
     setSaveError('')
     // Com internet envia; sem internet ou com sinal fraco fica na fila do aparelho e já aparece na lista
-    const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/estoque', method: 'POST', body: { ...form, farmId }, local: { farmId } })
+    const r = await sendOrQueue(MODULE, { type: 'create', url: '/api/estoque', method: 'POST', body: { ...form, currentQuantity: parseBrNumber(form.currentQuantity) || 0, minimumQuantity: parseBrNumber(form.minimumQuantity) || 0, unitPrice: parseDec(String(parseBrNumber(form.unitPrice) || '')), packageKg: parseDec(String(parseBrNumber(form.packageKg) || '')), farmId }, local: { farmId } })
     setSaving(false)
     if (r.status === 'rejected') return setSaveError(t(r.error))
     setShowNew(false)
@@ -360,7 +361,7 @@ export default function EstoquePage() {
           <h1 className="text-2xl font-bold text-gray-800">{t('Estoque')}</h1>
           <p className="text-gray-500 text-sm mt-1">{t('Insumos, medicamentos e vacinas')}</p>
         </div>
-        <button onClick={() => setShowNew(true)} disabled={!canEdit} className={`text-white text-sm font-semibold px-4 py-2 rounded-lg ${canEdit ? 'bg-green-800 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}>
+        <button onClick={() => setShowNew(true)} disabled={!canEdit} className="btn-primary">
           {t('Cadastrar produto')}
         </button>
       </div>
@@ -627,10 +628,10 @@ export default function EstoquePage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <label className="text-sm font-medium text-gray-700">{t('Qtd Inicial')}
-                    <input type="number" value={form.currentQuantity} onChange={e => setForm({ ...form, currentQuantity: e.target.value })} step="0.01" min="0" placeholder={t('Ex.: 100')} className={FIELD} />
+                    <input type="text" inputMode="decimal" value={form.currentQuantity} onChange={e => setForm({ ...form, currentQuantity: keepNumberChars(e.target.value) })} placeholder={t('Ex.: 100')} className={FIELD} />
                   </label>
                   <label className="text-sm font-medium text-gray-700">{t('Qtd Mínima')}
-                    <input type="number" value={form.minimumQuantity} onChange={e => setForm({ ...form, minimumQuantity: e.target.value })} step="0.01" min="0" placeholder={t('Ex.: 30')} className={FIELD} />
+                    <input type="text" inputMode="decimal" value={form.minimumQuantity} onChange={e => setForm({ ...form, minimumQuantity: keepNumberChars(e.target.value) })} placeholder={t('Ex.: 30')} className={FIELD} />
                   </label>
                 </div>
                 <div className="grid grid-cols-2 gap-3">

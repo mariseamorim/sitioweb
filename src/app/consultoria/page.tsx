@@ -246,16 +246,28 @@ export default function ConsultoriaPage() {
             </dl>
             <p className="mt-3 text-sm text-gray-600">{t('Situação')}: <span className={`ml-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${c.awaitingDiagnosis ? 'bg-amber-100 text-amber-900' : 'bg-green-100 text-green-800'}`}>{t(c.awaitingDiagnosis ? 'Pendente' : 'Em dia')}</span></p>
             <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/')} className="mt-4 w-full rounded-xl bg-gradient-to-r from-green-700 to-teal-600 py-2.5 font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-60">{t('Abrir painel')}</button>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/diagnostico')} className="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:bg-green-400">{t('Diagnóstico em lote')}</button>
-              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/relatorio-visita')} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Relatório de visita')}</button>
-              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/relatorios?tipo=ficha-reprodutiva')} className="rounded-lg border border-pink-300 bg-pink-50 px-3 py-2 text-sm font-semibold text-pink-800 hover:bg-pink-100">{t('Ficha reprodutiva')}</button>
-              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/indicadores')} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Indicadores')}</button>
-              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao')} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Reprodução')}</button>
-              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/animais')} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Animais')}</button>
-              {c.createdByVet && <button type="button" onClick={() => { setFormError(''); setProducer({ name: c.owner ?? '', phone: c.phone ?? '', email: '', password: '' }); setProducerFor(c) }} className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">{t('Dar acesso ao produtor')}</button>}
-              <button type="button" onClick={() => endLink(c)} className="rounded-lg px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">{t('Deixar de atender')}</button>
+            {/* Atalhos do dia a dia, todos com o mesmo peso; o principal é "Abrir painel" */}
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/diagnostico')} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Diagnóstico em lote')}</button>
+              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/relatorios?tipo=ficha-reprodutiva')} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Ficha reprodutiva')}</button>
+              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/relatorio-visita')} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Relatório de visita')}</button>
+              <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao')} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Reprodução')}</button>
             </div>
+            <details className="group mt-2">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-1 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50">
+                {t('Mais opções')}
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+              </summary>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/reproducao/indicadores')} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Indicadores')}</button>
+                <button type="button" disabled={busy === c.id} onClick={() => openFarm(c, '/animais')} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Animais')}</button>
+                {c.createdByVet && <button type="button" onClick={() => { setFormError(''); setProducer({ name: c.owner ?? '', phone: c.phone ?? '', email: '', password: '' }); setProducerFor(c) }} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-60">{t('Dar acesso ao produtor')}</button>}
+              </div>
+              {/* Ação que desfaz o vínculo: separada, no fim */}
+              <div className="mt-3 border-t border-gray-100 pt-3">
+                <button type="button" onClick={() => endLink(c)} className="rounded-lg px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">{t('Deixar de atender')}</button>
+              </div>
+            </details>
           </article>
         ))}
       </div>

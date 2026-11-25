@@ -64,19 +64,40 @@ export function AppModal({ title, subtitle, icon, tone = 'green', size = 'md', o
   const overlay = useRef<HTMLDivElement>(null)
 
   // Entra na pilha ao abrir; o foco vai para o primeiro campo
+  // A página de trás para de rolar e, ao fechar, o foco volta para o botão que abriu
   useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     openStack.push(id)
     if (overlay.current) overlay.current.style.zIndex = String(50 + openStack.length)
     box.current?.querySelector<HTMLElement>('[autofocus], input, select, textarea, button:not([aria-label])')?.focus()
-    return () => { const i = openStack.lastIndexOf(id); if (i >= 0) openStack.splice(i, 1) }
+    return () => {
+      const i = openStack.lastIndexOf(id)
+      if (i >= 0) openStack.splice(i, 1)
+      document.body.style.overflow = previousOverflow
+      if (previousFocus?.isConnected) previousFocus.focus()
+    }
   }, [id])
 
   // Esc fecha só o modal de cima
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || openStack[openStack.length - 1] !== id) return
-      e.stopImmediatePropagation()
-      closeRef.current()
+      if (openStack[openStack.length - 1] !== id) return
+      if (e.key === 'Escape') {
+        e.stopImmediatePropagation()
+        closeRef.current()
+        return
+      }
+      // Tab circula só dentro do modal de cima
+      if (e.key !== 'Tab' || !box.current) return
+      const items = Array.from(box.current.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])')).filter(el => el.offsetParent !== null)
+      if (!items.length) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      const inside = box.current.contains(document.activeElement)
+      if (e.shiftKey && (document.activeElement === first || !inside)) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && (document.activeElement === last || !inside)) { e.preventDefault(); first.focus() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

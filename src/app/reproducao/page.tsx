@@ -275,7 +275,7 @@ export default function ReproducaoPage() {
           <a href="/reproducao/indicadores" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-gray-300 text-gray-700 hover:bg-gray-50">{t('Indicadores')}</a>
           <a href="/reproducao/relatorio-visita" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-gray-300 text-gray-700 hover:bg-gray-50">{t('Relatório de visita')}</a>
           <a href="/reproducao/diagnostico" className="text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap border border-green-700 text-green-800 hover:bg-green-50">{t('Diagnóstico em lote')}</a>
-          <button onClick={openRegister} disabled={!canEdit} className={`text-white text-sm font-medium px-4 py-2 rounded-lg shrink-0 whitespace-nowrap ${canEdit ? 'bg-green-800 hover:bg-green-700' : 'bg-gray-400 cursor-not-allowed'}`}>
+          <button onClick={openRegister} disabled={!canEdit} className="btn-primary shrink-0 whitespace-nowrap">
             + {t('Registrar')}
           </button>
         </div>

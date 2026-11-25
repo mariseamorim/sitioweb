@@ -15,6 +15,7 @@ import { SemSinalIcon, SincronizarIcon, FecharIcon, FinanceiroIcon } from '@/com
 import { useLocale, useT } from '@/lib/i18n'
 import { StatTile } from '@/components/StatTile'
 import { AppModal, modalButton } from '@/components/AppModal'
+import { keepNumberChars, parseBrNumber } from '@/lib/brNumber'
 import { MilkResultPanel, SpendingAlerts, useMilkResult } from '@/components/MilkResult'
 
 interface Animal { id: string; name: string; code: string }
@@ -184,13 +185,14 @@ export default function FinanceiroPage() {
 
   async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setSaving(true)
     setSaveError('')
+    if (!(parseBrNumber(form.amount) > 0)) return setSaveError(t('Informe o valor, por exemplo 450,00 ou 1.500,00'))
+    setSaving(true)
     const body = {
       type: form.type,
       category: form.category,
       date: form.date,
-      amount: parseFloat(form.amount),
+      amount: parseBrNumber(form.amount),
       description: form.description || null,
       // Animal só na venda de animal; despesa não tem animal
       animalId: form.type === 'Receita' && form.category === 'Venda de Animal' ? form.animalId || null : null,
@@ -224,7 +226,7 @@ export default function FinanceiroPage() {
           <h1 className="text-2xl font-bold text-gray-800">{t('Financeiro')}</h1>
           <p className="text-gray-500 text-sm mt-1">{t('Receitas e despesas da propriedade')}</p>
         </div>
-        <button onClick={() => setShowRegister(true)} className="bg-green-800 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg">
+        <button onClick={() => setShowRegister(true)} className="btn-primary">
           {t('Anotar entrada ou saída')}
         </button>
       </div>
@@ -399,7 +401,7 @@ export default function FinanceiroPage() {
                     <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} required className={FIELD} />
                   </label>
                   <label className="text-sm font-medium text-gray-700">{t('Valor (R$)')} *
-                    <input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} step="0.01" min="0" required
+                    <input type="text" inputMode="decimal" value={form.amount} onChange={e => setForm({ ...form, amount: keepNumberChars(e.target.value) })} required
                       placeholder={t('Ex.: 450,00')} className={FIELD} />
                   </label>
                 </div>
