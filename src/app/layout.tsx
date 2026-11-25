@@ -9,6 +9,7 @@ import { DialogProvider } from "@/components/DialogProvider";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const SITE_URL = "https://www.anotaaiagro.com.br";

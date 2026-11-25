@@ -51,7 +51,7 @@ export function AudienceSection() {
         {AUDIENCES.map((a) => (
           <article key={a.shot} className="audience-card">
             <div className="audience-shot">
-              <Image src={`/landing/${a.shot}.webp`} alt={a.alt} width={780} height={1688} sizes="(max-width: 767px) 90vw, 360px" />
+              <Image src={`/landing/${a.shot}.webp`} alt={a.alt} width={780} height={1688} sizes="210px" />
             </div>
             <div className="audience-body">
               <p className="landing-eyebrow">{a.eyebrow}</p>
