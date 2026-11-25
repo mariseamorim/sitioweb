@@ -9,6 +9,7 @@ import { useSegments } from 'expo-router'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors, font, radius, space } from '@/theme'
 import { brDate } from '@/lib/format'
+import { matches } from '@/lib/search'
 import { Ionicons } from '@expo/vector-icons'
 import { useLocale, useT } from '@/lib/i18n'
 
@@ -51,16 +52,17 @@ export function Card({ children, style, onPress }: { children: ReactNode; style?
 }
 
 export function Button({ label, onPress, variant = 'primary', loading, disabled, style, icon }: {
-  label: string; onPress: () => void; variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'accent'; loading?: boolean; disabled?: boolean; style?: ViewStyle
+  label: string; onPress: () => void; variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'accent' | 'destructive'; loading?: boolean; disabled?: boolean; style?: ViewStyle
   /** Ícone (Ionicons) à esquerda do texto */
   icon?: keyof typeof Ionicons.glyphMap
 }) {
-  const bg = variant === 'primary' ? colors.green : variant === 'danger' ? colors.red : variant === 'accent' ? colors.amber : variant === 'secondary' ? colors.white : 'transparent'
-  const fg = variant === 'primary' || variant === 'danger' || variant === 'accent' ? colors.white : colors.green
+  // destructive: apagar/excluir discreto (texto e borda vermelhos), para não parecer uma ação neutra
+  const bg = variant === 'primary' ? colors.green : variant === 'danger' ? colors.red : variant === 'accent' ? colors.amber : variant === 'secondary' || variant === 'destructive' ? colors.white : 'transparent'
+  const fg = variant === 'primary' || variant === 'danger' || variant === 'accent' ? colors.white : variant === 'destructive' ? colors.red : colors.green
   const t = useT()
   return (
     <Pressable onPress={onPress} disabled={disabled || loading} accessibilityRole="button"
-      style={({ pressed }) => [styles.button, { backgroundColor: bg, borderColor: variant === 'secondary' ? colors.green : bg, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 }, style]}>
+      style={({ pressed }) => [styles.button, { backgroundColor: bg, borderColor: variant === 'secondary' ? colors.green : variant === 'destructive' ? colors.red : bg, opacity: disabled ? 0.5 : pressed ? 0.85 : 1 }, style]}>
       {loading ? <ActivityIndicator color={fg} /> : (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           {icon ? <Ionicons name={icon} size={18} color={fg} /> : null}
@@ -102,7 +104,7 @@ export function SelectField({ label, value, options, onChange, placeholder = 'Es
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const current = options.find(o => o.value === value)
-  const shown = q ? options.filter(o => (o.label + ' ' + (o.detail ?? '')).toLowerCase().includes(q.toLowerCase())) : options
+  const shown = q ? options.filter(o => matches(o.label + ' ' + (o.detail ?? ''), q)) : options
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{t(label)}</Text>
@@ -159,17 +161,21 @@ export function DateField({ label, value, onChange, allowEmpty }: { label: strin
   )
 }
 
-export function Chips<T extends string>({ options, value, onChange }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
+/** Escolha única entre poucas opções (até ~5), lado a lado. Com `label`, fica como um campo do formulário. */
+export function Chips<T extends string>({ options, value, onChange, label }: { options: { value: T; label: string }[]; value: T | null; onChange: (v: T) => void; label?: string }) {
   const t = useT()
-  return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, paddingVertical: space.sm }}>
+  const chips = (
+    <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, paddingVertical: label ? 0 : space.sm }}>
       {options.map(o => (
-        <Pressable key={o.value} onPress={() => onChange(o.value)} style={[styles.chip, value === o.value && styles.chipOn]}>
+        <Pressable key={o.value} onPress={() => onChange(o.value)} accessibilityRole="radio" accessibilityState={{ checked: value === o.value }}
+          style={({ pressed }) => [styles.chip, value === o.value && styles.chipOn, pressed && { opacity: 0.85 }]}>
           <Text style={[styles.chipText, value === o.value && { color: colors.white }]}>{t(o.label)}</Text>
         </Pressable>
       ))}
     </View>
   )
+  if (!label) return chips
+  return <View style={styles.field}><Text style={styles.label}>{t(label)}</Text>{chips}</View>
 }
 
 export function Badge({ label, tone = 'muted' }: { label: string; tone?: 'green' | 'amber' | 'red' | 'blue' | 'purple' | 'muted' }) {
@@ -342,7 +348,7 @@ export const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: space.lg },
   modalTitle: { fontSize: font.lg, fontWeight: '700', color: colors.text },
   option: { paddingVertical: 14, paddingHorizontal: space.lg, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.white },
-  chip: { paddingHorizontal: 14, minHeight: 40, justifyContent: 'center', borderRadius: 999, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border },
+  chip: { paddingHorizontal: 16, minHeight: 48, justifyContent: 'center', borderRadius: 999, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border },
   chipOn: { backgroundColor: colors.green, borderColor: colors.green },
   chipText: { fontSize: font.sm, fontWeight: '600', color: colors.text },
   badge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999, alignSelf: 'flex-start' },

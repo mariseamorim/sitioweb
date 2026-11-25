@@ -33,6 +33,8 @@ export const modalButton = {
   danger: 'inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-red-700 disabled:bg-gray-300',
   secondary: 'inline-flex items-center justify-center gap-2 rounded-xl border-2 border-green-700 bg-white px-5 py-2.5 text-base font-semibold text-green-800 hover:bg-green-50 disabled:opacity-50',
   ghost: 'inline-flex items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-5 py-3 text-base font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50',
+  /** Excluir ao lado de outras ações: vermelho sem preenchimento, afastado à esquerda no computador */
+  dangerSubtle: 'inline-flex items-center justify-center gap-2 rounded-xl border border-red-300 bg-white px-5 py-3 text-base font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 sm:mr-auto',
 }
 
 export function AppModal({ title, subtitle, icon, tone = 'green', size = 'md', onClose, footer, note, children, role = 'dialog', labelledBy }: {

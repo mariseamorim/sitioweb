@@ -58,8 +58,9 @@ export function DialogProvider({ children }: { children: ReactNode }) {
             icon={dialog.danger ? <LixeiraIcon className="h-5 w-5" /> : <AlertaIcon className="h-5 w-5" />}
             onClose={() => close(false)}
             footer={<>
-              {dialog.kind === 'confirm' && <button type="button" onClick={() => close(false)} className={modalButton.ghost}>{t('Cancelar')}</button>}
-              <button type="button" autoFocus onClick={() => close(true)} className={dialog.danger ? modalButton.danger : modalButton.primary}>
+              {/* Excluir: o foco começa em Cancelar, para um Enter sem querer não apagar nada */}
+              {dialog.kind === 'confirm' && <button type="button" autoFocus={!!dialog.danger} onClick={() => close(false)} className={modalButton.ghost}>{t('Cancelar')}</button>}
+              <button type="button" autoFocus={!dialog.danger} onClick={() => close(true)} className={dialog.danger ? modalButton.danger : modalButton.primary}>
                 {dialog.kind === 'alert' ? t('Entendi') : t(dialog.confirmLabel ?? 'Confirmar')}
               </button>
             </>}>

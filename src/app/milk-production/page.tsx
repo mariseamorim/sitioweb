@@ -411,7 +411,7 @@ export default function MilkProductionPage() {
                 return (
                   <tr key={d.day} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetailDay(d.day)}>
                     <td className="px-3 py-3 sm:px-4 text-gray-800 whitespace-nowrap">
-                      <span className="font-medium">{fmtDay(d.day)}</span>
+                      <button type="button" className="row-open">{fmtDay(d.day)}</button>
                       <span className="ml-1.5 text-xs text-gray-400">{fmtWeekday(d.day)}</span>
                     </td>
                     <td className="px-3 py-3 sm:px-4 text-right text-gray-500">{cows || '—'}</td>
@@ -442,7 +442,7 @@ export default function MilkProductionPage() {
             <tbody className="divide-y divide-gray-100">
               {sortedCows.map(({ animal, total, count }) => (
                 <tr key={animal.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setDetailAnimalId(animal.id)}>
-                  <td className="px-3 py-3 sm:px-4 font-medium text-gray-800">{animal.name}</td>
+                  <td className="px-3 py-3 sm:px-4 font-medium text-gray-800"><button type="button" className="row-open">{animal.name}</button></td>
                   <td className="hidden sm:table-cell px-3 py-3 sm:px-4 font-mono text-gray-500 text-xs">{animal.code}</td>
                   <td className="px-3 py-3 sm:px-4 text-right font-semibold text-green-700">{fmtNumber(total)}</td>
                   <td className="hidden sm:table-cell px-3 py-3 sm:px-4 text-right text-gray-500">{count}</td>

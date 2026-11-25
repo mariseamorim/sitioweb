@@ -61,6 +61,11 @@ body {
 .app-workspace :where(label) { font-size: .875rem; color: #475569; }
 .app-workspace :where(button, a, input, select, textarea, summary):focus-visible { outline: 3px solid #15803d; outline-offset: 3px; }
 .app-workspace :where(button:not(:disabled), summary) { cursor: pointer; }
+/* Nome na 1ª coluna das tabelas que abrem o detalhe: botão de verdade (teclado e leitor de tela), com o tamanho do texto.
+   O toque continua valendo na linha inteira; o sublinhado discreto mostra que dá para abrir. */
+.row-open { min-height: 0; min-width: 0; padding: 0; font: inherit; color: inherit; text-align: left; text-decoration: underline; text-decoration-color: #d1d5db; text-underline-offset: 3px; cursor: pointer; }
+.app-workspace .row-open { min-height: 0; min-width: 0; font-size: inherit; }
+tr:hover .row-open, .row-open:focus-visible { text-decoration-color: #15803d; }
 .app-workspace :where(button:disabled) { cursor: not-allowed; }
 .app-workspace #conteudo .text-gray-400 { color: #64748b; }
 .app-workspace .page-toolbar { flex-wrap: wrap; gap: 12px; }

@@ -105,7 +105,7 @@ export default function LeiteForm() {
       {error ? <Notice tone="red" text={error} /> : null}
       <Button label={savedAt ? 'Concluir' : editing ? 'Salvar alterações' : 'Salvar'} onPress={save} disabled={!canEdit} />
       {status ? <Muted style={{ textAlign: 'center', marginTop: space.sm }}>{status}</Muted> : null}
-      {editing && canEdit ? <Button label="Apagar" variant="ghost" onPress={remove} style={{ marginTop: space.sm }} /> : null}
+      {editing && canEdit ? <Button label="Apagar" variant="destructive" icon="trash-outline" onPress={remove} style={{ marginTop: space.xl }} /> : null}
     </Screen>
   )
 }

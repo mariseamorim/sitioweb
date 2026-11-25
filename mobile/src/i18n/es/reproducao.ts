@@ -279,4 +279,7 @@ export const reproducao: Record<string, string> = {
   'Observação': 'Observación',
   'Ex.: vaca Mimosa': 'Ej.: vaca Mimosa',
   'validade {date}': 'vence {date}',
+  'Nenhuma cobertura anotada.': 'Ninguna cobertura anotada.',
+  '+ Registrar cobertura': '+ Registrar cobertura',
+  'Excluir registro': 'Eliminar registro',
 }

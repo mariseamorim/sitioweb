@@ -445,7 +445,7 @@ export default function EstoquePage() {
               {sortedSupplies.map(s => (
                 <tr key={s.id} className={`hover:bg-gray-50 cursor-pointer ${isLow(s) ? 'bg-red-50/40' : ''}`} onClick={() => setDetail(s)}>
                   <td className="px-4 py-3 font-medium text-gray-800">
-                    {s.name}
+                    <button type="button" className="row-open">{s.name}</button>
                     {s.id.startsWith('pending_') && <span className="block text-xs font-medium text-blue-700">{t('Aguardando envio')}</span>}
                     <ExpiryNote supply={s} />
                   </td>
