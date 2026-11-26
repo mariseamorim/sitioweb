@@ -18,6 +18,8 @@ export interface VetClient {
   /** O que a propriedade faz (leite, cria, recria, engorda) */
   segments?: string[]
   animals: number; awaitingDiagnosis: number; pregnancyRate: number | null; birthsSoon: number
+  /** Vacas prenhes agora (servidor novo; o antigo não manda) */
+  pregnant?: number
   /** Partos previstos por mês ("AAAA-MM"): o mês atual e os 5 seguintes */
   birthsByMonth?: { month: string; count: number }[]
 }
@@ -321,43 +323,5 @@ export function VetAgenda({ panel, onChanged, compact, ref }: { panel: VetPanel;
         </View>
       ) : null}
     </Card>
-  )
-}
-
-/**
- * Topo da tela Início do veterinário, enxuto: a propriedade aberta (com a troca) e um resumo só com números. A lista
- * das pendências e a agenda completa ficam na Consultoria, agrupadas por propriedade, para não aparecerem duas vezes.
- */
-export function VetToday() {
-  const { panel } = useVetPanel()
-  const router = useRouter()
-  const t = useT()
-  const today = todayISO()
-  const tasks = panel?.tasks ?? []
-  const farmsWithTasks = new Set(tasks.map(k => k.farmId)).size
-  const late = tasks.filter(k => k.tone === 'red').length
-  const visitsToday = (panel?.visits ?? []).filter(v => v.date.slice(0, 10) === today).length
-  return (
-    <>
-      <VetFarmBar />
-      {panel ? (
-        <Card onPress={() => router.push('/consultoria')} style={{ borderColor: late ? colors.red : colors.blue, borderWidth: 2 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontSize: font.lg, fontWeight: '800', color: colors.text }}>{t('Consultoria')}</Text>
-              <Muted>{[
-                tasks.length
-                  ? t(farmsWithTasks === 1 ? '{n} pendências em 1 propriedade' : '{n} pendências em {f} propriedades', { n: tasks.length, f: farmsWithTasks })
-                  : t('Nada pendente nas propriedades que você atende.'),
-                late ? t(late === 1 ? '1 atrasada' : '{n} atrasadas', { n: late }) : null,
-                visitsToday ? t(visitsToday === 1 ? '1 visita hoje' : '{n} visitas hoje', { n: visitsToday }) : null,
-              ].filter(Boolean).join(' · ')}</Muted>
-            </View>
-            <Text style={{ color: colors.muted, fontSize: font.lg }}>›</Text>
-          </View>
-        </Card>
-      ) : null}
-      <Button label={t('Abrir a agenda da semana')} icon="calendar-outline" variant="secondary" onPress={() => router.push('/agenda')} style={{ marginBottom: space.md }} />
-    </>
   )
 }

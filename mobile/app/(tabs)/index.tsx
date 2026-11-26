@@ -15,7 +15,7 @@ import { prepRange, prepSteps } from '@/lib/calvingPrep'
 import { listReproductions } from '@/repos/reproductions'
 import { colors, font, space } from '@/theme'
 import { useLocale, useT } from '@/lib/i18n'
-import { VetToday } from '@/vet/panel'
+import { VetHome } from '@/vet/home'
 import { localAgenda } from '@/repos/agenda'
 import { getFarm } from '@/repos/farms'
 import { lactatingNow } from '@/lib/lactating'
@@ -69,15 +69,30 @@ export default function Painel() {
   const month = new Date(`${today}T12:00:00`).toLocaleDateString(locale, { month: 'long' })
   const monthName = month.charAt(0).toUpperCase() + month.slice(1)
 
-  return (
-    <Screen>
-      <Title sub={user?.farmName ?? ''}>{t('Olá, {name}', { name: user?.name?.split(' ')[0] ?? '' })}</Title>
+  const syncNotices = (
+    <>
       {!sync.online ? <Notice text={t('Sem internet. O que você anotar fica guardado no aparelho e é enviado quando a conexão voltar.')} /> : null}
       {sync.pending > 0 ? <Notice tone="blue" text={t(sync.pending === 1 ? '{n} registro para enviar ao servidor.' : '{n} registros para enviar ao servidor.', { n: sync.pending })} /> : null}
       {sync.failed > 0 ? <Notice tone="red" text={t(sync.failed === 1 ? '{n} envio foi recusado pelo servidor. Veja em Mais › Sincronização.' : '{n} envios foram recusados pelo servidor. Veja em Mais › Sincronização.', { n: sync.failed })} /> : null}
       {sync.unauthorized ? <Notice tone="red" text={t('A sessão expirou. Saia e entre de novo em Mais › Sair da conta.')} /> : null}
-      {/* Veterinário: tarefas das propriedades que atende e a agenda, antes dos números da propriedade aberta */}
-      {user?.vet ? <VetToday /> : null}
+    </>
+  )
+
+  // Veterinário: painel próprio, com as propriedades que atende (src/vet/home.tsx)
+  if (user?.vet) {
+    return (
+      <Screen>
+        {syncNotices}
+        <VetHome />
+        <Muted style={{ marginTop: space.md }}>{sync.lastSyncAt ? `${t('Última sincronização:')} ${new Date(sync.lastSyncAt).toLocaleString(locale)}` : t('Ainda não sincronizado com o servidor.')}</Muted>
+      </Screen>
+    )
+  }
+
+  return (
+    <Screen>
+      <Title sub={user?.farmName ?? ''}>{t('Olá, {name}', { name: user?.name?.split(' ')[0] ?? '' })}</Title>
+      {syncNotices}
 
       {!user?.vet ? (
         <Card onPress={() => router.push('/agenda')} style={{ borderColor: data.agendaToday.late ? colors.red : colors.blue, borderWidth: 2 }}>

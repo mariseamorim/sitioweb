@@ -246,8 +246,9 @@ export function Stat({ label, value, tone }: { label: string; value: string; ton
 /** `plain`: sem cor própria; com `color`, o cartão usa essa cor de fundo */
 export type Accent = 'green' | 'blue' | 'teal' | 'amber' | 'red' | 'plain'
 /** Cores sólidas dos cartões (como os cartões do site: verde, azul-marinho, verde-água, laranja e vermelho) */
-// Laranja e vermelho escurecidos para o texto branco passar de 4,5:1 (leitura ao sol)
-const SOLID: Record<Exclude<Accent, 'plain'>, string> = { green: '#15803d', blue: '#1e3a8a', teal: '#0f766e', amber: '#c2410c', red: '#b91c1c' }
+// Um pouco mais claras que as do site (pedido da usuária em 26/11/2026), sem deixar o texto branco abaixo de 4,5:1
+// (leitura ao sol): verde 4,6 · azul 7,0 · verde-água 4,9 · laranja 4,7 · vermelho 5,2
+const SOLID: Record<Exclude<Accent, 'plain'>, string> = { green: '#178740', blue: '#2350c2', teal: '#0f7f76', amber: '#c94a12', red: '#cf2a2a' }
 
 type TileIconName = keyof typeof Ionicons.glyphMap
 /** Ícone pelo nome do número, em português e em espanhol (a mesma ideia de src/components/StatTile.tsx do site) */
@@ -268,10 +269,11 @@ export function tileIcon(label: string): TileIconName {
 }
 
 /** Cartão de número em cor sólida com ícone (como src/components/StatTile.tsx do site). Dois por linha: use dentro de <TileGrid>. */
-export function Tile({ label, value, detail, accent = 'green', color, icon }: { label: string; value: string; detail?: string; accent?: Accent; color?: string; icon?: TileIconName }) {
+export function Tile({ label, value, detail, accent = 'green', color, icon, onPress }: { label: string; value: string; detail?: string; accent?: Accent; color?: string; icon?: TileIconName; onPress?: () => void }) {
   const bg = accent === 'plain' ? color ?? colors.green : SOLID[accent]
-  return (
-    <View style={{ flexGrow: 1, flexBasis: '45%', backgroundColor: bg, borderRadius: radius.lg, padding: space.md, overflow: 'hidden', elevation: 3, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } }}>
+  const box = { flexGrow: 1, flexBasis: '45%', backgroundColor: bg, borderRadius: radius.lg, padding: space.md, overflow: 'hidden', elevation: 3, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } } as const
+  const content = (
+    <>
       {/* Brilho suave no canto, para o cartão não ficar chapado */}
       <View style={{ position: 'absolute', right: -22, top: -26, width: 84, height: 84, borderRadius: 42, backgroundColor: 'rgba(255,255,255,0.12)' }} />
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.xs }}>
@@ -280,7 +282,13 @@ export function Tile({ label, value, detail, accent = 'green', color, icon }: { 
       </View>
       <Text style={{ color: '#ffffff', fontSize: 26, fontWeight: '800', marginTop: 2, fontVariant: ['tabular-nums'] }} adjustsFontSizeToFit numberOfLines={1}>{value}</Text>
       {detail ? <Text style={{ color: '#ffffff', fontSize: font.sm }}>{detail}</Text> : null}
-    </View>
+    </>
+  )
+  // Com onPress o número vira atalho (Painel do veterinário): o mesmo cartão, tocável
+  if (!onPress) return <View style={box}>{content}</View>
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}: ${value}${detail ? `, ${detail}` : ''}`}
+      style={({ pressed }) => [box, { opacity: pressed ? 0.85 : 1 }]}>{content}</Pressable>
   )
 }
 

@@ -38,7 +38,9 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: t('Painel'), tabBarIcon: icon('grid-outline') }} />
       <Tabs.Screen name="leite" options={{ title: t('Leite'), tabBarIcon: icon('water-outline'), href: canAccess('leite') && !user.vet ? undefined : null }} />
       <Tabs.Screen name="animais" options={{ title: t('Animais'), tabBarIcon: icon('paw-outline'), href: canAccess('animais') ? undefined : null }} />
-      <Tabs.Screen name="vacinas" options={{ title: t('Vacinas'), tabBarIcon: icon('medkit-outline'), href: canAccess('vacinacao') ? undefined : null }} />
+      {/* Veterinário: Agenda no lugar de Vacinas (a vacinação continua em Mais) */}
+      <Tabs.Screen name="vacinas" options={{ title: t('Vacinas'), tabBarIcon: icon('medkit-outline'), href: canAccess('vacinacao') && !user.vet ? undefined : null }} />
+      <Tabs.Screen name="minha-agenda" options={{ title: t('Agenda'), tabBarIcon: icon('calendar-outline'), href: user.vet ? undefined : null }} />
       <Tabs.Screen name="mais" options={{ title: t('Mais'), tabBarIcon: icon('menu-outline') }} />
     </Tabs>
   )
