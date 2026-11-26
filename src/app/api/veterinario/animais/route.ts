@@ -27,7 +27,15 @@ export async function GET() {
     select: { id: true, code: true, customCode: true, name: true, species: true, gender: true, birthDate: true, status: true, breed: true, isCastrated: true, acquisitionType: true, farmId: true },
     orderBy: [{ name: 'asc' }],
   })
-  return NextResponse.json(animals.map((a) => ({ ...a, species: animalCategory(a), farmName: names.get(a.farmId) ?? '' })))
+  // Situação da reprodução de cada fêmea (a cobertura em aberto): o app filtra prenhes e a diagnosticar
+  const open = await prisma.reproduction.findMany({
+    where: { farmId: { in: [...names.keys()] }, status: { in: ['Coberta', 'Prenha'] }, actualBirthDate: null },
+    select: { femaleId: true, status: true, coverageDate: true },
+    orderBy: { coverageDate: 'desc' },
+  })
+  const repro = new Map<string, string>()
+  for (const r of open) if (!repro.has(r.femaleId)) repro.set(r.femaleId, r.status)
+  return NextResponse.json(animals.map((a) => ({ ...a, species: animalCategory(a), farmName: names.get(a.farmId) ?? '', reproStatus: repro.get(a.id) ?? null })))
 }
 
 export async function POST(request: NextRequest) {

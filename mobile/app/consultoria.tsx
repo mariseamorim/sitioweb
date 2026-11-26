@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+import { useLocalSearchParams } from 'expo-router'
+import { useEffect, useRef, useState } from 'react'
 import { Share, Text, useWindowDimensions, View } from 'react-native'
 import { API_BASE, isDemo } from '@/api/client'
 import { useSession } from '@/auth/session'
@@ -25,6 +26,10 @@ export default function Consultoria() {
   const [error, setError] = useState('')
   const { open, busy } = useOpenFarm(setError)
   const agenda = useRef<AgendaHandle>(null)
+  // Vinda do "Marcar visita" do Painel: abre o formulário de nova visita assim que o painel carrega
+  const { nova } = useLocalSearchParams<{ nova?: string }>()
+  const hasPanel = !!panel
+  useEffect(() => { if (nova === '1' && hasPanel) agenda.current?.openNew() }, [nova, hasPanel])
 
   if (!panel) return <Screen>{loadError ? <Notice tone="red" text={loadError} /> : <Empty title={offline ? t('Sem internet') : t('Carregando…')} text={offline ? t('O painel de consultoria precisa de conexão na primeira vez.') : undefined} />}</Screen>
 

@@ -14,6 +14,7 @@ import { PhotoField, PhotoView } from '@/ui/photo'
 import { colors, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 import { api, NetworkError } from '@/api/client'
+import { useSyncState } from '@/sync'
 import { useVetPanel } from '@/vet/panel'
 
 const NEW_FARM = '__nova'
@@ -27,9 +28,11 @@ export default function AnimalScreen() {
   const animal = useLive(() => (isNew ? null : getAnimal(id)), [id])
   const photo = useLive(() => (isNew ? null : getAnimalPhoto(id)), [id])
   const [editing, setEditing] = useState(isNew)
+  const sync = useSyncState()
   const t = useT()
 
-  if (!isNew && !animal) return <Screen><Stack.Screen options={{ title: t('Animal') }} /><Notice text={t('Animal não encontrado.')} /></Screen>
+  // Aberto de outra propriedade (veterinário): a ficha chega com a sincronização da propriedade que acabou de abrir
+  if (!isNew && !animal) return <Screen><Stack.Screen options={{ title: t('Animal') }} /><Notice text={t(sync.syncing ? 'Carregando os dados da propriedade…' : 'Animal não encontrado.')} /></Screen>
   if (editing) return <AnimalForm farmId={farmId} animal={animal} photo={photo} onDone={(newId) => { if (isNew) router.replace({ pathname: '/animais/[id]', params: { id: newId, saved: '1' } }); else setEditing(false) }} canEdit={canEdit} />
 
   const vacc = listVaccinations(farmId).filter(v => v.animalId === animal!.id)

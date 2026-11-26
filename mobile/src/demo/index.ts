@@ -7,6 +7,8 @@
 // diagnosticar e editar funcionam como no uso real, mas nada sai do celular. "Sair da conta" apaga tudo.
 import { all, getMeta, run, setCache, setMeta, TABLES, transaction, upsert, type Row, type TableName } from '@/db'
 import { addMonths } from '@/lib/reproInsights'
+import { shiftDay, sortAgenda, type AgendaItem } from '@/lib/agenda'
+import { localAgenda } from '@/repos/agenda'
 
 export const DEMO_TOKEN = 'demo-veterinario'
 const FARM_KEY = 'demo:farm'
@@ -162,6 +164,7 @@ function panel() {
     return {
       id: `client-${farm.id}`, farmId: farm.id, name: farm.name, owner: farm.owner, city: farm.city, state: farm.state, segments: farm.segments, animals,
       awaitingDiagnosis: repro.filter((r) => r.status === 'Coberta').length,
+      pregnant: repro.filter((r) => r.status === 'Prenha' && !r.actualBirthDate).length,
       pregnancyRate: diagnosed.length ? Math.round((pregnant.length / diagnosed.length) * 100) : null,
       birthsSoon: repro.filter((r) => (r.status === 'Coberta' || r.status === 'Prenha') && !r.actualBirthDate && r.expectedBirthDate
         && Date.parse(r.expectedBirthDate) >= now - DAY && Date.parse(r.expectedBirthDate) <= now + 30 * DAY).length,
@@ -239,6 +242,27 @@ function tasks() {
   return list
 }
 
+/** Agenda do veterinário (como GET /api/veterinario/agenda): os manejos das três fazendas e as visitas marcadas */
+function vetAgenda() {
+  const today = iso(Date.now()).slice(0, 10)
+  const herd = FARMS.flatMap((f) => localAgenda(f.id, today, () => true).map((i) => ({ ...i, farmId: f.id, farmName: f.name })))
+  const visits = readVisits().filter((v) => v.status === 'agendada' && v.date.slice(0, 10) >= shiftDay(today, -30)).map((v): AgendaItem => {
+    const date = v.date.slice(0, 10)
+    const farm = FARMS.find((f) => `client-${f.id}` === v.clientId)
+    return { key: `visita:${v.id}`, kind: 'visita', date, late: date < today, time: v.time, label: 'Visita: {farm}', vars: { farm: v.farmName }, ...(v.purpose ? { detail: v.purpose } : {}), refId: v.id, farmId: farm?.id, farmName: v.farmName }
+  })
+  return { today, items: sortAgenda([...herd, ...visits]) }
+}
+
+/** Animais das três fazendas (como GET /api/veterinario/animais), com a situação da reprodução de cada fêmea */
+function vetAnimals() {
+  const open = all<{ femaleId: string; status: string }>("SELECT femaleId, status FROM reproductions WHERE status IN ('Coberta', 'Prenha') AND actualBirthDate IS NULL ORDER BY coverageDate DESC")
+  const repro = new Map<string, string>()
+  for (const r of open) if (!repro.has(r.femaleId)) repro.set(r.femaleId, r.status)
+  return FARMS.flatMap((f) => all<Record<string, unknown> & { id: string }>('SELECT id, code, customCode, name, species, gender, birthDate, status, breed, farmId FROM animals WHERE farmId = ? ORDER BY name', [f.id])
+    .map((a) => ({ ...a, farmName: f.name, reproStatus: repro.get(a.id) ?? null })))
+}
+
 /**
  * Resposta de api() no modo demonstração. undefined = sem resposta (o app age como sem internet e usa o que tem).
  * As gravações nem chegam aqui: a fila é aceita direto em pushOutbox.
@@ -253,6 +277,8 @@ export function demoApi(path: string, method: string, body: unknown): unknown {
     return { ok: true }
   }
   if (route === '/api/veterinario') return panel()
+  if (route === '/api/veterinario/agenda' && method === 'GET') return vetAgenda()
+  if (route === '/api/veterinario/animais' && method === 'GET') return vetAnimals()
   if (route.startsWith('/api/veterinario/visitas')) return visitsApi(route, method, (body ?? {}) as Partial<DemoVisit>)
   if (method !== 'GET') return { ok: true }
   // Listas: o que já está no aparelho

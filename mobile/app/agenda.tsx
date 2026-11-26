@@ -1,4 +1,4 @@
-import { Stack, useRouter } from 'expo-router'
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Linking, Pressable, ScrollView, Share, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
@@ -11,7 +11,8 @@ import { AGENDA_GROUPS, AGENDA_KINDS, agendaGroup, agendaShareText, canMarkDone,
 import { localAgenda, markAgendaDone, undoAgendaDone } from '@/repos/agenda'
 import { getVaccination, saveVaccination } from '@/repos/vaccinations'
 import { Button, Muted, Notice, Screen } from '@/ui'
-import { useOpenFarm } from '@/vet/panel'
+import { FarmKindBadge, useOpenFarm, type VetPanel } from '@/vet/panel'
+import { agendaSiteHref, useVetAgenda } from '@/vet/agenda'
 import { colors, font, radius, space } from '@/theme'
 import { useLocale, useT } from '@/lib/i18n'
 
@@ -30,13 +31,25 @@ const KIND_STYLE: Record<AgendaKind, { icon: keyof typeof Ionicons.glyphMap; col
   carencia: { icon: 'bandage-outline', color: '#b91c1c', bg: '#fee2e2' },
 }
 
-/** Tela do site de cada tipo (o veterinário abre a propriedade e segue para a tela equivalente do app) */
-const siteHref = (kind: AgendaKind) => kind === 'vacina' ? '/vacinacao' : kind === 'carencia' ? '/veterinary-treatment' : '/reproducao'
+const siteHref = agendaSiteHref
+
+type VetPeriod = 'hoje' | 'semana' | 'atrasadas'
+const toPeriod = (v?: string): VetPeriod => (v === 'semana' || v === 'atrasadas' ? v : 'hoje')
+
+/** Itens agrupados por propriedade (Hoje e Atrasadas do veterinário), a que tem mais primeiro */
+function groupByFarm(items: AgendaItem[]) {
+  const map = new Map<string, { key: string; label: string; items: AgendaItem[]; farmId?: string }>()
+  for (const i of items) {
+    const key = i.farmId ?? i.farmName ?? '?'
+    const g = map.get(key) ?? { key, label: i.farmName ?? '', items: [], farmId: i.farmId }
+    g.items.push(i)
+    map.set(key, g)
+  }
+  return [...map.values()].sort((a, b) => b.items.length - a.items.length || a.label.localeCompare(b.label))
+}
 
 /** Segunda-feira da semana do dia */
 const weekStartOf = (day: string) => shiftDay(day, -((new Date(`${day}T12:00:00Z`).getUTCDay() + 6) % 7))
-
-const CACHE_KEY = 'vet_agenda'
 
 export default function AgendaScreen() {
   const { user, canAccess, canEdit } = useSession()
@@ -49,28 +62,30 @@ export default function AgendaScreen() {
   const [error, setError] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
   const [week, setWeek] = useState(() => weekStartOf(today))
-  const [kind, setKind] = useState<AgendaKind | ''>('')
+  // Veterinário: vinda do Painel com o período (Manejos do dia = hoje, Urgentes = atrasadas) e, nos partos, o tipo
+  const params = useLocalSearchParams<{ periodo?: string; tipo?: string; toque?: string }>()
+  const [kind, setKind] = useState<AgendaKind | ''>(() => (AGENDA_KINDS.some(k => k.kind === params.tipo) ? params.tipo as AgendaKind : ''))
   // Produtor: abas por período (atrasados, hoje, amanhã, 7 dias, depois), sem semana e sem filtro por tipo
   const [groupTab, setGroupTab] = useState<AgendaGroupKey | null>(null)
+  // Veterinário: Hoje e Atrasadas agrupadas por propriedade; Semana é a faixa dos dias com o filtro por tipo
+  const [period, setPeriod] = useState<VetPeriod>(() => toPeriod(params.periodo))
+  useEffect(() => {
+    if (params.periodo) { setPeriod(toPeriod(params.periodo)); setSelected(null) }
+    if (params.tipo !== undefined) setKind(AGENDA_KINDS.some(k => k.kind === params.tipo) ? params.tipo as AgendaKind : '')
+    // `toque` muda a cada toque no Painel: tocar de novo no mesmo número volta para o período dele
+  }, [params.periodo, params.tipo, params.toque])
+  // Tipo da propriedade (leite ou corte) no título de cada grupo, da última cópia do painel
+  const segmentsOf = useMemo(() => new Map((getCache<VetPanel>('vet_panel')?.clients ?? []).map(c => [c.farmId, c.segments])), [])
 
   // Produtor: do celular
   const local = useLive(() => (isVet ? [] : localAgenda(farmId, today, canAccess)), [farmId, today, isVet])
-  // Veterinário: do servidor
-  const [remote, setRemote] = useState<AgendaItem[] | null>(() => (isVet ? getCache<{ items: AgendaItem[] }>(CACHE_KEY)?.items ?? null : null))
-  const [offline, setOffline] = useState(false)
-  const reload = useCallback(async () => {
-    if (!isVet) return
-    try {
-      const data = await api<{ today: string; items: AgendaItem[] }>('/api/veterinario/agenda')
-      setCache(CACHE_KEY, data)
-      setRemote(data.items)
-      setOffline(false)
-    } catch (e) {
-      if (e instanceof NetworkError) setOffline(true)
-      else setError(e instanceof Error ? t(e.message) : t('Não foi possível carregar a agenda'))
-    }
-  }, [isVet, t])
-  useEffect(() => { void reload() }, [reload])
+  // Veterinário: do servidor (src/vet/agenda.ts)
+  const vetAgenda = useVetAgenda(isVet)
+  const remote = vetAgenda.items
+  const setRemote = vetAgenda.setItems
+  const offline = vetAgenda.offline
+  const reload = vetAgenda.reload
+  useEffect(() => { if (vetAgenda.error) setError(vetAgenda.error) }, [vetAgenda.error])
   const { open, busy } = useOpenFarm(setError)
 
   // Produtor: as visitas do veterinário vêm do servidor (com internet), com a última cópia guardada no celular
@@ -90,15 +105,21 @@ export default function AgendaScreen() {
   const [busyKey, setBusyKey] = useState<string | null>(null)
 
   const all = useMemo(() => (isVet ? remote ?? [] : sortAgenda([...local, ...visits.filter(v => v.date >= shiftDay(today, -30))])), [isVet, remote, local, visits, today])
-  const items = useMemo(() => all.filter(i => !kind || i.kind === kind), [all, kind])
+  const vetToday = all.filter(i => i.date === today)
+  const vetLate = all.filter(i => i.late)
+  const byFarm = isVet && period !== 'semana'
+  const items = useMemo(() => (byFarm ? (period === 'hoje' ? vetToday : vetLate) : all.filter(i => !kind || i.kind === kind)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [all, kind, byFarm, period, today])
   const counts = useMemo(() => countByDay(items), [items])
   const lateCount = items.filter(i => i.late).length
   const shown = selected ? items.filter(i => i.date === selected) : items
   const byGroup = new Map(AGENDA_GROUPS.map(g => [g.key, items.filter(i => agendaGroup(i, today) === g.key)]))
   const currentGroup = groupTab ?? AGENDA_GROUPS.find(g => byGroup.get(g.key)!.length)?.key ?? 'hoje'
-  const groups = !isVet
+  const groups: { key: string; label: string; items: AgendaItem[]; farmId?: string }[] = !isVet
     ? [{ key: currentGroup, label: '', items: byGroup.get(currentGroup) ?? [] }]
-    : selected ? [{ key: 'dia', label: '', items: shown }] : groupAgenda(shown, today)
+    : byFarm ? groupByFarm(items)
+      : selected ? [{ key: 'dia', label: '', items: shown }] : groupAgenda(shown, today)
   const days = Array.from({ length: 7 }, (_, i) => shiftDay(week, i))
   const fmt = (day: string, opts: Intl.DateTimeFormatOptions) => new Date(`${day}T12:00:00Z`).toLocaleDateString(locale, { timeZone: 'UTC', ...opts })
   const dayTitle = (day: string) => day === today ? t('Hoje') : day === shiftDay(today, 1) ? t('Amanhã') : fmt(day, { weekday: 'long', day: '2-digit', month: '2-digit' })
@@ -216,6 +237,24 @@ export default function AgendaScreen() {
           })}
         </ScrollView>
       ) : <>
+      {/* Veterinário: Hoje, Semana e Atrasadas, no mesmo jeito das abas do produtor */}
+      <View accessibilityRole="tablist" style={{ flexDirection: 'row', gap: space.sm, marginBottom: space.md }}>
+        {([['hoje', 'Hoje', vetToday.length, colors.green], ['semana', 'Semana', null, '#1e40af'], ['atrasadas', 'Atrasadas', vetLate.length, colors.red]] as const).map(([key, label, n, color]) => {
+          const on = period === key
+          return (
+            <Pressable key={key} onPress={() => { setPeriod(key); setSelected(null) }} accessibilityRole="tab" accessibilityState={{ selected: on }}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 48, borderRadius: radius.md, borderWidth: 2, borderColor: color, backgroundColor: on ? color : colors.white }}>
+              <Text style={{ fontWeight: '700', color: on ? colors.white : color }} numberOfLines={1}>{t(label)}</Text>
+              {n !== null ? (
+                <View style={{ minWidth: 24, paddingHorizontal: 5, borderRadius: 12, backgroundColor: on ? colors.white : color }}>
+                  <Text style={{ textAlign: 'center', fontWeight: '800', color: on ? color : colors.white }}>{n}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+          )
+        })}
+      </View>
+      {period === 'semana' ? <>
       {/* Semana com a quantidade de tarefas de cada dia */}
       <View style={{ backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: space.sm }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.sm }}>
@@ -259,10 +298,11 @@ export default function AgendaScreen() {
           </Pressable>
         ))}
       </ScrollView>
+      </> : null}
 
       </>}
 
-      {!isVet ? null : selected ? (
+      {!isVet || byFarm ? null : selected ? (
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: space.md }}>
           <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text }}>{dayTitle(selected)}</Text>
           <Pressable onPress={() => setSelected(null)} hitSlop={8}><Text style={{ color: colors.green, fontWeight: '700' }}>{t('Ver todos os dias')}</Text></Pressable>
@@ -271,20 +311,28 @@ export default function AgendaScreen() {
 
       {(isVet ? !shown.length : !groups[0].items.length) ? (
         <View style={{ marginTop: space.md }}>
-          <Muted>{t(!isVet ? (currentGroup === 'atrasados' ? 'Nada atrasado.' : 'Nada para este período.') : selected ? 'Nada marcado para este dia.' : 'Nada na agenda. As vacinas, coberturas e tratamentos anotados aparecem aqui com a data de cada manejo.')}</Muted>
+          <Muted>{t(!isVet ? (currentGroup === 'atrasados' ? 'Nada atrasado.' : 'Nada para este período.') : period === 'hoje' ? 'Nada marcado para hoje.' : period === 'atrasadas' ? 'Nada atrasado.' : selected ? 'Nada marcado para este dia.' : 'Nada na agenda. As vacinas, coberturas e tratamentos anotados aparecem aqui com a data de cada manejo.')}</Muted>
         </View>
       ) : null}
 
       {groups.map(g => (
         <View key={g.key} style={{ marginTop: space.md }}>
-          {g.label ? <Text style={{ fontSize: font.sm, fontWeight: '800', textTransform: 'uppercase', color: g.key === 'atrasados' ? colors.red : colors.muted, marginBottom: space.sm }}>{t(g.label)} ({g.items.length})</Text> : null}
+          {byFarm ? (
+            // Propriedade: nome, leite ou corte e quantos itens
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm, marginBottom: space.sm }}>
+              <Text style={{ fontSize: font.md, fontWeight: '800', color: colors.greenDark }}>{g.label || t('Sem propriedade')}</Text>
+              <FarmKindBadge segments={g.farmId ? segmentsOf.get(g.farmId) : undefined} />
+              <Muted>({g.items.length})</Muted>
+            </View>
+          ) : g.label ? <Text style={{ fontSize: font.sm, fontWeight: '800', textTransform: 'uppercase', color: g.key === 'atrasados' ? colors.red : colors.muted, marginBottom: space.sm }}>{t(g.label)} ({g.items.length})</Text> : null}
           {g.items.map(item => {
             const style = KIND_STYLE[item.kind]
             const detail = [
-              !selected && g.key !== 'hoje' ? (item.late ? t('era {date}', { date: ddmm(item.date) }) : dayTitle(item.date)) : null,
+              byFarm ? (item.late ? t('era {date}', { date: ddmm(item.date) }) : null)
+                : !selected && g.key !== 'hoje' ? (item.late ? t('era {date}', { date: ddmm(item.date) }) : dayTitle(item.date)) : null,
               item.time,
               item.detail ? t(item.detail, item.detailVars) : null,
-              isVet && item.kind !== 'visita' ? item.farmName : null,
+              isVet && !byFarm && item.kind !== 'visita' ? item.farmName : null,
             ].filter(Boolean).join(' · ')
             return (
               <View key={item.key} style={{ backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderLeftWidth: 4, borderLeftColor: item.late ? colors.red : style.color, borderRadius: radius.md, padding: space.md, marginBottom: space.sm }}>

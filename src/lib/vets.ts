@@ -45,6 +45,8 @@ export interface FarmOverview {
   pregnancyRate: number | null
   /** Partos previstos para os próximos 30 dias */
   birthsSoon: number
+  /** Vacas prenhes agora (diagnóstico Prenha, sem parto anotado) */
+  pregnant: number
   /** Partos previstos por mês ("AAAA-MM"): o mês atual e os 5 seguintes, para o gráfico do painel */
   birthsByMonth: { month: string; count: number }[]
 }
@@ -76,6 +78,7 @@ export async function farmOverviews(farmIds: string[], rateMonths = 12): Promise
       pregnancyRate: diagnosed.length ? Math.round((pregnant.length / diagnosed.length) * 100) : null,
       birthsSoon: own.filter((r) => (r.status === 'Coberta' || r.status === 'Prenha') && !r.actualBirthDate && !!r.expectedBirthDate
         && r.expectedBirthDate.getTime() >= now - DAY && r.expectedBirthDate.getTime() <= now + 30 * DAY).length,
+      pregnant: own.filter((r) => r.status === 'Prenha' && !r.actualBirthDate).length,
       birthsByMonth: months.map((month) => ({ month, count: open.filter((r) => r.expectedBirthDate!.toISOString().startsWith(month)).length })),
     })
   }
