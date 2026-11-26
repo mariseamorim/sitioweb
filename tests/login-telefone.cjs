@@ -28,6 +28,7 @@ const auth = {
   verifyPassword: async (p, stored) => stored === `hash:${p}`,
   isLegacyPassword: () => false,
   setSessionCookie: (res, id) => res.cookies.set('session', id),
+  createSessionToken: (id) => `token:${id}`,
 }
 const modules = {}
 function load(path) {
@@ -44,7 +45,8 @@ function load(path) {
   modules[path] = exports
   return exports
 }
-const req = (data) => ({ json: async () => data })
+// Cabeçalhos vazios: o login lê X-Anota-Client para mandar o token ao app
+const req = (data, headers = {}) => ({ json: async () => data, headers: new Headers(headers) })
 // Objetos criados dentro do vm têm outro protótipo: compara a forma
 const plain = (v) => JSON.parse(JSON.stringify(v))
 const deep = (a, b, msg) => assert.deepEqual(plain(a), plain(b), msg)
@@ -54,7 +56,9 @@ const id = load('src/lib/identity.ts')
 assert.equal(id.normalizePhone('(35) 99999-0000'), '35999990000')
 assert.equal(id.normalizePhone('+55 35 99999-0000'), '35999990000')
 assert.equal(id.normalizePhone('3533330000'), '3533330000')
-assert.equal(id.normalizePhone('99999-0000'), null, 'sem DDD')
+assert.equal(id.normalizePhone('9999-0000'), null, 'sem DDD')
+// 9 dígitos começando com 9 é celular do Paraguai sem o 0 (981 123456), não um número brasileiro sem DDD
+assert.equal(id.normalizePhone('99999-0000'), '595999990000', 'celular do Paraguai')
 assert.equal(id.normalizePhone('abc'), null)
 assert.equal(id.normalizePhone(''), null)
 // e-mail
@@ -96,6 +100,10 @@ assert.equal(id.contactLabel({ email: 'a@b.co', phone: '35999990000' }), 'a@b.co
   // login pelo telefone, com máscara ou sem, e pelo e-mail; o campo antigo `email` ainda funciona
   let res = await login.POST(req({ login: '(35) 99999-0000', password: 'segredo1' }))
   assert.equal(res.status, 200); assert.equal(res.savedCookies.session, 'u1')
+  // App Android: recebe o token no corpo; o site não
+  assert.equal((await res.json()).token, undefined)
+  res = await login.POST(req({ login: '(35) 99999-0000', password: 'segredo1' }, { 'x-anota-client': 'mobile' }))
+  assert.equal((await res.json()).token, 'token:u1')
   res = await login.POST(req({ login: '35999990000', password: 'errada' }))
   assert.equal(res.status, 401); assert.equal((await res.json()).error, 'Telefone ou senha incorretos')
   res = await login.POST(req({ login: 'Edeuza@Example.com', password: 'segredo1' }))
