@@ -136,7 +136,7 @@ export const consultoria: Record<string, string> = {
   'concepção média {p}%': 'concepción media {p}%',
   'Partos em 30 dias': 'Partos en 30 días',
   'Ver na agenda': 'Ver en la agenda',
-  'em {farm}': 'en {farm}',
+  'Propriedade aberta: {farm}': 'Establecimiento abierto: {farm}',
   'Vacinar': 'Vacunar',
   'na agenda': 'en la agenda',
   'Visitas de hoje': 'Visitas de hoy',

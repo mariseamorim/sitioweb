@@ -293,8 +293,24 @@ export function Tile({ label, value, detail, accent = 'green', color, icon, onPr
 }
 
 /** Atalho colorido com ícone (Painel: "O que você quer fazer?"). Dois por linha, dentro de <TileGrid>. */
-export function ActionCard({ title, detail, icon, accent, onPress }: { title: string; detail?: string; icon: keyof typeof Ionicons.glyphMap; accent: Accent; onPress: () => void }) {
+export function ActionCard({ title, detail, icon, accent, onPress, stacked }: { title: string; detail?: string; icon: keyof typeof Ionicons.glyphMap; accent: Accent; onPress: () => void; stacked?: boolean }) {
   const bg = accent === 'plain' ? colors.green : SOLID[accent]
+  // Empilhado: ícone e seta em cima, título embaixo com a largura toda do card (não quebra palavra longa no meio)
+  if (stacked) return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={detail ? `${title}, ${detail}` : title}
+      style={({ pressed }) => ({ flexGrow: 1, flexBasis: '45%', gap: space.sm, backgroundColor: bg, borderRadius: radius.lg, padding: space.md, overflow: 'hidden', opacity: pressed ? 0.85 : 1, elevation: 3, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } })}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' }}>
+          <Ionicons name={icon} size={22} color="#ffffff" />
+        </View>
+        <Ionicons name="chevron-forward" size={18} color="#ffffff" />
+      </View>
+      <View>
+        <Text style={{ color: '#ffffff', fontSize: font.md, fontWeight: '700' }}>{title}</Text>
+        {detail ? <Text style={{ color: '#ffffff', fontSize: font.sm }}>{detail}</Text> : null}
+      </View>
+    </Pressable>
+  )
   return (
     <Pressable onPress={onPress} accessibilityRole="button"
       style={({ pressed }) => ({ flexGrow: 1, flexBasis: '45%', flexDirection: 'row', alignItems: 'center', gap: space.sm, backgroundColor: bg, borderRadius: radius.lg, padding: space.md, overflow: 'hidden', opacity: pressed ? 0.85 : 1, elevation: 3, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 3 } })}>

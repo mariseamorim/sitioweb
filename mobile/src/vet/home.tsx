@@ -58,7 +58,7 @@ export function VetHome() {
   const openFarmAnimals = async (farmId: string) => {
     if (await open(farmId)) router.push({ pathname: '/(tabs)/animais', params: { propriedade: farmId, filtro: 'todos', toque: String(Date.now()) } })
   }
-  const shortcut = user?.farmName ? t('em {farm}', { farm: user.farmName }) : undefined
+  const shortcut = user?.farmName ? t('Propriedade aberta: {farm}', { farm: user.farmName }) : undefined
 
   return (
     <>
@@ -80,12 +80,15 @@ export function VetHome() {
           detail={t('Ver na agenda')} onPress={() => goAgenda('semana', 'parto')} />
       </TileGrid>
 
-      <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text, marginBottom: space.sm }}>{t('O que você quer fazer?')}</Text>
+      <View style={{ marginBottom: space.sm }}>
+        <Text style={{ fontSize: font.lg, fontWeight: '700', color: colors.text }}>{t('O que você quer fazer?')}</Text>
+        {shortcut ? <Muted>{shortcut}</Muted> : null}
+      </View>
       <TileGrid>
-        <ActionCard accent="teal" icon="checkmark-done-outline" title={t('Diagnóstico em lote')} detail={shortcut} onPress={() => router.push('/reproducao/diagnostico')} />
-        <ActionCard accent="green" icon="heart-outline" title={t('Cobertura')} detail={shortcut} onPress={() => router.push({ pathname: '/reproducao/[id]', params: { id: 'nova' } })} />
-        <ActionCard accent="blue" icon="medkit-outline" title={t('Vacinar')} detail={shortcut} onPress={() => router.push('/(tabs)/vacinas')} />
-        <ActionCard accent="amber" icon="calendar-outline" title={t('Marcar visita')} detail={t('na agenda')} onPress={() => router.push({ pathname: '/consultoria', params: { nova: '1' } })} />
+        <ActionCard stacked accent="teal" icon="checkmark-done-outline" title={t('Diagnóstico em lote')} onPress={() => router.push('/reproducao/diagnostico')} />
+        <ActionCard stacked accent="green" icon="heart-outline" title={t('Cobertura')} onPress={() => router.push({ pathname: '/reproducao/[id]', params: { id: 'nova' } })} />
+        <ActionCard stacked accent="blue" icon="medkit-outline" title={t('Vacinar')} onPress={() => router.push('/(tabs)/vacinas')} />
+        <ActionCard stacked accent="amber" icon="calendar-outline" title={t('Marcar visita')} onPress={() => router.push({ pathname: '/consultoria', params: { nova: '1' } })} />
       </TileGrid>
 
       <Card>
