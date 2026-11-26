@@ -3,7 +3,7 @@ const fs = require('node:fs')
 const vm = require('node:vm')
 const ts = require('typescript')
 
-let session, users, farms, vendors, points, jar, network, sequence
+let session, users, farms, vendors, points, members, jar, network, sequence
 const env = { NODE_ENV: 'test', GOOGLE_CLIENT_ID: 'test-client', GOOGLE_CLIENT_SECRET: 'test-secret', GOOGLE_REDIRECT_URI: 'http://localhost:3000/api/auth/google/callback' }
 const matches = (record, where) => Object.entries(where).every(([key, value]) => typeof value === 'object' && value?.equals ? record[key]?.toLowerCase() === value.equals.toLowerCase() : record[key] === value)
 const userStore = {
@@ -22,9 +22,17 @@ const prisma = {
     create: async ({ data }) => { const v = { id: `v${++sequence}`, ...data }; vendors.push(v); return v },
   },
   vendorClient: { create: async ({ data }) => data },
+  // Quem cadastra a propriedade vira membro dela (src/lib/farms.ts, addFarmMember)
+  farmMember: {
+    upsert: async ({ create }) => {
+      const found = members.find(m => m.userId === create.userId && m.farmId === create.farmId)
+      if (found) return found
+      members.push({ ...create }); return create
+    },
+  },
   $transaction: async fn => {
-    const snapshot = structuredClone({ users, farms, vendors, points })
-    try { return await fn(prisma) } catch (e) { ({ users, farms, vendors, points } = snapshot); throw e }
+    const snapshot = structuredClone({ users, farms, vendors, points, members })
+    try { return await fn(prisma) } catch (e) { ({ users, farms, vendors, points, members } = snapshot); throw e }
   },
 }
 const auth = {
@@ -70,7 +78,7 @@ function load(path) {
 }
 let googleInfo
 function reset() {
-  session = null; users = []; farms = []; vendors = []; points = []; jar = {}; network = []; sequence = 0
+  session = null; users = []; farms = []; vendors = []; points = []; members = []; jar = {}; network = []; sequence = 0
   googleInfo = { sub: 'google-user', email: 'pessoa@example.com', email_verified: true, name: 'Pessoa' }
 }
 const request = (path, data) => {
@@ -110,6 +118,7 @@ async function main() {
   res = await register.POST(request('/api/auth/register', { farm: { name: 'Fazenda Teste', email: 'pessoa@example.com', state: 'mg' } }))
   assert.equal(res.status, 201); assert.equal(users.length, 1); assert.equal(farms.length, 1)
   assert.equal(users[0].farmId, farms[0].id); assert.equal(users[0].role, 'editor')
+  assert.deepEqual(members, [{ userId: users[0].id, farmId: farms[0].id }], 'quem cadastrou é membro da propriedade')
   assert.equal(farms[0].state, 'MG'); assert.equal('email' in farms[0], false)
   session = { ...users[0] }
   assert.equal((await register.POST(request('/api/auth/register', { farm: { name: 'Outra' } }))).status, 409)

@@ -15,6 +15,13 @@ const match = (record, where) => Object.entries(where).every(([key, value]) => {
 const prisma = {
   farm: { findUnique: async () => ({ name: 'Fazenda', milkPrice: 2.5 }) },
   milkEntry: { findMany: async () => [] },
+  // Folhas de leite fotografadas (src/app/api/lite): este teste não tem nenhuma
+  milkSheet: { findMany: async () => [] },
+  // Animais em carência (src/lib/withdrawal.ts): nenhum tratamento aqui
+  veterinaryTreatment: { findMany: async () => [] },
+  // Nomes e divisão do leite (src/lib/payees.ts): nenhum aqui
+  milkPayee: { findMany: async () => [] },
+  milkSplit: { findMany: async () => [] },
   milkProduction: {
     findMany: async ({ where }) => records.filter(r => match(r, where)),
     create: async ({ data }) => { const r = { id: `p${++counter}`, ...data }; records.push(r); return r },
@@ -62,12 +69,16 @@ async function main() {
   assert.equal(records.find(r => r.source === 'lite').quantity, 30)
   assert.equal((await save(10)).status, 409)
   assert.equal(records.find(r => r.source === 'lite').quantity, 30)
-  assert.equal((await save(null)).status, 409)
+  // Excluir no Anota Aí Leite (litros vazios): apaga só a parcela dele; a ordenha lançada na Produção fica
+  assert.equal((await save(null)).status, 200)
+  assert.equal(records.filter(r => r.source === 'lite').length, 0)
+  assert.equal(records.find(r => r.id === 'manual').quantity, 40)
+  // Total igual ao da Produção: o Anota Aí Leite não guarda parcela
   assert.equal((await save(40)).status, 200)
   assert.equal(records.filter(r => r.source === 'lite').length, 0)
   assert.equal((await save(15, '2026-10-10')).status, 200)
   assert.equal((await save(null, '2026-10-10')).status, 200)
   assert.equal(records.find(r => r.id === 'other-farm').quantity, 999)
-  console.log('Sincronização Lite/Produção: total compartilhado, edição, reenvio, remoção, preço e isolamento passaram.')
+  console.log('Sincronização Lite/Produção: total compartilhado, edição, reenvio, exclusão, remoção, preço e isolamento passaram.')
 }
 main().catch(e => { console.error(e); process.exitCode = 1 })

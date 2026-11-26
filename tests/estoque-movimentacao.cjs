@@ -31,7 +31,17 @@ const prisma = {
     findFirst: async ({ where }) => movements.find((m) => m.id === where.id && m.supplyId === where.supplyId && supply.farmId === where.supply.farmId) ?? null,
     create: (args) => ({ _op: 'movement.create', args }), update: (args) => ({ _op: 'movement.update', args }), delete: (args) => ({ _op: 'movement.delete', args }),
   },
-  $transaction: async (ops) => ops.map(run),
+  // Duas formas: lista de operações (corrigir, desfazer) ou função com o tx (criar, que pode lançar a compra junto)
+  $transaction: async (ops) => (typeof ops === 'function' ? ops(tx) : ops.map(run)),
+}
+// No tx cada chamada já executa (como no banco de verdade dentro da transação)
+const tx = {
+  supply: { update: async (args) => run(prisma.supply.update(args)) },
+  supplyMovement: {
+    create: async (args) => run(prisma.supplyMovement.create(args)),
+    update: async (args) => run(prisma.supplyMovement.update(args)),
+    delete: async (args) => run(prisma.supplyMovement.delete(args)),
+  },
 }
 
 function load(path) {

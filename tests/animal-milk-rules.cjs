@@ -28,7 +28,9 @@ const prisma = {
     createMany: async ({ data }) => { for (const entry of data) await prisma.milkProduction.create({ data: entry }); return { count: data.length } },
   },
   farm: { findUnique: async () => farm, update: async ({ data }) => Object.assign(farm, data) },
-  reproduction: { findFirst: async () => null },
+  // Cria nova fecha as coberturas em aberto da mãe (src/lib/calves.ts): aqui não há nenhuma
+  reproduction: { findFirst: async () => null, findMany: async () => [], update: async () => ({}) },
+  $transaction: async (ops) => Promise.all(ops),
 }
 const modules = {}
 function load(path) {
@@ -67,8 +69,13 @@ async function main() {
   assert.equal(rules.canAddCalf({ ...baseAnimal, birthDate: '2024-04-12' }), false)
   assert.equal(rules.canAddCalf(baseAnimal), true)
   assert.equal(rules.animalCategory(baseAnimal), 'Vaca')
-  assert.equal(rules.animalCategory({ ...baseAnimal, birthDate: '2024-04-12' }), 'Bezerra')
-  assert.equal(rules.animalCategory({ ...baseAnimal, gender: 'Macho', birthDate: '2023-10-12' }), 'Bezerro')
+  // Fêmea: bezerra até 12 meses, novilha até 30 meses, depois vaca (hoje no teste: 11/10/2026)
+  assert.equal(rules.animalCategory({ ...baseAnimal, birthDate: '2024-04-12' }), 'Novilha')
+  assert.equal(rules.animalCategory({ ...baseAnimal, birthDate: '2025-10-11' }), 'Novilha')
+  assert.equal(rules.animalCategory({ ...baseAnimal, birthDate: '2025-10-12' }), 'Bezerra')
+  // Macho inteiro: bezerro até 12 meses, garrote até 3 anos, depois touro
+  assert.equal(rules.animalCategory({ ...baseAnimal, gender: 'Macho', birthDate: '2023-10-12' }), 'Garrote')
+  assert.equal(rules.animalCategory({ ...baseAnimal, gender: 'Macho', birthDate: '2025-10-12' }), 'Bezerro')
   assert.equal(rules.animalCategory({ ...baseAnimal, gender: 'Macho', birthDate: '2023-10-11' }), 'Touro')
   assert.equal(rules.animalCategory({ ...baseAnimal, gender: 'Macho', isCastrated: true }), 'Boi de engorda')
   assert.equal(rules.canAddCalf({ ...baseAnimal, gender: 'Macho' }), false)
