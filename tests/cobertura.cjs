@@ -44,11 +44,14 @@ assert.equal(c.gestation('2026-01-01T00:00:00.000Z', '2026-10-08T00:00:00.000Z',
 
 // O que o servidor aceita
 assert.deepEqual({ ...c.parseCoverageDetails({ method: 'iatf', heatDate: '2026-10-18', semenBatch: ' 2412-A ', bullRegistry: 'RGD 1', inseminator: 'João' }) },
-  { method: 'iatf', heatDate: '2026-10-18', semenBatch: '2412-A', bullRegistry: 'RGD 1', inseminator: 'João' })
+  { method: 'iatf', heatDate: '2026-10-18', semenBatch: '2412-A', bullRegistry: 'RGD 1', bullBreed: null, inseminator: 'João' })
 assert.deepEqual({ ...c.parseCoverageDetails({ method: 'repasse', semenBatch: '2412-A', inseminator: 'João', bullRegistry: 'RGD 1' }) },
-  { method: 'repasse', heatDate: null, semenBatch: null, bullRegistry: 'RGD 1', inseminator: null }, 'repasse e monta descartam partida e inseminador')
+  { method: 'repasse', heatDate: null, semenBatch: null, bullRegistry: 'RGD 1', bullBreed: null, inseminator: null }, 'repasse e monta descartam partida e inseminador')
 assert.deepEqual({ ...c.parseCoverageDetails({ method: 'te', heatDate: '18/10/2026', semenBatch: '', inseminator: 42 }) },
-  { method: null, heatDate: null, semenBatch: null, bullRegistry: null, inseminator: null }, 'tipo desconhecido, data fora do padrão e campos vazios viram null')
+  { method: null, heatDate: null, semenBatch: null, bullRegistry: null, bullBreed: null, inseminator: null }, 'tipo desconhecido, data fora do padrão e campos vazios viram null')
 assert.equal(c.parseCoverageDetails({ inseminator: 'x'.repeat(200) }).inseminator.length, 80, 'texto cortado no tamanho máximo')
+// Raça do touro (do sêmen ou da monta): vale também na monta, sem espaços sobrando e até 40 letras
+assert.equal(c.parseCoverageDetails({ method: 'natural', bullBreed: ' Gir ' }).bullBreed, 'Gir')
+assert.equal(c.parseCoverageDetails({ bullBreed: 'x'.repeat(60) }).bullBreed.length, 40)
 
 console.log('cobertura: ok')
