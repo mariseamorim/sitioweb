@@ -9,6 +9,7 @@ import { Badge, Empty, Fab, Row, Search } from '@/ui'
 import { AnimalThumb } from '@/ui/photo'
 import { colors, space } from '@/theme'
 import { useT } from '@/lib/i18n'
+import { VetFarmBar } from '@/vet/panel'
 
 export default function Animais() {
   const farmId = useFarmId()
@@ -21,6 +22,8 @@ export default function Animais() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={{ padding: space.lg, paddingBottom: 0 }}>
+        {/* Veterinário: de qual propriedade são estes animais, leite ou corte, e a troca */}
+        <VetFarmBar />
         <Search value={q} onChange={setQ} placeholder={t('Nome, código ou brinco')} />
       </View>
       <FlatList

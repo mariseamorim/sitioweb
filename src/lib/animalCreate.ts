@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { closeOpenPregnancy, findValidMother } from '@/lib/calves'
 import { animalCategory, animalRuleError, cleanBreed } from '@/lib/animalRules'
 import { cleanCustomCode, duplicateCodeMessage } from '@/lib/animalCode'
+import { cleanFatherName } from '@/lib/inbreeding'
 
 // Cadastro de animal numa propriedade (as mesmas regras para o produtor, em /api/animals, e para o veterinário,
 // em /api/veterinario/animais): campos obrigatórios, categoria pela idade e sexo, raça só de bovino,
@@ -40,6 +41,7 @@ export async function createAnimal(farmId: string, body: Record<string, unknown>
         name: String(name),
         species: animalCategory(classification),
         breed: cleanBreed(body.breed, animalCategory(classification)),
+        fatherName: cleanFatherName(body.fatherName),
         gender,
         birthDate: new Date(birthDate),
         isCastrated,

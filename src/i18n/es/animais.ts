@@ -124,4 +124,9 @@ export const animais: Record<string, string> = {
   'Não foi possível carregar os animais. Confira a internet.': 'No se pudieron cargar los animales. Revise la conexión.',
   'Escolha a fazenda do animal': 'Elija la finca del animal',
   'Nome da fazenda muito longo': 'Nombre de la finca demasiado largo',
+  // Pai do animal (bloqueio de consanguinidade)
+  'Pai': 'Padre',
+  '(nome ou registro do touro ou do sêmen, se souber)': '(nombre o registro del toro o del semen, si lo sabe)',
+  'Ex.: Trovão ou RGD 12345': 'Ej.: Trovão o RGD 12345',
+  'Serve para o sistema não deixar cobrir com o pai ou o avô.': 'Sirve para que el sistema no deje servir con el padre o el abuelo.',
 }

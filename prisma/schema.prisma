@@ -121,6 +121,9 @@ model Animal {
   motherId        String?
   mother          Animal?          @relation("Crias", fields: [motherId], references: [id], onDelete: SetNull)
   calves          Animal[]         @relation("Crias")
+  /// Pai (nome ou registro do touro ou do sêmen), quando não há a cobertura que gerou o animal: comprado, cadastrado
+  /// sem a cobertura ou filho de touro de fora. Entra no bloqueio de consanguinidade (src/lib/inbreeding.ts)
+  fatherName      String?
   /// Lote de recria/engorda em que o animal está (um por vez)
   lotId           String?
   lot             Lot?             @relation(fields: [lotId], references: [id], onDelete: SetNull)

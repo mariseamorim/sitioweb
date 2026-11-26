@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
 import { GESTATION_DAYS, parseCoverageDetails } from '@/lib/coverage'
+import { inbreedingError } from '@/lib/inbreedingServer'
 
 /** Campos da cobertura (todos opcionais): como foi, cio, sêmen, touro e inseminador */
 function coverageDetails(body: Record<string, unknown>) {
@@ -10,7 +11,7 @@ function coverageDetails(body: Record<string, unknown>) {
 }
 
 async function findOwned(id: string, farmId: string) {
-  return prisma.reproduction.findFirst({ where: { id, farmId }, select: { id: true, status: true } })
+  return prisma.reproduction.findFirst({ where: { id, farmId }, select: { id: true, status: true, femaleId: true, maleName: true, bullRegistry: true } })
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -43,6 +44,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (typeof body.expectedBirthDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.expectedBirthDate)) data.expectedBirthDate = new Date(body.expectedBirthDate)
     // Confirmada vazia ou perdida: deixa de ter parto previsto (não gera aviso de parto)
     if (status === 'Vazia' || status === 'Perdida') data.expectedBirthDate = null
+
+    // Trocou o touro: confere a consanguinidade com o que fica gravado
+    if ('maleName' in data || 'bullRegistry' in data) {
+      const bull = { maleName: 'maleName' in data ? (data.maleName as string | null) : existing.maleName, bullRegistry: 'bullRegistry' in data ? (data.bullRegistry as string | null) : existing.bullRegistry }
+      const inbred = await inbreedingError(auth.farmId, existing.femaleId, bull)
+      if (inbred) return NextResponse.json({ error: inbred }, { status: 400 })
+    }
 
     const reproduction = await prisma.reproduction.update({
       where: { id },

@@ -5,7 +5,7 @@ import { AjudaView } from './AjudaView'
 
 export const metadata: Metadata = {
   title: 'Ajuda e suporte',
-  description: 'Tire dúvidas sobre o Anota Aí Agro, acesse o manual do usuário ou fale com o suporte.',
+  description: 'Tire dúvidas sobre o Anota Aí Agro ou fale com o suporte.',
   alternates: { canonical: '/ajuda' },
 }
 

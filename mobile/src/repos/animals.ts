@@ -1,6 +1,7 @@
 import { all, one } from '@/db'
 import { createLocal, currentId, deleteLocal, updateLocal } from '@/sync/local'
 import { isBovine } from '@/lib/animalRules'
+import { cleanFatherName } from '@/lib/inbreeding'
 import { matches } from '@/lib/search'
 
 export interface Animal {
@@ -19,6 +20,8 @@ export interface Animal {
   gta: string | null
   observations: string | null
   motherId: string | null
+  /** Pai digitado (nome ou registro do touro); o da cobertura não precisa estar aqui */
+  fatherName?: string | null
   lowDate: string | null
   lowReason: string | null
   /** 1 quando há foto guardada (só em listAnimals); a foto em si vem de getAnimalPhoto */
@@ -69,6 +72,8 @@ export function nextCode(farmId: string): string {
 export interface AnimalInput {
   name: string; species: string; gender: string; birthDate: string; status: string; customCode: string
   acquisitionType: string; isCastrated: boolean; observations: string; motherId: string | null
+  /** Pai (nome ou registro do touro), para o bloqueio de consanguinidade; vazio = não informado */
+  fatherName: string
   /** Raça: só vale para bovino; vazio = sem raça */
   breed: string
   /** Foto em data URL; vazio = tirar a foto; ausente = não mexer na foto */
@@ -79,7 +84,7 @@ export function saveAnimal(farmId: string, input: AnimalInput, id?: string): str
   const body = {
     name: input.name.trim(), species: input.species, breed: isBovine(input.species) ? input.breed.trim().slice(0, 40) || null : null, gender: input.gender, birthDate: input.birthDate, status: input.status,
     customCode: input.customCode.trim() || null, acquisitionType: input.acquisitionType, isCastrated: input.isCastrated,
-    observations: input.observations.trim() || null, motherId: input.motherId || null,
+    observations: input.observations.trim() || null, motherId: input.motherId || null, fatherName: cleanFatherName(input.fatherName),
     // Só vai quando a foto mudou: o servidor mantém a que tem (e o aparelho pode ainda não ter baixado a foto)
     ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl || null } : {}),
   }

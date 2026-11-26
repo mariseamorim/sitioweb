@@ -2,18 +2,21 @@
 // abertura da propriedade de um cliente e os blocos de tarefas e de agenda usados em Consultoria e na tela Início.
 import { useRouter } from 'expo-router'
 import { useCallback, useEffect, useImperativeHandle, useState, type Ref } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { FlatList, Modal, Pressable, SafeAreaView, Text, View } from 'react-native'
 import { api, NetworkError } from '@/api/client'
 import { useSession } from '@/auth/session'
 import { getCache, setCache } from '@/db'
+import { farmKind } from '@/lib/farmSegments'
 import { todayISO } from '@/lib/format'
 import { useLocale, useT } from '@/lib/i18n'
 import { pendingCount } from '@/sync/local'
-import { Badge, Button, Card, DateField, Field, Muted, Notice, SelectField } from '@/ui'
+import { Badge, Button, Card, DateField, Field, Muted, Notice, SelectField, type Tone } from '@/ui'
 import { colors, font, space } from '@/theme'
 
 export interface VetClient {
   id: string; farmId: string; name: string; owner: string | null; city: string | null; state: string | null
+  /** O que a propriedade faz (leite, cria, recria, engorda) */
+  segments?: string[]
   animals: number; awaitingDiagnosis: number; pregnancyRate: number | null; birthsSoon: number
   /** Partos previstos por mês ("AAAA-MM"): o mês atual e os 5 seguintes */
   birthsByMonth?: { month: string; count: number }[]
@@ -64,31 +67,33 @@ export function appRoute(href: string) {
   return '/reproducao'
 }
 
-/** Abre a propriedade do cliente (se for outra) e segue para a tela pedida. */
+/** Abre a propriedade do cliente (se for outra) e segue para a tela pedida (sem tela: fica onde está). */
 export function useOpenFarm(setError: (msg: string) => void) {
   const { user, switchFarm } = useSession()
   const router = useRouter()
   const t = useT()
   const [busy, setBusy] = useState<string | null>(null)
-  const open = useCallback(async (farmId: string, next: string) => {
+  const open = useCallback(async (farmId: string, next?: string): Promise<boolean> => {
     setError('')
     if (user?.farmId !== farmId) {
       // A fila é enviada na propriedade aberta: trocar com algo pendente mandaria a anotação para a propriedade errada
       if (user?.farmId && pendingCount(user.farmId).pending > 0) {
         setError(t('Ainda há anotações salvas só no celular. Conecte-se à internet e espere o envio antes de abrir outra propriedade.'))
-        return
+        return false
       }
       setBusy(farmId)
       try {
         await switchFarm(farmId)
       } catch (e) {
         setError(e instanceof NetworkError ? t('Sem internet: para abrir outra propriedade é preciso conexão.') : e instanceof Error ? t(e.message) : t('Não foi possível abrir a propriedade'))
-        return
+        return false
       } finally {
         setBusy(null)
       }
     }
-    router.push(appRoute(next) as never)
+    // Sem `next`: só troca a propriedade e fica na mesma tela (a barra da propriedade aberta)
+    if (next) router.push(appRoute(next) as never)
+    return true
   }, [user?.farmId, switchFarm, router, t, setError])
   return { open, busy }
 }
@@ -96,32 +101,126 @@ export function useOpenFarm(setError: (msg: string) => void) {
 /** Etiqueta da pendência: atrasada primeiro, depois atenção, depois aviso */
 const BADGE: Record<VetTask['tone'], { label: string; order: number }> = { red: { label: 'Atrasada', order: 0 }, amber: { label: 'Atenção', order: 1 }, blue: { label: 'Aviso', order: 2 } }
 
-/** Pendências das propriedades atendidas, as atrasadas primeiro. Tocar abre a propriedade na tela certa. */
-export function VetTasks({ panel, onOpen, busy }: { panel: VetPanel; onOpen: (farmId: string, href: string) => void; busy: string | null }) {
+/** Pendências de uma propriedade, as atrasadas primeiro */
+export function farmTasks(panel: VetPanel | null, farmId: string) {
+  return (panel?.tasks ?? []).filter(k => k.farmId === farmId).sort((a, b) => BADGE[a.tone].order - BADGE[b.tone].order)
+}
+
+/** Leite, corte ou os dois, com cor própria: o veterinário bate o olho e sabe que fazenda é */
+const KIND_TONE: Record<string, Tone> = { Leite: 'blue', Corte: 'amber', 'Leite e corte': 'purple' }
+export function FarmKindBadge({ segments }: { segments?: string[] | null }) {
+  const kind = farmKind(segments)
+  return <Badge label={kind ?? 'Tipo não informado'} tone={kind ? KIND_TONE[kind] : 'muted'} />
+}
+
+/**
+ * Pendências de uma propriedade, dentro do cartão dela na Consultoria: uma linha por tipo (diagnóstico, partos,
+ * vacinas, tratamentos). Tocar abre a propriedade na tela certa. É o único lugar com a lista; o Início só resume.
+ */
+export function FarmTasks({ panel, farmId, onOpen, busy }: { panel: VetPanel; farmId: string; onOpen: (farmId: string, href: string) => void; busy: string | null }) {
   const t = useT()
-  const tasks = (panel.tasks ?? [])
-    .flatMap(k => { const c = panel.clients.find(x => x.farmId === k.farmId); return c ? [{ k, c }] : [] })
-    .sort((a, b) => BADGE[a.k.tone].order - BADGE[b.k.tone].order)
+  const tasks = farmTasks(panel, farmId)
+  if (!tasks.length) return <Muted style={{ marginTop: space.sm }}>{t('Nada pendente nesta propriedade.')}</Muted>
+  return (
+    <View style={{ marginTop: space.sm, borderTopWidth: 1, borderTopColor: colors.border }}>
+      {tasks.map(k => (
+        <Pressable key={k.title} disabled={!!busy} onPress={() => onOpen(farmId, k.href)} accessibilityRole="button"
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.sm, minHeight: 48, paddingVertical: space.sm, borderBottomWidth: 1, borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 })}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.text, fontSize: font.md, fontWeight: '600' }}>{t(k.title, { n: k.n })}</Text>
+            {k.late || k.detail ? <Muted>{[k.late ? t(k.late === 1 ? '{n} já passou da data' : '{n} já passaram da data', { n: k.late }) : null, k.detail ? t(k.detail) : null].filter(Boolean).join(' · ')}</Muted> : null}
+          </View>
+          <Badge label={BADGE[k.tone].label} tone={k.tone} />
+          <Text style={{ color: colors.muted, fontSize: font.lg }}>›</Text>
+        </Pressable>
+      ))}
+    </View>
+  )
+}
+
+/** Propriedades atendidas para escolher: do painel (com números) ou, sem ele, da sessão */
+function farmChoices(panel: VetPanel | null, farms: { id: string; name: string; segments?: string[] }[]) {
+  if (panel?.clients.length) {
+    return panel.clients.map(c => ({ farmId: c.farmId, name: c.name, segments: c.segments, place: [c.city, c.state].filter(Boolean).join(', '), animals: c.animals as number | null, tasks: farmTasks(panel, c.farmId) }))
+  }
+  return farms.map(f => ({ farmId: f.id, name: f.name, segments: f.segments, place: '', animals: null as number | null, tasks: [] as VetTask[] }))
+}
+
+/**
+ * Veterinário: de qual propriedade são os animais e os lançamentos da tela, se ela é de leite ou de corte, e a troca
+ * por outra sem sair da tela. Fica no topo do Início, de Animais e de Reprodução.
+ */
+export function VetFarmBar() {
+  const { user } = useSession()
+  const t = useT()
+  // Só a cópia guardada: a barra aparece em várias telas e não precisa buscar o painel de novo a cada uma
+  const panel = getCache<VetPanel>(CACHE_KEY)
+  const [error, setError] = useState('')
+  const [picking, setPicking] = useState(false)
+  const { open, busy } = useOpenFarm(setError)
+  if (!user?.vet) return null
+  const choices = farmChoices(panel, user.farms)
+  const current = choices.find(c => c.farmId === user.farmId)
+  const animals = current?.animals ?? null
+  const animalsText = (n: number) => t(n === 1 ? '{n} animal' : '{n} animais', { n })
   return (
     <View style={{ marginBottom: space.md }}>
-      <Text style={{ fontWeight: '700', color: colors.text, fontSize: font.lg, marginBottom: space.sm }}>{t('Pendências')}</Text>
-      {!tasks.length ? <Card><Muted>{t('Nada pendente nas propriedades que você atende.')}</Muted></Card> : null}
-      {tasks.map(({ k, c }) => {
-        const detail = [c.name, k.late ? t(k.late === 1 ? '{n} já passou da data' : '{n} já passaram da data', { n: k.late }) : null, k.detail ? t(k.detail) : null].filter(Boolean).join(' · ')
-        return (
-          <Pressable key={k.farmId + k.title} disabled={!!busy} onPress={() => onOpen(c.farmId, k.href)} accessibilityRole="button"
-            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.sm, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border, borderRadius: 12, padding: space.md, marginBottom: space.sm, opacity: busy === c.farmId ? 0.5 : pressed ? 0.7 : 1 })}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm }}>
-                <Text style={{ color: colors.text, fontSize: font.md, fontWeight: '700' }}>{t(k.title, { n: k.n })}</Text>
-                <Badge label={BADGE[k.tone].label} tone={k.tone} />
-              </View>
-              <Muted>{detail}</Muted>
-            </View>
-            <Text style={{ color: colors.muted, fontSize: font.lg }}>›</Text>
-          </Pressable>
-        )
-      })}
+      <Pressable disabled={choices.length < 2} onPress={() => setPicking(true)} accessibilityRole="button" accessibilityLabel={t('Trocar propriedade')}
+        style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: space.sm, backgroundColor: colors.greenSoft, borderWidth: 1, borderColor: colors.green, borderRadius: 12, padding: space.md, opacity: pressed ? 0.8 : 1 })}>
+        <View style={{ flex: 1, gap: 4 }}>
+          <Muted>{t('Propriedade aberta')}</Muted>
+          <Text style={{ color: colors.greenDark, fontSize: font.lg, fontWeight: '800' }} numberOfLines={2}>{user.farmName ?? t('nenhuma')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm }}>
+            <FarmKindBadge segments={current?.segments ?? user.farmSegments} />
+            {animals !== null ? <Muted>{animalsText(animals)}</Muted> : null}
+          </View>
+        </View>
+        {choices.length > 1 ? <Text style={{ color: colors.green, fontWeight: '700', fontSize: font.md }}>{t('Trocar')} ›</Text> : null}
+      </Pressable>
+      {error && !picking ? <Notice tone="red" text={error} /> : null}
+      <Modal visible={picking} animationType="slide" onRequestClose={() => setPicking(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: space.lg }}>
+            <Text style={{ fontSize: font.lg, fontWeight: '800', color: colors.text }}>{t('Escolher a propriedade')}</Text>
+            <Pressable onPress={() => setPicking(false)} hitSlop={12}><Text style={{ color: colors.green, fontWeight: '700', fontSize: font.md }}>{t('Fechar')}</Text></Pressable>
+          </View>
+          {error ? <View style={{ paddingHorizontal: space.lg }}><Notice tone="red" text={error} /></View> : null}
+          <FlatList
+            data={choices}
+            keyExtractor={c => c.farmId}
+            contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.xl }}
+            renderItem={({ item: c }) => {
+              const isOpen = c.farmId === user.farmId
+              const late = c.tasks.some(k => k.tone === 'red')
+              const info = [
+                c.place,
+                c.animals !== null ? animalsText(c.animals) : null,
+                c.tasks.length ? t(c.tasks.length === 1 ? '{n} pendência' : '{n} pendências', { n: c.tasks.length }) : null,
+              ].filter(Boolean).join(' · ')
+              return (
+                <Pressable disabled={!!busy} accessibilityRole="button" accessibilityState={{ selected: isOpen }}
+                  onPress={async () => {
+                    if (isOpen) return setPicking(false)
+                    setError('')
+                    // Só fecha se trocou: o erro (sem internet, anotação na fila) fica visível na lista
+                    if (await open(c.farmId)) setPicking(false)
+                  }}
+                  style={({ pressed }) => ({ backgroundColor: isOpen ? colors.greenSoft : colors.white, borderWidth: isOpen ? 2 : 1, borderColor: isOpen ? colors.green : colors.border, borderRadius: 12, padding: space.md, marginBottom: space.sm, gap: 4, opacity: busy === c.farmId ? 0.5 : pressed ? 0.7 : 1 })}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+                    <Text style={{ flex: 1, color: colors.text, fontSize: font.md, fontWeight: '700' }} numberOfLines={2}>{c.name}</Text>
+                    {isOpen ? <Text style={{ color: colors.green, fontWeight: '700', fontSize: font.sm }}>{t('Aberta')}</Text> : null}
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm }}>
+                    <FarmKindBadge segments={c.segments} />
+                    {late ? <Badge label="Atrasada" tone="red" /> : null}
+                  </View>
+                  {info ? <Muted>{info}</Muted> : null}
+                </Pressable>
+              )
+            }}
+          />
+        </SafeAreaView>
+      </Modal>
     </View>
   )
 }
@@ -225,19 +324,40 @@ export function VetAgenda({ panel, onChanged, compact, ref }: { panel: VetPanel;
   )
 }
 
-/** Topo da tela Início do veterinário: o que fazer nas propriedades e as próximas visitas. */
+/**
+ * Topo da tela Início do veterinário, enxuto: a propriedade aberta (com a troca) e um resumo só com números. A lista
+ * das pendências e a agenda completa ficam na Consultoria, agrupadas por propriedade, para não aparecerem duas vezes.
+ */
 export function VetToday() {
-  const { panel, reload } = useVetPanel()
-  const [error, setError] = useState('')
-  const { open, busy } = useOpenFarm(setError)
+  const { panel } = useVetPanel()
   const router = useRouter()
-  if (!panel) return null
+  const t = useT()
+  const today = todayISO()
+  const tasks = panel?.tasks ?? []
+  const farmsWithTasks = new Set(tasks.map(k => k.farmId)).size
+  const late = tasks.filter(k => k.tone === 'red').length
+  const visitsToday = (panel?.visits ?? []).filter(v => v.date.slice(0, 10) === today).length
   return (
     <>
-      {error ? <Notice tone="red" text={error} /> : null}
-      <Button label="Abrir a agenda da semana" icon="calendar-outline" onPress={() => router.push('/agenda')} style={{ marginBottom: space.md }} />
-      <VetTasks panel={panel} onOpen={(farmId, href) => void open(farmId, href)} busy={busy} />
-      <VetAgenda panel={panel} onChanged={reload} compact />
+      <VetFarmBar />
+      {panel ? (
+        <Card onPress={() => router.push('/consultoria')} style={{ borderColor: late ? colors.red : colors.blue, borderWidth: 2 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={{ fontSize: font.lg, fontWeight: '800', color: colors.text }}>{t('Consultoria')}</Text>
+              <Muted>{[
+                tasks.length
+                  ? t(farmsWithTasks === 1 ? '{n} pendências em 1 propriedade' : '{n} pendências em {f} propriedades', { n: tasks.length, f: farmsWithTasks })
+                  : t('Nada pendente nas propriedades que você atende.'),
+                late ? t(late === 1 ? '1 atrasada' : '{n} atrasadas', { n: late }) : null,
+                visitsToday ? t(visitsToday === 1 ? '1 visita hoje' : '{n} visitas hoje', { n: visitsToday }) : null,
+              ].filter(Boolean).join(' · ')}</Muted>
+            </View>
+            <Text style={{ color: colors.muted, fontSize: font.lg }}>›</Text>
+          </View>
+        </Card>
+      ) : null}
+      <Button label={t('Abrir a agenda da semana')} icon="calendar-outline" variant="secondary" onPress={() => router.push('/agenda')} style={{ marginBottom: space.md }} />
     </>
   )
 }

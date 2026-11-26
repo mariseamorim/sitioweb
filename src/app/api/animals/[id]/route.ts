@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { notFound, requireFarmAccess } from '@/lib/auth'
 import { closeOpenPregnancy, findValidMother } from '@/lib/calves'
 import { animalCategory, animalRuleError, cleanBreed } from '@/lib/animalRules'
+import { cleanFatherName } from '@/lib/inbreeding'
 import { cleanCustomCode, duplicateCodeMessage } from '@/lib/animalCode'
 
 async function findOwned(id: string, farmId: string) {
@@ -54,6 +55,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       ...(imageUrl !== undefined ? { imageUrl: imageUrl || null } : {}),
       lowDate: lowDate ? new Date(lowDate) : null,
       lowReason: lowReason || null,
+      // Pai digitado (nome ou registro do touro): só muda quando o pedido manda o campo (versões antigas não mandam)
+      ...(body.fatherName !== undefined ? { fatherName: cleanFatherName(body.fatherName) } : {}),
       // Só muda a mãe quando o formulário manda o campo
       ...(motherId !== undefined ? { motherId: motherId || null } : {}),
     },

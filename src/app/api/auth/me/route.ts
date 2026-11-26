@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     farmId: user.effectiveFarmId,
     farmName: farm?.name ?? null,
     farmSegments: farm?.segments ?? [],
-    farms: farms.map((f) => ({ id: f.id, name: f.name })),
+    farms: farms.map((f) => ({ id: f.id, name: f.name, segments: f.segments })),
     permissions: user.permissions,
     vet,
     // Demonstração do veterinário: a tela mostra o aviso e o atalho para criar conta

@@ -43,6 +43,8 @@ interface Animal {
   observations?: string
   imageUrl?: string
   motherId?: string | null
+  /** Pai digitado (nome ou registro do touro) */
+  fatherName?: string | null
   lotId?: string | null
   rearingStart?: string | null
   rearingEnd?: string | null
@@ -67,6 +69,7 @@ const EMPTY_FORM = {
   observations: '',
   imageUrl: '',
   motherId: '',
+  fatherName: '',
 }
 
 export default function AnimaisPage() {
@@ -135,6 +138,7 @@ export default function AnimaisPage() {
         observations: r.observations,
         imageUrl: r.imageUrl,
         motherId: r.motherId ?? null,
+        fatherName: r.fatherName ?? null,
       }))
 
     // Rebanho com cópia no aparelho (sem a foto): sem internet ou com sinal fraco, mostra a última cópia
@@ -232,6 +236,7 @@ export default function AnimaisPage() {
       observations: a.observations || '',
       imageUrl: a.imageUrl || '',
       motherId: a.motherId || '',
+      fatherName: a.fatherName || '',
     })
     setError('')
     setShowForm(true)
@@ -575,6 +580,12 @@ export default function AnimaisPage() {
                   <p className="text-xs text-gray-500">{t('Observações')}</p>
                   <p className="font-medium text-gray-800 text-xs sm:text-sm line-clamp-2">{selectedAnimal.observations || '-'}</p>
                 </div>
+                {selectedAnimal.fatherName && (
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-500">{t('Pai')}</p>
+                    <p className="font-medium text-gray-800 text-xs sm:text-sm">{selectedAnimal.fatherName}</p>
+                  </div>
+                )}
                 {mother && (
                   <div className="min-w-0">
                     <p className="text-xs text-gray-500">{t('Mãe')}</p>
@@ -751,6 +762,13 @@ export default function AnimaisPage() {
                       {motherOptions.map((m) => <option key={m.id} value={m.id}>{m.name}{m.code ? ` (${m.code})` : ''}</option>)}
                     </select>
                   </label>
+                </div>
+                {/* Pai: quando não há a cobertura anotada (comprado, já estava no rebanho, touro de fora). Usado no bloqueio de consanguinidade */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700">{t('Pai')} <span className="font-normal text-gray-400">{t('(nome ou registro do touro ou do sêmen, se souber)')}</span>
+                    <input value={form.fatherName} maxLength={80} onChange={(e) => setForm({ ...form, fatherName: e.target.value })} placeholder={t('Ex.: Trovão ou RGD 12345')} className={FIELD} />
+                  </label>
+                  <p className="mt-1 text-xs text-gray-500">{t('Serve para o sistema não deixar cobrir com o pai ou o avô.')}</p>
                 </div>
 
                 <div>

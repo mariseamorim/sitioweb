@@ -55,6 +55,7 @@ export default function AnimalScreen() {
           {a.isCastrated ? <Badge label={t('Castrado')} /> : null}
         </View>
         <Muted style={{ marginTop: space.sm }}>{t('Nascimento:')} {brDate(a.birthDate)} · {t(ACQUISITIONS.find(x => x[0] === a.acquisitionType)?.[1] ?? a.acquisitionType)}</Muted>
+        {a.fatherName ? <Muted style={{ marginTop: space.xs }}>{t('Pai:')} {a.fatherName}</Muted> : null}
         {a.observations ? <Text style={{ marginTop: space.sm, color: colors.text }}>{a.observations}</Text> : null}
         {canEdit ? <Button label={t('Editar')} variant="secondary" onPress={() => setEditing(true)} style={{ marginTop: space.md }} /> : null}
       </Card>
@@ -104,6 +105,7 @@ function AnimalForm({ farmId, animal, photo, onDone, canEdit }: { farmId: string
   const [breedChoice, setBreedChoice] = useState<string | null>(animal?.breed ? (knownBreed ? animal.breed : 'Outra') : null)
   const [breedOther, setBreedOther] = useState(knownBreed ? '' : animal?.breed ?? '')
   const [motherId, setMotherId] = useState<string | null>(animal?.motherId ?? null)
+  const [fatherName, setFatherName] = useState(animal?.fatherName ?? '')
   const [observations, setObservations] = useState(animal?.observations ?? '')
   const [imageUrl, setImageUrl] = useState(photo ?? '')
   const [error, setError] = useState('')
@@ -123,7 +125,7 @@ function AnimalForm({ farmId, animal, photo, onDone, canEdit }: { farmId: string
     if (!species || !gender || !status || !acquisitionType) { setError(t('Preencha espécie, sexo, situação e origem')); return }
     if (birthDate > todayISO()) { setError(t('A data de nascimento não pode ser no futuro')); return }
     if (otherFarm) return void saveInOtherFarm()
-    const id = saveAnimal(farmId, { name, species, breed: breedChoice === 'Outra' ? breedOther : breedChoice ?? '', gender, birthDate, status, customCode, acquisitionType, isCastrated, observations, motherId, imageUrl: imageUrl !== (photo ?? '') ? imageUrl : undefined }, animal?.id)
+    const id = saveAnimal(farmId, { name, species, breed: breedChoice === 'Outra' ? breedOther : breedChoice ?? '', gender, birthDate, status, customCode, acquisitionType, isCastrated, observations, motherId, fatherName, imageUrl: imageUrl !== (photo ?? '') ? imageUrl : undefined }, animal?.id)
     onDone(id)
   }
 
@@ -138,7 +140,7 @@ function AnimalForm({ farmId, animal, photo, onDone, canEdit }: { farmId: string
         body: {
           ...(farmChoice === NEW_FARM ? { newFarmName: newFarmName.trim() } : { farmId: farmChoice }),
           name: name.trim(), species, gender, birthDate, status, customCode: customCode.trim() || null, acquisitionType, isCastrated,
-          breed: breedChoice === 'Outra' ? breedOther : breedChoice ?? '', observations: observations.trim() || null,
+          breed: breedChoice === 'Outra' ? breedOther : breedChoice ?? '', observations: observations.trim() || null, fatherName: fatherName.trim() || null,
         },
       })
       if (farmChoice === NEW_FARM) void reloadPanel()
@@ -191,6 +193,8 @@ function AnimalForm({ farmId, animal, photo, onDone, canEdit }: { farmId: string
       <Field label={t('Brinco ou outro código (opcional)')} value={customCode} onChangeText={setCustomCode} autoCapitalize="characters" hint={t('O número da propriedade é dado automaticamente')} />
       <Chips label={t('Origem')} value={acquisitionType} options={ACQUISITIONS.map(([v, l]) => ({ value: v as string, label: l as string }))} onChange={setAcquisitionType} />
       {acquisitionType === 'nascimento' ? <SelectField label={t('Mãe (opcional)')} value={motherId} options={mothers} onChange={setMotherId} searchable allowEmpty /> : null}
+      {/* Pai: o sistema usa para não deixar cobrir com o pai ou o avô */}
+      <Field label={t('Pai (opcional)')} value={fatherName} onChangeText={setFatherName} maxLength={80} placeholder={t('Ex.: Trovão ou RGD 12345')} hint={t('Nome ou registro do touro ou do sêmen. Serve para não deixar cobrir com o pai ou o avô.')} />
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.md }}>
         <Text style={{ color: colors.text, fontSize: 16 }}>{t('Castrado')}</Text>
         <Switch value={isCastrated} onValueChange={setIsCastrated} trackColor={{ true: colors.green }} />
