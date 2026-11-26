@@ -4,6 +4,7 @@ import { notFound, requireFarmAccess } from '@/lib/auth'
 import { canBreed } from '@/lib/animalRules'
 import { GESTATION_DAYS, parseCoverageDetails } from '@/lib/coverage'
 import { vetProfileOf } from '@/lib/vets'
+import { inbreedingError } from '@/lib/inbreedingServer'
 
 const OPEN_STATUSES = ['Coberta', 'Prenha']
 
@@ -70,6 +71,10 @@ export async function POST(request: NextRequest) {
       details.bullBreed = details.bullBreed ?? semen.bullBreed
       details.semenBatch = details.semenBatch ?? semen.semenBatch
     }
+
+    // Consanguinidade: o touro (ou o sêmen) não pode ser o pai nem um avô da fêmea
+    const inbred = await inbreedingError(auth.farmId, femaleId, { maleName: maleName || semen?.bullName || semen?.name || null, bullRegistry: details.bullRegistry })
+    if (inbred) return NextResponse.json({ error: inbred }, { status: 400 })
 
     const reproduction = await prisma.$transaction(async (tx) => {
       if (semen) {

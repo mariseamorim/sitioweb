@@ -18,7 +18,9 @@ export interface User {
   role: string
   farmId: string | null
   farmName: string | null
-  farms: { id: string; name: string }[]
+  farms: { id: string; name: string; segments?: string[] }[]
+  /** O que a propriedade aberta faz (leite, cria, recria, engorda) */
+  farmSegments?: string[]
   permissions: string[] | null
   /** O servidor tem WhatsApp de suporte configurado */
   support: boolean
@@ -44,7 +46,7 @@ interface Session {
 const Ctx = createContext<Session | null>(null)
 
 function pickUser(me: MeResponse): User {
-  return { id: me.id, name: me.name, email: me.email ?? null, phone: me.phone ?? null, role: me.role, farmId: me.farmId ?? null, farmName: me.farmName ?? null, farms: me.farms ?? [], permissions: me.permissions ?? null, support: me.support !== false, vet: !!me.vet }
+  return { id: me.id, name: me.name, email: me.email ?? null, phone: me.phone ?? null, role: me.role, farmId: me.farmId ?? null, farmName: me.farmName ?? null, farms: me.farms ?? [], farmSegments: me.farmSegments ?? [], permissions: me.permissions ?? null, support: me.support !== false, vet: !!me.vet }
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {

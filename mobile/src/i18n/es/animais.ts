@@ -79,4 +79,9 @@ export const animais: Record<string, string> = {
   'Informe o nome da fazenda': 'Indique el nombre de la finca',
   'Ex.: Sítio Boa Vista': 'Ej.: Sítio Boa Vista',
   'Em outra fazenda o cadastro vai direto para o servidor (precisa de internet). A fazenda nova entra em "Fazendas atendidas".': 'En otra finca el registro va directo al servidor (necesita internet). La finca nueva entra en "Fincas atendidas".',
+  // Pai do animal (bloqueio de consanguinidade)
+  'Pai (opcional)': 'Padre (opcional)',
+  'Pai:': 'Padre:',
+  'Ex.: Trovão ou RGD 12345': 'Ej.: Trovão o RGD 12345',
+  'Nome ou registro do touro ou do sêmen. Serve para não deixar cobrir com o pai ou o avô.': 'Nombre o registro del toro o del semen. Sirve para no dejar servir con el padre o el abuelo.',
 }

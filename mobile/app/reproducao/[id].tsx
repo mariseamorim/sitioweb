@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Alert, Pressable, Text, ToastAndroid, View } from 'react-native'
 import { useFarmId, useSession } from '@/auth/session'
 import { useLive } from '@/db/events'
@@ -8,7 +8,7 @@ import { COVERAGE_METHODS, EMPTY_COVERAGE, GESTATION_DAYS, gestation, plusDays, 
 import { brDate, isoDay, todayISO } from '@/lib/format'
 import { getAnimal } from '@/repos/animals'
 import {
-  breedableFemales, calfCandidates, createCoverage, getReproduction, isOpen, linkExistingCalf, registerBirth, removeReproduction,
+  breedableFemales, calfCandidates, createCoverage, getReproduction, inbreedingCheck, isOpen, linkExistingCalf, registerBirth, removeReproduction,
   STATUS_LIST, statusTone, updateCoverage, updateStatus, type Reproduction,
 } from '@/repos/reproductions'
 import { Badge, Button, Card, Chips, DateField, Field, Muted, Notice, Screen, SelectField } from '@/ui'
@@ -16,13 +16,22 @@ import { colors, font, radius, space } from '@/theme'
 import { useT } from '@/lib/i18n'
 import { useVetStock } from '@/vet/stock'
 import { semenLabel } from '@/lib/vetSupplyKinds'
+import { VetFarmBar } from '@/vet/panel'
+import { INBREEDING_TEXT, KINSHIP_LABEL, type InbreedingConflict } from '@/lib/inbreeding'
 
 
 // Reprodução: id = "nova" abre "Registrar cobertura"; um id existente abre o detalhe do registro
 export default function ReproducaoScreen() {
   const { id, femaleId, status } = useLocalSearchParams<{ id: string; femaleId?: string; status?: string }>()
-  if (!id || id === 'nova') return <CoverageFormScreen presetFemaleId={femaleId} presetStatus={status} />
+  const farmId = useFarmId()
+  // Trocou de propriedade no formulário (veterinário): começa de novo, para não ficar a fêmea da outra propriedade
+  if (!id || id === 'nova') return <CoverageFormScreen key={farmId} presetFemaleId={femaleId} presetStatus={status} />
   return <DetailScreen id={id} />
+}
+
+/** Aviso de consanguinidade traduzido (regra em src/lib/inbreeding.ts) */
+function inbreedingText(t: ReturnType<typeof useT>, c: InbreedingConflict) {
+  return t(INBREEDING_TEXT, { bull: c.bull, who: t(KINSHIP_LABEL[c.kinship]) })
 }
 
 // ── Registrar cobertura ────────────────────────────────────────────────
@@ -48,12 +57,16 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
   const [error, setError] = useState('')
   const set = (patch: Partial<CoverageForm>) => setForm(f => ({ ...f, ...patch }))
   const more = showMore || !!(form.semenBatch || form.inseminator || form.bullRegistry || form.heatDate)
+  // Touro que é pai ou avô da fêmea: avisa já ao escolher e não deixa salvar
+  const conflict = useMemo(() => inbreedingCheck(farmId, form.femaleId, { maleName: form.maleName, bullRegistry: form.bullRegistry }), [farmId, form.femaleId, form.maleName, form.bullRegistry])
+  const inbred = conflict ? inbreedingText(t, conflict) : null
 
   // Salva a cobertura. Com `repeat`, mantém data, tipo, touro, partida e inseminador e limpa só a fêmea:
   // é o dia de IATF, em que a fila toda leva o mesmo sêmen e só muda o brinco.
   function save(repeat: boolean) {
     if (!form.femaleId) { setError(t('Escolha a fêmea')); return }
     if (!form.coverageDate) { setError(t('Informe a data da cobertura')); return }
+    if (inbred) { setError(inbred); return }
     setError('')
     createCoverage(farmId, { ...form, vetSupplyId: semenId })
     // A dose usada sai da conta na tela (o servidor desconta de verdade ao receber)
@@ -72,6 +85,7 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
     <Screen>
       <Stack.Screen options={{ title: t('Registrar cobertura') }} />
       {!canEdit ? <Notice tone="red" text={t('Sua conta só pode consultar.')} /> : null}
+      <VetFarmBar />
       {repeated ? <Notice tone="green" text={`${t(repeated.count === 1 ? '{n} cobertura salva.' : '{n} coberturas salvas.', { n: repeated.count })} ${t('Mantido para a próxima fêmea:')} ${repeated.kept.join(', ')}.`} /> : null}
       <SelectField label={t('Fêmea')} value={form.femaleId || null} onChange={v => set({ femaleId: v ?? '' })} searchable placeholder={t('Escolher a fêmea')}
         options={females.map(a => ({ value: a.id, label: a.name, detail: `${a.customCode || a.code} · ${t(a.species)}` }))} />
@@ -101,6 +115,7 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
         </>
       ) : null}
       <Field label={t('Touro')} value={form.maleName} onChangeText={v => set({ maleName: v })} placeholder={t('Nome ou código do touro')} />
+      {inbred ? <Notice tone="red" text={inbred} /> : null}
       <Field label={t('Raça do touro')} value={form.bullBreed} onChangeText={v => set({ bullBreed: v })} placeholder={t('Ex.: Gir, Holandesa')} />
       <DateField label={t('Data da cobertura *')} value={form.coverageDate} onChange={v => set({ coverageDate: v })} />
       {form.status === 'Prenha' && !form.coverageDate ? <Notice text={t('Se não souber o dia certo, coloque uma data aproximada: ela define a previsão do parto.')} /> : null}
@@ -121,8 +136,8 @@ function CoverageFormScreen({ presetFemaleId, presetStatus }: { presetFemaleId?:
         </Card>
       )}
       {error ? <Notice tone="red" text={error} /> : null}
-      <Button label={t('Salvar')} onPress={() => save(false)} disabled={!canEdit} />
-      <Button label={t('Salvar e repetir para outra fêmea')} variant="secondary" onPress={() => save(true)} disabled={!canEdit} style={{ marginTop: space.sm }} />
+      <Button label={t('Salvar')} onPress={() => save(false)} disabled={!canEdit || !!inbred} />
+      <Button label={t('Salvar e repetir para outra fêmea')} variant="secondary" onPress={() => save(true)} disabled={!canEdit || !!inbred} style={{ marginTop: space.sm }} />
       <Muted style={{ marginTop: space.sm }}>{t('Para o dia de inseminação: a data, o tipo, o touro, a partida e o inseminador ficam preenchidos e só a fêmea muda.')}</Muted>
       {repeated ? <Button label={t('Fechar')} variant="ghost" onPress={() => router.back()} style={{ marginTop: space.sm }} /> : null}
     </Screen>
@@ -230,6 +245,8 @@ function RecordEditor({ farmId, record, onCancel, onSaved }: { farmId: string; r
 
   function save() {
     if (!form.coverageDate) { setError(t('Informe a data da cobertura')); return }
+    const conflict = inbreedingCheck(farmId, record.femaleId, { maleName: form.maleName, bullRegistry: form.bullRegistry })
+    if (conflict) { setError(inbreedingText(t, conflict)); return }
     // A data da cobertura recalcula o parto previsto; a previsão digitada vale por cima
     updateCoverage(farmId, record, form)
     onSaved()

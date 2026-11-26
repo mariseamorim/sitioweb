@@ -8,6 +8,7 @@ import { brDate } from '@/lib/format'
 import { birthSoon, isOpen, listHerd, listReproductions, markEmptyAfterCalving, STATUS_LIST, statusTone, updateStatus, type Reproduction } from '@/repos/reproductions'
 import { Badge, Button, Card, Chips, Empty, Fab, IconCircle, Muted, Row, Search, Tile, TileGrid } from '@/ui'
 import { colors, font, radius, space } from '@/theme'
+import { VetFarmBar } from '@/vet/panel'
 import { useT } from '@/lib/i18n'
 
 type Filter = 'Todas' | 'partos' | (typeof STATUS_LIST)[number]
@@ -42,6 +43,7 @@ export default function Reproducao() {
 
   const header = (
     <View>
+      <VetFarmBar />
       <PregnancyCheckPanel checks={pregnancyChecks(herd, reproductions)} canEdit={canEdit} onAnswer={answerCheck} />
       <HerdCalvingPanel herd={herd} reproductions={reproductions} onOpenAnimal={id => router.push(`/animais/${id}`)} />
       {upcoming > 0 ? (

@@ -6,11 +6,12 @@ import { Button, Card, Empty, Muted, Notice, Screen, Tile, TileGrid } from '@/ui
 import { colors, font, space } from '@/theme'
 import { todayISO } from '@/lib/format'
 import { useT } from '@/lib/i18n'
-import { useOpenFarm, useVetPanel, VetAgenda, VetTasks, type AgendaHandle, type VetClient } from '@/vet/panel'
+import { FarmKindBadge, FarmTasks, farmTasks, useOpenFarm, useVetPanel, VetAgenda, type AgendaHandle, type VetClient } from '@/vet/panel'
 import { VetCharts } from '@/vet/charts'
 
-// Painel do veterinário consultor (como src/app/consultoria/page.tsx do site): o que fazer em cada propriedade, a
-// agenda de visitas e as propriedades atendidas com os números de reprodução. Os números vêm do servidor; sem internet
+// Painel do veterinário consultor (como src/app/consultoria/page.tsx do site): a agenda de visitas e as propriedades
+// atendidas, cada uma com o tipo (leite ou corte), os números de reprodução e as próprias pendências (as com atraso
+// primeiro). É o único lugar com a lista de pendências; o Início só mostra o resumo. Os números vêm do servidor; sem internet
 // mostra a última cópia. Cadastrar propriedade de cliente, dar acesso ao produtor, relatório de visita, recibos,
 // estoque do veterinário e o histórico dos encerrados ficam no site.
 export default function Consultoria() {
@@ -33,6 +34,9 @@ export default function Consultoria() {
   const total = (pick: (c: VetClient) => number) => panel.clients.reduce((sum, c) => sum + pick(c), 0)
   const today = todayISO()
   const visitsToday = (panel.visits ?? []).filter(v => v.date.slice(0, 10) === today).length
+  // Propriedades com pendência atrasada primeiro, depois as com mais pendências
+  const late = (c: VetClient) => farmTasks(panel, c.farmId).filter(k => k.tone === 'red').length
+  const clients = [...panel.clients].sort((a, b) => late(b) - late(a) || farmTasks(panel, b.farmId).length - farmTasks(panel, a.farmId).length)
   const lateShots = (panel.tasks ?? []).filter(k => k.href.startsWith('/vacinacao')).reduce((sum, k) => sum + (k.late ?? 0), 0)
 
   return (
@@ -55,7 +59,6 @@ export default function Consultoria() {
       </TileGrid>
 
       <VetAgenda ref={agenda} panel={panel} onChanged={reload} />
-      <VetTasks panel={panel} onOpen={(farmId, href) => void open(farmId, href)} busy={busy} />
       <VetCharts panel={panel} onOpen={(farmId, href) => void open(farmId, href)} busy={busy} />
 
       <Card style={{ backgroundColor: colors.greenSoft, borderColor: colors.green }}>
@@ -65,16 +68,20 @@ export default function Consultoria() {
         <Button label={t('Enviar ao produtor')} onPress={() => { void Share.share({ message: t('Olá! Sou {name}, veterinário. Para eu acompanhar a sua propriedade no Anota Aí Agro, abra este link e confirme: {link}', { name: panel.vet.name, link }) }) }} />
       </Card>
 
-      {panel.clients.length === 0 ? <Empty title={t('Nenhuma propriedade ainda')} text={t('Envie o seu código ao produtor. Para cadastrar a propriedade de um cliente que ainda não usa o sistema, use o site.')} /> : panel.clients.map(c => (
+      {panel.clients.length === 0 ? <Empty title={t('Nenhuma propriedade ainda')} text={t('Envie o seu código ao produtor. Para cadastrar a propriedade de um cliente que ainda não usa o sistema, use o site.')} /> : clients.map(c => (
         <Card key={c.id}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm }}>
             <Text style={{ flex: 1, fontSize: font.lg, fontWeight: '700', color: colors.text }} numberOfLines={2}>{c.name}</Text>
             {user?.farmId === c.farmId ? <Text style={{ color: colors.green, fontWeight: '700', fontSize: font.sm }}>{t('Aberta')}</Text> : null}
           </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm, marginVertical: 2 }}>
+            <FarmKindBadge segments={c.segments} />
+          </View>
           <Muted>{[c.owner, [c.city, c.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ') || t('Sem dados do produtor')}</Muted>
           <Text style={{ color: colors.text, fontSize: font.sm, marginTop: space.sm }}>
             {c.animals} {t('animais')} · {t('concepção')} {c.pregnancyRate === null ? '—' : `${c.pregnancyRate}%`} · {c.awaitingDiagnosis} {t('a diagnosticar')} · {c.birthsSoon} {c.birthsSoon === 1 ? t('parto') : t('partos')} {t('em 30 dias')}
           </Text>
+          <FarmTasks panel={panel} farmId={c.farmId} onOpen={(farmId, href) => void open(farmId, href)} busy={busy} />
           <Button label={t('Diagnóstico em lote')} onPress={() => void open(c.farmId, '/reproducao/diagnostico')} loading={busy === c.farmId} disabled={!!busy} style={{ marginTop: space.md }} />
           {/* Com letra grande os botões passam para a linha de baixo em vez de quebrar a palavra no meio */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm }}>

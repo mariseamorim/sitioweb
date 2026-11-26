@@ -4,6 +4,7 @@ import { notifyChange } from '@/db/events'
 import { canBreed } from '@/lib/animalRules'
 import { GESTATION_DAYS, parseCoverageDetails, plusDays } from '@/lib/coverage'
 import { isoDay, todayISO } from '@/lib/format'
+import { inbreedingConflict, type BullInfo, type PedigreeAnimal, type PedigreeBirth } from '@/lib/inbreeding'
 import { nextCode, type Animal } from '@/repos/animals'
 import { createLocal, deleteLocal, updateLocal } from '@/sync/local'
 
@@ -102,6 +103,14 @@ function expectedFor(coverageDate: string, status: string, typed?: string): stri
   if (!OPEN_STATUSES.includes(status)) return null
   if (typed && /^\d{4}-\d{2}-\d{2}$/.test(typed)) return typed
   return plusDays(coverageDate, GESTATION_DAYS)
+}
+
+/** Touro que é pai ou avô da fêmea (pelos registros guardados no celular); null = pode cobrir. Texto: inbreedingText. Regra em src/lib/inbreeding.ts */
+export function inbreedingCheck(farmId: string, femaleId: string, bull: BullInfo) {
+  if (!femaleId) return null
+  const animals = all<PedigreeAnimal>('SELECT id, name, code, customCode, gender, motherId, fatherName FROM animals WHERE farmId = ?', [farmId])
+  const births = all<PedigreeBirth>('SELECT calfId, maleName, bullRegistry FROM reproductions WHERE farmId = ? AND calfId IS NOT NULL', [farmId])
+  return inbreedingConflict(femaleId, bull, animals, births)
 }
 
 /** Registrar cobertura (POST /api/reproducao). Devolve o id local. */

@@ -15,9 +15,9 @@ const DAY = 86_400_000
 const GESTATION = 283
 
 const FARMS = [
-  { id: 'demo-farm-1', name: 'Estancia San José', owner: 'Ramón Benítez', city: 'Caaguazú', state: 'Caaguazú', cows: 14 },
-  { id: 'demo-farm-2', name: 'Sítio Boa Vista', owner: 'João Pereira', city: 'Patos de Minas', state: 'MG', cows: 9 },
-  { id: 'demo-farm-3', name: 'Fazenda Santa Luzia', owner: 'Maria Aparecida Souza', city: 'Uberlândia', state: 'MG', cows: 12 },
+  { id: 'demo-farm-1', name: 'Estancia San José', owner: 'Ramón Benítez', city: 'Caaguazú', state: 'Caaguazú', cows: 14, segments: ['leite'] },
+  { id: 'demo-farm-2', name: 'Sítio Boa Vista', owner: 'João Pereira', city: 'Patos de Minas', state: 'MG', cows: 9, segments: ['leite', 'cria', 'recria'] },
+  { id: 'demo-farm-3', name: 'Fazenda Santa Luzia', owner: 'Maria Aparecida Souza', city: 'Uberlândia', state: 'MG', cows: 12, segments: ['leite'] },
 ]
 const COW_NAMES = ['Mimosa', 'Estrela', 'Princesa', 'Jóia', 'Pintada', 'Malhada', 'Serena', 'Bonita', 'Flor', 'Graúna', 'Lua', 'Pérola', 'Cigana', 'Duquesa', 'Morena', 'Faceira', 'Brisa', 'Canela']
 const CALF_NAMES = ['Aurora', 'Bela', 'Chica', 'Dalila', 'Esmeralda', 'Fofa', 'Gaia', 'Hortência']
@@ -33,7 +33,7 @@ export function demoUser(farmId = demoFarmId()) {
   const farm = FARMS.find((f) => f.id === farmId) ?? FARMS[0]
   return {
     id: 'demo-vet', name: 'Dra. Ana Demonstração', email: 'demo@anotaaiagro.com.br', phone: null, role: 'editor',
-    farmId: farm.id, farmName: farm.name, farms: FARMS.map((f) => ({ id: f.id, name: f.name })),
+    farmId: farm.id, farmName: farm.name, farms: FARMS.map((f) => ({ id: f.id, name: f.name, segments: f.segments })), farmSegments: farm.segments,
     permissions: DEMO_PERMISSIONS, support: false, vet: true,
   }
 }
@@ -60,7 +60,7 @@ export function seedDemo() {
 
   FARMS.forEach((farm, fi) => {
     const f = farm.id
-    add('farms', f, { id: f, name: farm.name, propertyType: 'Fazenda', owner: farm.owner, city: farm.city, state: farm.state, isActive: 1, segments: JSON.stringify(['leite']), animals: farm.cows, members: 2 })
+    add('farms', f, { id: f, name: farm.name, propertyType: 'Fazenda', owner: farm.owner, city: farm.city, state: farm.state, isActive: 1, segments: JSON.stringify(farm.segments), animals: farm.cows, members: 2 })
     let code = 100
     const animal = (row: Row) => { const id = `${f}-a${++code}`; add('animals', f, { id, code: String(code), customCode: null, status: 'Vivo', isCastrated: 0, acquisitionType: 'nascimento', ...row }); return id }
     const coverage = (row: Row) => add('reproductions', f, { id: `${f}-r${rows.length}`, method: 'iatf', maleName: BULLS[fi % BULLS.length], semenBatch: `L${2400 + fi}`, inseminator: 'Dra. Ana', ...row })
@@ -160,7 +160,7 @@ function panel() {
     const diagnosed = recent.filter((r) => ['Prenha', 'Vazia', 'Parida'].includes(r.status))
     const pregnant = diagnosed.filter((r) => r.status !== 'Vazia')
     return {
-      id: `client-${farm.id}`, farmId: farm.id, name: farm.name, owner: farm.owner, city: farm.city, state: farm.state, animals,
+      id: `client-${farm.id}`, farmId: farm.id, name: farm.name, owner: farm.owner, city: farm.city, state: farm.state, segments: farm.segments, animals,
       awaitingDiagnosis: repro.filter((r) => r.status === 'Coberta').length,
       pregnancyRate: diagnosed.length ? Math.round((pregnant.length / diagnosed.length) * 100) : null,
       birthsSoon: repro.filter((r) => (r.status === 'Coberta' || r.status === 'Prenha') && !r.actualBirthDate && r.expectedBirthDate
